@@ -1,125 +1,87 @@
-# GitHub Spec Kit Workflow
+# GitHub Spec Kit Workflow for V-label App
 
 ## ⚠️ IMPORTANT: Always Use GitHub Spec Kit for Feature Development
 
-This project uses **GitHub Spec Kit** for structured, spec-driven development. **Do NOT create custom spec structures** - always use the existing `.specify/` directory structure.
+This project uses **GitHub Spec Kit** for structured, spec-driven development. **Do NOT "vibe code"**. Always follow the spec-plan-task workflow using the provided slash commands.
 
 ## Directory Structure
 
 ```
 .specify/
-├── memory/
-│   ├── constitution.md              # Project principles & standards
-│   ├── specifications/              # Feature specifications
-│   │   └── baseline-architecture.md # Current system baseline
-│   ├── plans/                       # Technical implementation plans
-│   └── tasks/                       # Broken-down work items
-├── templates/                       # Workflow templates
-└── scripts/                         # Automation scripts
+├── agent-commands/          # Agent behavior definitions (DO NOT EDIT)
+│   ├── specify.md
+│   ├── checklist.md
+│   ├── clarify.md
+│   ├── constitution.md
+│   ├── plan.md
+│   ├── tasks.md
+│   ├── analyze.md
+│   └── implement.md
+├── memory/                  # Project Context Brain
+│   ├── constitution.md      # Rules, Tech Stack, Principles
+│   ├── specifications/      # Feature Specs (User Stories)
+│   ├── plans/               # Technical Implementation Plans
+│   └── tasks/               # Actionable Task Checklists
+└── templates/               # Standardized Templates
+    ├── spec-template.md     # Feature Spec Template
+    ├── plan-template.md     # Tech Plan Template
+    └── tasks-template.md    # Tasks Template
 ```
 
-## Workflow Steps
+## The Spec-Driven Workflow
 
-### 1. Create Specification
+### Phase 1: Specification
+1.  **Create Spec**: Run `/speckit.specify "Feature Name"`.
+    *   *Input*: Natural language description.
+    *   *Output*: `.specify/memory/specifications/[feature].md`.
+    *   *Focus*: User Stories (P1, P2...), Success Criteria (Metrics), Independent Testing.
+2.  **Verify Quality**: Run `/speckit.checklist`.
+    *   *Action*: Generates a quality checklist (UX, Security, etc.) to ensure the spec is ready.
+3.  **Refine Ambiguity**: Run `/speckit.clarify`.
+    *   *Action*: AI asks 3-5 targeted questions to clear up logical gaps in the spec.
 
-**Location**: `.specify/memory/specifications/{feature-name}.md`
+### Phase 2: Planning
+4.  **Create Plan**: Run `/speckit.plan`.
+    *   *Input*: Approved Spec + Constitution.
+    *   *Output*: `.specify/memory/plans/[feature]-plan.md`.
+    *   *Focus*: Architecture, Data Model, API Contracts, Monorepo Integration.
 
-**Content**:
-- User stories (P1, P2, P3 priority)
-- Success criteria
-- Non-functional requirements
-- Out of scope items
+### Phase 3: Task Breakdown
+5.  **Generate Tasks**: Run `/speckit.tasks`.
+    *   *Input*: Plan + Spec.
+    *   *Output*: `.specify/memory/tasks/[feature]-tasks.md`.
+    *   *Focus*: Step-by-step checklist, categorized by User Story phases.
+6.  **Consistency Check**: Run `/speckit.analyze`.
+    *   *Action*: Verifies that Spec, Plan, and Tasks are consistent with each other and the Constitution.
 
-**Use Template**: `.specify/templates/spec-template.md`
-
-### 2. Create Technical Plan
-
-**Location**: `.specify/memory/plans/{feature-name}-plan.md`
-
-**Content**:
-- Architecture decisions
-- Integration points
-- Code snippets and examples
-- Dependencies and risks
-- Testing strategy
-
-**Use Template**: `.specify/templates/plan-template.md`
-
-### 3. Create Implementation Tasks
-
-**Location**: `.specify/memory/tasks/{feature-name}-tasks.md`
-
-**Content**:
-- Breakdown into small, actionable tasks
-- Time estimates (hours)
-- Dependencies between tasks
-- Phases (if applicable)
-- Acceptance criteria per task
-
-**Use Template**: `.specify/templates/tasks-template.md`
-
-### 4. Implement Tasks
-
-Follow the task list sequentially, marking progress:
-- ⏳ Pending
-- 🔄 In Progress
-- ✅ Completed
+### Phase 4: Execution
+7.  **Implement**: Run `/speckit.implement`.
+    *   *Action*: AI executes the tasks in `.specify/memory/tasks/[feature]-tasks.md` sequentially.
 
 ## Available Slash Commands
 
-Use these commands to manage the spec kit workflow:
-
-- `/speckit.specify` - Create or update feature specification
-- `/speckit.plan` - Generate technical implementation plan
-- `/speckit.tasks` - Generate actionable task breakdown
-- `/speckit.implement` - Execute implementation tasks
-
-*Note: Slash commands require AI agent integration (e.g., Claude Code, Custom Agents).*
+| Command | Purpose | When to use |
+| :--- | :--- | :--- |
+| `/speckit.specify` | Create/Update Feature Spec | Start of a new feature |
+| `/speckit.checklist` | Validate Spec Quality | After writing Spec |
+| `/speckit.clarify` | Resolve Spec Ambiguities | If Spec is vague |
+| `/speckit.constitution`| Update Project Rules | When rules change |
+| `/speckit.plan` | Create Technical Plan | After Spec is approved |
+| `/speckit.tasks` | Break Plan into Tasks | After Plan is approved |
+| `/speckit.analyze` | Consistency Check | Before Implementation |
+| `/speckit.implement` | Execute Code Changes | Ready to build |
 
 ## Best Practices
 
 ### ✅ What TO Do
-
-1. **Always use `.specify/` structure**
-   ```
-   ✅ .specify/memory/specifications/
-   ✅ .specify/memory/plans/
-   ✅ .specify/memory/tasks/
-   ```
-
-2. **Follow the workflow**: Specifications → Plans → Tasks → Implementation
-
-3. **Use existing specs as templates**
-   - Look at `.specify/models/` or templates for format.
+1.  **Prioritize User Stories**: Treat each User Story (P1, P2) as an independent MVP delivery.
+2.  **Independent Testing**: Define how to test *just* that story without the rest of the system.
+3.  **Strict File Paths**: Always use absolute or project-relative paths (`server/src/...`) in plans and tasks.
+4.  **Constitution First**: If a rule conflicts with `constitution.md`, the Constitution wins.
 
 ### ❌ What NOT to Do
-
-1. **Don't create custom spec structures**
-   ```
-   ❌ specs/001-feature/
-   ❌ docs/specs/
-   ❌ Custom spec directories
-   ```
-
-2. **Don't skip the spec kit workflow**
-   - Writing code directly without specs
-   - Creating tasks without a plan
-
-## Quick Start Template
-
-When starting a new feature:
-
-1. **Copy Template**:
-   Copy `.specify/templates/spec-template.md` to `.specify/memory/specifications/new-feature.md`.
-
-2. **Fill Details**:
-   Describe user stories and success criteria.
-
-3. **Plan & Task**:
-   Create corresponding Plan and Task files in `memory/plans/` and `memory/tasks/`.
-
-4. **Implement**:
-   Code following the defined tasks.
+1.  **Don't skip the layout**: Do not create files outside `.specify/memory/`.
+2.  **Don't merge P1/P2/P3**: Don't try to build everything at once. Build P1, test P1, then move to P2.
 
 ---
 
