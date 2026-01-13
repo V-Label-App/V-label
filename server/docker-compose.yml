@@ -1,3 +1,13 @@
+# How to run:
+# 1. cd server
+# 2. docker-compose up -d
+#
+# To stop:
+# docker-compose down
+#
+# To check logs:
+# docker-compose logs -f
+#
 version: '3.8'
 
 name: v-label
