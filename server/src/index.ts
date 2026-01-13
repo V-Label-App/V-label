@@ -38,9 +38,9 @@ app.listen(PORT, async () => {
   const dbConnected = await testConnection()
   
   if (dbConnected) {
-    logger.info('DATABASE', `PostgreSQL:${dbHost}:${dbPort} | Database: ${dbName} | Status: Connected`)
+    logger.info('DATABASE', `PostgreSQL@${dbHost}:${dbPort} | Database: ${dbName} | Status: Connected`)
   } else {
-    logger.warn('DATABASE', `PostgreSQL:${dbHost}:${dbPort} | Database: ${dbName} | Status: Failed`)
+    logger.warn('DATABASE', `PostgreSQL@${dbHost}:${dbPort} | Database: ${dbName} | Status: Failed`)
   }
   
   // CORS info
