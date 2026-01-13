@@ -4,18 +4,21 @@ import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { logger } from '../../../utils/logger';
 
-export const LoginPage = () => {
+export const RegisterPage = () => {
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        logger.info('Login form submitted');
+        logger.info('Register form submitted');
     };
 
     return (
-        <AuthSplitLayout>
+        <AuthSplitLayout
+            title="Join our community"
+            subtitle="Start your journey with us today. Create an account to unlock all features."
+        >
             <div className="space-y-8">
                 <div className="text-center lg:text-left">
-                    <h2 className="text-3xl font-bold text-gray-900">Welcome back!</h2>
-                    <p className="mt-2 text-gray-600">Enter your credentials to access your account</p>
+                    <h2 className="text-3xl font-bold text-gray-900">Create an account</h2>
+                    <p className="mt-2 text-gray-600">Enter your details to sign up</p>
                 </div>
 
                 <div className="space-y-4">
@@ -24,7 +27,7 @@ export const LoginPage = () => {
                         variant="outline"
                         icon={<img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-5 h-5" alt="Google" />}
                     >
-                        Continue with Google
+                        Sign up with Google
                     </Button>
 
                     <Button
@@ -32,7 +35,7 @@ export const LoginPage = () => {
                         variant="black"
                         icon={<img src="https://www.svgrepo.com/show/512317/github-142.svg" className="w-5 h-5 invert" alt="Apple" />}
                     >
-                        Continue with Apple
+                        Sign up with Apple
                     </Button>
                 </div>
 
@@ -41,11 +44,17 @@ export const LoginPage = () => {
                         <span className="w-full border-t border-gray-200" />
                     </div>
                     <div className="relative flex justify-center text-sm">
-                        <span className="px-2 bg-white text-gray-500">Or continue with email</span>
+                        <span className="px-2 bg-white text-gray-500">Or sign up with email</span>
                     </div>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
+                    <Input
+                        label="Full Name"
+                        type="text"
+                        placeholder="John Doe"
+                    />
+
                     <Input
                         label="Email address"
                         type="email"
@@ -58,35 +67,21 @@ export const LoginPage = () => {
                         placeholder="••••••••"
                     />
 
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center">
-                            <input
-                                id="remember-me"
-                                name="remember-me"
-                                type="checkbox"
-                                className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-                            />
-                            <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
-                                Remember me
-                            </label>
-                        </div>
-
-                        <div className="text-sm">
-                            <a href="#" className="font-medium text-purple-600 hover:text-purple-500">
-                                Forgot your password?
-                            </a>
-                        </div>
-                    </div>
+                    <Input
+                        label="Confirm Password"
+                        type="password"
+                        placeholder="••••••••"
+                    />
 
                     <Button type="submit" fullWidth>
-                        Log in
+                        Create account
                     </Button>
                 </form>
 
                 <p className="text-center text-sm text-gray-600">
-                    Don't have an account?{' '}
-                    <Link to="/register" className="font-medium text-purple-600 hover:text-purple-500">
-                        Sign up
+                    Already have an account?{' '}
+                    <Link to="/login" className="font-medium text-purple-600 hover:text-purple-500">
+                        Log in
                     </Link>
                 </p>
             </div>
