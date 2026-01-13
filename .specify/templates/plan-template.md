@@ -1,9 +1,9 @@
 # Implementation Plan: [FEATURE]
 
 **Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
-**Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
+**Input**: Feature specification from `.specify/memory/[feature-name]/spec.md`
 
-**Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/commands/plan.md` for the execution workflow.
+**Note**: This template is filled in by the `/speckit.plan` command.
 
 ## Summary
 
@@ -12,9 +12,7 @@
 ## Technical Context
 
 <!--
-  ACTION REQUIRED: Replace the content in this section with the technical details
-  for the project. The structure here is presented in advisory capacity to guide
-  the iteration process.
+  ACTION REQUIRED: Project technical details.
 -->
 
 **Language/Version**: TypeScript (Node.js 18+ / React 18+)  
@@ -23,9 +21,9 @@
 **Testing**: [e.g., Jest, Vitest, Supertest or NEEDS CLARIFICATION]  
 **Target Platform**: Web (Vite Client), Server (Node.js Container)  
 **Project Type**: Monorepo (Client + Server)  
-**Performance Goals**: [domain-specific, e.g., <200ms API response, <1s page load or NEEDS CLARIFICATION]  
-**Constraints**: [domain-specific, e.g., existing DB schema, strict type safety or NEEDS CLARIFICATION]  
-**Scale/Scope**: [domain-specific, e.g., new table, 3 new endpoints, 2 UI pages or NEEDS CLARIFICATION]
+**Performance Goals**: [domain-specific or NEEDS CLARIFICATION]  
+**Constraints**: [domain-specific or NEEDS CLARIFICATION]  
+**Scale/Scope**: [domain-specific or NEEDS CLARIFICATION]
 
 ## Constitution Check
 
@@ -38,17 +36,14 @@
 ### Documentation (this feature)
 
 ```text
-.specify/memory/
-├── specifications/
-│   └── [feature-name].md    # Feature Spec
-├── plans/
-│   └── [feature-name].md    # This file
-├── tasks/
-│   └── [feature-name].md    # Task Decomposition
-└── artifacts/               # Additional design docs
-    ├── research.md          # Research findings
-    ├── data-model.md        # DB Schema changes
-    └── contracts/           # API Contracts (OpenAPI/Types)
+.specify/memory/[feature-name]/
+├── spec.md              # Feature Spec
+├── plan.md              # This file
+├── tasks.md             # Task Decomposition
+├── research.md          # Research findings
+├── data-model.md        # DB Schema changes
+├── checklists/          # Quality Checklists
+└── contracts/           # API Contracts
 ```
 
 ### Source Code (V-label App)
@@ -79,7 +74,7 @@ client/
 └── tests/
 ```
 
-**Structure Decision**: [Document specific structural decisions for this feature, e.g., "Adding new service for X" or "Extending existing User controller"]
+**Structure Decision**: [Document specific structural decisions for this feature]
 
 ## Complexity Tracking
 
@@ -88,4 +83,3 @@ client/
 | Violation | Why Needed | Simpler Alternative Rejected Because |
 |-----------|------------|-------------------------------------|
 | [e.g., New Microservice] | [High load isolation] | [Monolith integration too risky] |
-| [e.g., Raw SQL] | [Complex aggregation] | [ORM output inefficient] |

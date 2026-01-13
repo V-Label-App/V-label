@@ -46,7 +46,7 @@ Given that feature description, do this:
    b. Find the highest feature number across all sources for the short-name:
       - Remote branches: `git ls-remote --heads origin | grep -E 'refs/heads/[0-9]+-<short-name>$'`
       - Local branches: `git branch | grep -E '^[* ]*[0-9]+-<short-name>$'`
-      - Specs directories: Check for directories matching `specs/[0-9]+-<short-name>`
+      - Feature Directories: Check for directories matching `.specify/memory/[0-9]+-<short-name>`
    
    c. Determine the next available number:
       - Extract all numbers from all three sources
@@ -59,12 +59,13 @@ Given that feature description, do this:
       - PowerShell example: `.specify/scripts/bash/create-new-feature.sh --json "$ARGUMENTS" -Json -Number 5 -ShortName "user-auth" "Add user authentication"`
    
    **IMPORTANT**:
-   - Check all three sources (remote branches, local branches, specs directories) to find the highest number
+   - Check all three sources (remote branches, local branches, feature directories) to find the highest number
    - Only match branches/directories with the exact short-name pattern
    - If no existing branches/directories found with this short-name, start with number 1
    - You must only ever run this script once per feature
    - The JSON is provided in the terminal as output - always refer to it to get the actual content you're looking for
-   - The JSON output will contain BRANCH_NAME and SPEC_FILE paths
+   - The JSON output will contain BRANCH_NAME, FEATURE_DIR, and SPEC_FILE paths
+   - The SPEC_FILE will be at `FEATURE_DIR/spec.md` (e.g. `.specify/memory/001-feature-name/spec.md`)
    - For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot")
 
 3. Load `.specify/templates/spec-template.md` to understand required sections.

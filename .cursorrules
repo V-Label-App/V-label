@@ -1,0 +1,32 @@
+# AI BEHAVIOR RULES: V-label App
+
+You are working in a **Spec-Driven Development** environment. 
+Before generating any code or answering technical questions, you MUST:
+
+1.  **🛑 READ THE CONSTITUTION**:
+    - File: `.specify/memory/constitution.md`
+    - Why: Contains the Technical Stack, Coding Standards, and Core Principles.
+    - Rule: Do NOT suggest libraries/patterns that conflict with this file (e.g., do not suggest Redux if we use Context API).
+
+2.  **🏗️ RESPECT THE ARCHITECTURE**:
+    - File: `.specify/memory/specifications/baseline-architecture.md`
+    - Why: Defines the Monorepo structure (Client/Server), Docker setup, and data flow.
+    - Rule: Do not hallucinate file paths. Always stick to `server/src/...` and `client/src/...` conventions.
+
+3.  **📂 CHECK FOR EXISTING SPECS**:
+    - Before starting a new feature, check `.specify/memory/` to see if a Spec, Plan, or Task list already exists.
+    - If they exist, FOLLOW THEM. Do not "vibe code" architecture if a plan is already approved.
+
+4.  **📝 CODING STANDARDS**:
+    - File: `docs/10_coding_rules.md`
+    - No `any` types in TypeScript.
+    - No hardcoded secrets (use `env.ts`).
+    - Always strictly typed.
+
+---
+
+## WHEN "VIBE CODING" (Fast/Ad-hoc requests):
+If the user asks for a quick fix or logic change:
+1.  Check if it violates the Constitution.
+2.  If yes, WARN the user.
+3.  If no, implement using the existing patterns found in `baseline-architecture.md`.
