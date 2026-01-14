@@ -38,9 +38,9 @@ app.listen(PORT, async () => {
   const dbConnected = await testConnection()
   
   if (dbConnected) {
-    logger.info('DATABASE', `PostgreSQL@${dbHost}:${dbPort} | Database: ${dbName} | Status: Connected`)
+    logger.info('DATABASE', `PostgreSQL@${dbHost}:${dbPort} | Database: ${dbName} | Status: ✅ Connected`)
   } else {
-    logger.warn('DATABASE', `PostgreSQL@${dbHost}:${dbPort} | Database: ${dbName} | Status: Failed`)
+    logger.warn('DATABASE', `PostgreSQL@${dbHost}:${dbPort} | Database: ${dbName} | Status: ❌ Failed`)
   }
   
   // CORS info
@@ -49,5 +49,16 @@ app.listen(PORT, async () => {
   // Security info
   logger.info('SECURITY', `Helmet enabled | Rate limiting active`)
   
-  console.log(`Health: http://localhost:${PORT}/api/v1/health`)
+  // Automated Health Check
+  try {
+    const healthUrl = `http://localhost:${PORT}/api/v1/health`
+    const response = await fetch(healthUrl)
+    if (response.ok) {
+      logger.info('HEALTH', `✅ Self-check passed | [${response.status}] ${healthUrl}`)
+    } else {
+      logger.error('HEALTH', `❌ Self-check failed | [${response.status}] ${healthUrl}`)
+    }
+  } catch (error) {
+    logger.error('HEALTH', `❌ Self-check failed | Network Error`, error)
+  }
 })

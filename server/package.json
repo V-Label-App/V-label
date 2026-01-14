@@ -12,8 +12,9 @@
     "db:stop": "docker-compose down",
     "db:reset": "docker-compose down -v && docker-compose up -d",
     "db:cli": "docker exec -it postgres psql -U vlabel_user -d vlabel_db",
-    "migration": "tsx scripts/run-migrations.ts",
-    "migration:create": "node scripts/create-migration.js"
+    "db:migrate": "prisma migrate dev",
+    "db:studio": "prisma studio",
+    "db:generate": "prisma generate"
   },
   "keywords": [],
   "author": "",
@@ -31,6 +32,7 @@
     "zod": "^4.3.5"
   },
   "devDependencies": {
+    "@prisma/client": "^6.19.2",
     "@types/bcrypt": "^6.0.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
@@ -42,6 +44,7 @@
     "eslint-plugin-unused-imports": "^4.3.0",
     "nodemon": "^3.1.11",
     "prettier": "^3.7.4",
+    "prisma": "^6.19.2",
     "ts-node": "^10.9.2",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"

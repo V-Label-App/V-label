@@ -52,11 +52,16 @@ npm run db:reset
 # Access PostgreSQL CLI
 npm run db:cli
 
-# Run migrations (only new ones)
-npm run migration
+# --- PRISMA COMMANDS ---
 
-# Create new migration
-npm run migration:create -- add_users_table
+# Apply schema changes & create migration (Run this after editing schema.prisma)
+npm run db:migrate
+
+# Open Database GUI
+npm run db:studio
+
+# Regenerate TypeScript Types (If autocomplete is broken)
+npm run db:generate
 ```
 
 ```bash
@@ -71,15 +76,12 @@ docker-compose down -v
 
 # Access PostgreSQL CLI
 docker exec -it postgres psql -U vlabel_user -d vlabel_db
-
-# Run a specific migration
-docker exec -i postgres psql -U vlabel_user -d vlabel_db < src/migrations/001_initial_schema.sql
 ```
 
 ## Default Database Configuration
 
 - **Host**: localhost
-- **Port**: 5432
+- **Port**: 5433
 - **Database**: vlabel_db
 - **User**: vlabel_user
 - **Password**: vlabel_password
@@ -90,10 +92,13 @@ docker exec -i postgres psql -U vlabel_user -d vlabel_db < src/migrations/001_in
 
 ```
 server/
+├── prisma/             # Database Schema (Source of Truth)
+│   ├── migrations/     # Generated SQL files (DO NOT EDIT)
+│   ├── schema.prisma   # Main Schema Config
+│   └── README.md       # Vibecoding Rules
 ├── src/
 │   ├── config/         # Configuration files
 │   ├── middlewares/    # Express middlewares
-│   ├── migrations/     # Database migration files
 │   ├── utils/          # Utility functions (logger, database)
 │   └── index.ts        # Main server file
 ├── docker-compose.yml  # PostgreSQL container config

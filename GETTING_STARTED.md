@@ -26,8 +26,8 @@ cp .env.example .env
 # Start database
 npm run db:setup
 
-# Run migrations
-npm run migration
+# Run migrations (Prisma)
+npm run db:migrate
 
 # Start server
 npm run dev
@@ -58,21 +58,26 @@ npm run db:stop          # Stop PostgreSQL
 npm run db:reset         # Reset database (removes all data)
 npm run db:cli           # Access PostgreSQL CLI
 
-# Migrations
-npm run migration        # Run new migrations
-npm run migration:create -- name  # Create new migration
+# Migrations & Prisma
+npm run db:migrate       # Apply schema changes & migrate
+npm run db:studio        # Open GUI to view/edit data
+npm run db:generate      # Regenerate TypeScript Client
 ```
 
 ## Project Structure
 
 ```
 server/
+├── prisma/             # Database Schema & Migrations
+│   ├── migrations/     
+│   ├── schema.prisma   
+│   └── README.md
 ├── src/
 │   ├── config/         # Environment & configuration
 │   ├── middlewares/    # Express middlewares
-│   ├── migrations/     # Database migrations
-│   └── utils/          # Utilities (logger, database)
-├── scripts/            # Build & migration scripts
+│   ├── utils/          # Utilities (logger, database)
+│   └── index.ts        # Main server entry
+├── scripts/            # Build scripts
 └── docker-compose.yml  # PostgreSQL setup
 ```
 
@@ -99,13 +104,13 @@ npm run db:reset
 
 ### Migration errors
 ```bash
-# Reset database and rerun migrations
+# Reset database (WARNING: Deletes content) and rerun migrations
 npm run db:reset
-npm run migration
+npm run db:migrate
 ```
 
 ## Need Help?
 
 - Check [server/README.md](./server/README.md) for detailed docs
-- Check [migrations/README.md](./server/src/migrations/README.md) for migration guide
+- Check [server/prisma/README.md](./server/prisma/README.md) for DB Vibecoding Rules
 - Ask the team on Slack/Discord

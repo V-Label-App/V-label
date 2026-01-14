@@ -1,0 +1,163 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =========================================================
+// 1. USER MANAGEMENT
+// =========================================================
+
+model User {
+  id             String       @id @default(uuid()) @db.Uuid
+  email          String       @unique @db.VarChar(255)
+  // Nullable because Google Login users might not have a password
+  passwordHash   String?      @map("password_hash") @db.VarChar(255)
+  provider       AuthProvider @default(LOCAL)
+  
+  fullName       String?      @map("full_name") @db.VarChar(255)
+  avatarUrl      String?      @map("avatar_url") @db.VarChar(512)
+  phoneNumber    String?      @map("phone_number") @db.VarChar(20)
+  
+  role           UserRole     @default(ANNOTATOR)
+  isActive       Boolean      @default(true) @map("is_active")
+
+  // --- REPUTATION SYSTEM ---
+  reputationScore Float       @default(100.0) @map("reputation_score")
+  totalTasksDone  Int         @default(0) @map("total_tasks_done")
+
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  // Relationships
+  projectsJoined ProjectMember[]
+  tasksAssigned  TaskAssignment[] @relation("Annotator")
+  tasksReviewed  TaskAssignment[] @relation("Reviewer")
+
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  REVIEWER
+  ANNOTATOR
+}
+
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+}
+
+// =========================================================
+// 2. PROJECT MANAGEMENT
+// =========================================================
+
+model Project {
+  id                 String        @id @default(uuid()) @db.Uuid
+  name               String        @db.VarChar(255)
+  description        String?       @db.Text
+  
+  // Stores label configuration like [{"id": "car", "color": "red"}]
+  labelConfig        Json          @default("[]") @map("label_config")
+  
+  deadline           DateTime?
+  enableAiAssistance Boolean       @default(false) @map("enable_ai_assistance")
+  status             ProjectStatus @default(ACTIVE)
+
+  createdAt          DateTime      @default(now()) @map("created_at")
+  updatedAt          DateTime      @updatedAt @map("updated_at")
+
+  // Relationships
+  members            ProjectMember[]
+  tasks              Task[]
+
+  @@map("projects")
+}
+
+enum ProjectStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ARCHIVED
+}
+
+model ProjectMember {
+  id        String   @id @default(uuid()) @db.Uuid
+  projectId String   @map("project_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  joinedAt  DateTime @default(now()) @map("joined_at")
+
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@map("project_members")
+}
+
+// =========================================================
+// 3. TASK & ASSIGNMENT
+// =========================================================
+
+model Task {
+  id        String     @id @default(uuid()) @db.Uuid
+  projectId String     @map("project_id") @db.Uuid
+  imageUrl  String     @map("image_url") @db.Text
+  status    TaskStatus @default(TODO)
+
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  assignments TaskAssignment[]
+
+  @@map("tasks")
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+model TaskAssignment {
+  id             String           @id @default(uuid()) @db.Uuid
+  taskId         String           @map("task_id") @db.Uuid
+  
+  // Worker
+  annotatorId    String           @map("annotator_id") @db.Uuid
+  // Reviewer (Can be null initially)
+  reviewerId     String?          @map("reviewer_id") @db.Uuid
+
+  status         AssignmentStatus @default(ASSIGNED)
+  deadline       DateTime?
+
+  // Annotation Data (Bounding boxes, Polygons, etc.)
+  annotations    Json?
+  isAiGenerated  Boolean          @default(false) @map("is_ai_generated")
+
+  // Feedback Tracking
+  annotatorNote  String?          @map("annotator_note") @db.Text
+  reviewScore    Int?             @map("review_score")
+  reviewComment  String?          @map("review_comment") @db.Text
+
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  task           Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  annotator      User    @relation("Annotator", fields: [annotatorId], references: [id])
+  reviewer       User?   @relation("Reviewer", fields: [reviewerId], references: [id])
+
+  @@map("task_assignments")
+}
+
+enum AssignmentStatus {
+  ASSIGNED
+  IN_PROGRESS
+  SUBMITTED
+  REJECTED
+  APPROVED
+  SKIPPED
+}
