@@ -1,23 +1,6 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
 import { authApi } from '../services/auth.api'
-
-// Define locally to avoid runtime import errors
-interface AuthResponse {
-    accessToken: string
-    user: {
-        id: string
-        email: string
-        role: string
-        fullName: string | null
-    }
-}
-
-interface User {
-    id: string
-    email: string
-    role: string
-    fullName: string | null
-}
+import { decodeToken, validateToken, type User } from '../utils/jwt.utils'
 
 interface AuthContextType {
     user: User | null
@@ -32,33 +15,50 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-    const [user, setUser] = useState<User | null>(null)
     const [accessToken, setAccessToken] = useState<string | null>(null)
+    const [user, setUser] = useState<User | null>(null)
     const [isLoading, setIsLoading] = useState(true)
 
     // Initialize auth state from localStorage
     useEffect(() => {
         const storedToken = localStorage.getItem('accessToken')
-        const storedUser = localStorage.getItem('user')
 
-        if (storedToken && storedUser) {
-            setAccessToken(storedToken)
-            setUser(JSON.parse(storedUser))
+        if (storedToken) {
+            // Validate token before using it
+            if (validateToken(storedToken)) {
+                const decodedUser = decodeToken(storedToken)
+                if (decodedUser) {
+                    setAccessToken(storedToken)
+                    setUser(decodedUser)
+                } else {
+                    // Token is invalid, clear it
+                    localStorage.removeItem('accessToken')
+                }
+            } else {
+                // Token is expired or invalid, clear it
+                console.log('Stored token is invalid or expired, clearing...')
+                localStorage.removeItem('accessToken')
+            }
         }
         setIsLoading(false)
     }, [])
 
-    const handleAuthSuccess = (data: AuthResponse) => {
-        setAccessToken(data.accessToken)
-        setUser(data.user)
-        localStorage.setItem('accessToken', data.accessToken)
-        localStorage.setItem('user', JSON.stringify(data.user))
+    const handleAuthSuccess = (token: string) => {
+        const decodedUser = decodeToken(token)
+
+        if (!decodedUser) {
+            throw new Error('Failed to decode token')
+        }
+
+        setAccessToken(token)
+        setUser(decodedUser)
+        localStorage.setItem('accessToken', token)
     }
 
     const login = async (email: string, password: string) => {
         try {
-            const data = await authApi.login({ email, password })
-            handleAuthSuccess(data)
+            const { accessToken } = await authApi.login({ email, password })
+            handleAuthSuccess(accessToken)
         } catch (error) {
             console.error('Login failed:', error)
             throw error
@@ -67,8 +67,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const devLogin = async (role: 'ADMIN' | 'MANAGER' | 'REVIEWER' | 'ANNOTATOR') => {
         try {
-            const data = await authApi.devLogin({ role })
-            handleAuthSuccess(data)
+            const { accessToken } = await authApi.devLogin({ role })
+            handleAuthSuccess(accessToken)
         } catch (error) {
             console.error('Dev login failed:', error)
             throw error
@@ -79,7 +79,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(null)
         setAccessToken(null)
         localStorage.removeItem('accessToken')
-        localStorage.removeItem('user')
         authApi.logout()
     }
 
@@ -88,7 +87,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             value={{
                 user,
                 accessToken,
-                isAuthenticated: !!user,
+                isAuthenticated: !!user && !!accessToken,
                 isLoading,
                 login,
                 devLogin,

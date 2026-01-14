@@ -34,13 +34,14 @@ export interface DevLoginRequest {
 
 export interface AuthResponse {
   accessToken: string
-  user: {
+  user?: {
     id: string
     email: string
     role: string
     fullName: string | null
   }
 }
+
 
 export const authApi = {
   /**
