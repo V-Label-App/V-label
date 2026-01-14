@@ -13,6 +13,13 @@ const devLoginSchema = z.object({
   role: z.nativeEnum(UserRole),
 })
 
+const registerSchema = z.object({
+  email: z.string().email('Invalid email format'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+  fullName: z.string().optional(),
+})
+
+
 export class AuthController {
   /**
    * POST /api/v1/auth/login
@@ -101,6 +108,49 @@ export class AuthController {
       }
 
       console.error('[AUTH] Dev login error:', error)
+      return res.status(500).json({
+        error: 'Internal server error',
+      })
+    }
+  }
+
+  /**
+   * POST /api/v1/auth/register
+   * User registration with email/password
+   */
+  static async register(req: Request, res: Response) {
+    try {
+      const { email, password, fullName } = registerSchema.parse(req.body)
+
+      const result = await AuthService.register(email, password, fullName)
+
+      if (!result) {
+        return res.status(409).json({
+          error: 'Email already exists',
+        })
+      }
+
+      // Set refresh token in HTTP-only cookie
+      res.cookie('refreshToken', result.refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      })
+
+      return res.status(201).json({
+        accessToken: result.accessToken,
+        user: result.user,
+      })
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          error: 'Validation failed',
+          details: error.errors,
+        })
+      }
+
+      console.error('[AUTH] Registration error:', error)
       return res.status(500).json({
         error: 'Internal server error',
       })

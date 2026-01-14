@@ -32,6 +32,12 @@ export interface DevLoginRequest {
   role: 'ADMIN' | 'MANAGER' | 'REVIEWER' | 'ANNOTATOR'
 }
 
+export interface RegisterCredentials {
+  email: string
+  password: string
+  fullName?: string
+}
+
 export interface AuthResponse {
   accessToken: string
   user?: {
@@ -57,6 +63,14 @@ export const authApi = {
    */
   devLogin: async (request: DevLoginRequest): Promise<AuthResponse> => {
     const response = await apiClient.post<AuthResponse>('/auth/dev/login', request)
+    return response.data
+  },
+
+  /**
+   * User registration
+   */
+  register: async (credentials: RegisterCredentials): Promise<AuthResponse> => {
+    const response = await apiClient.post<AuthResponse>('/auth/register', credentials)
     return response.data
   },
 

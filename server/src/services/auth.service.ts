@@ -123,4 +123,65 @@ export class AuthService {
       },
     }
   }
+
+  /**
+   * Register a new user with email and password
+   */
+  static async register(
+    email: string,
+    password: string,
+    fullName?: string
+  ): Promise<LoginResult | null> {
+    // Check if email already exists
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+    })
+
+    if (existingUser) {
+      return null // Email already taken
+    }
+
+    // Hash password
+    const { hashPassword } = await import('../utils/password.utils.js')
+    const passwordHash = await hashPassword(password)
+
+    // Create new user
+    const newUser = await prisma.user.create({
+      data: {
+        email,
+        passwordHash,
+        fullName: fullName || null,
+        provider: 'LOCAL',
+        role: 'ANNOTATOR', // Default role for new users
+        isActive: true,
+      },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        fullName: true,
+      },
+    })
+
+    // Generate tokens
+    const payload = {
+      sub: newUser.id,
+      email: newUser.email,
+      role: newUser.role,
+    }
+
+    const accessToken = signAccessToken(payload)
+    const refreshToken = signRefreshToken(payload)
+
+    return {
+      accessToken,
+      refreshToken,
+      user: {
+        id: newUser.id,
+        email: newUser.email,
+        role: newUser.role,
+        fullName: newUser.fullName,
+      },
+    }
+  }
 }

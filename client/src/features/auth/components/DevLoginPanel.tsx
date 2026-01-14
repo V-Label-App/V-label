@@ -6,10 +6,10 @@ interface DevLoginPanelProps {
 }
 
 const DEV_ROLES = [
-    { role: 'ADMIN' as const, label: '👑 Admin', color: 'bg-purple-600 hover:bg-purple-700' },
-    { role: 'MANAGER' as const, label: '📊 Manager', color: 'bg-blue-600 hover:bg-blue-700' },
-    { role: 'REVIEWER' as const, label: '✅ Reviewer', color: 'bg-green-600 hover:bg-green-700' },
-    { role: 'ANNOTATOR' as const, label: '✏️ Annotator', color: 'bg-orange-600 hover:bg-orange-700' },
+    { role: 'ADMIN' as const, label: 'Admin', color: 'bg-purple-600 hover:bg-purple-700' },
+    { role: 'MANAGER' as const, label: 'Manager', color: 'bg-blue-600 hover:bg-blue-700' },
+    { role: 'REVIEWER' as const, label: 'Reviewer', color: 'bg-green-600 hover:bg-green-700' },
+    { role: 'ANNOTATOR' as const, label: 'Annotator', color: 'bg-orange-600 hover:bg-orange-700' },
 ]
 
 export default function DevLoginPanel({ onSuccess }: DevLoginPanelProps) {
@@ -38,11 +38,6 @@ export default function DevLoginPanel({ onSuccess }: DevLoginPanelProps) {
 
     return (
         <div className="mt-8 pt-6 border-t border-gray-200">
-            <div className="mb-4">
-                <h3 className="text-sm font-semibold text-gray-700 mb-1">🚀 Fast Login (Dev Only)</h3>
-                <p className="text-xs text-gray-500">Click to instantly login as any role</p>
-            </div>
-
             <div className="grid grid-cols-2 gap-3">
                 {DEV_ROLES.map(({ role, label, color }) => (
                     <button

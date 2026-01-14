@@ -8,6 +8,7 @@ interface AuthContextType {
     isAuthenticated: boolean
     isLoading: boolean
     login: (email: string, password: string) => Promise<void>
+    register: (email: string, password: string, fullName?: string) => Promise<void>
     devLogin: (role: 'ADMIN' | 'MANAGER' | 'REVIEWER' | 'ANNOTATOR') => Promise<void>
     logout: () => void
 }
@@ -65,6 +66,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
     }
 
+    const register = async (email: string, password: string, fullName?: string) => {
+        try {
+            const { accessToken } = await authApi.register({ email, password, fullName })
+            handleAuthSuccess(accessToken)
+        } catch (error) {
+            console.error('Registration failed:', error)
+            throw error
+        }
+    }
+
     const devLogin = async (role: 'ADMIN' | 'MANAGER' | 'REVIEWER' | 'ANNOTATOR') => {
         try {
             const { accessToken } = await authApi.devLogin({ role })
@@ -90,6 +101,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 isAuthenticated: !!user && !!accessToken,
                 isLoading,
                 login,
+                register,
                 devLogin,
                 logout,
             }}
