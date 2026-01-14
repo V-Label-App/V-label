@@ -1,13 +1,47 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import { AuthSplitLayout } from '../../../layouts/AuthSplitLayout';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { logger } from '../../../utils/logger';
+import { useAuth } from '../../../context/AuthContext';
+import DevLoginPanel from '../components/DevLoginPanel';
 
 export const LoginPage = () => {
-    const handleSubmit = (e: React.FormEvent) => {
+    const navigate = useNavigate();
+    const { login, isAuthenticated } = useAuth();
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+
+    // Redirect if already logged in
+    useEffect(() => {
+        if (isAuthenticated) {
+            navigate('/dashboard');
+        }
+    }, [isAuthenticated, navigate]);
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        logger.info('Login form submitted');
+        setError('');
+        setIsLoading(true);
+
+        try {
+            await login(email, password);
+            logger.info('Login successful');
+            navigate('/dashboard');
+        } catch (err: any) {
+            const errorMsg = err.response?.data?.error || 'Login failed. Please try again.';
+            setError(errorMsg);
+            logger.error('Login failed:', errorMsg);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleDevLoginSuccess = () => {
+        navigate('/dashboard');
     };
 
     return (
@@ -23,6 +57,7 @@ export const LoginPage = () => {
                         fullWidth
                         variant="outline"
                         icon={<img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-5 h-5" alt="Google" />}
+                        disabled
                     >
                         Continue with Google
                     </Button>
@@ -31,6 +66,7 @@ export const LoginPage = () => {
                         fullWidth
                         variant="black"
                         icon={<img src="https://www.svgrepo.com/show/512317/github-142.svg" className="w-5 h-5 invert" alt="Apple" />}
+                        disabled
                     >
                         Continue with Apple
                     </Button>
@@ -50,12 +86,20 @@ export const LoginPage = () => {
                         label="Email address"
                         type="email"
                         placeholder="you@example.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                        disabled={isLoading}
                     />
 
                     <Input
                         label="Password"
                         type="password"
                         placeholder="••••••••"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                        disabled={isLoading}
                     />
 
                     <div className="flex items-center justify-between">
@@ -78,10 +122,19 @@ export const LoginPage = () => {
                         </div>
                     </div>
 
-                    <Button type="submit" fullWidth>
-                        Log in
+                    {error && (
+                        <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg">
+                            {error}
+                        </div>
+                    )}
+
+                    <Button type="submit" fullWidth disabled={isLoading}>
+                        {isLoading ? 'Logging in...' : 'Log in'}
                     </Button>
                 </form>
+
+                {/* Dev Login Panel */}
+                <DevLoginPanel onSuccess={handleDevLoginSuccess} />
 
                 <p className="text-center text-sm text-gray-600">
                     Don't have an account?{' '}

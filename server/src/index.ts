@@ -9,17 +9,24 @@ import { requestLogger } from './middlewares/request-logger.js'
 import { errorHandler } from './middlewares/error-handler.js'
 import { logger } from './utils/logger.js'
 import { testConnection } from './utils/database.js'
+import authRoutes from './routes/auth.routes.js'
 
 const app = express()
 
 app.use(helmet())
-app.use(cors())
+app.use(cors({
+  origin: 'http://localhost:5173', // Frontend URL
+  credentials: true, // Allow cookies
+}))
 app.use(express.json())
 app.use(requestLogger)
 
+// Routes
 app.get('/api/v1/health', (_, res) => {
   res.json({ status: 'ok' })
 })
+
+app.use('/api/v1/auth', authRoutes)
 
 app.use(errorHandler)
 

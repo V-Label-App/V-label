@@ -14,7 +14,8 @@
     "db:cli": "docker exec -it postgres psql -U vlabel_user -d vlabel_db",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio --browser none",
-    "db:generate": "prisma generate"
+    "db:generate": "prisma generate",
+    "db:seed": "tsx prisma/seed.ts"
   },
   "keywords": [],
   "author": "",

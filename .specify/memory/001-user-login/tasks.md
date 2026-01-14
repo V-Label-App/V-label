@@ -11,10 +11,10 @@ description: "Task list for User Login implementation (Prisma + Dev Tools)"
 
 **Purpose**: Prepare the environment and database tools.
 
-- [ ] T001 Install dependencies (`bcrypt`, `jsonwebtoken`, `zod`, `@prisma/client`) in server/package.json
-- [ ] T002 Update `server/src/config/env.ts` to include `JWT_SECRET`, `JWT_EXPIRES_IN`
-- [ ] T003 Create `server/src/utils/jwt.utils.ts` for signing/verifying tokens
-- [ ] T004 Create `server/src/utils/password.utils.ts` for Bcrypt hashing
+- [x] T001 Install dependencies (`bcrypt`, `jsonwebtoken`, `zod`, `@prisma/client`) in server/package.json
+- [x] T002 Update `server/src/config/env.ts` to include `JWT_SECRET`, `JWT_EXPIRES_IN`
+- [x] T003 Create `server/src/utils/jwt.utils.ts` for signing/verifying tokens
+- [x] T004 Create `server/src/utils/password.utils.ts` for Bcrypt hashing
 
 ---
 

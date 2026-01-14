@@ -37,3 +37,22 @@ try {
     throw error
   }
 }
+
+// Export configuration object
+export default {
+  NODE_ENV: process.env.NODE_ENV || 'development',
+  PORT: parseInt(process.env.PORT || '4000'),
+  
+  // Database
+  DB_HOST: process.env.DB_HOST || 'localhost',
+  DB_PORT: parseInt(process.env.DB_PORT || '5433'),
+  DB_NAME: process.env.DB_NAME || 'vlabel_db',
+  DB_USER: process.env.DB_USER || 'vlabel_user',
+  DB_PASSWORD: process.env.DB_PASSWORD || 'vlabel_password',
+
+  // JWT
+  JWT_SECRET: process.env.JWT_SECRET || 'super-secret-key-change-in-prod',
+  JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '15m',
+  JWT_REFRESH_EXPIRES_IN: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
+}
+
