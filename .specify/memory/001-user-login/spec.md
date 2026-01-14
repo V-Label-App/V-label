@@ -56,6 +56,17 @@ As a user, I want to reset my password via email if I forget it.
 
 1. **Given** a valid email, **When** requesting reset, **Then** send an email with a 15-minute expiration link.
 
+### User Story 4 - Developer Bypass Login (Priority: P2 - Dev Only)
+
+As a developer, I want to quickly log in as any role (Admin, Manager, Reviewer, Annotator) without entering passwords so that I can test role-based features efficiently.
+
+**Why this priority**: Speeds up development and testing cycles significantly.
+
+**Acceptance Scenarios**:
+
+1. **Given** the environment is `development`, **When** I call `POST /api/v1/auth/dev/login` with `{ role: "ADMIN" }`, **Then** I receive a valid JWT for a test Admin user.
+2. **Given** the environment is `production`, **When** I attempt to use the bypass endpoint, **Then** I receive a 403 Forbidden.
+
 ---
 
 ### Edge Cases
@@ -69,19 +80,29 @@ As a user, I want to reset my password via email if I forget it.
 ### Functional Requirements
 
 - **FR-001**: System MUST validate email format and password strength (min 8 chars, 1 number).
-- **FR-002**: System MUST use `bcrypt` or `argon2` for password hashing.
+- **FR-002**: System MUST use `bcrypt` for password hashing (Only for `LOCAL` provider).
 - **FR-003**: System MUST issue JWT access tokens (15 min) and refresh tokens (7 days).
 - **FR-004**: System MUST store refresh tokens in HTTP-Only, Secure cookies.
+- **FR-005**: System MUST validate `role` (default: `ANNOTATOR`) upon registration.
 
 ### Key Entities
 
-- **User**: id, email, password_hash, google_id, created_at, updated_at.
-- **Session**: id, user_id, refresh_token_hash, expires_at (Optional, if using stateful refresh tokens).
+- **User**: 
+  - `id` (UUID)
+  - `email` (Unique)
+  - `passwordHash` (Nullable - for Local auth)
+  - `provider` (Enum: LOCAL, GOOGLE)
+  - `role` (Enum: ADMIN, MANAGER, REVIEWER, ANNOTATOR)
+  - `isActive` (Boolean)
+  - `reputationScore` (Float - Default 100.0)
+  - `totalTasksDone` (Int - Default 0)
+  - `createdAt`, `updatedAt`
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
 - **SC-001**: Login API responds in < 200ms (P95).
-- **SC-002**: 100% of passwords are hashed before storage.
+- **SC-002**: 100% of LOCAL passwords are hashed before storage.
 - **SC-003**: Zero plain-text credentials in logs.
+- **SC-004**: User Role is correctly assigned as ANNOTATOR by default.

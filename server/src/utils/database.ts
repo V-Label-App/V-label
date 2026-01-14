@@ -20,9 +20,9 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 // Log queries if desired (uncomment to enable)
-prisma.$on('query', (e: any) => {
-  logger.debug('DATABASE', `Query: ${e.query} | Duration: ${e.duration}ms`)
-})
+// prisma.$on('query', (e: any) => {
+//   logger.debug('DATABASE', `Query: ${e.query} | Duration: ${e.duration}ms`)
+// })
 
 export const testConnection = async () => {
   try {

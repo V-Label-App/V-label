@@ -1,3 +1,4 @@
+import { exec } from 'child_process'
 import './config/env.js'
 import express from 'express'
 import cors from 'cors'
@@ -8,17 +9,24 @@ import { requestLogger } from './middlewares/request-logger.js'
 import { errorHandler } from './middlewares/error-handler.js'
 import { logger } from './utils/logger.js'
 import { testConnection } from './utils/database.js'
+import authRoutes from './routes/auth.routes.js'
 
 const app = express()
 
 app.use(helmet())
-app.use(cors())
+app.use(cors({
+  origin: 'http://localhost:5173', // Frontend URL
+  credentials: true, // Allow cookies
+}))
 app.use(express.json())
 app.use(requestLogger)
 
+// Routes
 app.get('/api/v1/health', (_, res) => {
   res.json({ status: 'ok' })
 })
+
+app.use('/api/v1/auth', authRoutes)
 
 app.use(errorHandler)
 
@@ -28,9 +36,18 @@ const NODE_ENV = process.env.NODE_ENV || 'development'
 app.listen(PORT, async () => {
   const startTime = new Date().toISOString()
   
-  logger.server(`Started on port ${PORT}`)
+  logger.server(`Started on http://localhost:${PORT}`)
   logger.info('ENV', `${NODE_ENV}`)
   
+  // Check Docker Status
+  exec('docker ps', (err) => {
+    if (err) {
+      logger.warn('DOCKER', '❌ Not running or unreachable (Is Docker Desktop open?)')
+    } else {
+      logger.info('DOCKER', '✅ Service is active and running')
+    }
+  })
+
   // Test database connection
   const dbHost = process.env.DB_HOST || 'localhost'
   const dbPort = process.env.DB_PORT || '5433'
