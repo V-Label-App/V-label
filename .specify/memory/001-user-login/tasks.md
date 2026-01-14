@@ -1,5 +1,5 @@
 ---
-description: "Task list for User Login implementation"
+description: "Task list for User Login implementation (Prisma + Dev Tools)"
 ---
 
 # Tasks: User Login
@@ -7,59 +7,60 @@ description: "Task list for User Login implementation"
 **Input**: Design documents from `.specify/memory/001-user-login/`
 **Prerequisites**: plan.md, spec.md
 
-## Phase 1: Setup (Shared Infrastructure)
+## Phase 1: Setup & Infrastructure
 
-**Purpose**: Prepare the environment for auth.
+**Purpose**: Prepare the environment and database tools.
 
-- [ ] T001 Install dependencies (`bcrypt`, `jsonwebtoken`, `zod`) in server/package.json
+- [ ] T001 Install dependencies (`bcrypt`, `jsonwebtoken`, `zod`, `@prisma/client`) in server/package.json
 - [ ] T002 Update `server/src/config/env.ts` to include `JWT_SECRET`, `JWT_EXPIRES_IN`
-- [ ] T003 [P] Create `server/src/utils/jwt.utils.ts` for signing/verifying tokens
+- [ ] T003 Create `server/src/utils/jwt.utils.ts` for signing/verifying tokens
+- [ ] T004 Create `server/src/utils/password.utils.ts` for Bcrypt hashing
 
 ---
 
-## Phase 2: Foundational (Blocking Prerequisites)
+## Phase 2: Database & Seeding (Prisma)
 
-**Purpose**: Database schema and core models.
+**Purpose**: Schema setup and test data.
 
-- [ ] T004 Create `User` model migration in `server/src/migrations/`
-- [ ] T005 Run migration to create `users` table
-- [ ] T006 Create `User` entity/model class in `server/src/models/User.ts`
-
----
-
-## Phase 3: User Story 1 - Email/Password Login (Priority: P1) 🎯 MVP
-
-**Goal**: Basic login flow.
-
-### Tests for US1
-- [ ] T007 [P] [US1] write integration test `server/tests/integration/auth.test.ts` (Login success/fail)
-
-### Implementation for US1
-- [ ] T008 [P] [US1] Implement `AuthService.login(email, password)` in `server/src/services/AuthService.ts`
-- [ ] T009 [US1] Implement `AuthController.login` endpoint in `server/src/controllers/AuthController.ts`
-- [ ] T010 [US1] Define routes in `server/src/routes/auth.routes.ts`
-- [ ] T011 [US1] Register routes in `server/src/app.ts`
-
-### Frontend for US1
-- [ ] T012 [P] [US1] Create `client/src/services/auth.api.ts` (axios calls)
-- [ ] T013 [US1] Create `client/src/context/AuthContext.tsx`
-- [ ] T014 [US1] Create `client/src/pages/auth/LoginPage.tsx` UI
-
-**Checkpoint**: Validate standard login works via UI.
+- [x] T005 Define `User` model in `server/prisma/schema.prisma` (Done)
+- [x] T006 Run migration `npm run db:migrate` (Done)
+- [ ] T007 [P] Create `server/prisma/seed.ts` script
+    - [ ] Create 1 Admin (`admin@vlabel.com`)
+    - [ ] Create 1 Manager (`manager@vlabel.com`)
+    - [ ] Create 1 Reviewer (`reviewer@vlabel.com`)
+    - [ ] Create 1 Annotator (`annotator@vlabel.com`)
+- [ ] T008 Add `seed` script to `server/package.json`
 
 ---
 
-## Phase 4: User Story 2 - Google OAuth (Priority: P2)
+## Phase 3: Core Implementation (US1 & US4)
 
-**Goal**: Social login.
+**Goal**: Login API + Developer Bypass.
 
-- [ ] T015 [US2] updates `env.ts` with Google Client ID/Secret
-- [ ] T016 [US2] Implement `AuthService.googleLogin(token)`
-- [ ] T017 [US2] Add "Login with Google" button in `LoginPage.tsx`
+### Backend Implementation
+- [ ] T009 [P] Implement `AuthService.login(email, password)` via Prisma
+- [ ] T010 [P] Implement `AuthService.devLogin(role)` (Bypass logic)
+- [ ] T011 Create `AuthController.ts` with `login` and `devLogin` handlers
+- [ ] T012 Define routes in `server/src/routes/auth.routes.ts`
+- [ ] T013 Register auth routes in `server/src/index.ts` (or app.ts)
 
 ---
 
-## Phase 5: Polish & Cross-Cutting
+## Phase 4: Frontend Implementation
 
-- [ ] T018 Add Rate Limiting to login endpoint
-- [ ] T019 Audit code for security (ensure no logs password)
+**Goal**: Login UI + Integration.
+
+- [ ] T014 Create `client/src/services/auth.api.ts` (axios calls)
+- [ ] T015 Create `client/src/context/AuthContext.tsx`
+- [ ] T016 Implement `client/src/features/auth/LoginPage.tsx`
+    - [ ] Standard Login Form
+    - [ ] (Dev Mode Only) List of 4 "Fast Login" buttons
+
+---
+
+## Phase 5: Verification
+
+- [ ] T017 Test `POST /auth/login` (Standard)
+- [ ] T018 Test `POST /auth/dev/login` (Admin/Manager/Reviewer/Annotator)
+- [ ] T019 Verify JWT contains correct Role claim
+- [ ] T020 Ensure Dev Login fails in Production env

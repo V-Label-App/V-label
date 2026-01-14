@@ -1,3 +1,4 @@
+import { exec } from 'child_process'
 import './config/env.js'
 import express from 'express'
 import cors from 'cors'
@@ -31,6 +32,15 @@ app.listen(PORT, async () => {
   logger.server(`Started on http://localhost:${PORT}`)
   logger.info('ENV', `${NODE_ENV}`)
   
+  // Check Docker Status
+  exec('docker ps', (err) => {
+    if (err) {
+      logger.warn('DOCKER', '❌ Not running or unreachable (Is Docker Desktop open?)')
+    } else {
+      logger.info('DOCKER', '✅ Service is active and running')
+    }
+  })
+
   // Test database connection
   const dbHost = process.env.DB_HOST || 'localhost'
   const dbPort = process.env.DB_PORT || '5433'

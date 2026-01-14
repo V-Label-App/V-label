@@ -60,6 +60,7 @@ client/
 **Structure Decision**: 
 - Replaced `models/User.ts` (Raw SQL) with **Prisma Client** (auto-generated).
 - Auth logic resides in `AuthService` interacting directly with `prisma.user`.
+- **Developer Experience**: Added `prisma/seed.ts` to create 4 fixed test accounts (admin, manager, reviewer, annotator) and a `/dev/login` endpoint for instant access.
 
 ## Complexity Tracking
 

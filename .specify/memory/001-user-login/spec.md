@@ -56,6 +56,17 @@ As a user, I want to reset my password via email if I forget it.
 
 1. **Given** a valid email, **When** requesting reset, **Then** send an email with a 15-minute expiration link.
 
+### User Story 4 - Developer Bypass Login (Priority: P2 - Dev Only)
+
+As a developer, I want to quickly log in as any role (Admin, Manager, Reviewer, Annotator) without entering passwords so that I can test role-based features efficiently.
+
+**Why this priority**: Speeds up development and testing cycles significantly.
+
+**Acceptance Scenarios**:
+
+1. **Given** the environment is `development`, **When** I call `POST /api/v1/auth/dev/login` with `{ role: "ADMIN" }`, **Then** I receive a valid JWT for a test Admin user.
+2. **Given** the environment is `production`, **When** I attempt to use the bypass endpoint, **Then** I receive a 403 Forbidden.
+
 ---
 
 ### Edge Cases
