@@ -28,7 +28,7 @@ const NODE_ENV = process.env.NODE_ENV || 'development'
 app.listen(PORT, async () => {
   const startTime = new Date().toISOString()
   
-  logger.server(`Started on port ${PORT}`)
+  logger.server(`Started on http://localhost:${PORT}`)
   logger.info('ENV', `${NODE_ENV}`)
   
   // Test database connection
