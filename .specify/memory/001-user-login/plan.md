@@ -10,15 +10,16 @@ Implement secure Email/Password and Google OAuth authentication using JWT (Acces
 ## Technical Context
 
 **Language/Version**: TypeScript (Node.js 18+ / React 18+)
-**Primary Dependencies**: `bcrypt`, `jsonwebtoken`, `zod` (validation), `react-hook-form`.
-**Storage**: PostgreSQL (Users table).
-**Testing**: Jest (Unit), Supertest (API Integration).
+**Primary Dependencies**: 
+- Backend: `bcrypt`, `jsonwebtoken`, `zod`, `@prisma/client`.
+- Frontend: `react-hook-form`, `axios`.
+**Storage**: PostgreSQL (via Prisma ORM).
+**Testing**: Jest, Supertest.
 **Target Platform**: Web, Server.
-**Project Type**: Monorepo.
 
 ## Constitution Check
 
-*GATE: Passed. Complies with "No Hardcoding" (Env vars for secrets) and "Type Safety" (TypeScript).*
+*GATE: Passed. Complies with "No Hardcoding" (Env vars for secrets) and "Type Safety" (TypeScript & Prisma).*
 
 ## Project Structure
 
@@ -29,7 +30,7 @@ Implement secure Email/Password and Google OAuth authentication using JWT (Acces
 ├── spec.md              # Feature Spec
 ├── plan.md              # This file
 ├── tasks.md             # Task Decomposition
-├── data-model.md        # DB Schema changes
+├── data-model.md        # (Deprecated - See server/prisma/schema.prisma)
 └── contracts/           # API Contracts
 ```
 
@@ -37,26 +38,28 @@ Implement secure Email/Password and Google OAuth authentication using JWT (Acces
 
 ```text
 server/
+├── prisma/                  # schema.prisma (User Model defined here)
 ├── src/
-│   ├── config/              # env.ts (Add JWT_SECRET, GOOGLE_ID)
-│   ├── models/              # User.ts
-│   ├── services/            # AuthService.ts
-│   ├── controllers/         # AuthController.ts
+│   ├── config/              # env.ts
+│   ├── services/            # auth.service.ts (Prisma logic)
+│   ├── controllers/         # auth.controller.ts
 │   ├── routes/              # auth.routes.ts
-│   ├── middlewares/         # auth.middleware.ts (JWT verification)
-│   └── utils/               # jwt.utils.ts
+│   ├── middlewares/         # auth.middleware.ts
+│   └── utils/               # jwt.utils.ts, password.utils.ts
 └── tests/integration/       # auth.test.ts
 
 client/
 ├── src/
 │   ├── context/             # AuthContext.tsx
 │   ├── services/            # auth.api.ts
-│   ├── pages/auth/          # LoginPage.tsx, RegisterPage.tsx
-│   └── components/auth/     # LoginForm.tsx
+│   ├── features/auth/       # LoginPage.tsx, RegisterPage.tsx
+│   └── components/ui/       # Reusable UI (Input, Button)
 └── tests/
 ```
 
-**Structure Decision**: Using a centralized `AuthService` in the backend and an `AuthContext` in the frontend to manage global state.
+**Structure Decision**: 
+- Replaced `models/User.ts` (Raw SQL) with **Prisma Client** (auto-generated).
+- Auth logic resides in `AuthService` interacting directly with `prisma.user`.
 
 ## Complexity Tracking
 
