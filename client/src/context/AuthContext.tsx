@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
 import { authApi } from '../services/auth.api'
 
 // Define locally to avoid runtime import errors
@@ -49,15 +49,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }, [])
 
     const handleAuthSuccess = (data: AuthResponse) => {
-        console.log('🔐 handleAuthSuccess called with:', data)
         setAccessToken(data.accessToken)
         setUser(data.user)
         localStorage.setItem('accessToken', data.accessToken)
         localStorage.setItem('user', JSON.stringify(data.user))
-        console.log('💾 Saved to localStorage:', {
-            accessToken: localStorage.getItem('accessToken'),
-            user: localStorage.getItem('user')
-        })
     }
 
     const login = async (email: string, password: string) => {
