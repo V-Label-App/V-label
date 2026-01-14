@@ -1,45 +1,40 @@
-import pkg from 'pg'
+import { PrismaClient } from '@prisma/client'
 import { logger } from './logger.js'
 
-const { Pool } = pkg
+// Prevent multiple instances in development (Hot Module Replacement)
+declare global {
+  var prisma: PrismaClient | undefined
+}
 
-const pool = new Pool({
-  host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT || '5433'),
-  database: process.env.DB_NAME || 'vlabel_db',
-  user: process.env.DB_USER || 'vlabel_user',
-  password: process.env.DB_PASSWORD || 'vlabel_password',
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+export const prisma = global.prisma || new PrismaClient({
+  log: [
+    { level: 'query', emit: 'event' },
+    { level: 'info', emit: 'stdout' },
+    { level: 'warn', emit: 'stdout' },
+    { level: 'error', emit: 'stdout' },
+  ],
 })
 
-// Test connection
+if (process.env.NODE_ENV !== 'production') {
+  global.prisma = prisma
+}
+
+// Log queries if desired (uncomment to enable)
+prisma.$on('query', (e: any) => {
+  logger.debug('DATABASE', `Query: ${e.query} | Duration: ${e.duration}ms`)
+})
+
 export const testConnection = async () => {
   try {
-    const client = await pool.connect()
-    const result = await client.query('SELECT NOW()')
-    client.release()
-    logger.database(`Connection successful | Time: ${result.rows[0]?.now}`)
+    await prisma.$connect()
+    // Simple query to verify
+    await prisma.$queryRaw`SELECT 1`
+    logger.database('Prisma connection successful')
     return true
   } catch (error) {
-    logger.error('DATABASE', 'Connection failed', error)
+    logger.error('DATABASE', 'Prisma connection failed', error)
     return false
   }
 }
 
-// Query helper
-export const query = async (text: string, params?: any[]) => {
-  const start = Date.now()
-  try {
-    const result = await pool.query(text, params)
-    const duration = Date.now() - start
-    logger.debug('DATABASE', `Query executed in ${duration}ms`, { text })
-    return result
-  } catch (error) {
-    logger.error('DATABASE', 'Query failed', { text, error })
-    throw error
-  }
-}
-
-export default pool
+export default prisma
