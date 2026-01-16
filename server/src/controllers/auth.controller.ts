@@ -6,7 +6,7 @@ import { UserRole } from '@prisma/client'
 // Validation schemas
 const loginSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(8),
+  password: z.string().min(3),
 })
 
 const devLoginSchema = z.object({
@@ -15,7 +15,7 @@ const devLoginSchema = z.object({
 
 const registerSchema = z.object({
   email: z.string().email('Invalid email format'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  password: z.string().min(3, 'Password must be at least 3 characters'),
   fullName: z.string().optional(),
 })
 

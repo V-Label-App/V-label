@@ -183,3 +183,29 @@ html {
     font-size: var(--font-size);
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
+/* Typewriter Effect */
+@keyframes typing {
+  from { width: 0 }
+  to { width: 100% }
+}
+
+@keyframes blink-caret {
+  from, to { border-color: transparent }
+  50% { border-color: orange }
+}
+
+@keyframes deleting {
+  from { width: 100% }
+  to { width: 0 }
+}
+
+/* Dynamic Typewriter Effect */
+@keyframes typing-dynamic {
+  from { width: 0 }
+  to { width: var(--typewriter-width) }
+}
+
+@keyframes deleting-dynamic {
+  from { width: var(--typewriter-width) }
+  to { width: 0 }
+}
