@@ -1,27 +1,34 @@
-import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { AuthSplitLayout } from '../../../layouts/AuthSplitLayout';
-import { Button } from '../../../components/ui/Button';
-import { Input } from '../../../components/ui/Input';
-import { logger } from '../../../utils/logger';
+import { useNavigate, Link } from 'react-router-dom';
+import { Button } from '../../../components/ui/button';
+import { Input } from '../../../components/ui/input';
+import { Label } from '../../../components/ui/label';
+import { Eye, EyeOff, AlertCircle, Sparkles, ShieldCheck, Users, Lock } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { useAuth } from '../../../context/AuthContext';
+import { logger } from '../../../utils/logger';
 import { toast } from 'sonner';
 import { authApi } from '../../../services/auth.api';
+import { TypewriterText } from '../../../components/ui/typewriter-effect';
 
 export const RegisterPage = () => {
     const navigate = useNavigate();
     const { isAuthenticated } = useAuth();
+
+    // Form State
     const [fullName, setFullName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
     // Redirect if already logged in
     useEffect(() => {
         if (isAuthenticated) {
-            navigate('/dashboard');
+            navigate('/');
         }
     }, [isAuthenticated, navigate]);
 
@@ -30,8 +37,8 @@ export const RegisterPage = () => {
         setError('');
 
         // Client-side validation
-        if (password.length < 8) {
-            setError('Password must be at least 8 characters long');
+        if (password.length < 3) { // Adjusted to match backend relaxed policy
+            setError('Password must be at least 3 characters long');
             return;
         }
 
@@ -43,11 +50,9 @@ export const RegisterPage = () => {
         setIsLoading(true);
 
         try {
-            // Call API directly without using register from context (no auto-login)
             await authApi.register({ email, password, fullName: fullName || undefined });
             logger.info('Registration successful');
             toast.success('Account created successfully! Please login.');
-            // Redirect to login page
             setTimeout(() => navigate('/login'), 1000);
         } catch (err: any) {
             const errorMsg = err.response?.data?.error || 'Registration failed. Please try again.';
@@ -59,106 +64,303 @@ export const RegisterPage = () => {
         }
     };
 
+    const handleGoogleSignup = () => {
+        // Placeholder
+        logger.info('Google signup clicked');
+    };
+
     return (
-        <AuthSplitLayout
-            title="Join our community"
-            subtitle="Start your journey with us today. Create an account to unlock all features."
-        >
-            <div className="space-y-8">
-                <div className="text-center lg:text-left">
-                    <h2 className="text-3xl font-bold text-gray-900">Create an account</h2>
-                    <p className="mt-2 text-gray-600">Enter your details to sign up</p>
-                </div>
-
-                <div className="space-y-4">
-                    <Button
-                        fullWidth
-                        variant="outline"
-                        icon={<img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-5 h-5" alt="Google" />}
-                        disabled
-                    >
-                        Sign up with Google
-                    </Button>
-
-                    <Button
-                        fullWidth
-                        variant="black"
-                        icon={<img src="https://www.svgrepo.com/show/512317/github-142.svg" className="w-5 h-5 invert" alt="Apple" />}
-                        disabled
-                    >
-                        Sign up with Apple
-                    </Button>
-                </div>
-
-                <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                        <span className="w-full border-t border-gray-200" />
-                    </div>
-                    <div className="relative flex justify-center text-sm">
-                        <span className="px-2 bg-white text-gray-500">Or sign up with email</span>
-                    </div>
-                </div>
-
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    <Input
-                        label="Full Name (Optional)"
-                        type="text"
-                        placeholder="John Doe"
-                        value={fullName}
-                        onChange={(e) => setFullName(e.target.value)}
-                        disabled={isLoading}
-                    />
-
-                    <Input
-                        label="Email address"
-                        type="email"
-                        placeholder="you@example.com"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
-                        disabled={isLoading}
-                    />
-
-                    <Input
-                        label="Password"
-                        type="password"
-                        placeholder="••••••••"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                        disabled={isLoading}
-                        error={password.length > 0 && password.length < 8 ? 'Minimum 8 characters' : undefined}
-                    />
-
-                    <Input
-                        label="Confirm Password"
-                        type="password"
-                        placeholder="••••••••"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        required
-                        disabled={isLoading}
-                        error={confirmPassword && password !== confirmPassword ? 'Passwords do not match' : undefined}
-                    />
-
-                    {error && (
-                        <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg">
-                            {error}
+        <div className="min-h-screen flex">
+            {/* Left Side - Dark Welcome Panel */}
+            <motion.div
+                initial={{ opacity: 0, x: -50 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.8 }}
+                className="hidden lg:flex lg:w-1/2 bg-slate-900 relative overflow-hidden flex-col"
+            >
+                {/* Header with Logo */}
+                {/* <div className="p-8">
+                    <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center">
+                            <span className="text-slate-900 font-bold text-xl">V</span>
                         </div>
-                    )}
+                        <h1 className="text-2xl font-semibold text-white">VLabel Portal</h1>
+                    </div>
+                </div> */}
 
-                    <Button type="submit" fullWidth disabled={isLoading}>
-                        {isLoading ? 'Creating account...' : 'Create account'}
-                    </Button>
-                </form>
+                {/* Main Content */}
+                <div className="flex-1 flex flex-col justify-center px-12 pb-20">
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.3, duration: 0.8 }}
+                    >
+                        <TypewriterText
+                            texts={["Join the Community", "Start Annotating", "Build Together"]}
+                            className="text-4xl font-semibold text-white mb-8 block"
+                        />
 
-                <p className="text-center text-sm text-gray-600">
-                    Already have an account?{' '}
-                    <Link to="/login" className="font-medium text-purple-600 hover:text-purple-500">
-                        Log in
-                    </Link>
-                </p>
+                        <div className="mb-12">
+                            <p className="text-slate-400 text-sm font-medium uppercase tracking-wider mb-6">Platform Capabilities</p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-6">
+                                <div className="flex items-start gap-3">
+                                    <div className="p-2 bg-blue-500/10 rounded-lg shrink-0">
+                                        <Sparkles className="w-5 h-5 text-blue-400" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-slate-200 font-medium">Smart Annotation</h3>
+                                        <p className="text-slate-400 text-sm">AI-assisted labeling tools</p>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-start gap-3">
+                                    <div className="p-2 bg-emerald-500/10 rounded-lg shrink-0">
+                                        <ShieldCheck className="w-5 h-5 text-emerald-400" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-slate-200 font-medium">Quality Control</h3>
+                                        <p className="text-slate-400 text-sm">Automated review workflows</p>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-start gap-3">
+                                    <div className="p-2 bg-purple-500/10 rounded-lg shrink-0">
+                                        <Users className="w-5 h-5 text-purple-400" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-slate-200 font-medium">Team Management</h3>
+                                        <p className="text-slate-400 text-sm">Role-based access & insights</p>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-start gap-3">
+                                    <div className="p-2 bg-rose-500/10 rounded-lg shrink-0">
+                                        <Lock className="w-5 h-5 text-rose-400" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-slate-200 font-medium">Data Security</h3>
+                                        <p className="text-slate-400 text-sm">Enterprise-grade protection</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Trust Card */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.5, duration: 0.8 }}
+                            className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-xl p-6"
+                        >
+                            <div className="flex items-center gap-4">
+                                <div className="flex -space-x-3">
+                                    <img src="https://i.pravatar.cc/100?img=1" alt="User 1" className="w-10 h-10 rounded-full border-2 border-slate-800 bg-slate-600 object-cover" />
+                                    <img src="https://i.pravatar.cc/100?img=2" alt="User 2" className="w-10 h-10 rounded-full border-2 border-slate-800 bg-slate-500 object-cover" />
+                                    <img src="https://i.pravatar.cc/100?img=3" alt="User 3" className="w-10 h-10 rounded-full border-2 border-slate-800 bg-slate-400 object-cover" />
+                                </div>
+                                <div>
+                                    <p className="text-white font-medium">Trusted by teams</p>
+                                    <p className="text-sm text-slate-400">Join thousands of annotators</p>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                </div>
+
+                {/* Decorative Elements */}
+                <div className="absolute inset-0 pointer-events-none">
+                    <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl"></div>
+                    <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl"></div>
+                </div>
+            </motion.div>
+
+            {/* Right Side - Register Form */}
+            <div className="w-full lg:w-1/2 flex items-center justify-center px-8 py-12 bg-white">
+                <motion.div
+                    initial={{ opacity: 0, x: 50 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.8 }}
+                    className="w-full max-w-md"
+                >
+                    {/* Mobile Logo */}
+                    <div className="lg:hidden flex items-center gap-3 mb-8">
+                        <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                            <span className="text-white font-bold">V</span>
+                        </div>
+                        <h1 className="text-2xl font-semibold">VLabel</h1>
+                    </div>
+
+                    <motion.div
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.2, duration: 0.6 }}
+                        className="mb-8"
+                    >
+                        <h2 className="text-3xl font-semibold mb-2">Create an account</h2>
+                        <p className="text-slate-500">
+                            Already have an account?{' '}
+                            <Link to="/login" className="text-blue-600 font-medium hover:underline">
+                                Log in
+                            </Link>
+                        </p>
+                    </motion.div>
+
+                    <motion.form
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.4, duration: 0.6 }}
+                        onSubmit={handleSubmit}
+                        className="space-y-4"
+                    >
+                        {/* Error Message */}
+                        {error && (
+                            <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
+                                <AlertCircle className="w-4 h-4" />
+                                {error}
+                            </div>
+                        )}
+
+                        {/* Full Name */}
+                        <div className="space-y-2">
+                            <Label htmlFor="fullName" className="text-sm font-medium">Full Name (Optional)</Label>
+                            <Input
+                                id="fullName"
+                                type="text"
+                                placeholder="John Doe"
+                                value={fullName}
+                                onChange={(e) => setFullName(e.target.value)}
+                                disabled={isLoading}
+                                className="h-11 bg-white border-slate-300 focus:border-blue-500"
+                            />
+                        </div>
+
+                        {/* Email Input */}
+                        <div className="space-y-2">
+                            <Label htmlFor="email" className="text-sm font-medium">Email address</Label>
+                            <Input
+                                id="email"
+                                type="email"
+                                placeholder="you@company.com"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                required
+                                disabled={isLoading}
+                                className="h-11 bg-white border-slate-300 focus:border-blue-500"
+                            />
+                        </div>
+
+                        {/* Password Input */}
+                        <div className="space-y-2">
+                            <Label htmlFor="password" className="text-sm font-medium">Password</Label>
+                            <div className="relative">
+                                <Input
+                                    id="password"
+                                    type={showPassword ? 'text' : 'password'}
+                                    placeholder="••••••••••"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    required
+                                    disabled={isLoading}
+                                    className="h-11 bg-white border-slate-300 focus:border-blue-500 pr-10"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                                >
+                                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                </button>
+                            </div>
+                            <p className="text-xs text-slate-500">Minimum 3 characters (Dev Mode)</p>
+                        </div>
+
+                        {/* Confirm Password Input */}
+                        <div className="space-y-2">
+                            <Label htmlFor="confirmPassword" className="text-sm font-medium">Confirm Password</Label>
+                            <div className="relative">
+                                <Input
+                                    id="confirmPassword"
+                                    type={showConfirmPassword ? 'text' : 'password'}
+                                    placeholder="••••••••••"
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    required
+                                    disabled={isLoading}
+                                    className="h-11 bg-white border-slate-300 focus:border-blue-500 pr-10"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                                >
+                                    {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Submit Button */}
+                        <Button
+                            type="submit"
+                            disabled={isLoading}
+                            className="w-full h-12 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium text-base mt-2"
+                        >
+                            {isLoading ? 'Creating account...' : 'Create account'}
+                        </Button>
+                    </motion.form>
+
+                    {/* Divider */}
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.5, duration: 0.6 }}
+                        className="my-6"
+                    >
+                        <div className="relative">
+                            <div className="absolute inset-0 flex items-center">
+                                <div className="w-full border-t border-slate-200"></div>
+                            </div>
+                            <div className="relative flex justify-center text-sm">
+                                <span className="px-4 bg-white text-slate-500">OR</span>
+                            </div>
+                        </div>
+                    </motion.div>
+
+                    {/* Google Sign Up */}
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.6, duration: 0.6 }}
+                    >
+                        <Button
+                            type="button"
+                            variant="outline"
+                            className="w-full h-12 border-slate-300 hover:bg-slate-50 font-medium"
+                            onClick={handleGoogleSignup}
+                            disabled={isLoading}
+                        >
+                            <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
+                                <path
+                                    fill="#4285F4"
+                                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                                />
+                                <path
+                                    fill="#34A853"
+                                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                                />
+                                <path
+                                    fill="#FBBC05"
+                                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                                />
+                                <path
+                                    fill="#EA4335"
+                                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                                />
+                            </svg>
+                            Sign up with Google
+                        </Button>
+                    </motion.div>
+                </motion.div>
             </div>
-        </AuthSplitLayout>
+        </div>
     );
 };

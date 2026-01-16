@@ -1,4 +1,4 @@
-# Coding Rules & Best Practices
+[]pfgtdrcsxza?>,mnb vc# Coding Rules & Best Practices
 
 ## 🎯 Core Principles
 
