@@ -1,8 +1,9 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { AuthSplitLayout } from '../../../layouts/AuthSplitLayout';
-import { Button } from '../../../components/ui/Button';
-import { Input } from '../../../components/ui/Input';
+import { Button } from '../../../components/ui/button';
+import { Input } from "../../../components/ui/input";
+import { Label } from "../../../components/ui/label";
 import { logger } from '../../../utils/logger';
 import { useAuth } from '../../../context/AuthContext';
 import { toast } from 'sonner';
@@ -72,21 +73,20 @@ export const RegisterPage = () => {
 
                 <div className="space-y-4">
                     <Button
-                        fullWidth
+                        className="w-full"
                         variant="outline"
-                        icon={<img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-5 h-5" alt="Google" />}
                         disabled
                     >
+                        <img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-5 h-5 mr-2" alt="Google" />
                         Sign up with Google
                     </Button>
 
                     <Button
-                        fullWidth
-                        variant="black"
-                        icon={<img src="https://www.svgrepo.com/show/512317/github-142.svg" className="w-5 h-5 invert" alt="Apple" />}
+                        className="w-full bg-black text-white hover:bg-gray-800"
                         disabled
                     >
-                        Sign up with Apple
+                        <img src="https://www.svgrepo.com/show/512317/github-142.svg" className="w-5 h-5 mr-2 invert" alt="Github" />
+                        Sign up with Github
                     </Button>
                 </div>
 
@@ -100,46 +100,62 @@ export const RegisterPage = () => {
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
-                    <Input
-                        label="Full Name (Optional)"
-                        type="text"
-                        placeholder="John Doe"
-                        value={fullName}
-                        onChange={(e) => setFullName(e.target.value)}
-                        disabled={isLoading}
-                    />
+                    <div className="space-y-1">
+                        <Label htmlFor="fullName">Full Name (Optional)</Label>
+                        <Input
+                            id="fullName"
+                            type="text"
+                            placeholder="John Doe"
+                            value={fullName}
+                            onChange={(e) => setFullName(e.target.value)}
+                            disabled={isLoading}
+                        />
+                    </div>
 
-                    <Input
-                        label="Email address"
-                        type="email"
-                        placeholder="you@example.com"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
-                        disabled={isLoading}
-                    />
+                    <div className="space-y-1">
+                        <Label htmlFor="email">Email address</Label>
+                        <Input
+                            id="email"
+                            type="email"
+                            placeholder="you@example.com"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            required
+                            disabled={isLoading}
+                        />
+                    </div>
 
-                    <Input
-                        label="Password"
-                        type="password"
-                        placeholder="••••••••"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                        disabled={isLoading}
-                        error={password.length > 0 && password.length < 8 ? 'Minimum 8 characters' : undefined}
-                    />
+                    <div className="space-y-1">
+                        <Label htmlFor="password">Password</Label>
+                        <Input
+                            id="password"
+                            type="password"
+                            placeholder="••••••••"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            required
+                            disabled={isLoading}
+                        />
+                        {password.length > 0 && password.length < 8 && (
+                            <p className="text-xs text-red-500 mt-1">Minimum 8 characters</p>
+                        )}
+                    </div>
 
-                    <Input
-                        label="Confirm Password"
-                        type="password"
-                        placeholder="••••••••"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        required
-                        disabled={isLoading}
-                        error={confirmPassword && password !== confirmPassword ? 'Passwords do not match' : undefined}
-                    />
+                    <div className="space-y-1">
+                        <Label htmlFor="confirmPassword">Confirm Password</Label>
+                        <Input
+                            id="confirmPassword"
+                            type="password"
+                            placeholder="••••••••"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            required
+                            disabled={isLoading}
+                        />
+                        {confirmPassword && password !== confirmPassword && (
+                            <p className="text-xs text-red-500 mt-1">Passwords do not match</p>
+                        )}
+                    </div>
 
                     {error && (
                         <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg">
@@ -147,7 +163,7 @@ export const RegisterPage = () => {
                         </div>
                     )}
 
-                    <Button type="submit" fullWidth disabled={isLoading}>
+                    <Button type="submit" className="w-full" disabled={isLoading}>
                         {isLoading ? 'Creating account...' : 'Create account'}
                     </Button>
                 </form>

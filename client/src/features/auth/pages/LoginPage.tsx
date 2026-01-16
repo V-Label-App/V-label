@@ -1,8 +1,9 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { AuthSplitLayout } from '../../../layouts/AuthSplitLayout';
-import { Button } from '../../../components/ui/Button';
-import { Input } from '../../../components/ui/Input';
+import { Button } from '../../../components/ui/button';
+import { Input } from "../../../components/ui/input";
+import { Label } from "../../../components/ui/label";
 import { logger } from '../../../utils/logger';
 import { useAuth } from '../../../context/AuthContext';
 import DevLoginPanel from '../components/DevLoginPanel';
@@ -54,21 +55,20 @@ export const LoginPage = () => {
 
                 <div className="space-y-4">
                     <Button
-                        fullWidth
+                        className="w-full"
                         variant="outline"
-                        icon={<img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-5 h-5" alt="Google" />}
                         disabled
                     >
+                        <img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-5 h-5 mr-2" alt="Google" />
                         Continue with Google
                     </Button>
 
                     <Button
-                        fullWidth
-                        variant="black"
-                        icon={<img src="https://www.svgrepo.com/show/512317/github-142.svg" className="w-5 h-5 invert" alt="Apple" />}
+                        className="w-full bg-black text-white hover:bg-gray-800"
                         disabled
                     >
-                        Continue with Apple
+                        <img src="https://www.svgrepo.com/show/512317/github-142.svg" className="w-5 h-5 mr-2 invert" alt="Github" />
+                        Continue with Github
                     </Button>
                 </div>
 
@@ -82,25 +82,31 @@ export const LoginPage = () => {
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
-                    <Input
-                        label="Email address"
-                        type="email"
-                        placeholder="you@example.com"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
-                        disabled={isLoading}
-                    />
+                    <div className="space-y-1">
+                        <Label htmlFor="email">Email address</Label>
+                        <Input
+                            id="email"
+                            type="email"
+                            placeholder="you@example.com"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            required
+                            disabled={isLoading}
+                        />
+                    </div>
 
-                    <Input
-                        label="Password"
-                        type="password"
-                        placeholder="••••••••"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                        disabled={isLoading}
-                    />
+                    <div className="space-y-1">
+                        <Label htmlFor="password">Password</Label>
+                        <Input
+                            id="password"
+                            type="password"
+                            placeholder="••••••••"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            required
+                            disabled={isLoading}
+                        />
+                    </div>
 
                     <div className="flex items-center justify-between">
                         <div className="flex items-center">
@@ -128,7 +134,7 @@ export const LoginPage = () => {
                         </div>
                     )}
 
-                    <Button type="submit" fullWidth disabled={isLoading}>
+                    <Button type="submit" className="w-full" disabled={isLoading}>
                         {isLoading ? 'Logging in...' : 'Log in'}
                     </Button>
                 </form>
