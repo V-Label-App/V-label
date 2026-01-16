@@ -19,7 +19,7 @@ export const LoginPage = () => {
     // Redirect if already logged in
     useEffect(() => {
         if (isAuthenticated) {
-            navigate('/dashboard');
+            navigate('/');
         }
     }, [isAuthenticated, navigate]);
 
@@ -31,7 +31,7 @@ export const LoginPage = () => {
         try {
             await login(email, password);
             logger.info('Login successful');
-            navigate('/dashboard');
+            navigate('/');
         } catch (err: any) {
             const errorMsg = err.response?.data?.error || 'Login failed. Please try again.';
             setError(errorMsg);
@@ -42,7 +42,7 @@ export const LoginPage = () => {
     };
 
     const handleDevLoginSuccess = () => {
-        navigate('/dashboard');
+        navigate('/');
     };
 
     return (
