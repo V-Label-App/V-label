@@ -154,7 +154,7 @@ export const LoginPage = () => {
                             <div className="px-6 py-4 border-b border-slate-700/50 flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                     <Sparkles className="w-4 h-4 text-blue-400" />
-                                    <h3 className="text-white font-medium text-sm">AI Analysis</h3>
+                                    <h3 className="text-white font-medium text-sm">AI Support</h3>
                                 </div>
                                 <div className="flex gap-1">
                                     <div className="w-1.5 h-1.5 rounded-full bg-red-500/50" />
