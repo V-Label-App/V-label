@@ -15,6 +15,7 @@ export interface User {
   role: string
   fullName: string | null
   avatarUrl?: string | null
+  isActive?: boolean
 }
 
 /**

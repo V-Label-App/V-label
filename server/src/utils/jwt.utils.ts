@@ -16,7 +16,15 @@ export const signRefreshToken = (payload: object) => {
 export const verifyToken = (token: string) => {
   try {
     return jwt.verify(token, config.JWT_SECRET)
-  } catch (error) {
+  } catch (error: any) {
+    console.log('[AUTH_DEBUG] Config Secret Length:', config.JWT_SECRET.length)
+    console.log('[AUTH_DEBUG] Token:', token.substring(0, 10) + '...')
+    
+    if (error.name === 'TokenExpiredError') {
+      console.log('[AUTH] Token expired at', error.expiredAt)
+    } else {
+      console.error('[AUTH] Token verification failed:', error.message)
+    }
     return null
   }
 }

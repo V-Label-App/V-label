@@ -30,12 +30,18 @@ app.get('/api/v1/health', (_, res) => {
 app.use('/api/v1/auth', authRoutes)
 app.use('/api/v1/users', userRoutes)
 
+// 404 Catch-all
+app.use((req, res, next) => {
+  logger.warn('404', `Route not found: ${req.method} ${req.originalUrl}`)
+  res.status(404).json({ error: `Route not found: ${req.method}   ${req.originalUrl}` })
+})
+
 app.use(errorHandler)
 
 const PORT = process.env.PORT || 4000
 const NODE_ENV = process.env.NODE_ENV || 'development'
 
-app.listen(PORT, async () => {
+const server = app.listen(PORT, async () => {
   const startTime = new Date().toISOString()
   
   logger.server(`Started on http://localhost:${PORT}`)

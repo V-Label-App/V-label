@@ -174,6 +174,8 @@ export class AuthService {
       sub: newUser.id,
       email: newUser.email,
       role: newUser.role,
+      fullName: newUser.fullName,
+      avatarUrl: newUser.avatarUrl,
     }
 
     const accessToken = signAccessToken(payload)
@@ -210,6 +212,17 @@ export class AuthService {
     let user = await prisma.user.findUnique({
       where: { googleId: uid },
     })
+
+    if (user) {
+      // Update latest info from Google
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          avatarUrl: picture || user.avatarUrl,
+          fullName: name || user.fullName,
+        }
+      })
+    }
 
     // If not found by googleId, try by email (Account Linking)
     if (!user) {

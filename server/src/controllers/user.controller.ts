@@ -8,7 +8,8 @@ export class UserController {
    */
   static async getMe(req: Request, res: Response) {
     try {
-      const userId = (req.user as any)?.id
+      const userPayload = req.user as any
+      const userId = userPayload?.id || userPayload?.sub
 
       if (!userId) {
         return res.status(401).json({ error: 'Unauthorized' })

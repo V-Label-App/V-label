@@ -56,7 +56,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         initAuth()
     }, [])
 
-    const handleAuthSuccess = (token: string) => {
+    const handleAuthSuccess = async (token: string) => {
         const decodedUser = decodeToken(token)
 
         if (!decodedUser) {
@@ -64,14 +64,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
 
         setAccessToken(token)
-        setUser(decodedUser)
         localStorage.setItem('accessToken', token)
+
+        // Optimistic update
+        setUser(decodedUser)
+
+        try {
+            const { user: fullUser } = await authApi.getMe()
+            setUser(fullUser as User)
+        } catch (error) {
+            console.error('Failed to update profile after login:', error)
+            // Don't fail the login if profile fetch fails, we have the token
+        }
     }
 
     const login = async (email: string, password: string) => {
         try {
             const { accessToken } = await authApi.login({ email, password })
-            handleAuthSuccess(accessToken)
+            await handleAuthSuccess(accessToken)
         } catch (error) {
             console.error('Login failed:', error)
             throw error
@@ -81,7 +91,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const register = async (email: string, password: string, fullName?: string) => {
         try {
             const { accessToken } = await authApi.register({ email, password, fullName })
-            handleAuthSuccess(accessToken)
+            await handleAuthSuccess(accessToken)
         } catch (error) {
             console.error('Registration failed:', error)
             throw error
@@ -91,7 +101,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const devLogin = async (role: 'ADMIN' | 'MANAGER' | 'REVIEWER' | 'ANNOTATOR') => {
         try {
             const { accessToken } = await authApi.devLogin({ role })
-            handleAuthSuccess(accessToken)
+            await handleAuthSuccess(accessToken)
         } catch (error) {
             console.error('Dev login failed:', error)
             throw error
@@ -101,7 +111,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const loginWithGoogle = async (idToken: string) => {
         try {
             const { accessToken } = await authApi.loginWithGoogle(idToken)
-            handleAuthSuccess(accessToken)
+            await handleAuthSuccess(accessToken)
         } catch (error) {
             console.error('Google login failed:', error)
             throw error

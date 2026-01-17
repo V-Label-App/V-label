@@ -43,7 +43,7 @@ const WorkspaceRoute = () => {
 };
 
 export const AppRoutes = () => {
-    const { logout } = useAuth();
+    // const { logout } = useAuth();
 
     return (
         <Routes>
