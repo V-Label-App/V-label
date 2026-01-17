@@ -3,7 +3,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "../../../components/ui/avat
 import { Button } from "../../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card"
 import { Badge } from "../../../components/ui/badge"
-import { CalendarDays, Mail, Shield, User as UserIcon, ArrowLeft } from "lucide-react"
+import { CalendarDays, Mail, Shield, User as UserIcon, ArrowLeft, Phone } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs"
 import {
@@ -94,6 +94,10 @@ export default function ProfilePage() {
                             <Mail className="h-4 w-4" />
                             <span>{user.email}</span>
                         </div>
+                        <div className="flex items-center justify-center md:justify-start gap-2 text-muted-foreground">
+                            <Phone className="h-4 w-4" />
+                            <span>{(user as any).phoneNumber || "No phone number"}</span>
+                        </div>
                     </div>
                 </div>
 
@@ -115,7 +119,7 @@ export default function ProfilePage() {
                                 <Shield className="h-4 w-4 text-muted-foreground" />
                             </CardHeader>
                             <CardContent>
-                                <div className="text-2xl font-bold">{(user as any).reputationScore || 100}</div>
+                                <div className="text-2xl font-bold">{(user as any).reputationScore ?? 0}</div>
                                 <p className="text-xs text-muted-foreground">
                                     Current reliability score
                                 </p>
@@ -129,7 +133,7 @@ export default function ProfilePage() {
                             </CardHeader>
                             <CardContent>
                                 <div className="text-2xl font-bold">
-                                    {new Date().toLocaleDateString()}
+                                    {(user as any).createdAt ? new Date((user as any).createdAt).toLocaleDateString() : 'N/A'}
                                 </div>
                                 <p className="text-xs text-muted-foreground">
                                     Member since

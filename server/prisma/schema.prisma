@@ -24,10 +24,10 @@ model User {
   phoneNumber    String?      @map("phone_number") @db.VarChar(20)
   
   role           UserRole     @default(ANNOTATOR)
-  isActive       Boolean      @default(true) @map("is_active")
+  isActive       Boolean      @default(false) @map("is_active")
 
   // --- REPUTATION SYSTEM ---
-  reputationScore Float       @default(100.0) @map("reputation_score")
+  reputationScore Float       @default(0) @map("reputation_score")
   totalTasksDone  Int         @default(0) @map("total_tasks_done")
 
   createdAt      DateTime     @default(now()) @map("created_at")
