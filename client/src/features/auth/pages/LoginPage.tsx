@@ -84,15 +84,6 @@ export const LoginPage = () => {
                 transition={{ duration: 0.8 }}
                 className="hidden lg:flex lg:w-1/2 bg-slate-900 relative overflow-hidden flex-col"
             >
-                {/* Header with Logo */}
-                <div className="p-8">
-                    <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center">
-                            <span className="text-slate-900 font-bold text-xl">V</span>
-                        </div>
-                    </div>
-                </div>
-
                 {/* Main Content */}
                 <div className="flex-1 flex flex-col justify-center px-12 pb-20">
                     <motion.div
@@ -275,7 +266,7 @@ export const LoginPage = () => {
 
                         {/* Email Input */}
                         <div className="space-y-2">
-                            <Label htmlFor="email" className="text-sm font-medium">Email or Username</Label>
+                            <Label htmlFor="email" className="text-sm font-medium">Email</Label>
                             <Input
                                 id="email"
                                 type="email"
@@ -307,7 +298,7 @@ export const LoginPage = () => {
                                     onClick={() => setShowPassword(!showPassword)}
                                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
                                 >
-                                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                    {showPassword ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
                                 </button>
                             </div>
                         </div>

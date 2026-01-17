@@ -21,7 +21,7 @@ export const GoogleLoginButton = () => {
             await loginWithGoogle(idToken);
 
             toast.success('Successfully logged in with Google');
-            navigate('/dashboard');
+            navigate('/');
         } catch (error: any) {
             console.error('Google login error:', error);
             toast.error(error.message || 'Failed to login with Google');
