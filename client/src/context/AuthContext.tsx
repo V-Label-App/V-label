@@ -10,6 +10,7 @@ interface AuthContextType {
     login: (email: string, password: string) => Promise<void>
     register: (email: string, password: string, fullName?: string) => Promise<void>
     devLogin: (role: 'ADMIN' | 'MANAGER' | 'REVIEWER' | 'ANNOTATOR') => Promise<void>
+    loginWithGoogle: (idToken: string) => Promise<void>
     logout: () => void
 }
 
@@ -22,26 +23,37 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     // Initialize auth state from localStorage
     useEffect(() => {
-        const storedToken = localStorage.getItem('accessToken')
+        const initAuth = async () => {
+            const storedToken = localStorage.getItem('accessToken')
 
-        if (storedToken) {
-            // Validate token before using it
-            if (validateToken(storedToken)) {
-                const decodedUser = decodeToken(storedToken)
-                if (decodedUser) {
+            if (storedToken) {
+                if (validateToken(storedToken)) {
                     setAccessToken(storedToken)
-                    setUser(decodedUser)
+                    // Optimistic update
+                    const decoded = decodeToken(storedToken)
+                    if (decoded) setUser(decoded)
+
+                    try {
+                        // Fetch full profile
+                        const { user: userProfile } = await authApi.getMe()
+                        // Ensure the type matches, or cast/merge if needed. 
+                        // Assuming authApi.getMe returns compatible User object
+                        setUser(userProfile as User)
+                    } catch (error) {
+                        console.error('Failed to fetch profile:', error)
+                        // If token is invalid/expired according to server
+                        localStorage.removeItem('accessToken')
+                        setAccessToken(null)
+                        setUser(null)
+                    }
                 } else {
-                    // Token is invalid, clear it
                     localStorage.removeItem('accessToken')
                 }
-            } else {
-                // Token is expired or invalid, clear it
-                console.log('Stored token is invalid or expired, clearing...')
-                localStorage.removeItem('accessToken')
             }
+            setIsLoading(false)
         }
-        setIsLoading(false)
+
+        initAuth()
     }, [])
 
     const handleAuthSuccess = (token: string) => {
@@ -86,6 +98,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
     }
 
+    const loginWithGoogle = async (idToken: string) => {
+        try {
+            const { accessToken } = await authApi.loginWithGoogle(idToken)
+            handleAuthSuccess(accessToken)
+        } catch (error) {
+            console.error('Google login failed:', error)
+            throw error
+        }
+    }
+
     const logout = () => {
         setUser(null)
         setAccessToken(null)
@@ -103,6 +125,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 login,
                 register,
                 devLogin,
+                loginWithGoogle,
                 logout,
             }}
         >

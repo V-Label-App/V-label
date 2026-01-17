@@ -45,16 +45,35 @@ export interface AuthResponse {
     email: string
     role: string
     fullName: string | null
+    avatarUrl?: string | null
   }
 }
 
 
 export const authApi = {
   /**
+   * Get current user profile
+   */
+  getMe: async (): Promise<{ user: AuthResponse['user'] }> => {
+    const response = await apiClient.get<{ id: string; email: string; fullName: string | null; role: string; avatarUrl?: string }>('/users/me')
+    // Transform response to match AuthResponse.user structure if needed, or just return it
+    // The backend returns the User object directly
+    return { user: response.data }
+  },
+
+  /**
    * Standard email/password login
    */
   login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
     const response = await apiClient.post<AuthResponse>('/auth/login', credentials)
+    return response.data
+  },
+
+  /**
+   * Login with Google (Firebase)
+   */
+  loginWithGoogle: async (idToken: string): Promise<AuthResponse> => {
+    const response = await apiClient.post<AuthResponse>('/auth/google', { idToken })
     return response.data
   },
 

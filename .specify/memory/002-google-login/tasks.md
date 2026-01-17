@@ -1,22 +1,23 @@
 ---
-description: "Task list for Google Login implementation"
+description: "Task list for Google Login implementation (Firebase)"
 ---
 
-# Tasks: Google Login
+# Tasks: Google Login (Firebase)
 
 **Input**: Design documents from `.specify/memory/002-google-login/`
-**Prerequisites**: Google Cloud Console Project
+**Prerequisites**: Firebase Project
 
 ## Phase 1: Setup & Infrastructure
 
-**Purpose**: Configure Google OAuth and Database.
+**Purpose**: Configure Firebase and Database.
 
-- [ ] T001 Create Google Cloud Project & OAuth Client ID (Manual Step)
-    - [ ] Configure Consent Screen
-    - [ ] Get `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`
-- [ ] T002 Add Google Credentials to `.env` (Server & Client)
-    - [ ] Server: `GOOGLE_CLIENT_ID`
-    - [ ] Client: `VITE_GOOGLE_CLIENT_ID`
+- [ ] T001 Create Firebase Project
+    - [ ] Enable Authentication -> Google Sign-In
+    - [ ] Get Firebase Config (Client)
+    - [ ] Generate Service Account Key (Server)
+- [ ] T002 Add Credentials to `.env`
+    - [ ] Client: `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, etc.
+    - [ ] Server: `FIREBASE_SERVICE_ACCOUNT_PATH` or individual env vars
 - [ ] T003 Update Schema in `server/prisma/schema.prisma`
     - [ ] Add `googleId` (String?, unique) to `User` model
     - [ ] Add `avatar` (String?) to `User` model
@@ -26,35 +27,36 @@ description: "Task list for Google Login implementation"
 
 ## Phase 2: Backend Implementation
 
-**Goal**: Verify Google Token and Manage Users.
+**Goal**: Verify Firebase Token and Manage Users.
 
-- [ ] T005 Install `google-auth-library` in `server/`
-- [ ] T006 Implement `GoogleAuthService.verifyToken(token)`
-- [ ] T007 Update `AuthService.loginWithGoogle` logic
-    - [ ] Verify Token
-    - [ ] Find existing user by `googleId` OR `email`
-    - [ ] Create user if not exists (Default Role: ANNOTATOR)
-    - [ ] Generate JWT Pair (Access/Refresh)
-- [ ] T008 Add `POST /api/v1/auth/google` route and controller
+- [ ] T005 Install `firebase-admin` in `server/`
+- [ ] T006 Initialize Firebase Admin application
+- [ ] T007 Implement `FirebaseAuthService.verifyToken(token)`
+- [ ] T008 Update `AuthService.loginWithGoogle` logic
+    - [ ] Verify Firebase ID Token
+    - [ ] Get User Info (uid, email, picture) from decoded token
+    - [ ] Find/Create/Link User in Postgres
+    - [ ] Generate access/refresh tokens for the app
+- [ ] T009 Add `POST /api/v1/auth/google` route and controller
 
 ---
 
 ## Phase 3: Frontend Implementation
 
-**Goal**: Google Login Button & Handler.
+**Goal**: Firebase Sign-In & Backend Exchange.
 
-- [ ] T009 Install `@react-oauth/google` in `client/`
-- [ ] T010 Configure `GoogleOAuthProvider` in `client/src/main.tsx`
-- [ ] T011 Update `auth.api.ts` to add `loginWithGoogle(token)` function
-- [ ] T012 Implement `GoogleLoginButton` component
-- [ ] T013 Integrate Button into `LoginPage.tsx` and `RegisterPage.tsx`
-    - [ ] Handle Success: Call API -> Save Token -> Redirect
-    - [ ] Handle Failure: Show Error Notification
+- [ ] T010 Install `firebase` in `client/`
+- [ ] T011 Create `client/src/config/firebase.ts` (Initialize App)
+- [ ] T012 Implement `FirebaseLoginButton` component
+    - [ ] `signInWithPopup(auth, googleProvider)`
+    - [ ] Get `idToken` from result
+- [ ] T013 Integrate into `LoginPage.tsx`
+    - [ ] On Success: Send `idToken` to Backend API
+    - [ ] Handle Backend Response (Store JWT, Redirect)
 
 ---
 
 ## Phase 4: Verification
 
-- [ ] T014 Test Login with new Google Account (Registration flow)
-- [ ] T015 Test Login with existing Google Account
-- [ ] T016 Verify User Data (Avatar, Name) is saved correctly
+- [ ] T014 Test Login flow end-to-end
+- [ ] T015 Verify Firebase UID is stored in DB

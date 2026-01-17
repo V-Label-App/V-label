@@ -10,6 +10,7 @@ import { errorHandler } from './middlewares/error-handler.js'
 import { logger } from './utils/logger.js'
 import { testConnection } from './utils/database.js'
 import authRoutes from './routes/auth.routes.js'
+import userRoutes from './routes/user.routes.js'
 
 const app = express()
 
@@ -27,6 +28,7 @@ app.get('/api/v1/health', (_, res) => {
 })
 
 app.use('/api/v1/auth', authRoutes)
+app.use('/api/v1/users', userRoutes)
 
 app.use(errorHandler)
 

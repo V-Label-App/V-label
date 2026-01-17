@@ -14,6 +14,7 @@ export interface User {
   email: string
   role: string
   fullName: string | null
+  avatarUrl?: string | null
 }
 
 /**

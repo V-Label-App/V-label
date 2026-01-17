@@ -5,11 +5,12 @@ import { Badge } from '../../../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
 import { Avatar, AvatarFallback } from '../../../components/ui/avatar';
 import {
-  Play, AlertTriangle, Calendar, LogOut, Star, CheckCircle2,
+  Play, AlertTriangle, Calendar, Star, CheckCircle2,
   Clock, Target, Trophy, Tag
 } from 'lucide-react';
 import { format, isPast, parseISO } from 'date-fns';
 import { motion } from 'framer-motion';
+import { UserNav } from '../../../components/common/UserNav';
 
 interface Task {
   id: string;
@@ -31,11 +32,10 @@ interface Label {
 }
 
 interface AnnotatorTasksProps {
-  onLogout: () => void;
   onOpenWorkspace: (taskId: string, mode: 'annotate') => void;
 }
 
-export function AnnotatorTasks({ onLogout, onOpenWorkspace }: AnnotatorTasksProps) {
+export function AnnotatorTasks({ onOpenWorkspace }: AnnotatorTasksProps) {
   // Mock labels data
   const [labels] = useState<Label[]>([
     { id: 'L-001', name: 'Tumor', color: '#EF4444' },
@@ -251,10 +251,7 @@ export function AnnotatorTasks({ onLogout, onOpenWorkspace }: AnnotatorTasksProp
                 <p className="text-sm text-muted-foreground">Annotator Workspace</p>
               </div>
             </div>
-            <Button variant="outline" onClick={onLogout} className="gap-2">
-              <LogOut className="w-4 h-4" />
-              Logout
-            </Button>
+            <UserNav />
           </div>
 
           {/* Profile Section */}
