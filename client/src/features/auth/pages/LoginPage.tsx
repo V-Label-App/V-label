@@ -4,7 +4,7 @@ import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
 import { Checkbox } from '../../../components/ui/checkbox';
-import { Shield, Users, CheckCircle, Pencil, Eye, EyeOff, TrendingUp, AlertCircle, Sparkles, ShieldCheck, Lock } from 'lucide-react';
+import { Shield, Users, CheckCircle, Pencil, Eye, EyeOff, AlertCircle, Sparkles, ShieldCheck, Lock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../../context/AuthContext';
 import { logger } from '../../../utils/logger';
@@ -145,25 +145,70 @@ export const LoginPage = () => {
                         </div>
 
                         {/* Stats Card */}
+                        {/* AI Stats Card */}
+                        {/* AI Capabilities Card */}
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.5, duration: 0.8 }}
-                            className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-xl p-6"
+                            className="bg-slate-800/40 backdrop-blur-md border border-slate-700/50 rounded-2xl overflow-hidden"
                         >
-                            <div className="flex items-center gap-2 mb-4">
-                                <TrendingUp className="w-5 h-5 text-emerald-400" />
-                                <h3 className="text-white font-semibold">Your Stats</h3>
+                            {/* Header */}
+                            <div className="px-6 py-4 border-b border-slate-700/50 flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <Sparkles className="w-4 h-4 text-blue-400" />
+                                    <h3 className="text-white font-medium text-sm">AI Analysis</h3>
+                                </div>
+                                <div className="flex gap-1">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-red-500/50" />
+                                    <div className="w-1.5 h-1.5 rounded-full bg-yellow-500/50" />
+                                    <div className="w-1.5 h-1.5 rounded-full bg-green-500/50" />
+                                </div>
                             </div>
-                            <div className="grid grid-cols-2 gap-6">
-                                <div>
-                                    <p className="text-slate-400 text-sm mb-1">Annotations</p>
-                                    <p className="text-white text-3xl font-semibold">1.2k</p>
-                                </div>
-                                <div>
-                                    <p className="text-slate-400 text-sm mb-1">Accuracy</p>
-                                    <p className="text-emerald-400 text-3xl font-semibold">98%</p>
-                                </div>
+
+                            {/* Minimal Visualization */}
+                            <div className="relative h-48 w-full bg-gradient-to-b from-slate-900/50 to-slate-900/80 flex items-center justify-center overflow-hidden">
+                                {/* Abstract Subject */}
+                                <div className="absolute w-32 h-32 bg-blue-500/10 rounded-full blur-3xl animate-pulse"></div>
+
+                                {/* Radar/Scan Effect */}
+                                <motion.div
+                                    className="absolute inset-0 bg-gradient-to-t from-blue-500/10 to-transparent"
+                                    animate={{ top: ['100%', '-100%'] }}
+                                    transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                                />
+
+                                {/* Detection Box */}
+                                <motion.div
+                                    className="relative z-10 w-40 h-28 rounded-lg border border-blue-400/50 shadow-[0_0_20px_rgba(59,130,246,0.3)] bg-blue-400/5 backdrop-blur-[1px]"
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    transition={{
+                                        duration: 2,
+                                        repeat: Infinity,
+                                        repeatType: "reverse",
+                                        ease: "easeInOut"
+                                    }}
+                                >
+                                    {/* Minimal corners */}
+                                    <div className="absolute top-0 left-0 w-2 h-2 border-l border-t border-blue-400"></div>
+                                    <div className="absolute top-0 right-0 w-2 h-2 border-r border-t border-blue-400"></div>
+                                    <div className="absolute bottom-0 left-0 w-2 h-2 border-l border-b border-blue-400"></div>
+                                    <div className="absolute bottom-0 right-0 w-2 h-2 border-r border-b border-blue-400"></div>
+
+                                    {/* Floating Label - Ultra Clean */}
+                                    <motion.div
+                                        className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900/90 border border-slate-700 text-xs py-1 px-3 rounded-full text-blue-100 flex items-center gap-2 shadow-xl whitespace-nowrap"
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: 0.5, duration: 0.5 }}
+                                    >
+                                        <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse"></div>
+                                        <span>Anomaly Detected</span>
+                                        <span className="text-slate-500">|</span>
+                                        <span className="font-mono text-blue-400">98%</span>
+                                    </motion.div>
+                                </motion.div>
                             </div>
                         </motion.div>
                     </motion.div>

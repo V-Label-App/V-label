@@ -13,6 +13,7 @@ import {
   Grid3x3
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useParams } from 'react-router-dom';
 
 interface Annotation {
   id: string;
@@ -33,9 +34,9 @@ interface ImageTask {
 }
 
 interface WorkspaceProps {
-  taskId: string;
-  mode: 'annotate' | 'review';
-  onClose: () => void;
+  taskId?: string;
+  mode?: 'annotate' | 'review';
+  onClose?: () => void;
   taskStatus?: 'assigned' | 'in_progress' | 'submitted' | 'rejected' | 'approved';
   existingAnnotatorNote?: string;
   existingReviewComment?: string;
@@ -51,12 +52,15 @@ const availableLabels = ['Normal', 'Abnormal', 'Uncertain'];
 
 export function Workspace({
   taskId,
-  mode,
-  onClose,
+  mode = 'annotate',
+  onClose = () => window.history.back(),
   taskStatus = 'assigned',
   existingAnnotatorNote,
   existingReviewComment
 }: WorkspaceProps) {
+  const { taskId: paramTaskId } = useParams();
+  const activeTaskId = taskId || paramTaskId || 'T-001';
+
   // Image navigation states
   const [projectImages] = useState<ImageTask[]>([
     { id: 'T-001', filename: 'chest_xray_001.jpg', status: 'approved', thumbnail: '🫁', annotationCount: 5 },
@@ -67,15 +71,16 @@ export function Workspace({
     { id: 'T-006', filename: 'chest_xray_006.jpg', status: 'assigned', thumbnail: '🫁', annotationCount: 0 },
     { id: 'T-007', filename: 'chest_xray_007.jpg', status: 'assigned', thumbnail: '🫁', annotationCount: 0 },
   ]);
+
   const [currentImageIndex, setCurrentImageIndex] = useState(() => {
-    return projectImages.findIndex(img => img.id === taskId);
+    return projectImages.findIndex(img => img.id === activeTaskId);
   });
   const [showImageList, setShowImageList] = useState(false);
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const isReadOnly = taskStatus === 'approved' || mode === 'review';
 
-  const currentImage = projectImages[currentImageIndex];
+  const currentImage = projectImages[currentImageIndex] || projectImages[0];
   const hasPrevious = currentImageIndex > 0;
   const hasNext = currentImageIndex < projectImages.length - 1;
 
@@ -123,22 +128,18 @@ export function Workspace({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (isReadOnly) return;
 
-      // Ctrl + Z: Undo
       if (e.ctrlKey && e.key === 'z' && !e.shiftKey) {
         e.preventDefault();
         handleUndo();
       }
-      // Ctrl + Shift + Z: Redo
       if (e.ctrlKey && e.shiftKey && e.key === 'z') {
         e.preventDefault();
         handleRedo();
       }
-      // Delete / Backspace: Delete selected
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedAnnotation) {
         e.preventDefault();
         handleDeleteAnnotation(selectedAnnotation);
       }
-      // Tool shortcuts
       if (e.key === 'v' || e.key === 'V') {
         setTool('select');
       }
@@ -148,7 +149,6 @@ export function Workspace({
       if (e.key === 'h' || e.key === 'H') {
         setTool('hand');
       }
-      // Number keys for quick label selection
       if (selectedAnnotation && e.key >= '1' && e.key <= '9') {
         const index = parseInt(e.key) - 1;
         if (index < availableLabels.length) {
@@ -158,7 +158,6 @@ export function Workspace({
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      // Space key for panning
       if (e.key === ' ' && isPanning) {
         setIsPanning(false);
         setTool('select');
@@ -206,7 +205,6 @@ export function Workspace({
     }
   };
 
-  // Annotation actions
   const handleDeleteAnnotation = (id: string) => {
     const newAnnotations = annotations.filter(a => a.id !== id);
     addToHistory(newAnnotations);
@@ -227,9 +225,8 @@ export function Workspace({
     addToHistory(newAnnotations);
   };
 
-  // Canvas interactions
   const handleCanvasMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (isReadOnly) return;
+    if (isReadOnly && tool !== 'hand' && !isPanning) return;
 
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -251,7 +248,6 @@ export function Workspace({
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
 
-    // Update crosshair
     const crosshairX = e.clientX - rect.left;
     const crosshairY = e.clientY - rect.top;
     setCrosshair({ x: crosshairX, y: crosshairY });
@@ -273,12 +269,13 @@ export function Workspace({
     }
   };
 
+  // Removed unused 'e' parameter here
   const handleCanvasMouseUp = () => {
     if (isPanning) {
       setIsPanning(false);
     }
 
-    if (isDrawing && tempBox && tempBox.width > 10 && tempBox.height > 10) {
+    if (isDrawing && tempBox && tempBox.width > 2 && tempBox.height > 2) {
       const newAnnotation: Annotation = {
         id: Date.now().toString(),
         label: availableLabels[0],
@@ -300,7 +297,6 @@ export function Workspace({
     setCrosshair(null);
   };
 
-  // Zoom
   const handleWheel = (e: React.WheelEvent) => {
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
@@ -312,7 +308,6 @@ export function Workspace({
   const handleZoomIn = () => setZoom(prev => Math.min(500, prev + 25));
   const handleZoomOut = () => setZoom(prev => Math.max(50, prev - 25));
 
-  // Image navigation
   const handlePreviousImage = () => {
     if (hasPrevious) {
       if (autoSaveStatus === 'unsaved') {
@@ -321,7 +316,6 @@ export function Workspace({
         }
       }
       setCurrentImageIndex(prev => prev - 1);
-      // Reset state for new image
       setAnnotations([]);
       setHistory([[]]);
       setHistoryIndex(0);
@@ -339,7 +333,6 @@ export function Workspace({
         }
       }
       setCurrentImageIndex(prev => prev + 1);
-      // Reset state for new image
       setAnnotations([]);
       setHistory([[]]);
       setHistoryIndex(0);
@@ -357,7 +350,6 @@ export function Workspace({
       }
     }
     setCurrentImageIndex(index);
-    // Reset state for new image
     setAnnotations([]);
     setHistory([[]]);
     setHistoryIndex(0);
@@ -367,7 +359,6 @@ export function Workspace({
     setShowImageList(false);
   };
 
-  // Arrow keys for image navigation
   useEffect(() => {
     const handleArrowKeys = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft' && e.altKey) {
@@ -384,7 +375,6 @@ export function Workspace({
     return () => window.removeEventListener('keydown', handleArrowKeys);
   }, [currentImageIndex, autoSaveStatus]);
 
-  // Submit actions
   const handleSkip = () => {
     if (confirm('Are you sure you want to skip this task?')) {
       alert('Task skipped!');
@@ -420,24 +410,21 @@ export function Workspace({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.3 }}
-      className="fixed inset-0 bg-slate-900 z-50"
+      className="fixed inset-0 bg-slate-900 z-50 overflow-hidden"
     >
-      {/* Header */}
       <motion.div
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.4 }}
-        className="h-14 bg-slate-800 border-b border-slate-700 flex items-center justify-between px-4"
+        className="h-14 bg-slate-800 border-b border-slate-700 flex items-center justify-between px-4 sticky top-0 z-10"
       >
-        {/* Left: Breadcrumb */}
         <div className="flex items-center gap-2 text-sm text-slate-300">
           <span>Projects</span>
           <ChevronRight className="w-4 h-4" />
           <span>Medical Imaging</span>
           <ChevronRight className="w-4 h-4" />
-          <span className="text-white font-medium">{currentImage?.filename || `Task_${taskId}.jpg`}</span>
+          <span className="text-white font-medium">{currentImage?.filename || `Task_${activeTaskId}.jpg`}</span>
 
-          {/* Status Badge */}
           {taskStatus === 'rejected' && (
             <Badge className="ml-3 bg-red-600 text-white">REJECTED</Badge>
           )}
@@ -446,7 +433,6 @@ export function Workspace({
           )}
         </div>
 
-        {/* Center: Auto-save Status */}
         <div className="flex items-center gap-2 text-sm">
           {autoSaveStatus === 'saving' && (
             <>
@@ -465,7 +451,6 @@ export function Workspace({
           )}
         </div>
 
-        {/* Right: Actions */}
         <div className="flex items-center gap-2">
           {mode === 'annotate' && !isReadOnly && (
             <>
@@ -498,14 +483,12 @@ export function Workspace({
       </motion.div>
 
       <div className="flex h-[calc(100vh-3.5rem)]">
-        {/* Left Toolbar */}
         <motion.div
           initial={{ x: -20, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
           transition={{ duration: 0.4, delay: 0.1 }}
-          className="w-16 bg-slate-800 border-r border-slate-700 flex flex-col items-center py-4 gap-1"
+          className="w-16 bg-slate-800 border-r border-slate-700 flex flex-col items-center py-4 gap-1 z-10"
         >
-          {/* Drawing Tools */}
           <ToolButton
             icon={MousePointer}
             active={tool === 'select'}
@@ -530,7 +513,6 @@ export function Workspace({
 
           <div className="w-10 h-px bg-slate-700 my-2"></div>
 
-          {/* History */}
           <ToolButton
             icon={Undo}
             onClick={handleUndo}
@@ -544,14 +526,12 @@ export function Workspace({
             disabled={historyIndex === history.length - 1 || isReadOnly}
           />
 
-          {/* Zoom Info */}
           <div className="flex-1"></div>
           <div className="text-xs text-slate-400 text-center">
             <div className="font-mono">{zoom}%</div>
           </div>
         </motion.div>
 
-        {/* Center Canvas */}
         <motion.div
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -577,12 +557,10 @@ export function Workspace({
                 transformOrigin: 'center center',
               }}
             >
-              {/* Mock Medical Image */}
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center">
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center select-none pointer-events-none">
                 <div className="text-[200px] opacity-10">🫁</div>
               </div>
 
-              {/* Render Annotations */}
               {annotations.filter(a => a.visible).map(annotation => {
                 const colors = labelColors[annotation.label];
                 const isSelected = selectedAnnotation === annotation.id;
@@ -604,15 +582,13 @@ export function Workspace({
                       if (!isReadOnly) setSelectedAnnotation(annotation.id);
                     }}
                   >
-                    {/* Label */}
                     <div
-                      className="absolute -top-7 left-0 px-2 py-1 text-xs font-medium text-white rounded shadow-lg"
+                      className="absolute -top-7 left-0 px-2 py-1 text-xs font-medium text-white rounded shadow-lg whitespace-nowrap"
                       style={{ backgroundColor: colors.border }}
                     >
                       {annotation.label}
                     </div>
 
-                    {/* Resize Handles */}
                     {isSelected && !isReadOnly && (
                       <>
                         <div className="absolute -top-1 -left-1 w-3 h-3 bg-white border-2 rounded-full" style={{ borderColor: colors.border }}></div>
@@ -625,7 +601,6 @@ export function Workspace({
                 );
               })}
 
-              {/* Temp Drawing Box */}
               {tempBox && (
                 <div
                   className="absolute border-2 border-dashed border-blue-500"
@@ -640,22 +615,20 @@ export function Workspace({
               )}
             </div>
 
-            {/* Crosshair Cursor */}
             {crosshair && tool !== 'hand' && !isPanning && (
               <>
                 <div
-                  className="absolute top-0 bottom-0 w-px bg-blue-400 pointer-events-none opacity-50"
+                  className="absolute top-0 bottom-0 w-px bg-blue-400 pointer-events-none opacity-50 z-20"
                   style={{ left: `${crosshair.x}px` }}
                 ></div>
                 <div
-                  className="absolute left-0 right-0 h-px bg-blue-400 pointer-events-none opacity-50"
+                  className="absolute left-0 right-0 h-px bg-blue-400 pointer-events-none opacity-50 z-20"
                   style={{ top: `${crosshair.y}px` }}
                 ></div>
               </>
             )}
 
-            {/* Zoom Controls */}
-            <div className="absolute bottom-4 right-4 flex flex-col gap-2">
+            <div className="absolute bottom-4 right-4 flex flex-col gap-2 z-20">
               <Button size="sm" onClick={handleZoomIn} className="w-10 h-10 bg-slate-800 hover:bg-slate-700 text-white">
                 +
               </Button>
@@ -664,13 +637,11 @@ export function Workspace({
               </Button>
             </div>
 
-            {/* Info Overlay */}
-            <div className="absolute bottom-4 left-4 bg-slate-800/90 backdrop-blur text-white px-3 py-2 rounded text-sm font-mono">
+            <div className="absolute bottom-4 left-4 bg-slate-800/90 backdrop-blur text-white px-3 py-2 rounded text-sm font-mono z-20">
               {zoom}% • 800×600px • {annotations.length} regions
             </div>
 
-            {/* Image Navigation Bar */}
-            <div className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-slate-800/95 backdrop-blur rounded-lg px-3 py-2 shadow-lg border border-slate-700">
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-slate-800/95 backdrop-blur rounded-lg px-3 py-2 shadow-lg border border-slate-700 z-20">
               <Button
                 variant="ghost"
                 size="sm"
@@ -709,7 +680,6 @@ export function Workspace({
               </Button>
             </div>
 
-            {/* Image List Dropdown */}
             <AnimatePresence>
               {showImageList && (
                 <motion.div
@@ -717,6 +687,7 @@ export function Workspace({
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   className="absolute top-16 left-1/2 -translate-x-1/2 w-96 max-h-96 overflow-y-auto bg-slate-800 rounded-lg shadow-2xl border border-slate-700 z-50"
+                  onClick={(e) => e.stopPropagation()}
                 >
                   <div className="p-3 border-b border-slate-700 flex items-center justify-between sticky top-0 bg-slate-800">
                     <h3 className="text-sm font-semibold text-white">Project Images ({projectImages.length})</h3>
@@ -765,24 +736,22 @@ export function Workspace({
           </div>
         </motion.div>
 
-        {/* Right Inspector Panel */}
         <motion.div
           initial={{ x: 20, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
           transition={{ duration: 0.4, delay: 0.1 }}
-          className="w-80 bg-slate-800 border-l border-slate-700 flex flex-col"
+          className="w-80 bg-slate-800 border-l border-slate-700 flex flex-col z-10 shadow-xl"
         >
-          <Tabs defaultValue={taskStatus === 'rejected' ? 'discussion' : 'regions'} className="flex-1 flex flex-col">
-            <TabsList className="w-full rounded-none bg-slate-900 border-b border-slate-700">
-              <TabsTrigger value="regions" className="flex-1 data-[state=active]:bg-slate-800 data-[state=active]:text-white">
+          <Tabs defaultValue={taskStatus === 'rejected' ? 'discussion' : 'regions'} className="flex-1 flex flex-col h-full max-h-[calc(100vh-3.5rem)]">
+            <TabsList className="w-full rounded-none bg-slate-900 border-b border-slate-700 grid grid-cols-2 p-0 h-10">
+              <TabsTrigger value="regions" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:bg-slate-800 data-[state=active]:text-white text-slate-400">
                 Regions ({annotations.length})
               </TabsTrigger>
-              <TabsTrigger value="discussion" className="flex-1 data-[state=active]:bg-slate-800 data-[state=active]:text-white">
+              <TabsTrigger value="discussion" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:bg-slate-800 data-[state=active]:text-white text-slate-400">
                 Discussion
               </TabsTrigger>
             </TabsList>
 
-            {/* Tab 1: Regions */}
             <TabsContent value="regions" className="flex-1 p-4 space-y-4 overflow-y-auto">
               {annotations.length === 0 ? (
                 <div className="text-center py-12 text-slate-400">
@@ -799,8 +768,8 @@ export function Workspace({
                       <Card
                         key={annotation.id}
                         className={`p-3 cursor-pointer transition-all ${isSelected
-                          ? 'bg-slate-700 border-blue-500 border-2'
-                          : 'bg-slate-900 border-slate-700 hover:bg-slate-700'
+                            ? 'bg-slate-700 border-blue-500 border-2'
+                            : 'bg-slate-900 border-slate-700 hover:bg-slate-700'
                           } ${isReadOnly ? 'pointer-events-none opacity-60' : ''}`}
                         onClick={() => !isReadOnly && setSelectedAnnotation(annotation.id)}
                       >
@@ -811,7 +780,7 @@ export function Workspace({
                               {isSelected && !isReadOnly ? (
                                 <Select
                                   value={annotation.label}
-                                  onValueChange={(value) => handleLabelChange(annotation.id, value)}
+                                  onValueChange={(value: string) => handleLabelChange(annotation.id, value)}
                                 >
                                   <SelectTrigger className="h-8 bg-slate-800 border-slate-600 text-white">
                                     <SelectValue />
@@ -834,7 +803,7 @@ export function Workspace({
                                 variant="ghost"
                                 size="sm"
                                 className="w-8 h-8 p-0 text-slate-400 hover:text-white hover:bg-slate-700"
-                                onClick={(e) => {
+                                onClick={(e: React.MouseEvent) => {
                                   e.stopPropagation();
                                   handleToggleVisibility(annotation.id);
                                 }}
@@ -845,7 +814,7 @@ export function Workspace({
                                 variant="ghost"
                                 size="sm"
                                 className="w-8 h-8 p-0 text-slate-400 hover:text-red-400 hover:bg-slate-700"
-                                onClick={(e) => {
+                                onClick={(e: React.MouseEvent) => {
                                   e.stopPropagation();
                                   handleDeleteAnnotation(annotation.id);
                                 }}
@@ -865,7 +834,6 @@ export function Workspace({
                 </div>
               )}
 
-              {/* Quick Tips */}
               <Card className="p-3 bg-slate-900 border-slate-700 mt-4">
                 <h4 className="text-xs font-semibold text-slate-300 mb-2">Keyboard Shortcuts</h4>
                 <div className="space-y-1 text-xs text-slate-400">
@@ -889,9 +857,7 @@ export function Workspace({
               </Card>
             </TabsContent>
 
-            {/* Tab 2: Discussion */}
             <TabsContent value="discussion" className="flex-1 p-4 space-y-4 overflow-y-auto">
-              {/* Rejection Alert */}
               {existingReviewComment && (
                 <motion.div
                   initial={{ scale: 0.95, opacity: 0 }}
@@ -908,12 +874,11 @@ export function Workspace({
                 </motion.div>
               )}
 
-              {/* Annotator Note */}
               <div className="space-y-2">
                 <Label className="text-slate-300 text-sm">Annotator Note</Label>
                 <Textarea
                   value={annotatorNote}
-                  onChange={(e) => setAnnotatorNote(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setAnnotatorNote(e.target.value)}
                   placeholder={mode === 'annotate' ? 'Add notes about your annotation approach...' : 'Annotator\'s notes'}
                   className="min-h-[120px] bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 resize-none"
                   disabled={mode === 'review'}
@@ -926,13 +891,12 @@ export function Workspace({
                 </p>
               </div>
 
-              {/* Task Metadata */}
               <Card className="p-4 bg-slate-900 border-slate-700 space-y-3">
                 <h4 className="text-sm font-semibold text-slate-300">Task Information</h4>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-slate-400">Task ID</span>
-                    <span className="text-white font-mono">{taskId}</span>
+                    <span className="text-white font-mono">{activeTaskId}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-400">Type</span>
@@ -956,7 +920,6 @@ export function Workspace({
                 </div>
               </Card>
 
-              {/* Available Labels */}
               <Card className="p-4 bg-slate-900 border-slate-700">
                 <h4 className="text-sm font-semibold text-slate-300 mb-3">Available Labels</h4>
                 <div className="flex flex-wrap gap-2">
@@ -976,7 +939,6 @@ export function Workspace({
   );
 }
 
-// Helper Component: Tool Button
 function ToolButton({
   icon: Icon,
   active = false,
