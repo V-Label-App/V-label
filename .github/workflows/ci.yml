@@ -1,4 +1,4 @@
-name: Check build client and server
+name: Check build
 
 on:
   push:
