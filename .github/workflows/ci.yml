@@ -1,0 +1,45 @@
+name: Check build client and server
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+jobs:
+  client-build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Use Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: client/package-lock.json
+    - name: Install dependencies
+      working-directory: ./client
+      run: npm ci
+    - name: Build
+      working-directory: ./client
+      run: npm run build
+
+  server-build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Use Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: server/package-lock.json
+    - name: Install dependencies
+      working-directory: ./server
+      run: npm ci
+    - name: Generate Prisma Client
+      working-directory: ./server
+      run: npx prisma generate
+    - name: Build (Type Check)
+      working-directory: ./server
+      run: npx tsc

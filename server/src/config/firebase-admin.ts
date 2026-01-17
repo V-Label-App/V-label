@@ -12,15 +12,19 @@ try {
     };
 
     if (!serviceAccount.projectId || !serviceAccount.clientEmail || !serviceAccount.privateKey) {
-        logger.warn('Firebase Admin credentials not found. Google Login will not work.');
+        logger.warn('FIREBASE', 'Firebase Admin credentials not found. Google Login will not work.');
     } else {
         admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount),
+            credential: admin.credential.cert({
+                projectId: serviceAccount.projectId,
+                clientEmail: serviceAccount.clientEmail,
+                privateKey: serviceAccount.privateKey,
+            }),
         });
-        logger.info('Firebase Admin initialized successfully');
+        logger.info('FIREBASE', 'Firebase Admin initialized successfully');
     }
 } catch (error) {
-    logger.error('Error initializing Firebase Admin:', error);
+    logger.error('FIREBASE', 'Error initializing Firebase Admin:', error);
 }
 
 export const firebaseAdmin = admin;

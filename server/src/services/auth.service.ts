@@ -250,7 +250,7 @@ export class AuthService {
             email,
             googleId: uid,
             fullName: name || 'Google User',
-            avatarUrl: picture,
+            avatarUrl: picture ?? null,
             provider: 'GOOGLE',
             role: 'ANNOTATOR',
 
