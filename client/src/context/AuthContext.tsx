@@ -7,7 +7,7 @@ interface AuthContextType {
     accessToken: string | null
     isAuthenticated: boolean
     isLoading: boolean
-    login: (email: string, password: string) => Promise<void>
+    login: (email: string, password: string, remember?: boolean) => Promise<void>
     register: (email: string, password: string, fullName?: string) => Promise<void>
     devLogin: (role: 'ADMIN' | 'MANAGER' | 'REVIEWER' | 'ANNOTATOR') => Promise<void>
     loginWithGoogle: (idToken: string) => Promise<void>
@@ -21,10 +21,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [user, setUser] = useState<User | null>(null)
     const [isLoading, setIsLoading] = useState(true)
 
-    // Initialize auth state from localStorage
+    // Initialize auth state from localStorage or sessionStorage
     useEffect(() => {
         const initAuth = async () => {
-            const storedToken = localStorage.getItem('accessToken')
+            const storedToken = localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken')
 
             if (storedToken) {
                 if (validateToken(storedToken)) {
@@ -43,11 +43,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                         console.error('Failed to fetch profile:', error)
                         // If token is invalid/expired according to server
                         localStorage.removeItem('accessToken')
+                        sessionStorage.removeItem('accessToken')
                         setAccessToken(null)
                         setUser(null)
                     }
                 } else {
                     localStorage.removeItem('accessToken')
+                    sessionStorage.removeItem('accessToken')
                 }
             }
             setIsLoading(false)
@@ -56,7 +58,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         initAuth()
     }, [])
 
-    const handleAuthSuccess = async (token: string) => {
+    const handleAuthSuccess = async (token: string, remember: boolean = true) => {
         const decodedUser = decodeToken(token)
 
         if (!decodedUser) {
@@ -64,7 +66,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
 
         setAccessToken(token)
-        localStorage.setItem('accessToken', token)
+
+        if (remember) {
+            localStorage.setItem('accessToken', token)
+            sessionStorage.removeItem('accessToken')
+        } else {
+            sessionStorage.setItem('accessToken', token)
+            localStorage.removeItem('accessToken')
+        }
 
         // Optimistic update
         setUser(decodedUser)
@@ -78,10 +87,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
     }
 
-    const login = async (email: string, password: string) => {
+    const login = async (email: string, password: string, remember: boolean = false) => {
         try {
             const { accessToken } = await authApi.login({ email, password })
-            await handleAuthSuccess(accessToken)
+
+            // Handle Remember Me (Email persistence)
+            if (remember) {
+                localStorage.setItem('rememberedEmail', email)
+            } else {
+                localStorage.removeItem('rememberedEmail')
+            }
+
+            await handleAuthSuccess(accessToken, remember)
         } catch (error) {
             console.error('Login failed:', error)
             throw error
@@ -91,7 +108,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const register = async (email: string, password: string, fullName?: string) => {
         try {
             const { accessToken } = await authApi.register({ email, password, fullName })
-            await handleAuthSuccess(accessToken)
+            await handleAuthSuccess(accessToken, true) // Default to remember me for registration
         } catch (error) {
             console.error('Registration failed:', error)
             throw error
@@ -101,7 +118,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const devLogin = async (role: 'ADMIN' | 'MANAGER' | 'REVIEWER' | 'ANNOTATOR') => {
         try {
             const { accessToken } = await authApi.devLogin({ role })
-            await handleAuthSuccess(accessToken)
+            await handleAuthSuccess(accessToken, true) // Default true for dev login
         } catch (error) {
             console.error('Dev login failed:', error)
             throw error
@@ -111,7 +128,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const loginWithGoogle = async (idToken: string) => {
         try {
             const { accessToken } = await authApi.loginWithGoogle(idToken)
-            await handleAuthSuccess(accessToken)
+            await handleAuthSuccess(accessToken, true) // Default to remember me for Google
         } catch (error) {
             console.error('Google login failed:', error)
             throw error
@@ -122,6 +139,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(null)
         setAccessToken(null)
         localStorage.removeItem('accessToken')
+        sessionStorage.removeItem('accessToken')
         authApi.logout()
     }
 

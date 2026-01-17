@@ -32,13 +32,22 @@ export const LoginPage = () => {
         }
     }, [isAuthenticated, navigate]);
 
+    // Load remembered email
+    useEffect(() => {
+        const rememberedEmail = localStorage.getItem('rememberedEmail');
+        if (rememberedEmail) {
+            setEmail(rememberedEmail);
+            setRememberMe(true);
+        }
+    }, []);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
         setIsLoading(true);
 
         try {
-            await login(email, password);
+            await login(email, password, rememberMe);
             logger.info('Login successful');
             navigate('/');
         } catch (err: any) {

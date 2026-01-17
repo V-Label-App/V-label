@@ -18,6 +18,8 @@ import { LogOut, User as UserIcon } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { Button } from "../../components/ui/button"
 
+import { toast } from "sonner"
+
 export function UserNav() {
     const { user, logout } = useAuth()
     const navigate = useNavigate()
@@ -28,6 +30,11 @@ export function UserNav() {
     const initials = user.fullName
         ? user.fullName.split(" ").map((n) => n[0]).join("").toUpperCase().substring(0, 2)
         : user.email.substring(0, 2).toUpperCase()
+
+    const handleLogout = () => {
+        logout()
+        toast.success('Logged out successfully')
+    }
 
     return (
         <DropdownMenu>
@@ -61,7 +68,7 @@ export function UserNav() {
                     </DropdownMenuItem>
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={logout} className="text-destructive focus:text-destructive cursor-pointer">
+                <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive cursor-pointer">
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>Log out</span>
                     <DropdownMenuShortcut>⇧⌘Q</DropdownMenuShortcut>

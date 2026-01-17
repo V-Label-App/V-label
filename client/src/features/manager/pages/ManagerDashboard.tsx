@@ -752,10 +752,7 @@ export function ManagerDashboard() {
                 <p className="text-xs text-muted-foreground">Manager Dashboard</p>
               </div>
             </div>
-            <Button variant="outline" onClick={onLogout}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Logout
-            </Button>
+            <UserNav />
           </div>
         </div>
 
@@ -1352,10 +1349,7 @@ export function ManagerDashboard() {
                 <p className="text-xs text-muted-foreground">Manager Dashboard</p>
               </div>
             </div>
-            <Button variant="outline" onClick={onLogout}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Logout
-            </Button>
+            <UserNav />
           </div>
         </div>
 
