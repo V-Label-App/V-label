@@ -5,5 +5,6 @@ import { authMiddleware } from '../middlewares/auth.middleware.js'
 const router = Router()
 
 router.get('/me', authMiddleware, UserController.getMe)
+router.put('/me', authMiddleware, UserController.updateProfile)
 
 export default router
