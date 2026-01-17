@@ -12,4 +12,7 @@ router.post('/dev/login', AuthController.devLogin)
 // User registration
 router.post('/register', AuthController.register)
 
+// Google Login
+router.post('/google', AuthController.googleLogin)
+
 export default router

@@ -4,8 +4,9 @@ import { Card } from '../../../components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
 import { Avatar, AvatarFallback } from '../../../components/ui/avatar';
 import { Badge } from '../../../components/ui/badge';
-import { LogOut, Clock, Star, Sparkles, Tag } from 'lucide-react';
+import { Clock, Star, Sparkles, Tag } from 'lucide-react';
 import { formatDistanceToNow, parseISO } from 'date-fns';
+import { UserNav } from '../../../components/common/UserNav';
 
 interface QueueTask {
   id: string;
@@ -30,11 +31,10 @@ interface Label {
 }
 
 interface ReviewerQueueProps {
-  onLogout: () => void;
   onOpenWorkspace: (taskId: string, mode: 'review') => void;
 }
 
-export function ReviewerQueue({ onLogout, onOpenWorkspace }: ReviewerQueueProps) {
+export function ReviewerQueue({ onOpenWorkspace }: ReviewerQueueProps) {
   const [queueTasks] = useState<QueueTask[]>([
     {
       id: 'T-003',
@@ -122,10 +122,7 @@ export function ReviewerQueue({ onLogout, onOpenWorkspace }: ReviewerQueueProps)
                 <p className="text-xs text-muted-foreground">Quality Assurance Dashboard</p>
               </div>
             </div>
-            <Button variant="outline" onClick={onLogout}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Logout
-            </Button>
+            <UserNav />
           </div>
         </div>
       </div>
@@ -227,8 +224,8 @@ export function ReviewerQueue({ onLogout, onOpenWorkspace }: ReviewerQueueProps)
                           <div className="flex items-center gap-1 mt-0.5">
                             <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
                             <span className="text-xs text-muted-foreground">
-                              {task.annotator.name.includes('Nguyen') ? '98%' : 
-                               task.annotator.name.includes('Lisa') ? '92%' : '85%'}
+                              {task.annotator.name.includes('Nguyen') ? '98%' :
+                                task.annotator.name.includes('Lisa') ? '92%' : '85%'}
                             </span>
                           </div>
                         </div>

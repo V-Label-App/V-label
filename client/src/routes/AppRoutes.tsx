@@ -15,6 +15,7 @@ import { ReviewerQueue } from '../features/reviewer/pages/ReviewerQueue';
 // Other pages
 import DashboardPage from '../pages/DashboardPage';
 import { Workspace } from '../features/annotation/pages/Workspace';
+import ProfilePage from '../features/profile/pages/ProfilePage';
 
 // Root redirect component
 const RootRedirect = () => {
@@ -42,7 +43,7 @@ const WorkspaceRoute = () => {
 };
 
 export const AppRoutes = () => {
-    const { logout } = useAuth();
+    // const { logout } = useAuth();
 
     return (
         <Routes>
@@ -58,7 +59,7 @@ export const AppRoutes = () => {
                 path="/admin"
                 element={
                     <ProtectedRoute allowedRoles={['ADMIN']}>
-                        <AdminPanel onLogout={logout} />
+                        <AdminPanel />
                     </ProtectedRoute>
                 }
             />
@@ -67,7 +68,7 @@ export const AppRoutes = () => {
                 path="/manager"
                 element={
                     <ProtectedRoute allowedRoles={['MANAGER']}>
-                        <ManagerDashboard onLogout={logout} />
+                        <ManagerDashboard />
                     </ProtectedRoute>
                 }
             />
@@ -77,7 +78,6 @@ export const AppRoutes = () => {
                 element={
                     <ProtectedRoute allowedRoles={['ANNOTATOR']}>
                         <AnnotatorTasks
-                            onLogout={logout}
                             onOpenWorkspace={(taskId) => window.location.href = `/workspace/${taskId}`}
                         />
                     </ProtectedRoute>
@@ -89,7 +89,6 @@ export const AppRoutes = () => {
                 element={
                     <ProtectedRoute allowedRoles={['REVIEWER']}>
                         <ReviewerQueue
-                            onLogout={logout}
                             onOpenWorkspace={(taskId) => window.location.href = `/workspace/${taskId}`}
                         />
                     </ProtectedRoute>
@@ -102,6 +101,15 @@ export const AppRoutes = () => {
                 element={
                     <ProtectedRoute>
                         <WorkspaceRoute />
+                    </ProtectedRoute>
+                }
+            />
+
+            <Route
+                path="/profile"
+                element={
+                    <ProtectedRoute>
+                        <ProfilePage />
                     </ProtectedRoute>
                 }
             />

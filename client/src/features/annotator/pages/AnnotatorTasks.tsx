@@ -5,11 +5,12 @@ import { Badge } from '../../../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
 import { Avatar, AvatarFallback } from '../../../components/ui/avatar';
 import {
-  Play, AlertTriangle, Calendar, LogOut, Star, CheckCircle2,
+  Play, AlertTriangle, Calendar, Star, CheckCircle2,
   Clock, Target, Trophy, Tag
 } from 'lucide-react';
 import { format, isPast, parseISO } from 'date-fns';
 import { motion } from 'framer-motion';
+import { UserNav } from '../../../components/common/UserNav';
 
 interface Task {
   id: string;
@@ -31,11 +32,10 @@ interface Label {
 }
 
 interface AnnotatorTasksProps {
-  onLogout: () => void;
   onOpenWorkspace: (taskId: string, mode: 'annotate') => void;
 }
 
-export function AnnotatorTasks({ onLogout, onOpenWorkspace }: AnnotatorTasksProps) {
+export function AnnotatorTasks({ onOpenWorkspace }: AnnotatorTasksProps) {
   // Mock labels data
   const [labels] = useState<Label[]>([
     { id: 'L-001', name: 'Tumor', color: '#EF4444' },
@@ -251,100 +251,7 @@ export function AnnotatorTasks({ onLogout, onOpenWorkspace }: AnnotatorTasksProp
                 <p className="text-sm text-muted-foreground">Annotator Workspace</p>
               </div>
             </div>
-            <Button variant="outline" onClick={onLogout} className="gap-2">
-              <LogOut className="w-4 h-4" />
-              Logout
-            </Button>
-          </div>
-
-          {/* Profile Section */}
-          <div className="flex items-start gap-6">
-            {/* Avatar and Info */}
-            <div className="flex items-center gap-4">
-              <Avatar className="w-20 h-20 border-4 border-blue-100">
-                <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-500 text-white text-2xl font-bold">
-                  JS
-                </AvatarFallback>
-              </Avatar>
-              <div>
-                <h2 className="text-xl font-semibold mb-1">John Smith</h2>
-                <p className="text-sm text-muted-foreground mb-2">Senior Annotator • Medical Imaging</p>
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1 px-3 py-1.5 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                    <span className="text-sm font-semibold text-yellow-700">{userReputation}%</span>
-                    <span className="text-xs text-muted-foreground ml-1">Reputation</span>
-                  </div>
-                  <div className="flex items-center gap-1 px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg">
-                    <Trophy className="w-4 h-4 text-green-600" />
-                    <span className="text-sm font-semibold text-green-700">Top 5%</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Stats Cards */}
-            <div className="flex-1 grid grid-cols-4 gap-4">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: 0.1 }}
-              >
-                <Card className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
-                  <div className="flex items-center justify-between mb-2">
-                    <Target className="w-5 h-5 text-blue-600" />
-                    <span className="text-xs font-medium text-blue-600">ACTIVE</span>
-                  </div>
-                  <div className="text-2xl font-bold text-blue-900">{assignedTasks.length}</div>
-                  <div className="text-xs text-blue-700 mt-1">Assigned</div>
-                </Card>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: 0.2 }}
-              >
-                <Card className="p-4 bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
-                  <div className="flex items-center justify-between mb-2">
-                    <Clock className="w-5 h-5 text-purple-600" />
-                    <span className="text-xs font-medium text-purple-600">PENDING</span>
-                  </div>
-                  <div className="text-2xl font-bold text-purple-900">{submittedTasks.length}</div>
-                  <div className="text-xs text-purple-700 mt-1">Submitted</div>
-                </Card>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: 0.3 }}
-              >
-                <Card className="p-4 bg-gradient-to-br from-red-50 to-red-100 border-red-200">
-                  <div className="flex items-center justify-between mb-2">
-                    <AlertTriangle className="w-5 h-5 text-red-600" />
-                    <span className="text-xs font-medium text-red-600">URGENT</span>
-                  </div>
-                  <div className="text-2xl font-bold text-red-900">{rejectedTasks.length}</div>
-                  <div className="text-xs text-red-700 mt-1">Rejected</div>
-                </Card>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: 0.4 }}
-              >
-                <Card className="p-4 bg-gradient-to-br from-green-50 to-green-100 border-green-200">
-                  <div className="flex items-center justify-between mb-2">
-                    <CheckCircle2 className="w-5 h-5 text-green-600" />
-                    <span className="text-xs font-medium text-green-600">THIS MONTH</span>
-                  </div>
-                  <div className="text-2xl font-bold text-green-900">127</div>
-                  <div className="text-xs text-green-700 mt-1">Completed</div>
-                </Card>
-              </motion.div>
-            </div>
+            <UserNav />
           </div>
         </div>
       </motion.div>

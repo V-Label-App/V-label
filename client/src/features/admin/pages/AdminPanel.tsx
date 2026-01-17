@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Avatar, AvatarFallback } from '../../../components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../../components/ui/dialog';
 import { Label } from '../../../components/ui/label';
-import { Users, Database, Activity, Settings, FileText, Plus, Star, LogOut } from 'lucide-react';
+import { Users, Database, Activity, Settings, FileText, Plus, Star } from 'lucide-react';
+import { UserNav } from '../../../components/common/UserNav';
 import { motion } from 'framer-motion';
 
 interface User {
@@ -19,11 +20,9 @@ interface User {
   reputation_score: number;
 }
 
-interface AdminPanelProps {
-  onLogout: () => void;
-}
+interface AdminPanelProps { }
 
-export function AdminPanel({ onLogout }: AdminPanelProps) {
+export function AdminPanel({ }: AdminPanelProps) {
   const [users, setUsers] = useState<User[]>([
     { id: '1', name: 'John Admin', email: 'admin@company.com', role: 'admin', is_active: true, reputation_score: 100 },
     { id: '2', name: 'Sarah Manager', email: 'manager@company.com', role: 'manager', is_active: true, reputation_score: 98 },
@@ -114,15 +113,14 @@ export function AdminPanel({ onLogout }: AdminPanelProps) {
         </nav>
 
         <div className="p-4 border-t border-gray-200">
-          <Button variant="outline" className="w-full" onClick={onLogout}>
-            <LogOut className="w-4 h-4 mr-2" />
-            Logout
-          </Button>
         </div>
       </motion.div>
 
       {/* Main Content */}
       <div className="ml-64 p-8">
+        <div className="flex justify-end mb-4">
+          <UserNav />
+        </div>
         {/* Stats Cards */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}

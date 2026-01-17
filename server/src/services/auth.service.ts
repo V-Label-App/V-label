@@ -11,6 +11,7 @@ interface LoginResult {
     email: string
     role: UserRole
     fullName: string | null
+    avatarUrl: string | null
   }
 }
 
@@ -28,6 +29,7 @@ export class AuthService {
         passwordHash: true,
         role: true,
         fullName: true,
+        avatarUrl: true,
         isActive: true,
         provider: true,
       },
@@ -71,6 +73,7 @@ export class AuthService {
         email: user.email,
         role: user.role,
         fullName: user.fullName,
+        avatarUrl: user.avatarUrl,
       },
     }
   }
@@ -95,6 +98,7 @@ export class AuthService {
         email: true,
         role: true,
         fullName: true,
+        avatarUrl: true,
       },
     })
 
@@ -120,6 +124,7 @@ export class AuthService {
         email: user.email,
         role: user.role,
         fullName: user.fullName,
+        avatarUrl: user.avatarUrl,
       },
     }
   }
@@ -160,6 +165,7 @@ export class AuthService {
         email: true,
         role: true,
         fullName: true,
+        avatarUrl: true,
       },
     })
 
@@ -168,6 +174,8 @@ export class AuthService {
       sub: newUser.id,
       email: newUser.email,
       role: newUser.role,
+      fullName: newUser.fullName,
+      avatarUrl: newUser.avatarUrl,
     }
 
     const accessToken = signAccessToken(payload)
@@ -181,6 +189,95 @@ export class AuthService {
         email: newUser.email,
         role: newUser.role,
         fullName: newUser.fullName,
+        avatarUrl: newUser.avatarUrl,
+      },
+    }
+  }
+
+  /**
+   * Login with Google (Firebase)
+   */
+  static async loginWithGoogle(idToken: string): Promise<LoginResult | null> {
+    const { verifyFirebaseToken } = await import('./firebaseAuth.service.js')
+    
+    // Verify token with Firebase Admin
+    const decodedToken = await verifyFirebaseToken(idToken)
+    const { uid, email, name, picture } = decodedToken
+
+    if (!email) {
+      throw new Error('Google account must have an email address')
+    }
+
+    // Find user by googleId
+    let user = await prisma.user.findUnique({
+      where: { googleId: uid },
+    })
+
+    if (user) {
+      // Update latest info from Google
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          avatarUrl: picture || user.avatarUrl,
+          fullName: name || user.fullName,
+        }
+      })
+    }
+
+    // If not found by googleId, try by email (Account Linking)
+    if (!user) {
+      const existingUser = await prisma.user.findUnique({
+        where: { email },
+      })
+
+      if (existingUser) {
+        // Link account
+        user = await prisma.user.update({
+          where: { id: existingUser.id },
+          data: {
+            googleId: uid,
+            avatarUrl: picture || existingUser.avatarUrl,
+            // provider: 'GOOGLE', // Optional: Keep LOCAL or switch to GOOGLE? Let's keep original for now or support multiple. 
+            // Prisma schema has single provider enum. Let's switch to GOOGLE if they login via Google to reflect latest method, 
+            // OR we treat provider as "Registration Method". Let's update to GOOGLE to authorize future google logins easily.
+            provider: 'GOOGLE' 
+          },
+        })
+      } else {
+        // Create new user
+        user = await prisma.user.create({
+          data: {
+            email,
+            googleId: uid,
+            fullName: name || 'Google User',
+            avatarUrl: picture,
+            provider: 'GOOGLE',
+            role: 'ANNOTATOR',
+            isActive: true,
+          },
+        })
+      }
+    }
+
+    // Generate tokens
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    }
+
+    const accessToken = signAccessToken(payload)
+    const refreshToken = signRefreshToken(payload)
+
+    return {
+      accessToken,
+      refreshToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        fullName: user.fullName,
+        avatarUrl: user.avatarUrl,
       },
     }
   }

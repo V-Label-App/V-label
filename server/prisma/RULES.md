@@ -19,7 +19,7 @@ When working with Database changes, follow this strict workflow to ensure the te
 After editing `schema.prisma`, run the following command in the `server` directory:
 
 ```bash
-npm run db:migrate
+npm run migrate
 ```
 
 *   **What this does**:

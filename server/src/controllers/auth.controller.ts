@@ -156,4 +156,42 @@ export class AuthController {
       })
     }
   }
+
+  /**
+   * POST /api/v1/auth/google
+   * Login with Google ID Token
+   */
+  static async googleLogin(req: Request, res: Response) {
+    try {
+      const { idToken } = req.body
+
+      if (!idToken) {
+        return res.status(400).json({ error: 'Missing idToken' })
+      }
+
+      const result = await AuthService.loginWithGoogle(idToken)
+
+      if (!result) {
+        return res.status(401).json({ error: 'Google login failed' })
+      }
+
+      // Set refresh token in HTTP-only cookie
+      res.cookie('refreshToken', result.refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      })
+
+      return res.status(200).json({
+        accessToken: result.accessToken,
+        user: result.user,
+      })
+    } catch (error: any) {
+      console.error('[AUTH] Google login error:', error)
+      return res.status(401).json({
+        error: error.message || 'Invalid token',
+      })
+    }
+  }
 }

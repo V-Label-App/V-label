@@ -11,6 +11,18 @@ const apiClient = axios.create({
   },
 })
 
+// Add request interceptor to attach token
+apiClient.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('accessToken')
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
+    return config
+  },
+  (error) => Promise.reject(error)
+)
+
 // Add response interceptor to debug
 apiClient.interceptors.response.use(
   (response) => {
@@ -18,6 +30,14 @@ apiClient.interceptors.response.use(
     return response
   },
   (error) => {
+    if (error.response?.status === 401) {
+      console.warn('Unauthorized - Clearing session')
+      localStorage.removeItem('accessToken')
+      // Optional: Redirect to login or let the UI handle the null state
+      if (!window.location.pathname.includes('/login')) {
+         window.location.href = '/login'
+      }
+    }
     console.error('❌ API Error:', error.config?.url, error.response?.data || error.message)
     return Promise.reject(error)
   }
@@ -45,16 +65,35 @@ export interface AuthResponse {
     email: string
     role: string
     fullName: string | null
+    avatarUrl?: string | null
   }
 }
 
 
 export const authApi = {
   /**
+   * Get current user profile
+   */
+  getMe: async (): Promise<{ user: AuthResponse['user'] }> => {
+    const response = await apiClient.get<{ id: string; email: string; fullName: string | null; role: string; avatarUrl?: string }>('/users/me')
+    // Transform response to match AuthResponse.user structure if needed, or just return it
+    // The backend returns the User object directly
+    return { user: response.data }
+  },
+
+  /**
    * Standard email/password login
    */
   login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
     const response = await apiClient.post<AuthResponse>('/auth/login', credentials)
+    return response.data
+  },
+
+  /**
+   * Login with Google (Firebase)
+   */
+  loginWithGoogle: async (idToken: string): Promise<AuthResponse> => {
+    const response = await apiClient.post<AuthResponse>('/auth/google', { idToken })
     return response.data
   },
 

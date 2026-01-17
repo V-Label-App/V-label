@@ -45,6 +45,7 @@ import {
 import { format } from 'date-fns';
 import { LineChart, Line, BarChart, Bar, PieChart as RechartsPie, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { toast } from 'sonner';
+import { UserNav } from '../../../components/common/UserNav';
 import { CompactImageSummary } from '../../../components/CompactImageSummary';
 import { ManageImagesDialog } from '../../../components/ManageImagesDialog';
 import { LabelManagement } from '../../../components/LabelManagement';
@@ -80,11 +81,7 @@ interface Annotator {
   reputation: number;
 }
 
-interface ManagerDashboardProps {
-  onLogout: () => void;
-}
-
-export function ManagerDashboard({ onLogout }: ManagerDashboardProps) {
+export function ManagerDashboard() {
   const [view, setView] = useState<'list' | 'detail'>('list');
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
@@ -755,10 +752,7 @@ export function ManagerDashboard({ onLogout }: ManagerDashboardProps) {
                 <p className="text-xs text-muted-foreground">Manager Dashboard</p>
               </div>
             </div>
-            <Button variant="outline" onClick={onLogout}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Logout
-            </Button>
+            <UserNav />
           </div>
         </div>
 
@@ -1355,10 +1349,7 @@ export function ManagerDashboard({ onLogout }: ManagerDashboardProps) {
                 <p className="text-xs text-muted-foreground">Manager Dashboard</p>
               </div>
             </div>
-            <Button variant="outline" onClick={onLogout}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Logout
-            </Button>
+            <UserNav />
           </div>
         </div>
 

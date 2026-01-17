@@ -16,7 +16,18 @@ const currentPriority = LOG_LEVEL_PRIORITY[currentLevel]
 
 const shouldLog = (level: LogLevel) => LOG_LEVEL_PRIORITY[level] <= currentPriority
 
-const formatTimestamp = () => new Date().toISOString()
+const formatTimestamp = () => {
+  return new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).format(new Date()).replace(' ', 'T') // Keep T separator or use space if preferred. User asked for "dễ nhìn" (easy to read). Let's use space.
+  .replace('T', ' ')
+}
 
 export const logger = {
   // HTTP request logging
