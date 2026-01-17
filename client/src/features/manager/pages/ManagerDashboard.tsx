@@ -739,7 +739,7 @@ export function ManagerDashboard() {
   // Projects List View
   if (view === 'list') {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50 animate-in fade-in slide-in-from-bottom-5 duration-700">
         {/* Header */}
         <div className="bg-white border-b border-gray-200">
           <div className="max-w-7xl mx-auto px-8 py-4 flex items-center justify-between">
@@ -840,7 +840,8 @@ export function ManagerDashboard() {
                 return (
                   <Card
                     key={project.id}
-                    className="p-6 hover:shadow-lg transition-shadow cursor-pointer"
+                    className="p-6 hover:shadow-xl hover:scale-[1.02] transition-all duration-300 cursor-pointer border-t-4"
+                    style={{ borderTopColor: progress === 100 ? '#22c55e' : '#3b82f6' }}
                     onClick={() => openProjectDetail(project)}
                   >
                     <div className="flex items-start justify-between mb-4">
@@ -1336,7 +1337,7 @@ export function ManagerDashboard() {
     const { statusData, annotatorData, progressData } = getAnalyticsData(selectedProject);
 
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50 animate-in fade-in slide-in-from-bottom-5 duration-700">
         {/* Header */}
         <div className="bg-white border-b border-gray-200">
           <div className="max-w-7xl mx-auto px-8 py-4 flex items-center justify-between">

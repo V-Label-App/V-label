@@ -10,11 +10,46 @@ import {
     BarChart, Bar, XAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
     PieChart, Pie, Cell, AreaChart, Area
 } from 'recharts';
-import { Trophy } from "lucide-react";
+import { Trophy, Upload, Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "../../../components/ui/dialog"
+import { Input } from "../../../components/ui/input"
+import { Label } from "../../../components/ui/label"
+import { useState } from "react"
+import { toast } from "sonner"
+import api from "../../../api/axiosClient"
+
+
 
 export default function ProfilePage() {
-    const { user } = useAuth()
+    const { user, refreshUserProfile } = useAuth()
     const navigate = useNavigate()
+
+    const [isEditOpen, setIsEditOpen] = useState(false)
+    const [isSaving, setIsSaving] = useState(false)
+    const [formData, setFormData] = useState({
+        fullName: user?.fullName || '',
+        phoneNumber: (user as any)?.phoneNumber || ''
+    })
+
+    const handleSaveProfile = async () => {
+        if (!formData.fullName.trim()) {
+            toast.error("Full name is required")
+            return
+        }
+
+        try {
+            setIsSaving(true)
+            await api.put('/users/me', formData)
+            await refreshUserProfile()
+            toast.success("Profile updated successfully")
+            setIsEditOpen(false)
+        } catch (error) {
+            toast.error("Failed to update profile")
+            console.error(error)
+        } finally {
+            setIsSaving(false)
+        }
+    }
 
     if (!user) return <div className="p-8 text-center">Loading profile...</div>
 
@@ -101,7 +136,69 @@ export default function ProfilePage() {
                     </div>
                 </div>
 
-                <Button>Edit Profile</Button>
+                <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+                    <DialogTrigger asChild>
+                        <Button onClick={() => setFormData({
+                            fullName: user.fullName || '',
+                            phoneNumber: (user as any).phoneNumber || ''
+                        })}>
+                            Edit Profile
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Edit Profile</DialogTitle>
+                            <DialogDescription>
+                                Update your personal information.
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        <div className="space-y-4 py-4">
+                            {/* Avatar Section */}
+                            <div className="flex flex-col items-center gap-2 mb-4">
+                                <Avatar className="h-20 w-20">
+                                    <AvatarImage src={user.avatarUrl || ""} />
+                                    <AvatarFallback>{initials}</AvatarFallback>
+                                </Avatar>
+                                <div className="flex flex-col items-center">
+                                    <Button variant="outline" size="sm" disabled className="gap-2">
+                                        <Upload className="h-3 w-3" />
+                                        Change Avatar
+                                    </Button>
+                                    <span className="text-[10px] text-muted-foreground mt-1 bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full">
+                                        Coming Soon
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="fullName">Full Name</Label>
+                                <Input
+                                    id="fullName"
+                                    value={formData.fullName}
+                                    onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="phone">Phone Number</Label>
+                                <Input
+                                    id="phone"
+                                    value={formData.phoneNumber}
+                                    onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+                                />
+                            </div>
+                        </div>
+
+                        <DialogFooter>
+                            <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
+                            <Button onClick={handleSaveProfile} disabled={isSaving}>
+                                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Save Changes
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             </div>
 
             <Tabs defaultValue="overview" className="space-y-6">

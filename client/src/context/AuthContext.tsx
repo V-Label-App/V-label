@@ -12,6 +12,7 @@ interface AuthContextType {
     devLogin: (role: 'ADMIN' | 'MANAGER' | 'REVIEWER' | 'ANNOTATOR') => Promise<void>
     loginWithGoogle: (idToken: string) => Promise<void>
     logout: () => void
+    refreshUserProfile: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -143,6 +144,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         authApi.logout()
     }
 
+    const refreshUserProfile = async () => {
+        try {
+            const { user: userProfile } = await authApi.getMe()
+            setUser(userProfile as User)
+        } catch (error) {
+            console.error('Failed to refresh profile:', error)
+        }
+    }
+
     return (
         <AuthContext.Provider
             value={{
@@ -155,6 +165,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 devLogin,
                 loginWithGoogle,
                 logout,
+                refreshUserProfile
             }}
         >
             {children}
