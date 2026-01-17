@@ -23,18 +23,18 @@ export function ManageImagesDialog({ images, onRemove, onClose }: ManageImagesDi
   const [currentPage, setCurrentPage] = useState(1);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const itemsPerPage = 50;
-  
+
   // Filtered and sorted images
   const processedImages = useMemo(() => {
     let filtered = images.map((file, index) => ({ file, originalIndex: index }));
-    
+
     // Search
     if (searchQuery) {
       filtered = filtered.filter(({ file }) =>
         file.name.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
-    
+
     // Sort
     filtered.sort((a, b) => {
       switch (sortBy) {
@@ -50,26 +50,26 @@ export function ManageImagesDialog({ images, onRemove, onClose }: ManageImagesDi
           return 0;
       }
     });
-    
+
     return filtered;
   }, [images, searchQuery, sortBy]);
-  
+
   // Pagination
   const totalPages = Math.ceil(processedImages.length / itemsPerPage);
   const paginatedImages = processedImages.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
-  
+
   // Reset to page 1 when search/filter changes
   useMemo(() => {
     setCurrentPage(1);
   }, [searchQuery, sortBy]);
-  
+
   // Keyboard navigation for preview
   useEffect(() => {
     if (previewIndex === null) return;
-    
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft') {
         navigatePreview(-1);
@@ -79,21 +79,21 @@ export function ManageImagesDialog({ images, onRemove, onClose }: ManageImagesDi
         setPreviewIndex(null);
       }
     };
-    
+
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [previewIndex, images.length]);
-  
+
   // Navigate preview
   const navigatePreview = (direction: number) => {
     if (previewIndex === null) return;
-    
+
     const newIndex = previewIndex + direction;
     if (newIndex >= 0 && newIndex < images.length) {
       setPreviewIndex(newIndex);
     }
   };
-  
+
   // Toggle selection
   const toggleSelect = (index: number) => {
     const newSet = new Set(selectedIndexes);
@@ -104,7 +104,7 @@ export function ManageImagesDialog({ images, onRemove, onClose }: ManageImagesDi
     }
     setSelectedIndexes(newSet);
   };
-  
+
   // Select all on current page
   const selectAllPage = () => {
     const newSet = new Set(selectedIndexes);
@@ -113,34 +113,34 @@ export function ManageImagesDialog({ images, onRemove, onClose }: ManageImagesDi
     });
     setSelectedIndexes(newSet);
   };
-  
+
   // Deselect all
   const deselectAll = () => {
     setSelectedIndexes(new Set());
   };
-  
+
   // Remove selected
   const removeSelected = () => {
     const toRemove = Array.from(selectedIndexes).sort((a, b) => b - a);
     onRemove(toRemove);
     setSelectedIndexes(new Set());
   };
-  
+
   const formatSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
-  
+
   // Pagination helpers
   const goToPage = (page: number) => {
     setCurrentPage(Math.max(1, Math.min(page, totalPages)));
   };
-  
+
   const getPageNumbers = () => {
     const pages: (number | string)[] = [];
     const maxVisible = 5;
-    
+
     if (totalPages <= maxVisible) {
       for (let i = 1; i <= totalPages; i++) {
         pages.push(i);
@@ -154,12 +154,12 @@ export function ManageImagesDialog({ images, onRemove, onClose }: ManageImagesDi
         pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
       }
     }
-    
+
     return pages;
   };
-  
+
   const previewFile = previewIndex !== null ? images[previewIndex] : null;
-  
+
   return (
     <>
       <Dialog open onOpenChange={onClose}>
@@ -172,18 +172,18 @@ export function ManageImagesDialog({ images, onRemove, onClose }: ManageImagesDi
               Search, filter, and remove images. Click on any image to preview.
             </DialogDescription>
           </DialogHeader>
-          
+
           {/* Toolbar */}
           <div className="flex flex-wrap gap-3 pb-4 border-b">
             <div className="flex-1 min-w-[300px]">
               <Input
                 placeholder="Search filenames..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
                 className="w-full"
               />
             </div>
-            
+
             <Select value={sortBy} onValueChange={(v: any) => setSortBy(v)}>
               <SelectTrigger className="w-[140px]">
                 <SelectValue />
@@ -194,17 +194,17 @@ export function ManageImagesDialog({ images, onRemove, onClose }: ManageImagesDi
                 <SelectItem value="type">Sort: Type</SelectItem>
               </SelectContent>
             </Select>
-            
+
             <Button variant="outline" size="sm" onClick={selectAllPage}>
               Select Page
             </Button>
-            
+
             {selectedIndexes.size > 0 && (
               <>
                 <Button variant="outline" size="sm" onClick={deselectAll}>
                   Deselect All
                 </Button>
-                <Button 
+                <Button
                   variant="destructive"
                   size="sm"
                   onClick={removeSelected}
@@ -215,7 +215,7 @@ export function ManageImagesDialog({ images, onRemove, onClose }: ManageImagesDi
               </>
             )}
           </div>
-          
+
           {/* Table with proper scrolling */}
           <div className="flex-1 overflow-auto border rounded-lg">
             {processedImages.length > 0 ? (
@@ -235,9 +235,9 @@ export function ManageImagesDialog({ images, onRemove, onClose }: ManageImagesDi
                   {paginatedImages.map(({ file, originalIndex }) => {
                     const isSelected = selectedIndexes.has(originalIndex);
                     const ext = file.name.split('.').pop()?.toUpperCase() || '?';
-                    
+
                     return (
-                      <TableRow 
+                      <TableRow
                         key={originalIndex}
                         className={isSelected ? 'bg-blue-50' : ''}
                       >
@@ -247,18 +247,18 @@ export function ManageImagesDialog({ images, onRemove, onClose }: ManageImagesDi
                             onCheckedChange={() => toggleSelect(originalIndex)}
                           />
                         </TableCell>
-                        
+
                         <TableCell className="text-center text-muted-foreground">
                           {originalIndex + 1}
                         </TableCell>
-                        
+
                         <TableCell>
-                          <div 
+                          <div
                             className="w-16 h-16 bg-gray-100 rounded border overflow-hidden cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all group relative"
                             onClick={() => setPreviewIndex(originalIndex)}
                           >
-                            <img 
-                              src={URL.createObjectURL(file)} 
+                            <img
+                              src={URL.createObjectURL(file)}
                               alt={file.name}
                               className="w-full h-full object-cover"
                               loading="lazy"
@@ -268,23 +268,23 @@ export function ManageImagesDialog({ images, onRemove, onClose }: ManageImagesDi
                             </div>
                           </div>
                         </TableCell>
-                        
+
                         <TableCell>
                           <p className="font-medium truncate max-w-md" title={file.name}>
                             {file.name}
                           </p>
                         </TableCell>
-                        
+
                         <TableCell className="text-right text-muted-foreground">
                           {formatSize(file.size)}
                         </TableCell>
-                        
+
                         <TableCell className="text-center">
                           <Badge variant="outline" className="text-xs">
                             {ext}
                           </Badge>
                         </TableCell>
-                        
+
                         <TableCell className="text-center">
                           <Button
                             variant="ghost"
@@ -306,14 +306,14 @@ export function ManageImagesDialog({ images, onRemove, onClose }: ManageImagesDi
               </div>
             )}
           </div>
-          
+
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex items-center justify-between pt-4 border-t">
               <p className="text-sm text-muted-foreground">
                 Page {currentPage} of {totalPages} • Showing {paginatedImages.length} of {processedImages.length}
               </p>
-              
+
               <div className="flex items-center gap-1">
                 <Button
                   variant="outline"
@@ -323,7 +323,7 @@ export function ManageImagesDialog({ images, onRemove, onClose }: ManageImagesDi
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </Button>
-                
+
                 {getPageNumbers().map((page, idx) => (
                   typeof page === 'number' ? (
                     <Button
@@ -341,7 +341,7 @@ export function ManageImagesDialog({ images, onRemove, onClose }: ManageImagesDi
                     </span>
                   )
                 ))}
-                
+
                 <Button
                   variant="outline"
                   size="sm"
@@ -353,7 +353,7 @@ export function ManageImagesDialog({ images, onRemove, onClose }: ManageImagesDi
               </div>
             </div>
           )}
-          
+
           {/* Footer */}
           <div className="flex items-center justify-between pt-4 border-t">
             <p className="text-sm text-muted-foreground">
@@ -377,7 +377,7 @@ export function ManageImagesDialog({ images, onRemove, onClose }: ManageImagesDi
                 Image preview - Image {previewIndex + 1} of {images.length}
               </DialogDescription>
             </DialogHeader>
-            
+
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b bg-white">
               <div className="flex-1 min-w-0">
@@ -392,7 +392,7 @@ export function ManageImagesDialog({ images, onRemove, onClose }: ManageImagesDi
                   </Badge>
                 </div>
               </div>
-              
+
               <Button
                 variant="ghost"
                 size="sm"
@@ -421,7 +421,7 @@ export function ManageImagesDialog({ images, onRemove, onClose }: ManageImagesDi
                 <ChevronLeft className="w-4 h-4 mr-2" />
                 Previous
               </Button>
-              
+
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
@@ -444,7 +444,7 @@ export function ManageImagesDialog({ images, onRemove, onClose }: ManageImagesDi
                   Delete
                 </Button>
               </div>
-              
+
               <Button
                 variant="outline"
                 onClick={() => navigatePreview(1)}

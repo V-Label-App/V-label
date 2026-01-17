@@ -3,10 +3,9 @@ import { Button } from '../../../components/ui/button';
 import { Card } from '../../../components/ui/card';
 import { Badge } from '../../../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
-import { Avatar, AvatarFallback } from '../../../components/ui/avatar';
+
 import {
-  Play, AlertTriangle, Calendar, Star, CheckCircle2,
-  Clock, Target, Trophy, Tag
+  Play, AlertTriangle, Calendar, Tag
 } from 'lucide-react';
 import { format, isPast, parseISO } from 'date-fns';
 import { motion } from 'framer-motion';
@@ -101,7 +100,7 @@ export function AnnotatorTasks({ onOpenWorkspace }: AnnotatorTasksProps) {
     },
   ]);
 
-  const userReputation = 98;
+
 
   const getStatusBadge = (status: string) => {
     const styles = {

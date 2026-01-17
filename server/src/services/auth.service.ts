@@ -158,7 +158,7 @@ export class AuthService {
         fullName: fullName || null,
         provider: 'LOCAL',
         role: 'ANNOTATOR', // Default role for new users
-        isActive: true,
+
       },
       select: {
         id: true,
@@ -250,10 +250,10 @@ export class AuthService {
             email,
             googleId: uid,
             fullName: name || 'Google User',
-            avatarUrl: picture,
+            avatarUrl: picture ?? null,
             provider: 'GOOGLE',
             role: 'ANNOTATOR',
-            isActive: true,
+
           },
         })
       }

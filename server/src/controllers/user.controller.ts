@@ -1,5 +1,6 @@
 import { Request, Response } from 'express'
 import { prisma } from '../utils/database.js'
+import logger from '../utils/logger.js'
 
 export class UserController {
   /**
@@ -26,9 +27,12 @@ export class UserController {
           reputationScore: true,
           totalTasksDone: true,
           createdAt: true,
-          isActive: true
+          isActive: true,
+          phoneNumber: true
         }
       })
+      logger.info('USER', 'User profile:', JSON.stringify({ userId, user }, null, 2))
+      
 
       if (!user) {
         return res.status(404).json({ error: 'User not found' })

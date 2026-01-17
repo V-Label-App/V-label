@@ -23,7 +23,7 @@ import {
   CheckCircle2,
   Clock,
   AlertCircle,
-  LogOut,
+
   Star,
   Plus,
   ArrowLeft,
