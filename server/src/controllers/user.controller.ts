@@ -124,6 +124,10 @@ export class UserController {
    * POST /api/v1/users
    * Create new user (Admin only)
    */
+  /**
+   * CREATE USER
+   * POST /api/v1/users
+   */
   static async createUser(req: Request, res: Response) {
     try {
       const { email, password, fullName, role } = req.body
@@ -146,9 +150,9 @@ export class UserController {
       const newUser = await prisma.user.create({
         data: {
           email,
-          password: hashedPassword,
+          passwordHash: hashedPassword,
           fullName,
-          role: role || 'annotator',
+          role: role || 'ANNOTATOR',
           isActive: true
         },
         select: {
@@ -170,12 +174,12 @@ export class UserController {
   }
 
   /**
+   * UPDATE USER
    * PUT /api/v1/users/:id
-   * Update user details (Admin only)
    */
   static async updateUser(req: Request, res: Response) {
     try {
-      const { id } = req.params
+      const { id } = req.params as { id: string }
       const { fullName, role, isActive, phoneNumber } = req.body
 
       const updatedUser = await prisma.user.update({
@@ -205,12 +209,12 @@ export class UserController {
   }
 
   /**
+   * DELETE USER
    * DELETE /api/v1/users/:id
-   * Delete user (Admin only)
    */
   static async deleteUser(req: Request, res: Response) {
     try {
-      const { id } = req.params
+      const { id } = req.params as { id: string }
 
       await prisma.user.delete({
         where: { id }
