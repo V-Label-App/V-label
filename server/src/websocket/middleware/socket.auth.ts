@@ -14,8 +14,8 @@ export function socketAuthMiddleware(socket: Socket, next: (err?: Error) => void
   }
 
   try {
-    const decoded = jwt.verify(token, config.JWT_SECRET) as { id: string };
-    socket.data.userId = decoded.id;
+    const decoded = jwt.verify(token, config.JWT_SECRET) as { id?: string; sub?: string };
+    socket.data.userId = decoded.sub || decoded.id;
     // logger.success('SOCKET_AUTH', `Authenticated user: ${decoded.id}`);
     next();
   } catch (error: any) {

@@ -18,7 +18,7 @@ interface User {
   id: string;
   name: string;
   email: string;
-  role: 'admin' | 'manager' | 'reviewer' | 'annotator';
+  role: 'ADMIN' | 'MANAGER' | 'REVIEWER' | 'ANNOTATOR';
   is_active: boolean;
   reputation_score: number;
 }
@@ -51,7 +51,7 @@ export function AdminPanel({ }: AdminPanelProps) {
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [newRole, setNewRole] = useState<'admin' | 'manager' | 'reviewer' | 'annotator'>('annotator');
+  const [newRole, setNewRole] = useState<'ADMIN' | 'MANAGER' | 'REVIEWER' | 'ANNOTATOR'>('ANNOTATOR');
 
   const fetchUsers = async () => {
     try {
@@ -62,7 +62,7 @@ export function AdminPanel({ }: AdminPanelProps) {
         id: u.id,
         name: u.fullName || 'Unknown',
         email: u.email,
-        role: (u.role?.toLowerCase() || 'annotator') as any,
+        role: (u.role?.toUpperCase() || 'ANNOTATOR') as any,
         is_active: u.isActive,
         reputation_score: u.reputationScore || 0
       }));
@@ -98,7 +98,7 @@ export function AdminPanel({ }: AdminPanelProps) {
       setNewName('');
       setNewEmail('');
       setNewPassword('');
-      setNewRole('annotator');
+      setNewRole('ANNOTATOR');
       fetchUsers();
     } catch (error: any) {
       console.error("Failed to create user", error);
@@ -194,7 +194,7 @@ export function AdminPanel({ }: AdminPanelProps) {
 
     // Handle role hierarchy
     if (key === 'role') {
-      const roleOrder: Record<string, number> = { admin: 0, manager: 1, reviewer: 2, annotator: 3 };
+      const roleOrder: Record<string, number> = { ADMIN: 0, MANAGER: 1, REVIEWER: 2, ANNOTATOR: 3 };
       const aRank = roleOrder[aValue as string] ?? 99;
       const bRank = roleOrder[bValue as string] ?? 99;
       return direction === 'asc' ? aRank - bRank : bRank - aRank;
@@ -222,10 +222,10 @@ export function AdminPanel({ }: AdminPanelProps) {
 
   const getRoleColor = (role: string) => {
     const colors = {
-      admin: 'bg-red-100 text-red-700',
-      manager: 'bg-blue-100 text-blue-700',
-      reviewer: 'bg-purple-100 text-purple-700',
-      annotator: 'bg-green-100 text-green-700',
+      ADMIN: 'bg-red-100 text-red-700',
+      MANAGER: 'bg-blue-100 text-blue-700',
+      REVIEWER: 'bg-purple-100 text-purple-700',
+      ANNOTATOR: 'bg-green-100 text-green-700',
     };
     return colors[role as keyof typeof colors] || 'bg-gray-100 text-gray-700';
   };
@@ -387,10 +387,10 @@ export function AdminPanel({ }: AdminPanelProps) {
                           <SelectValue placeholder="Select role" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="admin">Admin</SelectItem>
-                          <SelectItem value="manager">Manager</SelectItem>
-                          <SelectItem value="reviewer">Reviewer</SelectItem>
-                          <SelectItem value="annotator">Annotator</SelectItem>
+                          <SelectItem value="ADMIN">Admin</SelectItem>
+                          <SelectItem value="MANAGER">Manager</SelectItem>
+                          <SelectItem value="REVIEWER">Reviewer</SelectItem>
+                          <SelectItem value="ANNOTATOR">Annotator</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -499,10 +499,10 @@ export function AdminPanel({ }: AdminPanelProps) {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="admin">Admin</SelectItem>
-                              <SelectItem value="manager">Manager</SelectItem>
-                              <SelectItem value="reviewer">Reviewer</SelectItem>
-                              <SelectItem value="annotator">Annotator</SelectItem>
+                              <SelectItem value="ADMIN">Admin</SelectItem>
+                              <SelectItem value="MANAGER">Manager</SelectItem>
+                              <SelectItem value="REVIEWER">Reviewer</SelectItem>
+                              <SelectItem value="ANNOTATOR">Annotator</SelectItem>
                             </SelectContent>
                           </Select>
                         </TableCell>
