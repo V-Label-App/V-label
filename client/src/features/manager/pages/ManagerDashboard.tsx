@@ -15,7 +15,7 @@ import { Checkbox } from '../../../components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '../../../components/ui/dropdown-menu';
 import { RadioGroup, RadioGroupItem } from '../../../components/ui/radio-group';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../../../components/ui/collapsible';
+// import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../../../components/ui/collapsible';
 import {
   FolderOpen,
   Calendar as CalendarIcon,
@@ -35,7 +35,7 @@ import {
   Download,
   MoreVertical,
   Tag,
-  ChevronDown,
+  // ChevronDown,
   Trash2,
   FileText,
   TrendingUp,
