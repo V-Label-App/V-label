@@ -281,4 +281,46 @@ export class AuthService {
       },
     }
   }
+  /**
+   * Admin Impersonation: Get token for target user without password
+   */
+  static async impersonateUser(targetUserId: string): Promise<LoginResult | null> {
+    const user = await prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: {
+          id: true,
+          email: true,
+          role: true,
+          fullName: true,
+          avatarUrl: true,
+          isActive: true
+      }
+    })
+
+    if (!user || !user.isActive) {
+      return null
+    }
+
+    // Generate tokens for the target user
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    }
+
+    const accessToken = signAccessToken(payload)
+    const refreshToken = signRefreshToken(payload)
+
+    return {
+      accessToken,
+      refreshToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        fullName: user.fullName,
+        avatarUrl: user.avatarUrl,
+      },
+    }
+  }
 }

@@ -15,4 +15,10 @@ router.post('/register', AuthController.register)
 // Google Login
 router.post('/google', AuthController.googleLogin)
 
+// Impersonation (Admin Only)
+import { authMiddleware } from '../middlewares/auth.middleware.js'
+import { requireRole } from '../middlewares/role.middleware.js'
+
+router.post('/impersonate/:userId', authMiddleware, requireRole(['ADMIN']), AuthController.impersonate)
+
 export default router

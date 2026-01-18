@@ -10,6 +10,7 @@ router.put('/me', authMiddleware, UserController.updateProfile)
 // Admin Routes
 router.get('/', authMiddleware, requireRole(['admin']), UserController.getAllUsers)
 router.post('/', authMiddleware, requireRole(['admin']), UserController.createUser)
+router.get('/:id', authMiddleware, requireRole(['admin']), UserController.getUserById)
 router.put('/:id', authMiddleware, requireRole(['admin']), UserController.updateUser)
 router.delete('/:id', authMiddleware, requireRole(['admin']), UserController.deleteUser)
 

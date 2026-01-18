@@ -132,6 +132,16 @@ export const authApi = {
   },
 
   /**
+   * Get single user (Admin only)
+   */
+  getUserById: async (id: string): Promise<AuthResponse['user']> => {
+     // We are reusing the User interface from jwt.utils or defining a compatible one
+     // The backend returns the user object directly
+     const response = await apiClient.get<AuthResponse['user']>(`/users/${id}`)
+     return response.data
+  },
+
+  /**
    * Create new user (Admin only)
    */
   createUser: async (data: any): Promise<AuthResponse['user']> => {
@@ -152,5 +162,12 @@ export const authApi = {
    */
   deleteUser: async (id: string): Promise<void> => {
     await apiClient.delete(`/users/${id}`)
+  },
+  /**
+   * Impersonate User (Admin only)
+   */
+  impersonate: async (userId: string): Promise<AuthResponse> => {
+    const response = await apiClient.post<AuthResponse>(`/auth/impersonate/${userId}`)
+    return response.data
   },
 }

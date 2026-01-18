@@ -8,6 +8,7 @@ import { RegisterPage } from '../features/auth/pages/RegisterPage';
 
 // Role-specific pages
 import { AdminPanel } from '../features/admin/pages/AdminPanel';
+import { AdminUserDetailPage } from '../features/admin/pages/AdminUserDetailPage';
 import { ProjectListPage } from '../features/manager/pages/ProjectListPage';
 import { ProjectDetailPage } from '../features/manager/pages/ProjectDetailPage';
 import { AnnotatorTasks } from '../features/annotator/pages/AnnotatorTasks';
@@ -61,6 +62,22 @@ export const AppRoutes = () => {
                 element={
                     <ProtectedRoute allowedRoles={['ADMIN']}>
                         <AdminPanel />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/admin/users/:userId"
+                element={
+                    <ProtectedRoute allowedRoles={['ADMIN']}>
+                        <AdminUserDetailPage />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/admin/users/:userId"
+                element={
+                    <ProtectedRoute allowedRoles={['ADMIN']}>
+                        <AdminUserDetailPage />
                     </ProtectedRoute>
                 }
             />

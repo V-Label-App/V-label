@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Avatar, AvatarFallback } from '../../../components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '../../../components/ui/dialog';
 import { Label } from '../../../components/ui/label';
-import { Users, Database, Activity, Settings, FileText, Plus, Star, Trash2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Users, Database, Activity, Settings, FileText, Plus, Star, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Eye } from 'lucide-react';
 import { UserNav } from '../../../components/common/UserNav';
 import { motion } from 'framer-motion';
 import { authApi } from '../../../services/auth.api';
@@ -528,6 +528,15 @@ export function AdminPanel({ }: AdminPanelProps) {
                             <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getRoleColor(user.role)}`}>
                               {user.role}
                             </span>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-blue-500 hover:text-blue-600 hover:bg-blue-50"
+                              onClick={() => window.location.href = `/admin/users/${user.id}`}
+                              title="View Details"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => initDeleteUser(user)}>
                               <Trash2 className="w-4 h-4" />
                             </Button>

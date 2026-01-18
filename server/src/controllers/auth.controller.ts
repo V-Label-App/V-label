@@ -194,4 +194,45 @@ export class AuthController {
       })
     }
   }
+  /**
+   * POST /api/v1/auth/impersonate/:userId
+   * Admin Only: Get token for target user
+   */
+  static async impersonate(req: Request, res: Response) {
+    try {
+      const { userId } = req.params
+
+      if (!userId || typeof userId !== 'string') {
+          return res.status(400).json({ error: 'Target userId is required' })
+      } 
+
+      // Note: Role check is handled by middleware in routes file
+
+      const result = await AuthService.impersonateUser(userId)
+
+      if (!result) {
+        return res.status(404).json({
+          error: 'Target user not found or inactive',
+        })
+      }
+
+      // We do NOT set the refresh token cookie strictly for the admin here to avoid overwriting their main session permanently (?)
+      // Actually, for "Simple Assumption", we treat it as a full login.
+      // So yes, we overwrite the cookie so the browser considers them fully that user.
+      res.cookie('refreshToken', result.refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      })
+
+      return res.status(200).json({
+        accessToken: result.accessToken,
+        user: result.user,
+      })
+    } catch (error) {
+       console.error('[AUTH] Impersonation error:', error)
+       return res.status(500).json({ error: 'Internal server error' })
+    }
+  }
 }

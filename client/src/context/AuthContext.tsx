@@ -13,6 +13,9 @@ interface AuthContextType {
     loginWithGoogle: (idToken: string) => Promise<void>
     logout: () => void
     refreshUserProfile: () => Promise<void>
+    impersonateUser: (userId: string) => Promise<void>
+    stopImpersonation: () => Promise<void>
+    isImpersonating: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -153,6 +156,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
     }
 
+    const impersonateUser = async (userId: string) => {
+        try {
+            const { accessToken: newAccessToken } = await authApi.impersonate(userId)
+
+            // Store original token
+            const currentToken = accessToken
+            if (currentToken) {
+                localStorage.setItem('originalAccessToken', currentToken)
+            }
+
+            // Switch to new token
+            await handleAuthSuccess(newAccessToken, true)
+        } catch (error) {
+            console.error('Impersonation failed:', error)
+            throw error
+        }
+    }
+
+    const stopImpersonation = async () => {
+        const originalToken = localStorage.getItem('originalAccessToken')
+        if (originalToken) {
+            // Restore original token
+            await handleAuthSuccess(originalToken, true)
+            localStorage.removeItem('originalAccessToken')
+        }
+    }
+
     return (
         <AuthContext.Provider
             value={{
@@ -165,7 +195,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 devLogin,
                 loginWithGoogle,
                 logout,
-                refreshUserProfile
+                refreshUserProfile,
+                impersonateUser,
+                stopImpersonation,
+                isImpersonating: !!localStorage.getItem('originalAccessToken')
             }}
         >
             {children}

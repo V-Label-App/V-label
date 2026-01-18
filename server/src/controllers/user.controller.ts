@@ -209,6 +209,41 @@ export class UserController {
   }
 
   /**
+   * GET USER BY ID
+   * GET /api/v1/users/:id
+   */
+  static async getUserById(req: Request, res: Response) {
+    try {
+      const { id } = req.params as { id: string }
+      
+      const user = await prisma.user.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          email: true,
+          fullName: true,
+          avatarUrl: true,
+          role: true,
+          reputationScore: true,
+          totalTasksDone: true,
+          createdAt: true,
+          isActive: true,
+          phoneNumber: true
+        }
+      })
+
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' })
+      }
+
+      return res.json(user)
+    } catch (error) {
+       console.error('Get user error:', error)
+       return res.status(500).json({ error: 'Internal server error' })
+    }
+  }
+
+  /**
    * DELETE USER
    * DELETE /api/v1/users/:id
    */

@@ -3,6 +3,7 @@ import { BrowserRouter } from 'react-router-dom'
 import { AppRoutes } from './routes/AppRoutes'
 import { SocketProvider } from './context/SocketContext'
 import { logger } from './utils/logger'
+import { ImpersonationBanner } from './components/ImpersonationBanner'
 import './App.css'
 
 function App() {
@@ -25,6 +26,7 @@ function App() {
   return (
     <BrowserRouter>
       <SocketProvider>
+        <ImpersonationBanner />
         <AppRoutes />
       </SocketProvider>
     </BrowserRouter>
