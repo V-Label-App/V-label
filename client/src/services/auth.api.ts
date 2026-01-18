@@ -26,7 +26,7 @@ apiClient.interceptors.request.use(
 // Add response interceptor to debug
 apiClient.interceptors.response.use(
   (response) => {
-    console.log('✅ API Response:', response.config.url, response.data)
+    // console.log('✅ API Response:', response.config.url, response.data)
     return response
   },
   (error) => {

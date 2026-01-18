@@ -8,7 +8,8 @@ import { RegisterPage } from '../features/auth/pages/RegisterPage';
 
 // Role-specific pages
 import { AdminPanel } from '../features/admin/pages/AdminPanel';
-import { ManagerDashboard } from '../features/manager/pages/ManagerDashboard';
+import { ProjectListPage } from '../features/manager/pages/ProjectListPage';
+import { ProjectDetailPage } from '../features/manager/pages/ProjectDetailPage';
 import { AnnotatorTasks } from '../features/annotator/pages/AnnotatorTasks';
 import { ReviewerQueue } from '../features/reviewer/pages/ReviewerQueue';
 
@@ -64,11 +65,24 @@ export const AppRoutes = () => {
                 }
             />
 
+            {/* Manager Routes */}
             <Route
                 path="/manager"
+                element={<Navigate to="/manager/projects" replace />}
+            />
+            <Route
+                path="/manager/projects"
                 element={
                     <ProtectedRoute allowedRoles={['MANAGER']}>
-                        <ManagerDashboard />
+                        <ProjectListPage />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/manager/projects/:projectId"
+                element={
+                    <ProtectedRoute allowedRoles={['MANAGER']}>
+                        <ProjectDetailPage />
                     </ProtectedRoute>
                 }
             />

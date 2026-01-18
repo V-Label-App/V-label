@@ -22,23 +22,23 @@ cp .env.example .env
 ```
 
 ### 3. Start Everything
+RUN
 ```bash
 # Start database
 npm run db:setup
 
 # Run migrations (Prisma)
-npm run db:migrate
+npm run db:update
 
 # Start server
-npm run dev
+OR
+```bash
+./setup.sh
 ```
 
 ✅ Server running at `http://localhost:4000`
 
 ## Verify Setup
-
-```bash
-# Check health endpoint
 curl http://localhost:4000/api/v1/health
 
 # Expected response:
