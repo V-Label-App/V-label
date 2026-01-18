@@ -32,6 +32,13 @@ export function useChatWidget() {
         scrollToBottom();
     }, [messages, isTyping, isOpen]);
 
+    // Refresh config when widget is opened
+    useEffect(() => {
+        if (isOpen) {
+            loadConfig();
+        }
+    }, [isOpen]);
+
     const scrollToBottom = () => {
         if (chatContainerRef.current) {
             const { scrollHeight, clientHeight } = chatContainerRef.current;

@@ -148,7 +148,7 @@ export function ChatWidget({ variant = 'floating', className, style }: ChatWidge
                     ))}
 
                     {/* Quick Replies */}
-                    {config.ui.quickReplies && config.ui.quickReplies.length > 0 && messages.length <= 1 && (
+                    {config.ui.quickReplies && Array.isArray(config.ui.quickReplies) && config.ui.quickReplies.length > 0 && !messages.some(m => m.role === 'user') && (
                         <div className="grid grid-cols-1 gap-2 mt-4 px-1 animate-in fade-in slide-in-from-bottom-2 duration-500">
                             <p className="text-xs text-center text-gray-400 mb-2">Suggested options</p>
                             {config.ui.quickReplies.map((reply, idx) => (
@@ -339,6 +339,27 @@ export function ChatWidget({ variant = 'floating', className, style }: ChatWidge
                                         </div>
                                     </div>
                                 ))}
+
+                                {/* Quick Replies */}
+                                {config.ui.quickReplies && Array.isArray(config.ui.quickReplies) && config.ui.quickReplies.length > 0 && !messages.some(m => m.role === 'user') && (
+                                    <div className="grid grid-cols-1 gap-2 mt-4 px-1 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                                        <p className="text-xs text-center text-gray-400 mb-2">Suggested options</p>
+                                        {config.ui.quickReplies.map((reply, idx) => (
+                                            <button
+                                                key={idx}
+                                                onClick={() => handleSendMessage(undefined, reply)}
+                                                className={cn(
+                                                    "text-left p-3 px-4 rounded-xl text-sm transition-all shadow-sm border border-blue-100/50 hover:shadow-md hover:border-blue-200 bg-white text-gray-700 hover:text-blue-600 active:scale-[0.98]",
+                                                    "flex items-center justify-between group"
+                                                )}
+                                            >
+                                                <span>{reply}</span>
+                                                <Send className="w-3.5 h-3.5 opacity-0 group-hover:opacity-50 transition-opacity" />
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+
                                 {isTyping && (
                                     <div className="flex gap-3 max-w-[85%]">
                                         <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 border border-white bg-gradient-to-br from-blue-50 to-indigo-50 shadow-sm overflow-hidden">
