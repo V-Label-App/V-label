@@ -8,8 +8,9 @@ import { Button } from '../../../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Label } from '../../../components/ui/label';
 import { toast } from 'sonner';
-import { Bot, Save, Loader2, Sparkles, RotateCcw, Plus, X, MessageSquarePlus } from 'lucide-react';
+import { Bot, Save, Loader2, Sparkles, RotateCcw, Plus, X, MessageSquarePlus, Info } from 'lucide-react';
 import { ChatWidget } from '../../chat-widget/components/ChatWidget';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../../../components/ui/tooltip';
 
 export function AdminChatSettingsPage() {
     const [config, setConfig] = useState<ChatWidgetConfig | null>(null);
@@ -85,7 +86,13 @@ export function AdminChatSettingsPage() {
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <div className="space-y-1">
-                            <CardTitle>Enable Chat Widget</CardTitle>
+                            <CardTitle className="flex items-center gap-2">
+                                Enable Chat Widget
+                                <Tooltip>
+                                    <TooltipTrigger><Info className="w-4 h-4 text-gray-400" /></TooltipTrigger>
+                                    <TooltipContent>Toggle the visibility of the chat widget for all users.</TooltipContent>
+                                </Tooltip>
+                            </CardTitle>
                             <CardDescription>
                                 Turn the AI chat assistant on or off for all users.
                             </CardDescription>
@@ -107,7 +114,13 @@ export function AdminChatSettingsPage() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="grid gap-2">
-                            <Label htmlFor="modelName">Model Selection</Label>
+                            <div className="flex items-center gap-2">
+                                <Label htmlFor="modelName">Model Selection</Label>
+                                <Tooltip>
+                                    <TooltipTrigger><Info className="w-4 h-4 text-gray-400" /></TooltipTrigger>
+                                    <TooltipContent>The AI model version used to generate responses.</TooltipContent>
+                                </Tooltip>
+                            </div>
                             <Select
                                 value={config.modelName}
                                 onValueChange={(value) => setConfig({ ...config, modelName: value })}
@@ -122,13 +135,16 @@ export function AdminChatSettingsPage() {
                                     <SelectItem value="gemini-2.5-flash-lite">Gemini 2.5 Flash Lite (Fastest)</SelectItem>
                                 </SelectContent>
                             </Select>
-                            <p className="text-xs text-muted-foreground">
-                                Choose the Google Gemini model version to power your assistant.
-                            </p>
                         </div>
 
                         <div className="grid gap-2">
-                            <Label htmlFor="temperature">Temperature ({config.temperature})</Label>
+                            <div className="flex items-center gap-2">
+                                <Label htmlFor="temperature">Temperature ({config.temperature})</Label>
+                                <Tooltip>
+                                    <TooltipTrigger><Info className="w-4 h-4 text-gray-400" /></TooltipTrigger>
+                                    <TooltipContent>Controls creativity. Lower is precise, higher is random.</TooltipContent>
+                                </Tooltip>
+                            </div>
                             <input
                                 id="temperature"
                                 type="range"
@@ -139,14 +155,17 @@ export function AdminChatSettingsPage() {
                                 value={config.temperature}
                                 onChange={(e) => setConfig({ ...config, temperature: parseFloat(e.target.value) })}
                             />
-                            <p className="text-xs text-muted-foreground">
-                                Controls randomness: 0 is strict, 1 is creative.
-                            </p>
                         </div>
 
                         <div className="grid gap-2">
                             <div className="flex items-center justify-between">
-                                <Label htmlFor="systemPrompt">System Prompt</Label>
+                                <div className="flex items-center gap-2">
+                                    <Label htmlFor="systemPrompt">System Prompt</Label>
+                                    <Tooltip>
+                                        <TooltipTrigger><Info className="w-4 h-4 text-gray-400" /></TooltipTrigger>
+                                        <TooltipContent className="max-w-[300px]">The core instructions that define the AI's personality and rules.</TooltipContent>
+                                    </Tooltip>
+                                </div>
                                 <Button
                                     variant="ghost"
                                     size="sm"
@@ -179,9 +198,6 @@ You are the AI Assistant for V-Label, a professional data labeling platform. You
                                 className="h-64 font-mono text-sm"
                                 placeholder="You are a helpful assistant..."
                             />
-                            <p className="text-xs text-muted-foreground">
-                                Instructions that define how the AI behaves and what it knows.
-                            </p>
                         </div>
                     </CardContent>
                 </Card>
@@ -196,7 +212,13 @@ You are the AI Assistant for V-Label, a professional data labeling platform. You
                     </CardHeader>
                     <CardContent className="grid gap-6 md:grid-cols-2">
                         <div className="space-y-2">
-                            <Label>Welcome Message</Label>
+                            <div className="flex items-center gap-2">
+                                <Label>Welcome Message</Label>
+                                <Tooltip>
+                                    <TooltipTrigger><Info className="w-4 h-4 text-gray-400" /></TooltipTrigger>
+                                    <TooltipContent>The first message displayed to different users.</TooltipContent>
+                                </Tooltip>
+                            </div>
                             <Input
                                 value={config.ui.welcomeMessage}
                                 onChange={(e) => setConfig({
@@ -207,7 +229,13 @@ You are the AI Assistant for V-Label, a professional data labeling platform. You
                         </div>
 
                         <div className="space-y-2">
-                            <Label>Theme Color</Label>
+                            <div className="flex items-center gap-2">
+                                <Label>Theme Color</Label>
+                                <Tooltip>
+                                    <TooltipTrigger><Info className="w-4 h-4 text-gray-400" /></TooltipTrigger>
+                                    <TooltipContent>Primary color for header and user messages.</TooltipContent>
+                                </Tooltip>
+                            </div>
                             <div className="flex gap-2">
                                 <Input
                                     type="color"
@@ -230,7 +258,13 @@ You are the AI Assistant for V-Label, a professional data labeling platform. You
                         </div>
 
                         <div className="space-y-2">
-                            <Label>Position</Label>
+                            <div className="flex items-center gap-2">
+                                <Label>Position</Label>
+                                <Tooltip>
+                                    <TooltipTrigger><Info className="w-4 h-4 text-gray-400" /></TooltipTrigger>
+                                    <TooltipContent>Where the floating button sits on the screen.</TooltipContent>
+                                </Tooltip>
+                            </div>
                             <div className="flex items-center gap-4">
                                 <label className="flex items-center gap-2 cursor-pointer">
                                     <input
@@ -254,7 +288,13 @@ You are the AI Assistant for V-Label, a professional data labeling platform. You
                         </div>
 
                         <div className="space-y-2 col-span-2">
-                            <Label>Icon Style</Label>
+                            <div className="flex items-center gap-2">
+                                <Label>Icon Style</Label>
+                                <Tooltip>
+                                    <TooltipTrigger><Info className="w-4 h-4 text-gray-400" /></TooltipTrigger>
+                                    <TooltipContent>Customize the chatbot avatar icon.</TooltipContent>
+                                </Tooltip>
+                            </div>
                             <div className="flex flex-col gap-4 mt-1">
                                 <div className="flex items-center gap-4">
                                     <label className="flex items-center gap-2 cursor-pointer">
@@ -312,6 +352,10 @@ You are the AI Assistant for V-Label, a professional data labeling platform. You
                         <CardTitle className="flex items-center gap-2">
                             <MessageSquarePlus className="w-5 h-5 text-orange-500" />
                             Quick Reply Suggestions
+                            <Tooltip>
+                                <TooltipTrigger><Info className="w-4 h-4 text-gray-400" /></TooltipTrigger>
+                                <TooltipContent>Pre-defined questions shown to users to start a conversation.</TooltipContent>
+                            </Tooltip>
                         </CardTitle>
                         <CardDescription>
                             Options displayed to the user when they first start a conversation.

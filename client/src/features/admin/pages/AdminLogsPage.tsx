@@ -1,7 +1,23 @@
 import { useState, useEffect } from 'react';
 import { authApi } from '../../../services/auth.api';
 import { format } from 'date-fns';
-import { Search, Filter, Download } from 'lucide-react';
+import { Search, Filter, Download, Settings, Trash2, Save } from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../../components/ui/card';
+import { Label } from '../../../components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
+import { Button } from '../../../components/ui/button';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "../../../components/ui/alert-dialog";
+import { toast } from 'sonner';
 
 interface AuditLog {
     id: string;
@@ -17,9 +33,13 @@ interface AuditLog {
 export function AdminLogsPage() {
     const [logs, setLogs] = useState<AuditLog[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [retentionDays, setRetentionDays] = useState<string>('30');
+    const [isSaving, setIsSaving] = useState(false);
+    const [isCleaning, setIsCleaning] = useState(false);
 
     useEffect(() => {
         loadLogs();
+        loadConfig();
     }, []);
 
     const loadLogs = async () => {
@@ -30,6 +50,42 @@ export function AdminLogsPage() {
             console.error('Failed to load logs', error);
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const loadConfig = async () => {
+        try {
+            const config = await authApi.getAuditLogConfig();
+            setRetentionDays(config.retentionDays.toString());
+        } catch (error) {
+            console.error('Failed to load retention config', error);
+        }
+    };
+
+    const handleSaveConfig = async () => {
+        try {
+            setIsSaving(true);
+            const days = parseInt(retentionDays);
+            await authApi.updateAuditLogConfig({ retentionDays: days });
+            toast.success('Retention policy updated');
+            loadLogs();
+        } catch (error) {
+            toast.error('Failed to update config');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const executeCleanup = async () => {
+        try {
+            setIsCleaning(true);
+            const result = await authApi.cleanUpLogs();
+            toast.success(`Cleanup complete. Deleted ${result.deletedCount} old logs.`);
+            loadLogs();
+        } catch (error) {
+            toast.error('Failed to clean up logs');
+        } finally {
+            setIsCleaning(false);
         }
     };
 
@@ -72,6 +128,88 @@ export function AdminLogsPage() {
                     <p className="text-muted-foreground">Audit trail of administrator actions.</p>
                 </div>
             </div>
+
+            {/* Retention Settings */}
+            <Card>
+                <CardHeader>
+                    <div className="flex items-center gap-2">
+                        <Settings className="w-5 h-5 text-gray-500" />
+                        <CardTitle>Log Retention Policy</CardTitle>
+                    </div>
+                    <CardDescription>Configure how long audit logs are kept before being automatically deleted.</CardDescription>
+                </CardHeader>
+                <CardContent className="flex items-end gap-4">
+                    <div className="w-full max-w-xs space-y-2">
+                        <Label>Retention Period</Label>
+                        <Select value={retentionDays} onValueChange={setRetentionDays}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select period" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="1">1 Day (Testing)</SelectItem>
+                                <SelectItem value="7">7 Days</SelectItem>
+                                <SelectItem value="30">30 Days</SelectItem>
+                                <SelectItem value="60">60 Days</SelectItem>
+                                <SelectItem value="90">90 Days</SelectItem>
+                                <SelectItem value="180">6 Months</SelectItem>
+                                <SelectItem value="365">1 Year</SelectItem>
+                                <SelectItem value="0">Keep Forever (Not Recommended)</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Button
+                            onClick={handleSaveConfig}
+                            disabled={isSaving}
+                            className="bg-blue-600 hover:bg-blue-700"
+                        >
+                            <Save className="w-4 h-4 mr-2" />
+                            Save Config
+                        </Button>
+
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button
+                                    variant="destructive"
+                                    disabled={isCleaning}
+                                >
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    Cleanup Now
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        This action will permanently delete all audit logs older than the configured retention period.
+                                        This action cannot be undone.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+
+                                <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 my-2">
+                                    <div className="flex">
+                                        <div className="ml-3">
+                                            <p className="text-sm text-yellow-700 font-bold">
+                                                Lưu ý (Note):
+                                            </p>
+                                            <p className="text-sm text-yellow-700 mt-1">
+                                                Chế độ này chỉ dành cho Developer. Không được phép sử dụng ở môi trường Production.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={executeCleanup} className="bg-red-600 hover:bg-red-700">
+                                        Yes, Cleanup Logs
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    </div>
+                </CardContent>
+            </Card>
 
             {/* Filters */}
             <div className="flex items-center gap-4 bg-white p-4 rounded-xl border shadow-sm">

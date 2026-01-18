@@ -17,6 +17,7 @@ import chatRoutes from './routes/chat.routes.js'
 import adminRoutes from './routes/admin.routes.js'
 import aiRoutes from './routes/ai.routes.js'
 import { initializeSocketServer } from './websocket/socket.server.js'
+import { EmailTemplateService } from './services/email/template.service.js'
 
 const app = express()
 const httpServer = http.createServer(app)
@@ -90,6 +91,14 @@ const server = httpServer.listen(PORT, async () => {
     logger.info('DATABASE', `PostgreSQL@${dbHost}:${dbPort} | Database: ${dbName} | Status: ✅ Connected`)
   } else {
     logger.warn('DATABASE', `PostgreSQL@${dbHost}:${dbPort} | Database: ${dbName} | Status: ❌ Failed`)
+  }
+
+  // Seed default email templates
+  try {
+    const templateService = new EmailTemplateService();
+    await templateService.seedDefaultTemplates();
+  } catch (error) {
+    logger.error('EMAIL', 'Failed to seed default templates:', error);
   }
   
   // CORS info

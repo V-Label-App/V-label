@@ -178,4 +178,52 @@ export const authApi = {
     const response = await apiClient.get<any[]>('/auth/logs')
     return response.data
   },
+
+  /**
+   * Get Audit Log Retention Policy
+   */
+  getAuditLogConfig: async (): Promise<{ retentionDays: number }> => {
+    const response = await apiClient.get<{ retentionDays: number }>('/admin/config/audit-log');
+    return response.data;
+  },
+
+  /**
+   * Update Audit Log Retention Policy
+   */
+  updateAuditLogConfig: async (config: { retentionDays: number }): Promise<{ retentionDays: number }> => {
+    const response = await apiClient.put<{ retentionDays: number }>('/admin/config/audit-log', config);
+    return response.data;
+  },
+
+  /**
+   * Manually cleanup old logs
+   */
+  cleanUpLogs: async (): Promise<{ deletedCount: number }> => {
+    const response = await apiClient.post<{ deletedCount: number }>('/admin/logs/cleanup');
+    return response.data;
+  },
+
+  /**
+   * Request password reset email
+   */
+  forgotPassword: async (email: string): Promise<{ message: string }> => {
+    const response = await apiClient.post<{ message: string }>('/auth/forgot-password', { email });
+    return response.data;
+  },
+
+  /**
+   * Verify if password reset token is valid
+   */
+  verifyResetToken: async (token: string): Promise<{ valid: boolean; email?: string; error?: string }> => {
+    const response = await apiClient.get<{ valid: boolean; email?: string; error?: string }>(`/auth/verify-reset-token/${token}`);
+    return response.data;
+  },
+
+  /**
+   * Reset password using token
+   */
+  resetPassword: async (token: string, newPassword: string): Promise<{ message: string }> => {
+    const response = await apiClient.post<{ message: string }>('/auth/reset-password', { token, newPassword });
+    return response.data;
+  },
 }

@@ -13,7 +13,9 @@ import { authApi } from '../../../services/auth.api';
 import { toast } from 'sonner';
 import { AdminLogsPage } from './AdminLogsPage';
 import { AdminChatSettingsPage } from './AdminChatSettingsPage';
-import { Users, Database, Activity, Settings, FileText, Plus, Star, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Eye, Sparkles } from 'lucide-react';
+import { AdminDashboardPage } from './AdminDashboardPage';
+import { AdminEmailSettingsPage } from './AdminEmailSettingsPage';
+import { Users, Database, Activity, Settings, FileText, Plus, Star, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Eye, Sparkles, LayoutDashboard } from 'lucide-react';
 
 interface User {
   id: string;
@@ -37,7 +39,7 @@ interface ConfirmationState {
 export function AdminPanel({ }: AdminPanelProps) {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('users');
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
 
   // Confirmation Mock
@@ -249,9 +251,11 @@ export function AdminPanel({ }: AdminPanelProps) {
       >
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">V</span>
-            </div>
+            <img
+              src="/src/assets/android-chrome-192x192.png"
+              alt="VLabel Logo"
+              className="w-8 h-8 rounded-lg"
+            />
             <h1 className="text-xl font-semibold">VLabel</h1>
           </div>
           <p className="text-xs text-muted-foreground mt-1">Admin Panel</p>
@@ -259,8 +263,16 @@ export function AdminPanel({ }: AdminPanelProps) {
 
         <nav className="flex-1 p-4">
           <button
+            onClick={() => setActiveTab('dashboard')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'dashboard' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'
+              }`}
+          >
+            <LayoutDashboard className="w-5 h-5" />
+            <span className="font-medium">Dashboard</span>
+          </button>
+          <button
             onClick={() => setActiveTab('users')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'users' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors mt-1 ${activeTab === 'users' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'
               }`}
           >
             <Users className="w-5 h-5" />
@@ -565,6 +577,15 @@ export function AdminPanel({ }: AdminPanelProps) {
               </Card>
             </motion.div>
           </>
+        )}
+
+        {activeTab === 'settings' && (
+          <AdminEmailSettingsPage />
+        )}
+
+
+        {activeTab === 'dashboard' && (
+          <AdminDashboardPage />
         )}
 
         {activeTab === 'logs' && (

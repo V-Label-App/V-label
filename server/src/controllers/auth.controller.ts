@@ -263,4 +263,77 @@ export class AuthController {
       return res.status(500).json({ error: 'Internal server error' })
     }
   }
+
+  /**
+   * POST /api/v1/auth/forgot-password
+   * Request password reset email
+   */
+  static async forgotPassword(req: Request, res: Response) {
+    try {
+      const { email } = req.body;
+
+      if (!email || typeof email !== 'string') {
+        return res.status(400).json({ error: 'Email is required' });
+      }
+
+      const { PasswordResetService } = await import('../services/password-reset.service.js');
+      const service = new PasswordResetService();
+      const result = await service.requestPasswordReset(email);
+
+      return res.status(200).json(result);
+    } catch (error: any) {
+      console.error('[AUTH] Forgot password error:', error);
+      return res.status(500).json({ error: error.message || 'Failed to process request' });
+    }
+  }
+
+  /**
+   * GET /api/v1/auth/verify-reset-token/:token
+   * Verify if password reset token is valid
+   */
+  static async verifyResetToken(req: Request, res: Response) {
+    try {
+      const { token } = req.params;
+
+      if (!token) {
+        return res.status(400).json({ error: 'Token is required' });
+      }
+
+      const { PasswordResetService } = await import('../services/password-reset.service.js');
+      const service = new PasswordResetService();
+      const result = await service.verifyResetToken(token);
+
+      return res.status(200).json(result);
+    } catch (error: any) {
+      console.error('[AUTH] Verify token error:', error);
+      return res.status(500).json({ error: error.message || 'Failed to verify token' });
+    }
+  }
+
+  /**
+   * POST /api/v1/auth/reset-password
+   * Reset password using token
+   */
+  static async resetPassword(req: Request, res: Response) {
+    try {
+      const { token, newPassword } = req.body;
+
+      if (!token || !newPassword) {
+        return res.status(400).json({ error: 'Token and new password are required' });
+      }
+
+      if (newPassword.length < 3) {
+        return res.status(400).json({ error: 'Password must be at least 3 characters long' });
+      }
+
+      const { PasswordResetService } = await import('../services/password-reset.service.js');
+      const service = new PasswordResetService();
+      const result = await service.resetPassword(token, newPassword);
+
+      return res.status(200).json(result);
+    } catch (error: any) {
+      console.error('[AUTH] Reset password error:', error);
+      return res.status(400).json({ error: error.message || 'Failed to reset password' });
+    }
+  }
 }
