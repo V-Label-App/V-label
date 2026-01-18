@@ -8,7 +8,7 @@ export function ImpersonationBanner() {
     if (!isImpersonating) return null;
 
     return (
-        <div className="bg-orange-600 text-white px-4 py-2 flex items-center justify-between shadow-md relative z-[100]">
+        <div className="bg-orange-600 text-white px-4 py-2 flex items-center justify-between shadow-md sticky top-0 z-[1000]">
             <div className="flex items-center gap-2">
                 <Eye className="w-5 h-5 animate-pulse" />
                 <span className="font-medium">

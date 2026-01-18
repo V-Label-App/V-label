@@ -1,0 +1,66 @@
+# Tasks
+
+- [x] Add `phoneNumber` to `getMe` query in `user.controller.ts` <!-- id: 0 -->
+- [x] Display `phoneNumber` in `ProfilePage.tsx` <!-- id: 1 -->
+- [x] Create GitHub CI workflow (`.github/workflows/ci.yml`) <!-- id: 2 -->
+- [x] Setup TurboRepo for Monorepo Management <!-- id: 3 -->
+- [x] Optimize CI with Turbo Caching (Skip unchanged builds) <!-- id: 4 -->
+- [x] Implement User Profile Editing (FullName, Phone) <!-- id: 5 -->
+- [x] Fix Page Reload on Profile Update <!-- id: 6 -->
+    - [x] Client: Add User Management API service
+    - [x] Client: Connect AdminPanel to Real API
+    - [/] Client: Add confirmation modals for Role/Status changes
+    - [ ] Client: Add sorting functionality for User table
+    - [ ] Client: Implement Add/Edit/Delete UI logic
+- [x] Enhance Manager Dashboard UI with Animations <!-- id: 7 -->
+- [ ] Simplify Project Creation Flow (Defer labels, images, assignment) <!-- id: 8 -->
+- [/] **WebSocket Phase 1: Database & Server Setup** <!-- id: 9 -->
+    - [x] Update Prisma schema (Notification, ChatMessage models)
+    - [x] Run database migration
+    - [x] Install Socket.IO dependencies
+    - [x] Create WebSocket server architecture
+    - [x] Implement authentication middleware
+    - [x] Implement chat event handlers
+    - [x] Implement notification helpers
+    - [x] Integrate Socket.IO with Express
+    - [x] Integrate Socket.IO with Express
+    - [ ] Test Socket.IO connection (PAUSED: Need Project API integration)
+- [/] **WebSocket Phase 2: Client Integration** <!-- id: 10 -->
+    - [x] Install socket.io-client
+    - [x] Create socket service
+    - [x] Create Socket Context Provider
+    - [x] Create useChat hook
+    - [x] Create useNotifications hook
+    - [x] Build chat UI components (MessageList, MessageInput, ChatPanel)
+    - [x] Wrap App with SocketProvider
+    - [x] Test chat in browser (PAUSED: Mock data issues)
+- [x] **WebSocket Phase 3: Notification System** <!-- id: 11 -->
+    - [x] Create useNotifications hook
+    - [x] Build NotificationBell component (bell icon + badge)
+    - [x] Build NotificationInbox component (dropdown list)
+    - [x] Create notification REST API (/notifications)
+    - [x] Create chat REST API (/chat/projects/:id/messages)
+    - [x] Register routes in Express server
+    - [x] Add NotificationBell to header
+    - [x] Fix relative imports in UI components
+    - [ ] Test notifications end-to-end
+- [x] **Implementation Phase 4: Frontend Routing Refactor** <!-- id: 12 -->
+    - [x] Create `mock/projects.ts` to share data
+    - [x] Extract `ProjectListPage` from `ManagerDashboard`
+    - [x] Extract `ProjectDetailPage` from `ManagerDashboard`
+    - [x] Update `AppRoutes` with nested routes (`/manager/projects/:projectId`)
+    - [x] Verify navigation and param handling
+- [ ] **Implementation Phase 5: Project Management API** <!-- id: 13 -->
+    - [ ] Create Project Controller & Routes (Backend)
+    - [ ] Create Project API Service (Client)
+    - [ ] Replace Mock Data with Real API
+    - [ ] Verify Chat/Notifications with Real IDs
+- [x] **Implementation Phase 6: Admin Impersonation** <!-- id: 14 -->
+    - [x] Server: Create `POST /auth/impersonate/:userId` endpoint
+    - [x] Client: Add `impersonateUser` and `stopImpersonation` to `AuthContext`
+    - [x] Client: Create `ImpersonationBanner` component
+    - [x] Client: Add "View As" button to `AdminPanel` user list
+    - [x] Client: Create `AdminUserDetailPage` component
+    - [x] Client: Add `/admin/users/:userId` route
+    - [x] Client: Update `AdminPanel` to link to detail page
+    - [x] Client: Move "View As" button to detail page
