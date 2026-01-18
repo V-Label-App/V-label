@@ -120,4 +120,37 @@ export const authApi = {
     // Future implementation
     localStorage.removeItem('accessToken')
   },
+
+  // --- Admin API ---
+
+  /**
+   * Get all users (Admin only)
+   */
+  getAllUsers: async (): Promise<AuthResponse['user'][]> => {
+    const response = await apiClient.get<AuthResponse['user'][]>('/users')
+    return response.data
+  },
+
+  /**
+   * Create new user (Admin only)
+   */
+  createUser: async (data: any): Promise<AuthResponse['user']> => {
+    const response = await apiClient.post<AuthResponse['user']>('/users', data)
+    return response.data
+  },
+
+  /**
+   * Update user details (Admin only)
+   */
+  updateUser: async (id: string, data: any): Promise<AuthResponse['user']> => {
+    const response = await apiClient.put<AuthResponse['user']>(`/users/${id}`, data)
+    return response.data
+  },
+
+  /**
+   * Delete user (Admin only)
+   */
+  deleteUser: async (id: string): Promise<void> => {
+    await apiClient.delete(`/users/${id}`)
+  },
 }

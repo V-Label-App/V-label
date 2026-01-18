@@ -7,7 +7,7 @@ import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Card } from './ui/card';
 import type { Label, LabelCategory } from '../types/label.types';
-import { Tag, Search, Info } from 'lucide-react';
+import { Tag, Search, Info, ChevronDown, ChevronRight } from 'lucide-react';
 import { Alert, AlertDescription } from './ui/alert';
 
 interface LabelSelectorProps {
@@ -27,6 +27,15 @@ export function LabelSelector({
 }: LabelSelectorProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
+
+  const toggleCategory = (categoryId: string) => {
+    setExpandedCategories(prev =>
+      prev.includes(categoryId)
+        ? prev.filter(id => id !== categoryId)
+        : [...prev, categoryId]
+    );
+  };
 
   // Filter labels
   const filteredLabels = availableLabels.filter(label => {
@@ -157,60 +166,75 @@ export function LabelSelector({
               if (!category) return null;
 
               const allSelected = labelsInCat.every(l => selectedLabelIds.includes(l.id));
+              const isExpanded = expandedCategories.includes(categoryId);
 
               return (
-                <div key={categoryId} className="p-3">
+                <div key={categoryId} className="border-b last:border-0">
                   {/* Category Header */}
-                  <div className="flex items-center justify-between mb-3">
+                  <div
+                    className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-50 transition-colors"
+                    onClick={() => toggleCategory(categoryId)}
+                  >
                     <div className="flex items-center gap-2">
+                      {isExpanded ? (
+                        <ChevronDown className="w-4 h-4 text-gray-500" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4 text-gray-500" />
+                      )}
                       <div
                         className="w-3 h-3 rounded-full"
                         style={{ backgroundColor: category.color }}
                       />
                       <span className="font-medium text-sm">{category.name}</span>
-                      <Badge variant="secondary" className="text-xs">
+                      <Badge variant="secondary" className="text-xs ml-1">
                         {labelsInCat.length}
                       </Badge>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => selectAllInCategory(categoryId)}
-                      className="text-xs h-7"
-                    >
-                      {allSelected ? 'Deselect All' : 'Select All'}
-                    </Button>
+                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => selectAllInCategory(categoryId)}
+                        className="text-xs h-7"
+                      >
+                        {allSelected ? 'Deselect All' : 'Select All'}
+                      </Button>
+                    </div>
                   </div>
 
-                  {/* Labels in Category */}
-                  <div className="grid grid-cols-2 gap-2">
-                    {labelsInCat.map(label => {
-                      const isSelected = selectedLabelIds.includes(label.id);
+                  {/* Labels in Category - Collapsible Content */}
+                  {isExpanded && (
+                    <div className="p-3 pt-0 bg-gray-50/30 animate-in slide-in-from-top-1 duration-200">
+                      <div className="grid grid-cols-2 gap-2">
+                        {labelsInCat.map(label => {
+                          const isSelected = selectedLabelIds.includes(label.id);
 
-                      return (
-                        <div
-                          key={label.id}
-                          className={`flex items-center gap-3 p-2 rounded-md border cursor-pointer transition-all ${isSelected
-                            ? 'bg-blue-50 border-blue-300'
-                            : 'hover:bg-gray-50 border-gray-200'
-                            }`}
-                          onClick={() => toggleLabel(label.id)}
-                        >
-                          <Checkbox
-                            checked={isSelected}
-                            onCheckedChange={() => toggleLabel(label.id)}
-                          />
-                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                          return (
                             <div
-                              className="w-3 h-3 rounded-full flex-shrink-0"
-                              style={{ backgroundColor: label.color }}
-                            />
-                            <span className="text-sm truncate">{label.name}</span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                              key={label.id}
+                              className={`flex items-center gap-3 p-2 rounded-md border cursor-pointer transition-all ${isSelected
+                                ? 'bg-blue-50 border-blue-300'
+                                : 'hover:bg-white border-gray-200 bg-white'
+                                }`}
+                              onClick={() => toggleLabel(label.id)}
+                            >
+                              <Checkbox
+                                checked={isSelected}
+                                onCheckedChange={() => toggleLabel(label.id)}
+                              />
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                <div
+                                  className="w-3 h-3 rounded-full flex-shrink-0"
+                                  style={{ backgroundColor: label.color }}
+                                />
+                                <span className="text-sm truncate">{label.name}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
