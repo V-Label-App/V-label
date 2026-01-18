@@ -194,7 +194,7 @@ export function AdminPanel({ }: AdminPanelProps) {
 
     // Handle role hierarchy
     if (key === 'role') {
-      const roleOrder = { admin: 0, manager: 1, reviewer: 2, annotator: 3 };
+      const roleOrder: Record<string, number> = { admin: 0, manager: 1, reviewer: 2, annotator: 3 };
       const aRank = roleOrder[aValue as string] ?? 99;
       const bRank = roleOrder[bValue as string] ?? 99;
       return direction === 'asc' ? aRank - bRank : bRank - aRank;
