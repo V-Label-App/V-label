@@ -14,6 +14,8 @@ import authRoutes from './routes/auth.routes.js'
 import userRoutes from './routes/user.routes.js'
 import notificationRoutes from './routes/notification.routes.js'
 import chatRoutes from './routes/chat.routes.js'
+import adminRoutes from './routes/admin.routes.js'
+import aiRoutes from './routes/ai.routes.js'
 import { initializeSocketServer } from './websocket/socket.server.js'
 
 const app = express()
@@ -49,6 +51,8 @@ app.use('/api/v1/auth', authRoutes)
 app.use('/api/v1/users', userRoutes)
 app.use('/api/v1/notifications', notificationRoutes)
 app.use('/api/v1/chat', chatRoutes)
+app.use('/api/v1/admin', adminRoutes)
+app.use('/api/v1/ai', aiRoutes)
 
 // 404 Catch-all
 app.use((req, res, next) => {

@@ -3,7 +3,7 @@ import axios from 'axios'
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api/v1'
 
 // Create axios instance with default config
-const apiClient = axios.create({
+export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true, // Important for cookies (refresh token)
   headers: {
@@ -168,6 +168,14 @@ export const authApi = {
    */
   impersonate: async (userId: string): Promise<AuthResponse> => {
     const response = await apiClient.post<AuthResponse>(`/auth/impersonate/${userId}`)
+    return response.data
+  },
+
+  /**
+   * Get System Logs (Admin only)
+   */
+  getSystemLogs: async (): Promise<any[]> => {
+    const response = await apiClient.get<any[]>('/auth/logs')
     return response.data
   },
 }

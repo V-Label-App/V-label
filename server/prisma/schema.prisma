@@ -211,3 +211,30 @@ model ChatMessage {
   @@index([projectId, createdAt])
   @@map("chat_messages")
 }
+
+// =========================================================
+// 5. SYSTEM LOGS
+// =========================================================
+
+model AuditLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  action    String   @db.VarChar(255)
+  actorId   String   @map("actor_id") @db.Uuid
+  targetId  String?  @map("target_id") @db.Uuid
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations - Commented out to keep User model clean
+  // actor     User     @relation("ActorLogs", fields: [actorId], references: [id])
+  // target    User?    @relation("TargetLogs", fields: [targetId], references: [id])
+
+  @@map("audit_logs")
+}
+
+model SystemConfig {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+  
+  @@map("system_configs")
+}

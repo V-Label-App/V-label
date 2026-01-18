@@ -6,6 +6,8 @@ import { logger } from './utils/logger'
 import { ImpersonationBanner } from './components/ImpersonationBanner'
 import './App.css'
 
+import { ChatWidget } from './features/chat-widget/components/ChatWidget'
+
 function App() {
   useEffect(() => {
     logger.debug('App component initialized with Router');
@@ -28,6 +30,7 @@ function App() {
       <SocketProvider>
         <ImpersonationBanner />
         <AppRoutes />
+        <ChatWidget />
       </SocketProvider>
     </BrowserRouter>
   )

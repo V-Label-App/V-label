@@ -64,3 +64,4 @@
     - [x] Client: Add `/admin/users/:userId` route
     - [x] Client: Update `AdminPanel` to link to detail page
     - [x] Client: Move "View As" button to detail page
+    - [ ] **Server: Implement Audit Logging for Impersonation** (New)

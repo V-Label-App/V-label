@@ -56,10 +56,37 @@ Allow Admin users to "View as" other users (specifically Managers) to debug issu
 
 #### [MODIFY] [auth.routes.ts](file:///Users/mr.triss/FPT%20University/SWP391/V-label_app/V-label-app/server/src/routes/auth.routes.ts)
 - Add `POST /impersonate/:userId` (Protected, Admin Only).
+- Add `GET /logs` (Protected, Admin Only).
+
+#### [NEW] [schema.prisma](file:///Users/mr.triss/FPT%20University/SWP391/V-label_app/V-label-app/server/prisma/schema.prisma)
+- Add `AuditLog` model:
+    ```prisma
+    model AuditLog {
+      id        String   @id @default(uuid())
+      action    String   // "IMPERSONATE_START"
+      actorId   String
+      targetId  String?
+      metadata  Json?
+      createdAt DateTime @default(now())
+    }
+    ```
+
+#### [MODIFY] [auth.service.ts](file:///Users/mr.triss/FPT%20University/SWP391/V-label_app/V-label-app/server/src/services/auth.service.ts)
+- Update `impersonateUser` to accept `adminId`.
+- Create `AuditLog` entry before returning token.
 
 ### Client
 
-#### [MODIFY] [AuthContext.tsx](file:///Users/mr.triss/FPT%20University/SWP391/V-label_app/V-label-app/client/src/context/AuthContext.tsx)
+#### [MODIFY] [auth.api.ts](file:///Users/mr.triss/FPT%20University/SWP391/V-label_app/V-label-app/client/src/services/auth.api.ts)
+- Add `getSystemLogs()`: Fetch audit logs from server.
+
+#### [NEW] [AdminLogsPage.tsx](file:///Users/mr.triss/FPT%20University/SWP391/V-label_app/V-label-app/client/src/features/admin/pages/AdminLogsPage.tsx)
+- Table to display `AuditLog` data.
+- Columns: Date, Actor (Admin), Action, Target, Metadata.
+
+#### [MODIFY] [AdminPanel.tsx](file:///Users/mr.triss/FPT%20University/SWP391/V-label_app/V-label-app/client/src/features/admin/pages/AdminPanel.tsx)
+- Add sidebar link for "Logs".
+- Handle navigation to render `AdminLogsPage`.
 - Add `impersonateUser(userId)`:
     - Calls API to get new token.
     - Saves current Admin token to `originalToken` in storage.

@@ -20,5 +20,6 @@ import { authMiddleware } from '../middlewares/auth.middleware.js'
 import { requireRole } from '../middlewares/role.middleware.js'
 
 router.post('/impersonate/:userId', authMiddleware, requireRole(['ADMIN']), AuthController.impersonate)
+router.get('/logs', authMiddleware, requireRole(['ADMIN']), AuthController.getLogs)
 
 export default router

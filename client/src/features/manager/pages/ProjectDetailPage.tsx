@@ -30,7 +30,6 @@ import {
     Edit,
     Download,
     MoreVertical,
-    Tag,
     Trash2,
     FileText,
     TrendingUp,
@@ -44,6 +43,7 @@ import { format } from 'date-fns';
 import { LineChart, Line, BarChart, Bar, PieChart as RechartsPie, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { toast } from 'sonner';
 import { UserNav } from '../../../components/common/UserNav';
+import { useAuth } from '../../../context/AuthContext';
 import { CompactImageSummary } from '../../../components/CompactImageSummary';
 import { ManageImagesDialog } from '../../../components/ManageImagesDialog';
 import type { Label as LabelType, LabelCategory } from '../../../types/label.types';
@@ -55,6 +55,7 @@ import type { Project, Task } from '../data/projects.mock';
 export function ProjectDetailPage() {
     const { projectId } = useParams();
     const navigate = useNavigate();
+    const { isImpersonating } = useAuth();
     const [project, setProject] = useState<Project | undefined>();
     const [activeTab, setActiveTab] = useState('tasks');
     const [labels, setLabels] = useState<LabelType[]>(mockLabels);
@@ -347,20 +348,22 @@ export function ProjectDetailPage() {
     return (
         <div className="min-h-screen bg-gray-50 animate-in fade-in slide-in-from-bottom-5 duration-700">
             {/* Header */}
-            <div className="bg-white border-b border-gray-200">
-                <div className="max-w-7xl mx-auto px-8 py-4 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
-                            <span className="text-white font-bold text-sm">V</span>
+            {!isImpersonating && (
+                <div className="bg-white border-b border-gray-200">
+                    <div className="max-w-7xl mx-auto px-8 py-4 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
+                                <span className="text-white font-bold text-sm">V</span>
+                            </div>
+                            <div>
+                                <h1 className="text-xl font-semibold">VLabel</h1>
+                                <p className="text-xs text-muted-foreground">Manager Dashboard</p>
+                            </div>
                         </div>
-                        <div>
-                            <h1 className="text-xl font-semibold">VLabel</h1>
-                            <p className="text-xs text-muted-foreground">Manager Dashboard</p>
-                        </div>
+                        <UserNav />
                     </div>
-                    <UserNav />
                 </div>
-            </div>
+            )}
 
             <div className="max-w-7xl mx-auto px-8 py-8">
                 {/* Back Button & Actions */}

@@ -57,6 +57,12 @@ export class AuthController {
         })
       }
 
+      if ((error as Error).message === 'Account is disabled') {
+        return res.status(403).json({
+          error: 'Your account is inactive. Please contact administrator.',
+        })
+      }
+
       console.error('[AUTH] Login error:', error)
       return res.status(500).json({
         error: 'Internal server error',
@@ -201,14 +207,22 @@ export class AuthController {
   static async impersonate(req: Request, res: Response) {
     try {
       const { userId } = req.params
+      // req.user is populated by authenticateToken middleware
+      // Token payload uses 'sub' for userId
+      const user = (req as any).user
+      const adminId = user?.sub || user?.id
 
       if (!userId || typeof userId !== 'string') {
           return res.status(400).json({ error: 'Target userId is required' })
       } 
 
+      if (!adminId) {
+        return res.status(401).json({ error: 'Unauthorized - Invalid Token Payload' })
+      }
+
       // Note: Role check is handled by middleware in routes file
 
-      const result = await AuthService.impersonateUser(userId)
+      const result = await AuthService.impersonateUser(userId, adminId)
 
       if (!result) {
         return res.status(404).json({
@@ -233,6 +247,20 @@ export class AuthController {
     } catch (error) {
        console.error('[AUTH] Impersonation error:', error)
        return res.status(500).json({ error: 'Internal server error' })
+    }
+  }
+
+  /**
+   * GET /api/v1/auth/logs
+   * Admin Only: Fetch audit logs
+   */
+  static async getLogs(req: Request, res: Response) {
+    try {
+      const logs = await AuthService.getSystemLogs()
+      return res.status(200).json(logs)
+    } catch (error) {
+      console.error('[AUTH] Get logs error:', error)
+      return res.status(500).json({ error: 'Internal server error' })
     }
   }
 }

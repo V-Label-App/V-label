@@ -53,11 +53,13 @@ As an Admin, I want to click "View As Manager" **from the Tenant Detail page** t
 - **FR-004**: The Client MUST store the original Admin token securely before using the impersonation token.
 - **FR-005**: The Client MUST display a distinct visual indicator (banner) whenever an impersonation session is active.
 - **FR-006**: The "Exit" action MUST restore the original Admin session without requiring re-login.
+- **FR-007**: The System MUST log all impersonation start events to an `AuditLog` table for security auditing.
 
 ### Key Entities
 
 - **User**: The target entity being viewed.
 - **AuthToken**: JWT tokens for both the Admin (original) and the Impersonated User.
+- **AuditLog**: Record of administrative actions (actor, action, target, timestamp).
 
 ## Success Criteria
 
