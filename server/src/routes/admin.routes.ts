@@ -27,5 +27,7 @@ router.delete('/email/templates/:type', authMiddleware, requireRole(['ADMIN']), 
 
 // Email Log Routes
 router.get('/email/logs', authMiddleware, requireRole(['ADMIN']), AdminController.getEmailLogs);
+router.delete('/email/logs', authMiddleware, requireRole(['ADMIN']), AdminController.clearEmailLogs);
+router.delete('/email/logs/:id', authMiddleware, requireRole(['ADMIN']), AdminController.deleteEmailLog);
 
 export default router;

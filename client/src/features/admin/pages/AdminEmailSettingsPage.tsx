@@ -19,10 +19,18 @@ export function AdminEmailSettingsPage() {
     const [logs, setLogs] = useState<EmailLog[]>([]);
     const [loading, setLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    const [isClearingLogs, setIsClearingLogs] = useState(false);
 
     // Template Dialog
     const [editingTemplate, setEditingTemplate] = useState<EmailTemplate | null>(null);
     const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
+    const [templateToDelete, setTemplateToDelete] = useState<string | null>(null);
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
+    // Log Dialogs
+    const [logToDelete, setLogToDelete] = useState<string | null>(null);
+    const [isLogDeleteDialogOpen, setIsLogDeleteDialogOpen] = useState(false);
+    const [isClearLogsDialogOpen, setIsClearLogsDialogOpen] = useState(false);
 
     useEffect(() => {
         loadData();
@@ -79,14 +87,43 @@ export function AdminEmailSettingsPage() {
         }
     };
 
-    const handleDeleteTemplate = async (type: string) => {
-        if (!confirm(`Are you sure you want to delete the ${type} template?`)) return;
+    const handleDeleteTemplate = async () => {
+        if (!templateToDelete) return;
         try {
-            await adminApi.deleteEmailTemplate(type);
-            setTemplates(prev => prev.filter(t => t.type !== type));
+            await adminApi.deleteEmailTemplate(templateToDelete);
+            setTemplates(prev => prev.filter(t => t.type !== templateToDelete));
             toast.success('Template deleted');
+            setIsDeleteDialogOpen(false);
+            setTemplateToDelete(null);
         } catch (error) {
             toast.error('Failed to delete template');
+        }
+    };
+
+    const handleDeleteLog = async () => {
+        if (!logToDelete) return;
+        try {
+            await adminApi.deleteEmailLog(logToDelete);
+            setLogs(prev => prev.filter(l => l.id !== logToDelete));
+            toast.success('Log entry deleted');
+            setIsLogDeleteDialogOpen(false);
+            setLogToDelete(null);
+        } catch (error) {
+            toast.error('Failed to delete log entry');
+        }
+    };
+
+    const handleClearLogs = async () => {
+        setIsClearLogsDialogOpen(false);
+        setIsClearingLogs(true);
+        try {
+            await adminApi.clearEmailLogs();
+            setLogs([]);
+            toast.success('All logs cleared successfully');
+        } catch (error) {
+            toast.error('Failed to clear logs');
+        } finally {
+            setIsClearingLogs(false);
         }
     };
 
@@ -258,7 +295,10 @@ export function AdminEmailSettingsPage() {
                                                     }}>
                                                         <Edit2 className="w-4 h-4" />
                                                     </Button>
-                                                    <Button variant="ghost" size="icon" className="text-red-500" onClick={() => handleDeleteTemplate(template.type)}>
+                                                    <Button variant="ghost" size="icon" className="text-red-500" onClick={() => {
+                                                        setTemplateToDelete(template.type);
+                                                        setIsDeleteDialogOpen(true);
+                                                    }}>
                                                         <Trash2 className="w-4 h-4" />
                                                     </Button>
                                                 </div>
@@ -273,9 +313,15 @@ export function AdminEmailSettingsPage() {
 
                 <TabsContent value="logs">
                     <Card>
-                        <CardHeader>
-                            <CardTitle>Email Delivery Logs</CardTitle>
-                            <CardDescription>History of emails sent by the system.</CardDescription>
+                        <CardHeader className="flex flex-row items-center justify-between">
+                            <div>
+                                <CardTitle>Email Delivery Logs</CardTitle>
+                                <CardDescription>History of emails sent by the system.</CardDescription>
+                            </div>
+                            <Button variant="outline" size="sm" className="text-red-600 border-red-200 hover:bg-red-50" onClick={() => setIsClearLogsDialogOpen(true)} disabled={isClearingLogs}>
+                                {isClearingLogs ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
+                                Clear All Logs
+                            </Button>
                         </CardHeader>
                         <CardContent>
                             <Table>
@@ -296,18 +342,26 @@ export function AdminEmailSettingsPage() {
                                             <TableCell className="text-sm font-medium">{log.to}</TableCell>
                                             <TableCell className="text-sm">{log.subject}</TableCell>
                                             <TableCell>
-                                                <div className="flex items-center gap-1.5">
-                                                    {log.status === 'sent' ? (
-                                                        <>
-                                                            <CheckCircle2 className="w-4 h-4 text-green-500" />
-                                                            <span className="text-xs font-medium text-green-600">Sent</span>
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <XCircle className="w-4 h-4 text-red-500" />
-                                                            <span className="text-xs font-medium text-red-600">Failed</span>
-                                                        </>
-                                                    )}
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-1.5">
+                                                        {log.status === 'sent' ? (
+                                                            <>
+                                                                <CheckCircle2 className="w-4 h-4 text-green-500" />
+                                                                <span className="text-xs font-medium text-green-600">Sent</span>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <XCircle className="w-4 h-4 text-red-500" />
+                                                                <span className="text-xs font-medium text-red-600">Failed</span>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-500" onClick={() => {
+                                                        setLogToDelete(log.id);
+                                                        setIsLogDeleteDialogOpen(true);
+                                                    }}>
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </Button>
                                                 </div>
                                             </TableCell>
                                         </TableRow>
@@ -378,6 +432,80 @@ export function AdminEmailSettingsPage() {
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsTemplateDialogOpen(false)}>Cancel</Button>
                         <Button onClick={handleUpsertTemplate}>Save Template</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+            {/* Template Delete Confirmation Dialog */}
+            <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-red-600">
+                            <Trash2 className="w-5 h-5" />
+                            Confirm Deletion
+                        </DialogTitle>
+                        <DialogDescription className="pt-2">
+                            Are you sure you want to delete the <span className="font-bold text-foreground">{templateToDelete}</span> template?
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="flex items-start gap-3 p-3 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg">
+                        <Info className="w-5 h-5 shrink-0 text-amber-600" />
+                        <p>
+                            <span className="font-bold">Warning:</span> Deleting this template will cause system errors when trying to send emails of this type. Please ensure no active processes rely on this template.
+                        </p>
+                    </div>
+
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>Cancel</Button>
+                        <Button variant="destructive" onClick={handleDeleteTemplate}>Delete Template</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+            {/* Log Delete Confirmation Dialog */}
+            <Dialog open={isLogDeleteDialogOpen} onOpenChange={setIsLogDeleteDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-red-600">
+                            <Trash2 className="w-5 h-5" />
+                            Confirm Delete Log
+                        </DialogTitle>
+                        <DialogDescription className="pt-2">
+                            Are you sure you want to delete this specific log entry? This action cannot be undone.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsLogDeleteDialogOpen(false)}>Cancel</Button>
+                        <Button variant="destructive" onClick={handleDeleteLog}>Delete Entry</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Clear All Logs Warning Dialog */}
+            <Dialog open={isClearLogsDialogOpen} onOpenChange={setIsClearLogsDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-red-600">
+                            <Trash2 className="w-5 h-5" />
+                            Clear All Delivery Logs
+                        </DialogTitle>
+                        <DialogDescription className="pt-2 italic font-bold text-red-500">
+                            WARNING: You are about to delete ALL email delivery logs from the system.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="flex items-start gap-3 p-3 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg">
+                        <Info className="w-5 h-5 shrink-0 text-amber-600" />
+                        <p>
+                            This will permanently remove all history of sent and failed emails. This data is often useful for debugging delivery issues.
+                        </p>
+                    </div>
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsClearLogsDialogOpen(false)}>Cancel</Button>
+                        <Button variant="destructive" onClick={handleClearLogs} disabled={isClearingLogs}>
+                            {isClearingLogs ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                            Yes, Clear All Logs
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

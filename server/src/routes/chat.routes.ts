@@ -7,8 +7,9 @@ const router = express.Router();
 // Get chat history for a project (paginated)
 router.get('/projects/:id/messages', authMiddleware, async (req, res) => {
   try {
-    const projectId = req.params.id;
-    const userId = req.user!.id;
+    const rawProjectId = req.params.id;
+    const projectId = (Array.isArray(rawProjectId) ? rawProjectId[0] : rawProjectId) ?? '';
+    const userId = (req.user as any)?.id as string;
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;
     const skip = (page - 1) * limit;

@@ -30,7 +30,7 @@ export class GeminiService {
       // Sanitize history: Google Gemini requires history to start with 'user' role.
       // If the first message is from 'model' (e.g., welcome message), we must remove it.
       let validHistory = history;
-      if (validHistory.length > 0 && validHistory[0].role === 'model') {
+      if (validHistory && validHistory.length > 0 && validHistory[0]?.role === 'model') {
           validHistory = validHistory.slice(1);
       }
 

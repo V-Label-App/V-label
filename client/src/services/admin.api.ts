@@ -58,4 +58,12 @@ export const adminApi = {
     const response = await apiClient.get<EmailLog[]>('/admin/email/logs');
     return response.data;
   },
+  deleteEmailLog: async (id: string) => {
+    const response = await apiClient.delete(`/admin/email/logs/${id}`);
+    return response.data;
+  },
+  clearEmailLogs: async () => {
+    const response = await apiClient.delete('/admin/email/logs');
+    return response.data;
+  },
 };

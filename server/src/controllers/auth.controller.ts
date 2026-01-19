@@ -293,7 +293,8 @@ export class AuthController {
    */
   static async verifyResetToken(req: Request, res: Response) {
     try {
-      const { token } = req.params;
+      const rawToken = req.params.token;
+      const token = Array.isArray(rawToken) ? rawToken[0] : rawToken;
 
       if (!token) {
         return res.status(400).json({ error: 'Token is required' });

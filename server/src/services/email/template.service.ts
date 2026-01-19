@@ -38,16 +38,16 @@ export class EmailTemplateService {
         type: data.type,
         subject: data.subject,
         htmlBody: data.htmlBody,
-        textBody: data.textBody,
+        textBody: data.textBody ?? null,
         variables: data.variables,
         enabled: data.enabled ?? true,
       },
       update: {
         subject: data.subject,
         htmlBody: data.htmlBody,
-        textBody: data.textBody,
+        textBody: data.textBody ?? null,
         variables: data.variables,
-        enabled: data.enabled,
+        enabled: data.enabled ?? undefined,
       },
     });
   }

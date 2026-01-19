@@ -52,7 +52,7 @@ export class EmailService {
         this.initializeFromEnv();
       }
     } catch (error) {
-      logger.error('[Email] Failed to initialize from DB, using env config:', error);
+      logger.error('[Email] Failed to initialize from DB, using env config:', error instanceof Error ? error.message : String(error));
       this.initializeFromEnv();
     }
   }
@@ -109,8 +109,8 @@ export class EmailService {
       // Log success
       await this.logEmail({
         to: Array.isArray(options.to) ? options.to[0] : options.to,
-        from: process.env.SMTP_USER || 'noreply@vlabel.com',
-        subject: subject || '',
+        from: process.env.SMTP_USER ?? 'noreply@vlabel.com',
+        subject: subject ?? '',
         templateType: options.templateType,
         status: 'sent',
         sentAt: new Date(),
@@ -123,8 +123,8 @@ export class EmailService {
       // Log failure
       await this.logEmail({
         to: Array.isArray(options.to) ? options.to[0] : options.to,
-        from: process.env.SMTP_USER || 'noreply@vlabel.com',
-        subject: options.subject || options.templateType || 'Unknown',
+        from: process.env.SMTP_USER ?? 'noreply@vlabel.com',
+        subject: options.subject ?? options.templateType ?? 'Unknown',
         templateType: options.templateType,
         status: 'failed',
         error: error.message,
@@ -173,7 +173,7 @@ export class EmailService {
     try {
       await prisma.emailLog.create({ data });
     } catch (error) {
-      logger.error('[Email] Failed to log email:', error);
+      logger.error('[Email] Failed to log email:', error instanceof Error ? error.message : String(error));
       // Don't throw - logging failure shouldn't break email sending
     }
   }

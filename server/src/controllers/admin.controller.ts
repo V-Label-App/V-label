@@ -178,12 +178,35 @@ export class AdminController {
         try {
             const logs = await prisma.emailLog.findMany({
                 take: 100,
-                orderBy: { sentAt: 'desc' }
+                orderBy: { createdAt: 'desc' }
             });
             return res.json(logs);
         } catch (error) {
             console.error('[Admin] Get email logs error:', error);
             return res.status(500).json({ error: 'Failed to fetch logs' });
+        }
+    }
+
+    static async deleteEmailLog(req: Request, res: Response) {
+        try {
+            const { id } = req.params;
+            await prisma.emailLog.delete({
+                where: { id }
+            });
+            return res.json({ success: true });
+        } catch (error) {
+            console.error('[Admin] Delete email log error:', error);
+            return res.status(500).json({ error: 'Failed to delete log' });
+        }
+    }
+
+    static async clearEmailLogs(req: Request, res: Response) {
+        try {
+            await prisma.emailLog.deleteMany({});
+            return res.json({ success: true });
+        } catch (error) {
+            console.error('[Admin] Clear email logs error:', error);
+            return res.status(500).json({ error: 'Failed to clear logs' });
         }
     }
 }

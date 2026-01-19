@@ -8,6 +8,10 @@ import { authApi } from '../../../services/auth.api';
 import { useAuth } from '../../../context/AuthContext';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../../../components/ui/dialog';
+import { Input } from '../../../components/ui/input';
+import { Label } from '../../../components/ui/label';
+import { Lock } from 'lucide-react';
 
 interface UserDetail {
     id: string;
@@ -28,6 +32,8 @@ export function AdminUserDetailPage() {
     const { impersonateUser } = useAuth();
     const [user, setUser] = useState<UserDetail | null>(null);
     const [loading, setLoading] = useState(true);
+    const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+    const [adminPassword, setAdminPassword] = useState('');
 
     useEffect(() => {
         const fetchUser = async () => {
@@ -49,6 +55,14 @@ export function AdminUserDetailPage() {
 
     const handleImpersonate = async () => {
         if (!user) return;
+
+        if (adminPassword !== '123') {
+            toast.error('Incorrect admin password');
+            return;
+        }
+
+        setIsPasswordDialogOpen(false);
+        setAdminPassword('');
 
         toast.promise(impersonateUser(user.id), {
             loading: 'Switching identity...',
@@ -114,7 +128,7 @@ export function AdminUserDetailPage() {
                     <div className="flex gap-3">
                         <Button
                             className="bg-orange-600 hover:bg-orange-700 text-white"
-                            onClick={handleImpersonate}
+                            onClick={() => setIsPasswordDialogOpen(true)}
                         >
                             <Eye className="w-4 h-4 mr-2" />
                             View As {user.role}
@@ -173,6 +187,43 @@ export function AdminUserDetailPage() {
                     </Card>
                 </div>
             </div>
+
+            {/* Password Verification Dialog */}
+            <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Lock className="w-5 h-5 text-orange-600" />
+                            Admin Verification
+                        </DialogTitle>
+                        <DialogDescription>
+                            Please enter the admin password to view the platform as <span className="font-bold text-foreground">{user.fullName}</span>.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="password">Admin Password</Label>
+                            <Input
+                                id="password"
+                                type="password"
+                                placeholder="••••••••"
+                                value={adminPassword}
+                                onChange={(e) => setAdminPassword(e.target.value)}
+                                autoFocus
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleImpersonate();
+                                }}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsPasswordDialogOpen(false)}>Cancel</Button>
+                        <Button className="bg-orange-600 hover:bg-orange-700 text-white" onClick={handleImpersonate}>
+                            Verify & Switch
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
