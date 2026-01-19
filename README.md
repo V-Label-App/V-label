@@ -46,6 +46,7 @@ cp .env.example .env
 ### 3. Start Everything
 RUN
 ```bash
+cd server
 # Start database
 npm run db:setup
 
@@ -54,8 +55,10 @@ npm run db:update
 
 # Start server
 OR
-```bash
+# Install Dependencies
 ./setup.sh
+# Run both 
+./start-dev.sh
 ```
 
 ✅ Server running at `http://localhost:4000`
