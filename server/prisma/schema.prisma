@@ -34,9 +34,12 @@ model User {
   updatedAt      DateTime     @updatedAt @map("updated_at")
 
   // Relationships
-  projectsJoined ProjectMember[]
-  tasksAssigned  TaskAssignment[] @relation("Annotator")
-  tasksReviewed  TaskAssignment[] @relation("Reviewer")
+  projectsJoined       ProjectMember[]
+  tasksAssigned        TaskAssignment[]       @relation("Annotator")
+  tasksReviewed        TaskAssignment[]       @relation("Reviewer")
+  notifications        Notification[]
+  chatMessagesSent     ChatMessage[]          @relation("ChatSender")
+  passwordResetTokens  PasswordResetToken[]
 
   @@map("users")
 }
@@ -73,8 +76,9 @@ model Project {
   updatedAt          DateTime      @updatedAt @map("updated_at")
 
   // Relationships
-  members            ProjectMember[]
-  tasks              Task[]
+  members      ProjectMember[]
+  tasks        Task[]
+  chatMessages ChatMessage[]
 
   @@map("projects")
 }
@@ -161,4 +165,143 @@ enum AssignmentStatus {
   REJECTED
   APPROVED
   SKIPPED
+}
+
+// =========================================================
+// 4. REAL-TIME COMMUNICATION
+// =========================================================
+
+model Notification {
+  id        String           @id @default(uuid()) @db.Uuid
+  userId    String           @map("user_id") @db.Uuid
+  type      NotificationType
+  title     String           @db.VarChar(255)
+  message   String           @db.Text
+  
+  // Contextual data (JSON)
+  metadata  Json?
+  
+  isRead    Boolean          @default(false) @map("is_read")
+  createdAt DateTime         @default(now()) @map("created_at")
+  
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  TASK_ASSIGNED
+  TASK_SUBMITTED
+  TASK_APPROVED
+  TASK_REJECTED
+  DEADLINE_WARNING
+  COMMENT_MENTION
+}
+
+model ChatMessage {
+  id        String   @id @default(uuid()) @db.Uuid
+  projectId String   @map("project_id") @db.Uuid
+  senderId  String   @map("sender_id") @db.Uuid
+  content   String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sender    User     @relation("ChatSender", fields: [senderId], references: [id], onDelete: Cascade)
+  
+  @@index([projectId, createdAt])
+  @@map("chat_messages")
+}
+
+// =========================================================
+// 5. SYSTEM LOGS
+// =========================================================
+
+model AuditLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  action    String   @db.VarChar(255)
+  actorId   String   @map("actor_id") @db.Uuid
+  targetId  String?  @map("target_id") @db.Uuid
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations - Commented out to keep User model clean
+  // actor     User     @relation("ActorLogs", fields: [actorId], references: [id])
+  // target    User?    @relation("TargetLogs", fields: [targetId], references: [id])
+
+  @@map("audit_logs")
+}
+
+model SystemConfig {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+  
+  @@map("system_configs")
+}
+
+// =========================================================
+// PASSWORD RESET
+// =========================================================
+
+model PasswordResetToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique @db.VarChar(255)
+  expiresAt DateTime @map("expires_at")
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  @@index([userId])
+  @@index([token])
+  @@map("password_reset_tokens")
+}
+
+// =========================================================
+// EMAIL SERVICE
+// =========================================================
+
+model EmailTemplate {
+  id        String   @id @default(uuid()) @db.Uuid
+  type      String   @unique @db.VarChar(100)
+  subject   String   @db.VarChar(255)
+  htmlBody  String   @map("html_body") @db.Text
+  textBody  String?  @map("text_body") @db.Text
+  variables Json     // Available variables for this template
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  @@index([type])
+  @@map("email_templates")
+}
+
+model EmailConfig {
+  id        String   @id @default(uuid()) @db.Uuid
+  key       String   @unique @db.VarChar(100)
+  provider  String   @db.VarChar(50) // 'smtp', 'sendgrid', 'aws_ses'
+  config    Json     // Provider-specific config
+  isActive  Boolean  @default(false) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  @@map("email_configs")
+}
+
+model EmailLog {
+  id           String    @id @default(uuid()) @db.Uuid
+  to           String    @db.VarChar(255)
+  from         String    @db.VarChar(255)
+  subject      String    @db.VarChar(255)
+  templateType String?   @map("template_type") @db.VarChar(100)
+  status       String    @db.VarChar(50) // 'sent', 'failed', 'pending'
+  error        String?   @db.Text
+  sentAt       DateTime? @map("sent_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  
+  @@index([to])
+  @@index([status])
+  @@index([createdAt])
+  @@map("email_logs")
 }

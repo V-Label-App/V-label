@@ -42,7 +42,7 @@ export class AuthService {
 
     // Check if account is active
     if (!user.isActive) {
-      return null
+      throw new Error('Account is disabled')
     }
 
     // Verify password
@@ -158,6 +158,7 @@ export class AuthService {
         fullName: fullName || null,
         provider: 'LOCAL',
         role: 'ANNOTATOR', // Default role for new users
+        isActive: false,
 
       },
       select: {
@@ -280,5 +281,99 @@ export class AuthService {
         avatarUrl: user.avatarUrl,
       },
     }
+  }
+  /**
+   * Admin Impersonation: Get token for target user without password
+   */
+  /**
+   * Admin Impersonation: Get token for target user without password
+   */
+  static async impersonateUser(targetUserId: string, adminId: string): Promise<LoginResult | null> {
+    const user = await prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: {
+          id: true,
+          email: true,
+          role: true,
+          fullName: true,
+          avatarUrl: true,
+          isActive: true
+      }
+    })
+
+    if (!user || !user.isActive) {
+      return null
+    }
+
+    // Log the action
+    await prisma.auditLog.create({
+      data: {
+        action: 'IMPERSONATE_START',
+        actorId: adminId,
+        targetId: targetUserId,
+        metadata: {
+          timestamp: new Date().toISOString(),
+          targetEmail: user.email
+        }
+      }
+    })
+
+    // Generate tokens for the target user
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    }
+
+    const accessToken = signAccessToken(payload)
+    const refreshToken = signRefreshToken(payload)
+
+    return {
+      accessToken,
+      refreshToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        fullName: user.fullName,
+        avatarUrl: user.avatarUrl,
+      },
+    }
+  }
+
+  /**
+   * Get all system logs (Admin only)
+   */
+  static async getSystemLogs() {
+    const logs = await prisma.auditLog.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 100 // Limit to last 100 logs for now
+    })
+
+    // Manual join to get user details
+    const userIds = new Set<string>()
+    logs.forEach(log => {
+      if (log.actorId) userIds.add(log.actorId)
+      if (log.targetId) userIds.add(log.targetId)
+    })
+
+    const users = await prisma.user.findMany({
+      where: {
+        id: { in: Array.from(userIds) }
+      },
+      select: {
+        id: true,
+        fullName: true,
+        email: true
+      }
+    })
+
+    const userMap = new Map(users.map(u => [u.id, u]))
+
+    return logs.map(log => ({
+      ...log,
+      actor: userMap.get(log.actorId) || { id: log.actorId, fullName: 'Unknown', email: 'N/A' },
+      target: log.targetId ? (userMap.get(log.targetId) || { id: log.targetId, fullName: 'Unknown', email: 'N/A' }) : null
+    }))
   }
 }

@@ -7,18 +7,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Avatar, AvatarFallback } from '../../../components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '../../../components/ui/dialog';
 import { Label } from '../../../components/ui/label';
-import { Users, Database, Activity, Settings, FileText, Plus, Star, Trash2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { UserNav } from '../../../components/common/UserNav';
 import { motion } from 'framer-motion';
 import { authApi } from '../../../services/auth.api';
 import { toast } from 'sonner';
-
+import { AdminLogsPage } from './AdminLogsPage';
+import { AdminChatSettingsPage } from './AdminChatSettingsPage';
+import { AdminDashboardPage } from './AdminDashboardPage';
+import { AdminEmailSettingsPage } from './AdminEmailSettingsPage';
+import { Users, Database, Activity, Settings, FileText, Plus, Star, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Eye, Sparkles, LayoutDashboard } from 'lucide-react';
 
 interface User {
   id: string;
   name: string;
   email: string;
-  role: 'admin' | 'manager' | 'reviewer' | 'annotator';
+  role: 'ADMIN' | 'MANAGER' | 'REVIEWER' | 'ANNOTATOR';
   is_active: boolean;
   reputation_score: number;
 }
@@ -36,7 +39,7 @@ interface ConfirmationState {
 export function AdminPanel({ }: AdminPanelProps) {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('users');
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
 
   // Confirmation Mock
@@ -51,7 +54,7 @@ export function AdminPanel({ }: AdminPanelProps) {
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [newRole, setNewRole] = useState<'admin' | 'manager' | 'reviewer' | 'annotator'>('annotator');
+  const [newRole, setNewRole] = useState<'ADMIN' | 'MANAGER' | 'REVIEWER' | 'ANNOTATOR'>('ANNOTATOR');
 
   const fetchUsers = async () => {
     try {
@@ -62,7 +65,7 @@ export function AdminPanel({ }: AdminPanelProps) {
         id: u.id,
         name: u.fullName || 'Unknown',
         email: u.email,
-        role: (u.role?.toLowerCase() || 'annotator') as any,
+        role: (u.role?.toUpperCase() || 'ANNOTATOR') as any,
         is_active: u.isActive,
         reputation_score: u.reputationScore || 0
       }));
@@ -76,8 +79,10 @@ export function AdminPanel({ }: AdminPanelProps) {
   };
 
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    if (activeTab === 'users') {
+      fetchUsers();
+    }
+  }, [activeTab]);
 
   const handleCreateUser = async () => {
     if (!newName || !newEmail || !newPassword) {
@@ -98,7 +103,7 @@ export function AdminPanel({ }: AdminPanelProps) {
       setNewName('');
       setNewEmail('');
       setNewPassword('');
-      setNewRole('annotator');
+      setNewRole('ANNOTATOR');
       fetchUsers();
     } catch (error: any) {
       console.error("Failed to create user", error);
@@ -106,7 +111,7 @@ export function AdminPanel({ }: AdminPanelProps) {
     }
   };
 
-  const initToggleUserActive = (user: User) => { // Removed passed event/User mismatch in case of event
+  const initToggleUserActive = (user: User) => {
     setTimeout(() => {
       setConfirmation({
         type: 'status',
@@ -165,7 +170,7 @@ export function AdminPanel({ }: AdminPanelProps) {
         await authApi.deleteUser(userId);
         toast.success("User deleted successfully");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Failed to ${type} user`, error);
       toast.error(`Failed to update user`);
       fetchUsers(); // Revert on error
@@ -194,7 +199,7 @@ export function AdminPanel({ }: AdminPanelProps) {
 
     // Handle role hierarchy
     if (key === 'role') {
-      const roleOrder: Record<string, number> = { admin: 0, manager: 1, reviewer: 2, annotator: 3 };
+      const roleOrder: Record<string, number> = { ADMIN: 0, MANAGER: 1, REVIEWER: 2, ANNOTATOR: 3 };
       const aRank = roleOrder[aValue as string] ?? 99;
       const bRank = roleOrder[bValue as string] ?? 99;
       return direction === 'asc' ? aRank - bRank : bRank - aRank;
@@ -222,10 +227,10 @@ export function AdminPanel({ }: AdminPanelProps) {
 
   const getRoleColor = (role: string) => {
     const colors = {
-      admin: 'bg-red-100 text-red-700',
-      manager: 'bg-blue-100 text-blue-700',
-      reviewer: 'bg-purple-100 text-purple-700',
-      annotator: 'bg-green-100 text-green-700',
+      ADMIN: 'bg-red-100 text-red-700',
+      MANAGER: 'bg-blue-100 text-blue-700',
+      REVIEWER: 'bg-purple-100 text-purple-700',
+      ANNOTATOR: 'bg-green-100 text-green-700',
     };
     return colors[role as keyof typeof colors] || 'bg-gray-100 text-gray-700';
   };
@@ -246,9 +251,11 @@ export function AdminPanel({ }: AdminPanelProps) {
       >
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">V</span>
-            </div>
+            <img
+              src="/src/assets/android-chrome-192x192.png"
+              alt="VLabel Logo"
+              className="w-8 h-8 rounded-lg"
+            />
             <h1 className="text-xl font-semibold">VLabel</h1>
           </div>
           <p className="text-xs text-muted-foreground mt-1">Admin Panel</p>
@@ -256,8 +263,16 @@ export function AdminPanel({ }: AdminPanelProps) {
 
         <nav className="flex-1 p-4">
           <button
+            onClick={() => setActiveTab('dashboard')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'dashboard' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'
+              }`}
+          >
+            <LayoutDashboard className="w-5 h-5" />
+            <span className="font-medium">Dashboard</span>
+          </button>
+          <button
             onClick={() => setActiveTab('users')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'users' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors mt-1 ${activeTab === 'users' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'
               }`}
           >
             <Users className="w-5 h-5" />
@@ -279,6 +294,14 @@ export function AdminPanel({ }: AdminPanelProps) {
             <FileText className="w-5 h-5" />
             <span className="font-medium">Logs</span>
           </button>
+          <button
+            onClick={() => setActiveTab('ai-chat')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors mt-1 ${activeTab === 'ai-chat' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'
+              }`}
+          >
+            <Sparkles className="w-5 h-5" />
+            <span className="font-medium">AI Chat</span>
+          </button>
         </nav>
 
         <div className="p-4 border-t border-gray-200">
@@ -290,257 +313,288 @@ export function AdminPanel({ }: AdminPanelProps) {
         <div className="flex justify-end mb-4">
           <UserNav />
         </div>
-        {/* Stats Cards */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="grid grid-cols-3 gap-6 mb-8"
-        >
-          {[
-            { icon: Users, label: "Total Users", value: users.length, trend: "From database", color: "blue" },
-            { icon: Activity, label: "Active Projects", value: 24, trend: "↑ 8% from last month", color: "purple" },
-            { icon: Database, label: "Storage Used", value: "342 GB", trend: "68% of 500 GB", color: "green", isMuted: true }
-          ].map((stat, index) => (
+
+        {activeTab === 'users' && (
+          <>
+            {/* Stats Cards */}
             <motion.div
-              key={stat.label}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.3 + index * 0.1 }}
-              whileHover={{ y: -5, transition: { duration: 0.2 } }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="grid grid-cols-3 gap-6 mb-8"
+            >
+              {[
+                { icon: Users, label: "Total Users", value: users.length, trend: "From database", color: "blue" },
+                { icon: Activity, label: "Active Projects", value: 24, trend: "↑ 8% from last month", color: "purple" },
+                { icon: Database, label: "Storage Used", value: "342 GB", trend: "68% of 500 GB", color: "green", isMuted: true }
+              ].map((stat, index) => (
+                <motion.div
+                  key={stat.label}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.3 + index * 0.1 }}
+                  whileHover={{ y: -5, transition: { duration: 0.2 } }}
+                >
+                  <Card className="p-6">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground mb-1">{stat.label}</p>
+                        <h3 className="text-3xl font-semibold">{stat.value}</h3>
+                        <p className={`text-xs mt-2 ${stat.isMuted ? 'text-muted-foreground' : 'text-green-600'}`}>
+                          {stat.trend}
+                        </p>
+                      </div>
+                      <div className={`w-12 h-12 bg-${stat.color}-100 rounded-lg flex items-center justify-center`}>
+                        <stat.icon className={`w-6 h-6 text-${stat.color}-600`} />
+                      </div>
+                    </div>
+                  </Card>
+                </motion.div>
+              ))}
+            </motion.div>
+
+            {/* User Management Section */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.5 }}
             >
               <Card className="p-6">
-                <div className="flex items-start justify-between">
+                <div className="flex items-center justify-between mb-6">
                   <div>
-                    <p className="text-sm text-muted-foreground mb-1">{stat.label}</p>
-                    <h3 className="text-3xl font-semibold">{stat.value}</h3>
-                    <p className={`text-xs mt-2 ${stat.isMuted ? 'text-muted-foreground' : 'text-green-600'}`}>
-                      {stat.trend}
-                    </p>
+                    <h2 className="text-2xl font-semibold">User Management</h2>
+                    <p className="text-sm text-muted-foreground mt-1">Manage user roles, permissions, and access</p>
                   </div>
-                  <div className={`w-12 h-12 bg-${stat.color}-100 rounded-lg flex items-center justify-center`}>
-                    <stat.icon className={`w-6 h-6 text-${stat.color}-600`} />
-                  </div>
+                  <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
+                    <DialogTrigger asChild>
+                      <Button className="bg-blue-600 hover:bg-blue-700">
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add User
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Add New User</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4 pt-4">
+                        <div className="space-y-2">
+                          <Label>Full Name</Label>
+                          <input
+                            className="w-full px-4 py-2 rounded-md border border-gray-300"
+                            placeholder="John Doe"
+                            value={newName}
+                            onChange={(e) => setNewName(e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Email</Label>
+                          <input
+                            type="email"
+                            className="w-full px-4 py-2 rounded-md border border-gray-300"
+                            placeholder="john@company.com"
+                            value={newEmail}
+                            onChange={(e) => setNewEmail(e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Password</Label>
+                          <input
+                            type="password"
+                            className="w-full px-4 py-2 rounded-md border border-gray-300"
+                            placeholder="••••••••"
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Role</Label>
+                          <Select value={newRole} onValueChange={(val: any) => setNewRole(val)}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select role" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="ADMIN">Admin</SelectItem>
+                              <SelectItem value="MANAGER">Manager</SelectItem>
+                              <SelectItem value="REVIEWER">Reviewer</SelectItem>
+                              <SelectItem value="ANNOTATOR">Annotator</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <Button
+                          className="w-full bg-blue-600 hover:bg-blue-700"
+                          onClick={handleCreateUser}
+                        >
+                          Create User
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-gray-50">
+                        <TableHead className="w-[50px]"></TableHead>
+                        <TableHead className="cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => handleSort('name')}>
+                          <div className="flex items-center gap-1">
+                            User
+                            {sortConfig?.key === 'name' ? (
+                              sortConfig.direction === 'asc' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />
+                            ) : (
+                              <ArrowUpDown className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-50" />
+                            )}
+                          </div>
+                        </TableHead>
+                        <TableHead className="cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => handleSort('email')}>
+                          <div className="flex items-center gap-1">
+                            Email
+                            {sortConfig?.key === 'email' ? (
+                              sortConfig.direction === 'asc' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />
+                            ) : (
+                              <ArrowUpDown className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-50" />
+                            )}
+                          </div>
+                        </TableHead>
+                        <TableHead className="cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => handleSort('role')}>
+                          <div className="flex items-center gap-1">
+                            Role
+                            {sortConfig?.key === 'role' ? (
+                              sortConfig.direction === 'asc' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />
+                            ) : (
+                              <ArrowUpDown className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-50" />
+                            )}
+                          </div>
+                        </TableHead>
+                        <TableHead className="cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => handleSort('is_active')}>
+                          <div className="flex items-center gap-1">
+                            Status
+                            {sortConfig?.key === 'is_active' ? (
+                              sortConfig.direction === 'asc' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />
+                            ) : (
+                              <ArrowUpDown className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-50" />
+                            )}
+                          </div>
+                        </TableHead>
+                        <TableHead className="cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => handleSort('reputation_score')}>
+                          <div className="flex items-center gap-1">
+                            Reputation
+                            {sortConfig?.key === 'reputation_score' ? (
+                              sortConfig.direction === 'asc' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />
+                            ) : (
+                              <ArrowUpDown className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-50" />
+                            )}
+                          </div>
+                        </TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {loading ? (
+                        <TableRow>
+                          <TableCell colSpan={7} className="text-center py-8">Loading users...</TableCell>
+                        </TableRow>
+                      ) : users.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={7} className="text-center py-8">No users found</TableCell>
+                        </TableRow>
+                      ) : (
+                        sortedUsers.map((user, index) => (
+                          <motion.tr
+                            key={user.id}
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ duration: 0.3, delay: index * 0.05 }}
+                            className="border-b border-gray-200 hover:bg-gray-50"
+                          >
+                            <TableCell>
+                              <Avatar className="w-10 h-10">
+                                <AvatarFallback className="bg-blue-100 text-blue-700">
+                                  {getInitials(user.name)}
+                                </AvatarFallback>
+                              </Avatar>
+                            </TableCell>
+                            <TableCell className="font-medium">{user.name}</TableCell>
+                            <TableCell className="text-muted-foreground">{user.email}</TableCell>
+                            <TableCell>
+                              <Select
+                                value={user.role}
+                                onValueChange={(value) => initChangeUserRole(user, value as User['role'])}
+                              >
+                                <SelectTrigger className="w-[140px]">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="ADMIN">Admin</SelectItem>
+                                  <SelectItem value="MANAGER">Manager</SelectItem>
+                                  <SelectItem value="REVIEWER">Reviewer</SelectItem>
+                                  <SelectItem value="ANNOTATOR">Annotator</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Switch
+                                  checked={user.is_active}
+                                  onCheckedChange={() => initToggleUserActive(user)}
+                                />
+                                <span className={`text-sm font-medium ${user.is_active ? 'text-green-600' : 'text-red-600'}`}>
+                                  {user.is_active ? 'Active' : 'Locked'}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                                <span className="font-medium">{user.reputation_score}%</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getRoleColor(user.role)}`}>
+                                  {user.role}
+                                </span>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-blue-500 hover:text-blue-600 hover:bg-blue-50"
+                                  onClick={() => window.location.href = `/admin/users/${user.id}`}
+                                  title="View Details"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => initDeleteUser(user)}>
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </motion.tr>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
                 </div>
               </Card>
             </motion.div>
-          ))}
-        </motion.div>
+          </>
+        )}
 
-        {/* User Management Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.5 }}
-        >
-          <Card className="p-6">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-2xl font-semibold">User Management</h2>
-                <p className="text-sm text-muted-foreground mt-1">Manage user roles, permissions, and access</p>
-              </div>
-              <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
-                <DialogTrigger asChild>
-                  <Button className="bg-blue-600 hover:bg-blue-700">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add User
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Add New User</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4 pt-4">
-                    <div className="space-y-2">
-                      <Label>Full Name</Label>
-                      <input
-                        className="w-full px-4 py-2 rounded-md border border-gray-300"
-                        placeholder="John Doe"
-                        value={newName}
-                        onChange={(e) => setNewName(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Email</Label>
-                      <input
-                        type="email"
-                        className="w-full px-4 py-2 rounded-md border border-gray-300"
-                        placeholder="john@company.com"
-                        value={newEmail}
-                        onChange={(e) => setNewEmail(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Password</Label>
-                      <input
-                        type="password"
-                        className="w-full px-4 py-2 rounded-md border border-gray-300"
-                        placeholder="••••••••"
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Role</Label>
-                      <Select value={newRole} onValueChange={(val: any) => setNewRole(val)}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select role" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="admin">Admin</SelectItem>
-                          <SelectItem value="manager">Manager</SelectItem>
-                          <SelectItem value="reviewer">Reviewer</SelectItem>
-                          <SelectItem value="annotator">Annotator</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <Button
-                      className="w-full bg-blue-600 hover:bg-blue-700"
-                      onClick={handleCreateUser}
-                    >
-                      Create User
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </div>
+        {activeTab === 'settings' && (
+          <AdminEmailSettingsPage />
+        )}
 
-            <div className="border border-gray-200 rounded-lg overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-gray-50">
-                    <TableHead className="w-[50px]"></TableHead>
-                    <TableHead className="cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => handleSort('name')}>
-                      <div className="flex items-center gap-1">
-                        User
-                        {sortConfig?.key === 'name' ? (
-                          sortConfig.direction === 'asc' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />
-                        ) : (
-                          <ArrowUpDown className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-50" />
-                        )}
-                      </div>
-                    </TableHead>
-                    <TableHead className="cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => handleSort('email')}>
-                      <div className="flex items-center gap-1">
-                        Email
-                        {sortConfig?.key === 'email' ? (
-                          sortConfig.direction === 'asc' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />
-                        ) : (
-                          <ArrowUpDown className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-50" />
-                        )}
-                      </div>
-                    </TableHead>
-                    <TableHead className="cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => handleSort('role')}>
-                      <div className="flex items-center gap-1">
-                        Role
-                        {sortConfig?.key === 'role' ? (
-                          sortConfig.direction === 'asc' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />
-                        ) : (
-                          <ArrowUpDown className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-50" />
-                        )}
-                      </div>
-                    </TableHead>
-                    <TableHead className="cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => handleSort('is_active')}>
-                      <div className="flex items-center gap-1">
-                        Status
-                        {sortConfig?.key === 'is_active' ? (
-                          sortConfig.direction === 'asc' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />
-                        ) : (
-                          <ArrowUpDown className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-50" />
-                        )}
-                      </div>
-                    </TableHead>
-                    <TableHead className="cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => handleSort('reputation_score')}>
-                      <div className="flex items-center gap-1">
-                        Reputation
-                        {sortConfig?.key === 'reputation_score' ? (
-                          sortConfig.direction === 'asc' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />
-                        ) : (
-                          <ArrowUpDown className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-50" />
-                        )}
-                      </div>
-                    </TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {loading ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8">Loading users...</TableCell>
-                    </TableRow>
-                  ) : users.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8">No users found</TableCell>
-                    </TableRow>
-                  ) : (
-                    sortedUsers.map((user, index) => (
-                      <motion.tr
-                        key={user.id}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.3, delay: index * 0.05 }}
-                        className="border-b border-gray-200 hover:bg-gray-50"
-                      >
-                        <TableCell>
-                          <Avatar className="w-10 h-10">
-                            <AvatarFallback className="bg-blue-100 text-blue-700">
-                              {getInitials(user.name)}
-                            </AvatarFallback>
-                          </Avatar>
-                        </TableCell>
-                        <TableCell className="font-medium">{user.name}</TableCell>
-                        <TableCell className="text-muted-foreground">{user.email}</TableCell>
-                        <TableCell>
-                          <Select
-                            value={user.role}
-                            onValueChange={(value) => initChangeUserRole(user, value as User['role'])}
-                          >
-                            <SelectTrigger className="w-[140px]">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="admin">Admin</SelectItem>
-                              <SelectItem value="manager">Manager</SelectItem>
-                              <SelectItem value="reviewer">Reviewer</SelectItem>
-                              <SelectItem value="annotator">Annotator</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Switch
-                              checked={user.is_active}
-                              onCheckedChange={() => initToggleUserActive(user)}
-                            />
-                            <span className={`text-sm font-medium ${user.is_active ? 'text-green-600' : 'text-red-600'}`}>
-                              {user.is_active ? 'Active' : 'Locked'}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                            <span className="font-medium">{user.reputation_score}%</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getRoleColor(user.role)}`}>
-                              {user.role}
-                            </span>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => initDeleteUser(user)}>
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </motion.tr>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </Card>
-        </motion.div>
+
+        {activeTab === 'dashboard' && (
+          <AdminDashboardPage />
+        )}
+
+        {activeTab === 'logs' && (
+          <AdminLogsPage />
+        )}
+
+        {activeTab === 'ai-chat' && (
+          <AdminChatSettingsPage />
+        )}
       </div>
 
       <Dialog key={confirmation.type || 'closed'} open={!!confirmation.type} onOpenChange={(open) => !open && setConfirmation({ type: null, userId: null, title: '', description: '' })}>

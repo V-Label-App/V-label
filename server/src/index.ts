@@ -1,6 +1,7 @@
 import { exec } from 'child_process'
 import './config/env.js'
 import express from 'express'
+import http from 'http'
 import cors from 'cors'
 import helmet from 'helmet'
 import rateLimit from 'express-rate-limit'
@@ -11,8 +12,28 @@ import { logger } from './utils/logger.js'
 import { testConnection } from './utils/database.js'
 import authRoutes from './routes/auth.routes.js'
 import userRoutes from './routes/user.routes.js'
+import notificationRoutes from './routes/notification.routes.js'
+import chatRoutes from './routes/chat.routes.js'
+import adminRoutes from './routes/admin.routes.js'
+import aiRoutes from './routes/ai.routes.js'
+import { initializeSocketServer } from './websocket/socket.server.js'
+import { EmailTemplateService } from './services/email/template.service.js'
 
 const app = express()
+const httpServer = http.createServer(app)
+
+// Catch uncaught exceptions to prevent silent crashes
+process.on('uncaughtException', (err) => {
+  logger.error('CRITICAL', 'Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('CRITICAL', `Unhandled Rejection at: ${promise} reason: ${reason}`);
+});
+
+// Initialize Socket.IO
+const io = initializeSocketServer(httpServer)
+app.set('io', io) // Make io accessible in routes
 
 app.use(helmet())
 app.use(cors({
@@ -29,6 +50,10 @@ app.get('/api/v1/health', (_, res) => {
 
 app.use('/api/v1/auth', authRoutes)
 app.use('/api/v1/users', userRoutes)
+app.use('/api/v1/notifications', notificationRoutes)
+app.use('/api/v1/chat', chatRoutes)
+app.use('/api/v1/admin', adminRoutes)
+app.use('/api/v1/ai', aiRoutes)
 
 // 404 Catch-all
 app.use((req, res, next) => {
@@ -41,7 +66,7 @@ app.use(errorHandler)
 const PORT = process.env.PORT || 4000
 const NODE_ENV = process.env.NODE_ENV || 'development'
 
-const server = app.listen(PORT, async () => {
+const server = httpServer.listen(PORT, async () => {
   const startTime = new Date().toISOString()
   
   logger.server(`Started on http://localhost:${PORT}`)
@@ -66,6 +91,14 @@ const server = app.listen(PORT, async () => {
     logger.info('DATABASE', `PostgreSQL@${dbHost}:${dbPort} | Database: ${dbName} | Status: ✅ Connected`)
   } else {
     logger.warn('DATABASE', `PostgreSQL@${dbHost}:${dbPort} | Database: ${dbName} | Status: ❌ Failed`)
+  }
+
+  // Seed default email templates
+  try {
+    const templateService = new EmailTemplateService();
+    await templateService.seedDefaultTemplates();
+  } catch (error) {
+    logger.error('EMAIL', 'Failed to seed default templates:', error);
   }
   
   // CORS info
