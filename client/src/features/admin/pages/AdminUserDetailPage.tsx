@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '../../../components/ui/button';
 import { Card } from '../../../components/ui/card';
 import { Avatar, AvatarFallback } from '../../../components/ui/avatar';
-import { ArrowLeft, Mail, Shield, Activity, Calendar, Eye, Trash2 } from 'lucide-react';
+import { ArrowLeft, Mail, Shield, Activity, Calendar, Eye } from 'lucide-react';
 import { authApi } from '../../../services/auth.api';
 import { useAuth } from '../../../context/AuthContext';
 import { toast } from 'sonner';

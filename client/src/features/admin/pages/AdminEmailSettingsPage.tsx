@@ -10,7 +10,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
 import { toast } from 'sonner';
 import { Mail, Settings, FileText, History, Save, Plus, Trash2, Edit2, Loader2, Info, CheckCircle2, XCircle } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../../../components/ui/dialog';
 
 export function AdminEmailSettingsPage() {

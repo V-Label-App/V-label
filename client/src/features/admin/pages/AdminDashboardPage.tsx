@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Users, FolderKanban, Tag, HardDrive, TrendingUp, Clock, Award, CheckCircle } from 'lucide-react';
 
@@ -42,8 +41,6 @@ const MOCK_STATS = {
 };
 
 export function AdminDashboardPage() {
-    const [timeRange] = useState<'today' | 'week' | 'month'>('month');
-
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
             {/* Header */}
@@ -191,9 +188,9 @@ export function AdminDashboardPage() {
                                 <div key={annotator.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                                     <div className="flex items-center gap-3">
                                         <div className={`flex items-center justify-center w-8 h-8 rounded-full font-bold text-white ${index === 0 ? 'bg-yellow-500' :
-                                                index === 1 ? 'bg-gray-400' :
-                                                    index === 2 ? 'bg-orange-600' :
-                                                        'bg-blue-500'
+                                            index === 1 ? 'bg-gray-400' :
+                                                index === 2 ? 'bg-orange-600' :
+                                                    'bg-blue-500'
                                             }`}>
                                             {index + 1}
                                         </div>

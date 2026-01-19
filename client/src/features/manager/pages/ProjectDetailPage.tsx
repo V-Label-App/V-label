@@ -58,8 +58,8 @@ export function ProjectDetailPage() {
     const { isImpersonating } = useAuth();
     const [project, setProject] = useState<Project | undefined>();
     const [activeTab, setActiveTab] = useState('tasks');
-    const [labels, setLabels] = useState<LabelType[]>(mockLabels);
-    const [categories, setCategories] = useState<LabelCategory[]>(mockCategories);
+    const [labels] = useState<LabelType[]>(mockLabels);
+    const [categories] = useState<LabelCategory[]>(mockCategories);
 
     // Load Project
     useEffect(() => {
@@ -280,12 +280,12 @@ export function ProjectDetailPage() {
         toast.success('Tasks assigned successfully!');
     };
 
-    const exportProjectCSV = (project: Project) => {
+    const exportProjectCSV = () => {
         // Implement export logic here (omitted for brevity, assume similar to original)
         toast.success('CSV export started');
     };
 
-    const exportProjectJSON = (project: Project) => {
+    const exportProjectJSON = () => {
         // Implement export logic here (omitted for brevity, assume similar to original)
         toast.success('JSON export started');
     };
@@ -394,11 +394,11 @@ export function ProjectDetailPage() {
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => exportProjectCSV(project)}>
+                                <DropdownMenuItem onClick={() => exportProjectCSV()}>
                                     <FileText className="w-4 h-4 mr-2" />
                                     Export as CSV
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => exportProjectJSON(project)}>
+                                <DropdownMenuItem onClick={() => exportProjectJSON()}>
                                     <FileText className="w-4 h-4 mr-2" />
                                     Export as JSON
                                 </DropdownMenuItem>
