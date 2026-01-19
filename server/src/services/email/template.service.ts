@@ -47,7 +47,7 @@ export class EmailTemplateService {
         htmlBody: data.htmlBody,
         textBody: data.textBody ?? null,
         variables: data.variables,
-        enabled: data.enabled ?? undefined,
+        ...(data.enabled !== undefined && { enabled: data.enabled }),
       },
     });
   }

@@ -189,7 +189,8 @@ export class AdminController {
 
     static async deleteEmailLog(req: Request, res: Response) {
         try {
-            const { id } = req.params;
+            const rawId = req.params.id;
+            const id = (Array.isArray(rawId) ? rawId[0] : rawId) ?? '';
             await prisma.emailLog.delete({
                 where: { id }
             });

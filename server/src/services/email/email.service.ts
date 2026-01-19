@@ -108,10 +108,10 @@ export class EmailService {
 
       // Log success
       await this.logEmail({
-        to: Array.isArray(options.to) ? options.to[0] : options.to,
+        to: (Array.isArray(options.to) ? options.to[0] : options.to) ?? '',
         from: process.env.SMTP_USER ?? 'noreply@vlabel.com',
         subject: subject ?? '',
-        templateType: options.templateType,
+        ...(options.templateType && { templateType: options.templateType }),
         status: 'sent',
         sentAt: new Date(),
       });
@@ -122,10 +122,10 @@ export class EmailService {
       
       // Log failure
       await this.logEmail({
-        to: Array.isArray(options.to) ? options.to[0] : options.to,
+        to: (Array.isArray(options.to) ? options.to[0] : options.to) ?? '',
         from: process.env.SMTP_USER ?? 'noreply@vlabel.com',
         subject: options.subject ?? options.templateType ?? 'Unknown',
-        templateType: options.templateType,
+        ...(options.templateType && { templateType: options.templateType }),
         status: 'failed',
         error: error.message,
       });
