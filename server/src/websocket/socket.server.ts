@@ -2,6 +2,7 @@ import { Server as HttpServer } from 'http';
 import { Server, Socket } from 'socket.io';
 import { socketAuthMiddleware } from './middleware/socket.auth.js';
 import { registerChatHandlers } from './handlers/chat.handler.js';
+import { broadcastService } from './events/broadcast.service.js';
 import logger from '../utils/logger.js';
 
 export function initializeSocketServer(httpServer: HttpServer) {
@@ -19,12 +20,16 @@ export function initializeSocketServer(httpServer: HttpServer) {
     pingTimeout: 10000,   // 10s timeout
   });
 
+  // Initialize broadcast service with Socket.IO instance
+  broadcastService.setSocketServer(io);
+
   // Authentication middleware
   io.use(socketAuthMiddleware);
 
   io.on('connection', (socket: Socket) => {
     const userId = socket.data.userId;
-    logger.info('WEBSOCKET', `User connected: ${userId}`);
+    const userRole = socket.data.userRole || 'UNKNOWN';
+    logger.info('WEBSOCKET', `User connected: ${userId} | Role: ${userRole} | AI Widget: ${userRole}-specific prompt`);
 
     // Join user's personal room for direct notifications
     socket.join(`user:${userId}`);
@@ -33,7 +38,7 @@ export function initializeSocketServer(httpServer: HttpServer) {
     registerChatHandlers(io, socket);
 
     socket.on('disconnect', () => {
-      logger.info('WEBSOCKET', `User disconnected: ${userId}`);
+      logger.info('WEBSOCKET', `User disconnected: ${userId} (${userRole})`);
     });
 
     socket.on('error', (error) => {

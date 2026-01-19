@@ -15,7 +15,7 @@ export interface ChatWidgetProps {
 }
 
 export function ChatWidget({ variant = 'floating', className, style }: ChatWidgetProps) {
-    const { isAuthenticated } = useAuth();
+    const { isAuthenticated, user } = useAuth();
     const {
         isOpen,
         toggleOpen,
@@ -29,14 +29,22 @@ export function ChatWidget({ variant = 'floating', className, style }: ChatWidge
         resetChat
     } = useChatWidget();
 
-    // Only show if user is logged in AND config is loaded + enabled
-    // For embedded mode, we might want to bypass the 'enabled' check to allow testing even if disabled globally? 
-    // But typically live testing tests the *current* config, so if it's disabled, it might show disabled.
-    // However, for admin testing, it's better to always show.
-    // Let's stick to strict config first for consistency, or maybe loose check for embedded.
-    // User request: "Test your AI configuration... Save configuration first to see changes."
-    if (!isAuthenticated || !config) return null;
-    if (variant === 'floating' && !config.enabled) return null;
+    // Don't render if not authenticated
+    if (!isAuthenticated) return null;
+
+    // Show loading state or wait for config
+    // Don't hide completely to avoid flickering
+    if (!config) {
+        // Return minimal placeholder instead of null to prevent unmounting
+        return variant === 'floating' ? (
+            <div className="fixed bottom-6 right-6 z-50">
+                <div className="h-14 w-14 rounded-full bg-gray-200 animate-pulse" />
+            </div>
+        ) : null;
+    }
+
+    // For floating widget: Only show if enabled OR user is admin (for testing)
+    if (variant === 'floating' && !config.enabled && user?.role !== 'ADMIN') return null;
 
     const isLeft = config.ui.position === 'left';
     const themeColor = config.ui.themeColor || '#0ea5e9';

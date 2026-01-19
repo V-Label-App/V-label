@@ -19,13 +19,19 @@ export class AIController {
         return res.status(403).json({ error: 'AI Chat is currently disabled by the administrator.' });
       }
 
-      // 3. Call Gemini
+      // 3. Extract user role for role-based prompts
+      const userRole = user?.role || 'ANNOTATOR'; // Fallback to ANNOTATOR role
+
+      // 4. Call Gemini with role-based prompt, knowledge base, and custom role prompts
       const responseText = await geminiService.chatCompletion(
         config.modelName,
-        config.systemPrompt,
-        history || [], // Expecting [{ role: 'user'|'model', parts: 'text' }]
+        config.systemPrompt,   // Global prompt (lower priority than custom role prompts)
+        history || [],
         message,
-        config.temperature
+        config.temperature,
+        userRole,
+        config.knowledgeBase,
+        config.rolePrompts     // NEW: Custom role-specific prompts
       );
 
       return res.json({ text: responseText });

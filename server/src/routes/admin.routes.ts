@@ -10,6 +10,7 @@ const router = Router();
 // Config Routes
 router.get('/config/chat', authMiddleware, requireRole(['ADMIN']), AdminController.getChatConfig);
 router.put('/config/chat', authMiddleware, requireRole(['ADMIN']), AdminController.updateChatConfig);
+router.get('/config/chat/defaults', authMiddleware, requireRole(['ADMIN']), AdminController.getDefaultRolePrompts);
 
 // Audit Log Config Routes
 router.get('/config/audit-log', authMiddleware, requireRole(['ADMIN']), AdminController.getAuditLogConfig);

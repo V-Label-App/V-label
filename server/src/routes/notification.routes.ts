@@ -7,12 +7,12 @@ const router = express.Router();
 // Get user's notifications (paginated)
 router.get('/', authMiddleware, async (req, res) => {
   try {
-    const userId = (req.user as any)?.id as string;
+    const userId = (req.user as any)?.sub as string;
     const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
+    const limit = parseInt(req.query.limit as string) || 50;
     const skip = (page - 1) * limit;
 
-    const [notifications, total] = await Promise.all([
+    const [notifications, total, unreadCount] = await Promise.all([
       prisma.notification.findMany({
         where: { userId },
         orderBy: { createdAt: 'desc' },
@@ -20,10 +20,12 @@ router.get('/', authMiddleware, async (req, res) => {
         skip,
       }),
       prisma.notification.count({ where: { userId } }),
+      prisma.notification.count({ where: { userId, isRead: false } }),
     ]);
 
     res.json({
       notifications,
+      unreadCount,
       pagination: {
         page,
         limit,
@@ -40,7 +42,7 @@ router.get('/', authMiddleware, async (req, res) => {
 // Mark notification as read
 router.post('/:id/read', authMiddleware, async (req, res) => {
   try {
-    const userId = (req.user as any)?.id as string;
+    const userId = (req.user as any)?.sub as string;
     const rawNotificationId = req.params.id;
     const notificationId = (Array.isArray(rawNotificationId) ? rawNotificationId[0] : rawNotificationId) ?? '';
 
@@ -62,7 +64,7 @@ router.post('/:id/read', authMiddleware, async (req, res) => {
 // Delete notification
 router.delete('/:id', authMiddleware, async (req, res) => {
   try {
-    const userId = (req.user as any)?.id as string;
+    const userId = (req.user as any)?.sub as string;
     const rawNotificationId = req.params.id;
     const notificationId = (Array.isArray(rawNotificationId) ? rawNotificationId[0] : rawNotificationId) ?? '';
 

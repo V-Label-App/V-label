@@ -197,6 +197,7 @@ enum NotificationType {
   TASK_REJECTED
   DEADLINE_WARNING
   COMMENT_MENTION
+  SYSTEM_ANNOUNCEMENT  // For system-wide notifications (chat config, maintenance, etc.)
 }
 
 model ChatMessage {

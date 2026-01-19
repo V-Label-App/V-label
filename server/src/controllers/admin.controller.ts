@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { SystemConfigService } from '../services/system.config.service.js';
 import { prisma } from '../utils/database.js';
 import { EmailTemplateService } from '../services/email/template.service.js';
+import { ROLE_PROMPTS } from '../config/rolePrompts.js';
 
 export class AdminController {
     /**
@@ -26,10 +27,53 @@ export class AdminController {
             const newConfig = req.body;
             const adminId = (req as any).user?.sub;
             const updated = await SystemConfigService.updateChatConfig(newConfig, adminId);
+            
+            // Broadcast config update to all connected clients via WebSocket
+            const { broadcastService } = await import('../websocket/events/broadcast.service.js');
+            const { SystemEventType} = await import('../websocket/events/types.js');
+            
+            broadcastService.broadcastToAll(
+                SystemEventType.CHAT_CONFIG_UPDATED,
+                {
+                    enabled: updated.value.enabled,
+                    modelName: updated.value.modelName,
+                    adminId,
+                },
+                adminId
+            );
+            
+            // Save notification to database for offline users
+            const { NotificationService } = await import('../services/notification.service.js');
+            const { NotificationType } = await import('@prisma/client');
+            await NotificationService.createNotificationForAllUsers({
+                type: NotificationType.SYSTEM_ANNOUNCEMENT,
+                title: 'AI Chat Widget Updated',
+                message: updated.value.enabled 
+                    ? 'AI Chat Widget has been enabled by Admin' 
+                    : 'AI Chat Widget has been disabled by Admin',
+                metadata: {
+                    eventType: 'chat_config_updated',
+                    enabled: updated.value.enabled,
+                    adminId,
+                },
+            });
+            
             return res.json(updated.value);
         } catch (error) {
             console.error('[Admin] Update chat config error:', error);
             return res.status(500).json({ error: 'Failed to update config' });
+        }
+    }
+
+    /**
+     * Get Default Role Prompts (Hardcoded from rolePrompts.ts)
+     */
+    static async getDefaultRolePrompts(req: Request, res: Response) {
+        try {
+            return res.json(ROLE_PROMPTS);
+        } catch (error) {
+            console.error('[Admin] Get default role prompts error:', error);
+            return res.status(500).json({ error: 'Failed to fetch default prompts' });
         }
     }
 

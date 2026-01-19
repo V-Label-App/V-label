@@ -4,6 +4,16 @@ export interface ChatWidgetConfig {
     enabled: boolean;
     modelName: string;
     systemPrompt: string;
+    knowledgeBase?: string; // Documentation content for AI context
+    
+    // Per-role custom prompts
+    rolePrompts?: {
+        MANAGER?: string;
+        ANNOTATOR?: string;
+        REVIEWER?: string;
+        ADMIN?: string;
+    };
+    
     temperature: number;
     ui: {
         themeColor: string;
@@ -24,6 +34,11 @@ export const chatSettingsApi = {
 
     updateConfig: async (config: Partial<ChatWidgetConfig>): Promise<ChatWidgetConfig> => {
         const response = await apiClient.put<ChatWidgetConfig>('/admin/config/chat', config);
+        return response.data;
+    },
+
+    getDefaultPrompts: async (): Promise<Record<string, string>> => {
+        const response = await apiClient.get<Record<string, string>>('/admin/config/chat/defaults');
         return response.data;
     }
 }
