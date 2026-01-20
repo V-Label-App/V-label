@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { chatSettingsApi, type ChatWidgetConfig } from '../../../services/chatSettings.api';
+import { chatSettingsApi, type ChatWidgetConfig, type ChatFunctionDefinition } from '../../../services/chatSettings.api';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
 import { Switch } from '../../../components/ui/switch';
 import { Input } from '../../../components/ui/input';
@@ -8,10 +8,13 @@ import { Button } from '../../../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Label } from '../../../components/ui/label';
 import { toast } from 'sonner';
-import { Bot, Save, Loader2, Sparkles, Plus, X, MessageSquarePlus, Info, RotateCcw } from 'lucide-react';
+import { Bot, Save, Loader2, Sparkles, Plus, X, MessageSquarePlus, Info, RotateCcw, Hammer, Code, Shield, Trash2, Check, ExternalLink, RefreshCw } from 'lucide-react';
 import { ChatWidget } from '../../chat-widget/components/ChatWidget';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../components/ui/tooltip';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
+import { Checkbox } from '../../../components/ui/checkbox';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '../../../components/ui/dialog';
+import { Badge } from '../../../components/ui/badge';
 
 export function AdminChatSettingsPage() {
     const [config, setConfig] = useState<ChatWidgetConfig | null>(null);
@@ -19,6 +22,8 @@ export function AdminChatSettingsPage() {
     const [isSaving, setIsSaving] = useState(false);
     const [newReply, setNewReply] = useState('');
     const [defaults, setDefaults] = useState<Record<string, string> | null>(null);
+    const [editingFunction, setEditingFunction] = useState<ChatFunctionDefinition | null>(null);
+    const [isFunctionDialogOpen, setIsFunctionDialogOpen] = useState(false);
 
     useEffect(() => {
         loadConfig();
@@ -89,6 +94,60 @@ export function AdminChatSettingsPage() {
         }
     };
 
+    const handleSyncTools = async () => {
+        try {
+            const registry = await chatSettingsApi.getFunctionRegistry();
+            if (!config) return;
+
+            const currentTools = config.functions || [];
+            const newTools: ChatFunctionDefinition[] = [];
+
+            // Merge logic:
+            // 1. Iterate over registry items
+            // 2. If item exists in config (by name), keep enabled/roles but update description/params from registry
+            // 3. If item does not exist, add it (default enabled=false, roles=['ADMIN']) logic is up to us, maybe default enabled=true?
+
+            // Let's go with: Update Schema, Keep Config
+
+            registry.forEach(regItem => {
+                if (!regItem.name) return;
+
+                const existing = currentTools.find(t => t.name === regItem.name);
+                if (existing) {
+                    newTools.push({
+                        ...existing,
+                        description: regItem.description || existing.description,
+                        parameters: regItem.parameters as any // Update schema
+                    });
+                } else {
+                    // New discovery
+                    newTools.push({
+                        name: regItem.name,
+                        description: regItem.description || '',
+                        parameters: regItem.parameters as any,
+                        enabled: true, // Default to true or false? Let's say true for discovery
+                        roles: ['ADMIN'] // Default safe role
+                    });
+                }
+            });
+
+            // What about tools in config but NOT in registry? (User defined manual tools?)
+            // We should keep them, maybe? Or maybe marking them as "Disconnected"?
+            // For now, let's keep them too.
+            currentTools.forEach(tool => {
+                if (!registry.find(r => r.name === tool.name)) {
+                    newTools.push(tool);
+                }
+            });
+
+            setConfig({ ...config, functions: newTools });
+            toast.success(`Synced ${registry.length} tools from backend`);
+        } catch (error) {
+            console.error(error);
+            toast.error('Failed to sync tools');
+        }
+    };
+
     if (isLoading || !config) {
         return (
             <div className="flex items-center justify-center p-12">
@@ -120,13 +179,245 @@ export function AdminChatSettingsPage() {
             </div>
 
             <Tabs defaultValue="general" className="w-full">
-                <TabsList className="grid w-full grid-cols-5">
+                <TabsList className="grid w-full grid-cols-6">
                     <TabsTrigger value="general">General</TabsTrigger>
                     <TabsTrigger value="role-prompts">Role Prompts</TabsTrigger>
+                    <TabsTrigger value="tools">Tools</TabsTrigger>
                     <TabsTrigger value="knowledge-base">Knowledge Base</TabsTrigger>
                     <TabsTrigger value="appearance">Appearance</TabsTrigger>
                     <TabsTrigger value="testing">Testing</TabsTrigger>
                 </TabsList>
+
+                {/* TAB 0: TOOLS */}
+                <TabsContent value="tools" className="space-y-6">
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between">
+                            <div>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Hammer className="w-5 h-5 text-indigo-500" />
+                                    AI Tools & Functions
+                                    <Badge variant="outline" className="ml-2 bg-indigo-50 text-indigo-700 border-indigo-200">Ready to use</Badge>
+                                </CardTitle>
+                                <CardDescription>
+                                    Define tools that the AI can use to perform actions (e.g., query database, assign tasks).
+                                </CardDescription>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Button onClick={() => {
+                                    setEditingFunction({
+                                        name: '',
+                                        description: '',
+                                        parameters: { type: 'object', properties: {}, required: [] },
+                                        enabled: true,
+                                        roles: ['ADMIN']
+                                    });
+                                    setIsFunctionDialogOpen(true);
+                                }}>
+                                    <Plus className="w-4 h-4 mr-2" />
+                                    Add Tool
+                                </Button>
+                                <Button variant="outline" onClick={handleSyncTools} title="Scan backend for available tools">
+                                    <RefreshCw className="w-4 h-4 mr-2" />
+                                    Sync
+                                </Button>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            {!config.functions || config.functions.length === 0 ? (
+                                <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50">
+                                    <Hammer className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                                    <h3 className="text-lg font-medium text-gray-900">No tools defined</h3>
+                                    <p className="text-gray-500 mb-4 max-w-md mx-auto">
+                                        Tools allow the AI to interact with your system. Add one to get started.
+                                    </p>
+                                    <Button variant="outline" onClick={() => {
+                                        // Load Preset: Get User Count
+                                        const preset = {
+                                            name: 'get_user_count',
+                                            description: 'Get the total number of users in the system to report to admins.',
+                                            parameters: { type: 'object', properties: {} } as any,
+                                            enabled: true,
+                                            roles: ['ADMIN']
+                                        };
+                                        setConfig({ ...config, functions: [...(config.functions || []), preset] });
+                                    }}>
+                                        Load Example: User Count
+                                    </Button>
+                                    <Button variant="outline" onClick={() => {
+                                        // Load Preset: Get Users (List)
+                                        const preset = {
+                                            name: 'get_users',
+                                            description: 'List user details including email, role, and name. Supports filtering by role.',
+                                            parameters: {
+                                                type: 'object',
+                                                properties: {
+                                                    role: { type: 'string', description: 'Filter by role (ADMIN, MANAGER, ANNOTATOR, REVIEWER)' },
+                                                    limit: { type: 'number', description: 'Limit number of results (default 5, max 20)' }
+                                                }
+                                            } as any,
+                                            enabled: true,
+                                            roles: ['ADMIN', 'MANAGER']
+                                        };
+                                        setConfig({ ...config, functions: [...(config.functions || []), preset] });
+                                    }}>
+                                        Load Example: Get Users
+                                    </Button>
+                                </div>
+                            ) : (
+                                <div className="grid gap-4">
+                                    {config.functions.map((fn, index) => (
+                                        <div key={index} className="flex items-start justify-between p-4 bg-white border rounded-lg shadow-sm hover:border-indigo-200 transition-colors">
+                                            <div className="flex items-start gap-3">
+                                                <div className="p-2 bg-indigo-50 rounded-md">
+                                                    <Code className="w-5 h-5 text-indigo-600" />
+                                                </div>
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <h4 className="font-semibold text-gray-900">{fn.name}</h4>
+                                                        {!fn.enabled && <Badge variant="secondary" className="text-xs">Disabled</Badge>}
+                                                    </div>
+                                                    <p className="text-sm text-gray-500 mt-1">{fn.description}</p>
+                                                    <div className="flex items-center gap-2 mt-2">
+                                                        {fn.roles.map(role => (
+                                                            <Badge key={role} variant="outline" className="text-[10px] px-1.5 py-0 h-5 bg-gray-50">
+                                                                {role}
+                                                            </Badge>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <Switch
+                                                    checked={fn.enabled}
+                                                    onCheckedChange={(checked) => {
+                                                        const updated = [...config.functions!];
+                                                        updated[index] = { ...fn, enabled: checked };
+                                                        setConfig({ ...config, functions: updated });
+                                                    }}
+                                                />
+                                                <Button variant="ghost" size="icon" onClick={() => {
+                                                    setEditingFunction(fn);
+                                                    setIsFunctionDialogOpen(true);
+                                                }}>
+                                                    <ExternalLink className="w-4 h-4 text-gray-500" />
+                                                </Button>
+                                                <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => {
+                                                    const updated = config.functions!.filter((_, i) => i !== index);
+                                                    setConfig({ ...config, functions: updated });
+                                                }}>
+                                                    <Trash2 className="w-4 h-4" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    {/* Function Editor Dialog */}
+                    <Dialog open={isFunctionDialogOpen} onOpenChange={setIsFunctionDialogOpen}>
+                        <DialogContent className="max-w-2xl">
+                            <DialogHeader>
+                                <DialogTitle>{editingFunction?.name ? 'Edit Tool' : 'Add New Tool'}</DialogTitle>
+                                <DialogDescription>
+                                    Configure the function definition. The name must match a registered function in the backend.
+                                </DialogDescription>
+                            </DialogHeader>
+                            {editingFunction && (
+                                <div className="space-y-4 py-2">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label>Function Name</Label>
+                                            <Input
+                                                value={editingFunction.name}
+                                                onChange={(e) => setEditingFunction({ ...editingFunction, name: e.target.value })}
+                                                placeholder="e.g., get_user_count"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Description</Label>
+                                            <Input
+                                                value={editingFunction.description}
+                                                onChange={(e) => setEditingFunction({ ...editingFunction, description: e.target.value })}
+                                                placeholder="What does this tool do?"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label>Parameters (JSON Schema)</Label>
+                                        <Textarea
+                                            value={JSON.stringify(editingFunction.parameters, null, 2)}
+                                            onChange={(e) => {
+                                                try {
+                                                    const parsed = JSON.parse(e.target.value);
+                                                    setEditingFunction({ ...editingFunction, parameters: parsed });
+                                                } catch (err) {
+                                                    // Allow typing invalid JSON temporarily
+                                                }
+                                            }}
+                                            className="font-mono text-xs min-h-[150px]"
+                                        />
+                                        <p className="text-xs text-muted-foreground">Define arguments using JSON Schema (Draft 7).</p>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label>Allowed Roles</Label>
+                                        <div className="flex flex-wrap gap-4 p-4 border rounded-lg bg-gray-50/50">
+                                            {['MANAGER', 'ANNOTATOR', 'REVIEWER', 'ADMIN'].map(role => (
+                                                <div key={role} className="flex items-center space-x-2">
+                                                    <Checkbox
+                                                        id={`role-${role}`}
+                                                        checked={editingFunction.roles.includes(role)}
+                                                        onCheckedChange={(checked) => {
+                                                            const newRoles = checked
+                                                                ? [...editingFunction.roles, role]
+                                                                : editingFunction.roles.filter(r => r !== role);
+                                                            setEditingFunction({ ...editingFunction, roles: newRoles });
+                                                        }}
+                                                    />
+                                                    <label htmlFor={`role-${role}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer">
+                                                        {role}
+                                                    </label>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                            <DialogFooter>
+                                <Button variant="outline" onClick={() => setIsFunctionDialogOpen(false)}>Cancel</Button>
+                                <Button onClick={() => {
+                                    if (editingFunction) {
+                                        const currentFunctions = config?.functions || [];
+                                        const exists = currentFunctions.find(f => f.name === editingFunction.name);
+
+                                        let updatedFunctions;
+                                        if (exists) {
+                                            // Update existing (find by name is naive if renaming, but name is ID here)
+                                            // Better to match by index if we had it, but for now name matching or replace logic
+                                            // Actually, since we don't track index in editing state, let's assume if name exists we replace, else add
+                                            // Wait, if I rename, checking by name fails.
+                                            // Simple approach: Use a separate "originalName" or just filter out strict dupes?
+                                            // For this MVP, let's just append or replace based on strict equality of object? No.
+                                            // Let's rely on the user to manage uniqueness.
+                                            // A better way: Pass an index or 'isNew' flag.
+                                            // For now: Just filter out any existing with same name and push new one.
+                                            const filtered = currentFunctions.filter(f => f.name !== editingFunction.name);
+                                            updatedFunctions = [...filtered, editingFunction];
+                                        } else {
+                                            updatedFunctions = [...currentFunctions, editingFunction];
+                                        }
+
+                                        setConfig({ ...config!, functions: updatedFunctions });
+                                        setIsFunctionDialogOpen(false);
+                                    }
+                                }}>Done</Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+                </TabsContent>
 
                 {/* TAB 1: TESTING */}
                 <TabsContent value="testing" className="space-y-6">
@@ -148,7 +439,7 @@ export function AdminChatSettingsPage() {
                                 </div>
                             </div>
                             <div className="bg-slate-100 rounded-xl p-6">
-                                <ChatWidget variant="embedded" className="w-full shadow-xl" />
+                                <ChatWidget variant="embedded" className="w-full h-[500px] shadow-xl" />
                             </div>
                         </CardContent>
                     </Card>

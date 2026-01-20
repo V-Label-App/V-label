@@ -10,4 +10,7 @@ router.post('/chat/completion', authMiddleware, AIController.chatCompletion);
 // GET /api/v1/ai/config (For user widget, restricted data)
 router.get('/config', authMiddleware, AIController.getConfig);
 
+// GET /api/v1/ai/functions/registry (For admin function discovery)
+router.get('/functions/registry', authMiddleware, AIController.getRegistry);
+
 export default router;

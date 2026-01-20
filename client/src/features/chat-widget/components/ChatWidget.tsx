@@ -1,4 +1,6 @@
+import { useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useChatWidget } from '../hooks/useChatWidget';
 import { useAuth } from '../../../context/AuthContext';
 import { Button } from '../../../components/ui/button';
@@ -24,10 +26,34 @@ export function ChatWidget({ variant = 'floating', className, style }: ChatWidge
         isTyping,
         inputValue,
         setInputValue,
-        handleSendMessage,
+        handleSendMessage: baseHandleSendMessage,
         chatContainerRef,
         resetChat
     } = useChatWidget();
+
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    // Wrapper to handle extra UI logic like focus
+    const handleSendMessage = async (e?: React.FormEvent, customMessage?: string) => {
+        // If clicking a quick reply button, force focus back to input
+        if (customMessage) {
+            inputRef.current?.focus();
+        }
+
+        await baseHandleSendMessage(e, customMessage);
+    };
+
+
+
+    // Auto-focus input when typing finishes or widget opens
+    useEffect(() => {
+        if (!isTyping && isOpen) {
+            // Small timeout to ensure DOM is ready and animation doesn't interfere
+            setTimeout(() => {
+                inputRef.current?.focus();
+            }, 100);
+        }
+    }, [isTyping, isOpen]);
 
     // Don't render if not authenticated
     if (!isAuthenticated) return null;
@@ -56,6 +82,26 @@ export function ChatWidget({ variant = 'floating', className, style }: ChatWidge
     const formatTime = (timestamp?: number) => {
         if (!timestamp) return '';
         return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    };
+
+    // Helper to parse quick replies from AI response
+    const parseContent = (content: string) => {
+        const replyRegex = /<<<REPLIES>>>([\s\S]*?)<<<REPLIES>>>/;
+        const match = content.match(replyRegex);
+
+        let cleanContent = content;
+        let dynamicReplies: string[] = [];
+
+        if (match && match[1]) {
+            try {
+                dynamicReplies = JSON.parse(match[1]);
+                // Remove the block from content
+                cleanContent = content.replace(replyRegex, '').trim();
+            } catch (e) {
+                console.error("Failed to parse quick replies:", e);
+            }
+        }
+        return { cleanContent, dynamicReplies };
     };
 
     if (isEmbedded) {
@@ -113,47 +159,74 @@ export function ChatWidget({ variant = 'floating', className, style }: ChatWidge
                             <p className="text-sm">Start a conversation to test the configuration.</p>
                         </div>
                     )}
-                    {messages.map((msg, idx) => (
-                        <div
-                            key={idx}
-                            className={cn(
-                                "flex gap-3 max-w-[85%]",
-                                msg.role === 'user' ? "ml-auto flex-row-reverse" : ""
-                            )}
-                        >
-                            <div className={cn(
-                                "w-8 h-8 rounded-full flex items-center justify-center shrink-0 shadow-sm border border-white",
-                                msg.role === 'user' ? "bg-white" : "bg-gradient-to-br from-blue-50 to-indigo-50"
-                            )}>
-                                {msg.role === 'user'
-                                    ? <User className="w-4 h-4 text-gray-600" />
-                                    : <Bot className="w-4 h-4 text-blue-600" />
-                                }
-                            </div>
-                            <div className={cn(
-                                "p-3.5 px-4 rounded-3xl text-sm shadow-sm leading-relaxed",
-                                msg.role === 'user'
-                                    ? "bg-blue-600 text-white rounded-tr-sm"
-                                    : "bg-white text-gray-800 border border-gray-100 rounded-tl-sm"
-                            )}>
-                                {msg.role === 'model' ? (
-                                    <div className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-6">
-                                        <ReactMarkdown>{msg.parts}</ReactMarkdown>
-                                    </div>
-                                ) : (
-                                    <p className="whitespace-pre-wrap">{msg.parts}</p>
+                    {messages.map((msg, idx) => {
+                        const { cleanContent, dynamicReplies } = msg.role === 'model' ? parseContent(msg.parts) : { cleanContent: msg.parts, dynamicReplies: [] };
+                        const isLastMessage = idx === messages.length - 1;
+
+                        return (
+                            <div
+                                key={idx}
+                                className={cn(
+                                    "flex flex-col gap-1 max-w-[85%]",
+                                    msg.role === 'user' ? "ml-auto items-end" : "items-start"
                                 )}
-                                {msg.timestamp && (
-                                    <p className={cn(
-                                        "text-[10px] mt-1 text-right opacity-70",
-                                        msg.role === 'user' ? "text-blue-100" : "text-gray-400"
+                            >
+                                <div className={cn("flex gap-3", msg.role === 'user' ? "flex-row-reverse" : "")}>
+                                    <div className={cn(
+                                        "w-8 h-8 rounded-full flex items-center justify-center shrink-0 shadow-sm border border-white",
+                                        msg.role === 'user' ? "bg-white" : "bg-gradient-to-br from-blue-50 to-indigo-50"
                                     )}>
-                                        {formatTime(msg.timestamp)}
-                                    </p>
+                                        {msg.role === 'user'
+                                            ? <User className="w-4 h-4 text-gray-600" />
+                                            : <Bot className="w-4 h-4 text-blue-600" />
+                                        }
+                                    </div>
+                                    <div className={cn(
+                                        "p-3.5 px-4 rounded-3xl text-sm shadow-sm leading-relaxed",
+                                        msg.role === 'user'
+                                            ? "bg-blue-600 text-white rounded-tr-sm"
+                                            : "bg-white text-gray-800 border border-gray-100 rounded-tl-sm"
+                                    )}>
+                                        {msg.role === 'model' ? (
+                                            <div className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-6">
+                                                <ReactMarkdown remarkPlugins={[remarkGfm]}>{cleanContent}</ReactMarkdown>
+                                            </div>
+                                        ) : (
+                                            <p className="whitespace-pre-wrap">{cleanContent}</p>
+                                        )}
+                                        {msg.timestamp && (
+                                            <p className={cn(
+                                                "text-[10px] mt-1 text-right opacity-70",
+                                                msg.role === 'user' ? "text-blue-100" : "text-gray-400"
+                                            )}>
+                                                {formatTime(msg.timestamp)}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Render Dynamic Quick Replies for the LAST AI message */}
+                                {isLastMessage && msg.role === 'model' && dynamicReplies.length > 0 && (
+                                    <div className="grid grid-cols-1 gap-2 mt-2 px-1 pl-12 w-full animate-in fade-in slide-in-from-bottom-2 duration-500">
+                                        <p className="text-xs text-gray-400 mb-1 ml-1">Suggested:</p>
+                                        {dynamicReplies.map((reply, rIdx) => (
+                                            <button
+                                                key={rIdx}
+                                                onClick={() => handleSendMessage(undefined, reply)}
+                                                className={cn(
+                                                    "text-left p-2.5 px-4 rounded-xl text-sm transition-all shadow-sm border border-blue-100/50 hover:shadow-md hover:border-blue-200 bg-white text-gray-700 hover:text-blue-600 active:scale-[0.98]",
+                                                    "flex items-center justify-between group"
+                                                )}
+                                            >
+                                                <span>{reply}</span>
+                                                <Send className="w-3.5 h-3.5 opacity-0 group-hover:opacity-50 transition-opacity" />
+                                            </button>
+                                        ))}
+                                    </div>
                                 )}
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
 
                     {/* Quick Replies */}
                     {config.ui.quickReplies && Array.isArray(config.ui.quickReplies) && config.ui.quickReplies.length > 0 && !messages.some(m => m.role === 'user') && (
@@ -231,6 +304,8 @@ export function ChatWidget({ variant = 'floating', className, style }: ChatWidge
         );
     }
 
+
+
     return (
         <div className={cn(
             "fixed bottom-6 z-50 flex flex-col gap-4 font-sans",
@@ -297,59 +372,91 @@ export function ChatWidget({ variant = 'floating', className, style }: ChatWidge
                                 ref={chatContainerRef}
                                 className="flex-1 overflow-y-auto p-4 space-y-6 bg-slate-50/50 scroll-smooth"
                             >
-                                {messages.map((msg, idx) => (
-                                    <div
-                                        key={idx}
-                                        className={cn(
-                                            "flex gap-3 max-w-[85%]",
-                                            msg.role === 'user' ? "ml-auto flex-row-reverse" : ""
-                                        )}
-                                    >
-                                        <div className={cn(
-                                            "w-8 h-8 rounded-full flex items-center justify-center shrink-0 shadow-sm border border-white overflow-hidden",
-                                            msg.role === 'user' ? "bg-white" : "bg-gradient-to-br from-blue-50 to-indigo-50"
-                                        )}>
-                                            {msg.role === 'user' ? (
-                                                <User className="w-4 h-4 text-gray-600" />
-                                            ) : (
-                                                config.ui.iconType === 'custom' && config.ui.customIconUrl ? (
-                                                    <img
-                                                        src={config.ui.customIconUrl}
-                                                        alt="Bot"
-                                                        className="w-full h-full object-cover"
-                                                    />
-                                                ) : (
-                                                    <Bot className="w-4 h-4 text-blue-600" />
-                                                )
-                                            )}
-                                        </div>
-                                        <div className={cn(
-                                            "p-3.5 px-4 rounded-3xl text-sm shadow-sm leading-relaxed",
-                                            msg.role === 'user'
-                                                ? "bg-blue-600 text-white rounded-tr-sm"
-                                                : "bg-white text-gray-800 border border-gray-100 rounded-tl-sm"
-                                        )}>
-                                            {msg.role === 'model' ? (
-                                                <div className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-6">
-                                                    <ReactMarkdown>{msg.parts}</ReactMarkdown>
-                                                </div>
-                                            ) : (
-                                                <p className="whitespace-pre-wrap">{msg.parts}</p>
-                                            )}
-                                            {msg.timestamp && (
-                                                <p className={cn(
-                                                    "text-[10px] mt-1 text-right opacity-70",
-                                                    msg.role === 'user' ? "text-blue-100" : "text-gray-400"
-                                                )}>
-                                                    {formatTime(msg.timestamp)}
-                                                </p>
-                                            )}
-                                        </div>
+                                {messages.length === 0 && (
+                                    <div className="flex flex-col items-center justify-center h-full text-gray-400 space-y-2">
+                                        <Bot className="w-8 h-8 opacity-20" />
+                                        <p className="text-sm">Start a conversation to test the configuration.</p>
                                     </div>
-                                ))}
+                                )}
+                                {messages.map((msg, idx) => {
+                                    const { cleanContent, dynamicReplies } = msg.role === 'model' ? parseContent(msg.parts) : { cleanContent: msg.parts, dynamicReplies: [] };
+                                    const isLastMessage = idx === messages.length - 1;
 
-                                {/* Quick Replies */}
-                                {config.ui.quickReplies && Array.isArray(config.ui.quickReplies) && config.ui.quickReplies.length > 0 && !messages.some(m => m.role === 'user') && (
+                                    return (
+                                        <div key={idx} className="flex flex-col gap-2">
+                                            <div
+                                                className={cn(
+                                                    "flex gap-3 max-w-[85%]",
+                                                    msg.role === 'user' ? "ml-auto flex-row-reverse" : ""
+                                                )}
+                                            >
+                                                <div className={cn(
+                                                    "w-8 h-8 rounded-full flex items-center justify-center shrink-0 shadow-sm border border-white overflow-hidden",
+                                                    msg.role === 'user' ? "bg-white" : "bg-gradient-to-br from-blue-50 to-indigo-50"
+                                                )}>
+                                                    {msg.role === 'user' ? (
+                                                        <User className="w-4 h-4 text-gray-600" />
+                                                    ) : (
+                                                        config.ui.iconType === 'custom' && config.ui.customIconUrl ? (
+                                                            <img
+                                                                src={config.ui.customIconUrl}
+                                                                alt="Bot"
+                                                                className="w-full h-full object-cover"
+                                                            />
+                                                        ) : (
+                                                            <Bot className="w-4 h-4 text-blue-600" />
+                                                        )
+                                                    )}
+                                                </div>
+                                                <div className={cn(
+                                                    "p-3.5 px-4 rounded-3xl text-sm shadow-sm leading-relaxed",
+                                                    msg.role === 'user'
+                                                        ? "bg-blue-600 text-white rounded-tr-sm"
+                                                        : "bg-white text-gray-800 border border-gray-100 rounded-tl-sm"
+                                                )}>
+                                                    {msg.role === 'model' ? (
+                                                        <div className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-6">
+                                                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{cleanContent}</ReactMarkdown>
+                                                        </div>
+                                                    ) : (
+                                                        <p className="whitespace-pre-wrap">{cleanContent}</p>
+                                                    )}
+                                                    {msg.timestamp && (
+                                                        <p className={cn(
+                                                            "text-[10px] mt-1 text-right opacity-70",
+                                                            msg.role === 'user' ? "text-blue-100" : "text-gray-400"
+                                                        )}>
+                                                            {formatTime(msg.timestamp)}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Render Dynamic Quick Replies for the LAST AI message */}
+                                            {isLastMessage && msg.role === 'model' && dynamicReplies.length > 0 && (
+                                                <div className="grid grid-cols-1 gap-2 mt-2 px-1 pl-12 max-w-[85%] animate-in fade-in slide-in-from-bottom-2 duration-500">
+                                                    <p className="text-xs text-gray-400 mb-1 ml-1">Suggested:</p>
+                                                    {dynamicReplies.map((reply, rIdx) => (
+                                                        <button
+                                                            key={rIdx}
+                                                            onClick={() => handleSendMessage(undefined, reply)}
+                                                            className={cn(
+                                                                "text-left p-2.5 px-4 rounded-xl text-sm transition-all shadow-sm border border-blue-100/50 hover:shadow-md hover:border-blue-200 bg-white text-gray-700 hover:text-blue-600 active:scale-[0.98]",
+                                                                "flex items-center justify-between group"
+                                                            )}
+                                                        >
+                                                            <span>{reply}</span>
+                                                            <Send className="w-3.5 h-3.5 opacity-0 group-hover:opacity-50 transition-opacity" />
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+
+                                {/* Static Quick Replies (Show if no USER messages have been sent yet) */}
+                                {messages.filter(m => m.role === 'user').length === 0 && config.ui.quickReplies && Array.isArray(config.ui.quickReplies) && config.ui.quickReplies.length > 0 && (
                                     <div className="grid grid-cols-1 gap-2 mt-4 px-1 animate-in fade-in slide-in-from-bottom-2 duration-500">
                                         <p className="text-xs text-center text-gray-400 mb-2">Suggested options</p>
                                         {config.ui.quickReplies.map((reply, idx) => (
@@ -401,7 +508,7 @@ export function ChatWidget({ variant = 'floating', className, style }: ChatWidge
                                         onChange={(e) => setInputValue(e.target.value)}
                                         placeholder="Ask something..."
                                         className="h-11 pl-4 pr-12 rounded-full border-gray-200 bg-gray-50 focus:bg-white transition-colors focus-visible:ring-1 focus-visible:ring-offset-0 focus-visible:border-blue-500"
-                                        disabled={isTyping}
+                                        ref={inputRef}
                                     />
                                     <Button
                                         type="submit"

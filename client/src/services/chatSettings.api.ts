@@ -1,5 +1,18 @@
 import { apiClient } from './auth.api'
 
+
+export interface ChatFunctionDefinition {
+    name: string;
+    description: string;
+    parameters: {
+        type: "object";
+        properties: Record<string, any>;
+        required?: string[];
+    };
+    enabled: boolean;
+    roles: string[];
+}
+
 export interface ChatWidgetConfig {
     enabled: boolean;
     modelName: string;
@@ -24,6 +37,7 @@ export interface ChatWidgetConfig {
         customIconUrl?: string;
         quickReplies: string[];
     };
+    functions?: ChatFunctionDefinition[];
 }
 
 export const chatSettingsApi = {
@@ -39,6 +53,11 @@ export const chatSettingsApi = {
 
     getDefaultPrompts: async (): Promise<Record<string, string>> => {
         const response = await apiClient.get<Record<string, string>>('/admin/config/chat/defaults');
+        return response.data;
+    },
+
+    getFunctionRegistry: async (): Promise<Partial<ChatFunctionDefinition>[]> => {
+        const response = await apiClient.get<Partial<ChatFunctionDefinition>[]>('/ai/functions/registry');
         return response.data;
     }
 }

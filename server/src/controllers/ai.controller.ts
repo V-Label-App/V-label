@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { geminiService } from '../services/gemini.service.js';
 import { SystemConfigService } from '../services/system.config.service.js';
+import { FunctionRegistry } from '../services/ai/function.registry.js';
 
 export class AIController {
   
@@ -22,7 +23,13 @@ export class AIController {
       // 3. Extract user role for role-based prompts
       const userRole = user?.role || 'ANNOTATOR'; // Fallback to ANNOTATOR role
 
-      // 4. Call Gemini with role-based prompt, knowledge base, and custom role prompts
+      // Filter functions available for this role
+      const availableFunctions = (config.functions || []).filter(fn => 
+        fn.enabled && 
+        fn.roles.includes(userRole)
+      );
+
+      // 4. Call Gemini with role-based prompt, knowledge base, custom role prompts, and functions
       const responseText = await geminiService.chatCompletion(
         config.modelName,
         config.systemPrompt,   // Global prompt (lower priority than custom role prompts)
@@ -31,7 +38,8 @@ export class AIController {
         config.temperature,
         userRole,
         config.knowledgeBase,
-        config.rolePrompts     // NEW: Custom role-specific prompts
+        config.rolePrompts,     // Custom role-specific prompts
+        availableFunctions      // NEW: Enabled functions for this role
       );
 
       return res.json({ text: responseText });
@@ -63,6 +71,19 @@ export class AIController {
     } catch (error) {
         console.error('[AI] Get config error:', error);
         return res.status(500).json({ error: 'Failed to fetch config' });
+    }
+  }
+
+  /**
+   * Get all registered backend functions metadata
+   */
+  static async getRegistry(req: Request, res: Response) {
+    try {
+        const definitions = FunctionRegistry.getDefinitions();
+        return res.json(definitions);
+    } catch (error) {
+        console.error('[AI] Get registry error:', error);
+        return res.status(500).json({ error: 'Failed to fetch function registry' });
     }
   }
 }
