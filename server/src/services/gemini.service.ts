@@ -1,5 +1,7 @@
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 import { getRolePrompt, DEFAULT_SYSTEM_PROMPT } from '../config/rolePrompts.js';
+import { ChatFunctionDefinition } from './system.config.service.js';
+import { FunctionRegistry } from './ai/function.registry.js';
 
 export class GeminiService {
   private genAI: GoogleGenerativeAI;
@@ -59,15 +61,25 @@ export class GeminiService {
     temperature: number = 0.7,
     userRole: string = 'ANNOTATOR',
     knowledgeBase?: string,
-    customRolePrompts?: Record<string, string>
+    customRolePrompts?: Record<string, string>,
+    functions?: ChatFunctionDefinition[]
   ) {
     try {
       // Build combined system prompt with priority logic
       const finalSystemPrompt = this.buildSystemPrompt(userRole, globalSystemPrompt, customRolePrompts, knowledgeBase);
       
+      const tools = functions && functions.length > 0 ? [{
+        functionDeclarations: functions.map(f => ({
+          name: f.name,
+          description: f.description,
+          parameters: f.parameters
+        }))
+      }] : undefined;
+
       const model = this.genAI.getGenerativeModel({ 
         model: modelName,
-        systemInstruction: finalSystemPrompt
+        systemInstruction: finalSystemPrompt,
+        tools: tools as any // Cast to avoid strict type issues with SDK versions
       });
 
       // Sanitize history: Google Gemini requires history to start with 'user' role.
@@ -84,13 +96,59 @@ export class GeminiService {
         })),
         generationConfig: {
             temperature,
-            // maxOutputTokens: 1000,
         },
       });
 
-      const result = await chat.sendMessage(message);
-      const response = await result.response;
-      return response.text();
+      let result = await chat.sendMessage(message);
+      let response = await result.response;
+      let text = response.text(); // Attempt to get text. Might fail if only function call.
+
+      // Handle Function Calls (Multi-turn loop)
+      // Loop until model returns text (or max turns reached)
+      let functionCalls = response.functionCalls();
+      let turns = 0;
+      const MAX_TURNS = 5;
+
+      while (functionCalls && functionCalls.length > 0 && turns < MAX_TURNS) {
+        turns++;
+        const parts: any[] = [];
+        
+        for (const call of functionCalls) {
+           console.log(`[Gemini] Executing function: ${call.name}`);
+           try {
+             // Execute function via Registry
+             const apiResponse = await FunctionRegistry.execute(call.name, call.args, { userRole });
+             
+             parts.push({
+               functionResponse: {
+                 name: call.name,
+                 response: { result: apiResponse } // Format expected by Gemini
+               }
+             });
+           } catch (err: any) {
+             console.error(`[Gemini] Function execution failed: ${call.name}`, err);
+             parts.push({
+               functionResponse: {
+                 name: call.name,
+                 response: { error: err.message }
+               }
+             });
+           }
+        }
+
+        // Send function results back to the model
+        result = await chat.sendMessage(parts);
+        response = await result.response;
+        functionCalls = response.functionCalls();
+        try {
+            text = response.text();
+        } catch (e) {
+            // Expected if next turn is another function call
+            text = '';
+        }
+      }
+
+      return text;
     } catch (error) {
       console.error('[GeminiService] Error generating content:', error);
       throw error;

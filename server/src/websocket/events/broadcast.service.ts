@@ -8,13 +8,18 @@ import logger from '../../utils/logger.js';
  */
 export class BroadcastService {
   private io: SocketServer | null = null;
+  private instanceId = Math.random().toString(36).substring(7);
+
+  constructor() {
+    logger.info('BROADCAST', `Service created with ID: ${this.instanceId}`);
+  }
 
   /**
    * Initialize the broadcast service with Socket.IO instance
    */
   setSocketServer(io: SocketServer) {
     this.io = io;
-    logger.info('BROADCAST', 'Broadcast service initialized');
+    logger.info('BROADCAST', `[${this.instanceId}] Broadcast service initialized with Socket.IO`);
   }
 
   /**
@@ -22,7 +27,7 @@ export class BroadcastService {
    */
   broadcastToAll<T>(eventType: SystemEventType, data: T, triggeredBy?: string) {
     if (!this.io) {
-      logger.warn('BROADCAST', 'Socket.IO not initialized, skipping broadcast');
+      logger.warn('BROADCAST', `[${this.instanceId}] Socket.IO not initialized, skipping broadcast of ${eventType}`);
       return;
     }
 
@@ -32,7 +37,7 @@ export class BroadcastService {
       data,
       ...(triggeredBy && { triggeredBy }),
     });
-    logger.info('BROADCAST', `Event broadcasted: ${eventType}`);
+    logger.info('BROADCAST', `[${this.instanceId}] Event broadcasted: ${eventType}`);
   }
 
   /**

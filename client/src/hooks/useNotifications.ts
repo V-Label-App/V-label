@@ -57,15 +57,21 @@ export function useNotifications() {
         case 'system:chat:config:updated':
           console.log('[Notifications] Handling chat config update:', event.data);
           
-          const title = 'AI Chat Widget Updated';
-          const message = event.data.enabled 
-            ? 'AI Chat Widget has been enabled by Admin' 
-            : 'AI Chat Widget has been disabled by Admin';
+          let title, message;
+          if (event.data.notification) {
+            title = event.data.notification.title;
+            message = event.data.notification.message;
+          } else {
+            title = 'AI Chat Widget Updated';
+            message = event.data.enabled 
+              ? 'AI Chat Widget has been enabled by Admin' 
+              : 'AI Chat Widget has been disabled by Admin';
+          }
           
           // Add to notification bell
           const notification: Notification = {
             id: `temp-${Date.now()}`, // Temporary ID for real-time notification
-            type: 'SYSTEM_ANNOUNCEMENT',
+            type: 'SYSTEM_CHAT_CONFIG', // Match DB type
             title,
             message,
             isRead: false,
@@ -74,6 +80,24 @@ export function useNotifications() {
           };
           
           setNotifications((prev) => [notification, ...prev]);
+          setUnreadCount((prev) => prev + 1);
+          break;
+
+        case 'system:announcement':
+          console.log('[Notifications] Handling system announcement:', event.data);
+          
+          // Add to notification bell
+          const announcement: Notification = {
+            id: `temp-${Date.now()}`,
+            type: 'SYSTEM_ANNOUNCEMENT',
+            title: event.data.notification.title,
+            message: event.data.notification.message,
+            isRead: false,
+            createdAt: new Date().toISOString(),
+            metadata: event.data,
+          };
+          
+          setNotifications((prev) => [announcement, ...prev]);
           setUnreadCount((prev) => prev + 1);
           break;
           

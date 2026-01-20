@@ -1,5 +1,8 @@
 import { prisma } from '../utils/database.js';
 import { NotificationType } from '@prisma/client';
+import { NotificationTemplateService } from './notification.template.service.js';
+import { broadcastService } from '../websocket/events/broadcast.service.js';
+import { SystemEventType } from '../websocket/events/types.js';
 
 export class NotificationService {
   /**
@@ -103,6 +106,43 @@ export class NotificationService {
       where: {
         isRead: true,
         createdAt: { lt: cutoffDate },
+      },
+    });
+  }
+  /**
+   * Create and broadcast a system announcement
+   */
+  static async createSystemAnnouncement(title: string, message: string, adminId: string) {
+    // 1. Render content using the SYSTEM_ANNOUNCEMENT template
+    const rendered = await NotificationTemplateService.render(
+      NotificationType.SYSTEM_ANNOUNCEMENT,
+      {
+        title,
+        message,
+      }
+    );
+
+    // 2. Broadcast to all online users
+    broadcastService.broadcastToAll(
+      SystemEventType.ANNOUNCEMENT,
+      {
+        notification: {
+          title: rendered.title,
+          message: rendered.message,
+        },
+      },
+      adminId
+    );
+
+    // 3. Save to database for all users
+    return await this.createNotificationForAllUsers({
+      type: NotificationType.SYSTEM_ANNOUNCEMENT,
+      title: rendered.title,
+      message: rendered.message,
+      metadata: {
+        adminId,
+        originalTitle: title,
+        originalMessage: message,
       },
     });
   }

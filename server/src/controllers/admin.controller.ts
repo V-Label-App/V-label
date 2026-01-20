@@ -28,9 +28,23 @@ export class AdminController {
             const adminId = (req as any).user?.sub;
             const updated = await SystemConfigService.updateChatConfig(newConfig, adminId);
             
+            // Render template first for both Broadcast and DB
+            const { NotificationService } = await import('../services/notification.service.js');
+            const { NotificationTemplateService } = await import('../services/notification.template.service.js');
+            const { NotificationType } = await import('@prisma/client');
+
+            const { title, message } = await NotificationTemplateService.render(
+                NotificationType.SYSTEM_CHAT_CONFIG,
+                {
+                    status: updated.value.enabled ? 'enabled' : 'disabled',
+                    adminName: 'Admin',
+                    eventType: 'Chat Configuration Update'
+                }
+            );
+            
             // Broadcast config update to all connected clients via WebSocket
             const { broadcastService } = await import('../websocket/events/broadcast.service.js');
-            const { SystemEventType} = await import('../websocket/events/types.js');
+            const { SystemEventType } = await import('../websocket/events/types.js');
             
             broadcastService.broadcastToAll(
                 SystemEventType.CHAT_CONFIG_UPDATED,
@@ -38,19 +52,19 @@ export class AdminController {
                     enabled: updated.value.enabled,
                     modelName: updated.value.modelName,
                     adminId,
+                    notification: {
+                        title,
+                        message
+                    }
                 },
                 adminId
             );
             
             // Save notification to database for offline users
-            const { NotificationService } = await import('../services/notification.service.js');
-            const { NotificationType } = await import('@prisma/client');
             await NotificationService.createNotificationForAllUsers({
-                type: NotificationType.SYSTEM_ANNOUNCEMENT,
-                title: 'AI Chat Widget Updated',
-                message: updated.value.enabled 
-                    ? 'AI Chat Widget has been enabled by Admin' 
-                    : 'AI Chat Widget has been disabled by Admin',
+                type: NotificationType.SYSTEM_CHAT_CONFIG,
+                title,
+                message,
                 metadata: {
                     eventType: 'chat_config_updated',
                     enabled: updated.value.enabled,
@@ -252,6 +266,27 @@ export class AdminController {
         } catch (error) {
             console.error('[Admin] Clear email logs error:', error);
             return res.status(500).json({ error: 'Failed to clear logs' });
+        }
+    }
+    /**
+     * Broadcast System Announcement
+     */
+    static async broadcastAnnouncement(req: Request, res: Response) {
+        try {
+            const { title, message } = req.body;
+            const adminId = (req as any).user?.sub;
+
+            if (!title || !message) {
+                return res.status(400).json({ error: 'Title and message are required' });
+            }
+
+            const { NotificationService } = await import('../services/notification.service.js');
+            const result = await NotificationService.createSystemAnnouncement(title, message, adminId);
+            
+            return res.json({ success: true, count: result.count });
+        } catch (error) {
+            console.error('[Admin] Broadcast announcement error:', error);
+            return res.status(500).json({ error: 'Failed to broadcast announcement' });
         }
     }
 }

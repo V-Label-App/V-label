@@ -1,5 +1,17 @@
 import { prisma } from '../utils/database.js';
 
+export interface ChatFunctionDefinition {
+  name: string;
+  description: string;
+  parameters: {
+    type: "object";
+    properties: Record<string, any>;
+    required?: string[];
+  };
+  enabled: boolean;
+  roles: string[]; // e.g. ['ADMIN', 'MANAGER']
+}
+
 export const SYSTEM_CONFIG_KEYS = {
   CHAT_WIDGET: 'chatWidget',
   AUDIT_LOG_RETENTION: 'auditLogRetention',
@@ -29,6 +41,7 @@ export interface ChatWidgetConfig {
     customIconUrl?: string;
     quickReplies: string[];
   };
+  functions?: ChatFunctionDefinition[];
 }
 
 export interface AuditLogConfig {
@@ -47,7 +60,8 @@ const DEFAULT_CHAT_CONFIG: ChatWidgetConfig = {
     botId: 'v-label',
     iconType: 'default',
     quickReplies: []
-  }
+  },
+  functions: []
 };
 
 const DEFAULT_AUDIT_LOG_CONFIG: AuditLogConfig = {
@@ -83,7 +97,8 @@ export class SystemConfigService {
       ui: {
         ...DEFAULT_CHAT_CONFIG.ui,
         ...(saved.ui || {})
-      }
+      },
+      functions: saved.functions || []
     };
   }
 
@@ -136,7 +151,8 @@ export class SystemConfigService {
                 iconType: newConfig.ui.iconType ? { old: current.ui.iconType, new: updated.ui.iconType } : undefined,
                 customIconUrl: newConfig.ui.customIconUrl ? { old: current.ui.customIconUrl, new: updated.ui.customIconUrl } : undefined,
                 quickReplies: newConfig.ui.quickReplies ? { old: current.ui.quickReplies, new: updated.ui.quickReplies } : undefined,
-              } : undefined
+              } : undefined,
+              functions: newConfig.functions ? { old: current.functions?.length, new: updated.functions?.length } : undefined
             },
             timestamp: new Date().toISOString()
           }

@@ -5,6 +5,7 @@
 export enum SystemEventType {
   // System Configuration Events
   CHAT_CONFIG_UPDATED = 'system:chat:config:updated',
+  ANNOUNCEMENT = 'system:announcement',
   
   // Task Management Events (Future)
   TASK_ASSIGNED = 'task:assigned',
