@@ -18,6 +18,7 @@ import adminRoutes from './routes/admin.routes.js'
 import aiRoutes from './routes/ai.routes.js'
 import { initializeSocketServer } from './websocket/socket.server.js'
 import { EmailTemplateService } from './services/email/template.service.js'
+import { NotificationTemplateService } from './services/notification.template.service.js'
 
 const app = express()
 const httpServer = http.createServer(app)
@@ -99,6 +100,13 @@ const server = httpServer.listen(PORT, async () => {
     await templateService.seedDefaultTemplates();
   } catch (error) {
     logger.error('EMAIL', 'Failed to seed default templates:', error);
+  }
+
+  // Seed default notification templates
+  try {
+    await NotificationTemplateService.seedDefaultTemplates();
+  } catch (error) {
+    logger.error('NOTIF', 'Failed to seed default notification templates:', error);
   }
   
   // CORS info

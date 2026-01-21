@@ -33,8 +33,13 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401) {
       console.warn('Unauthorized - Clearing session')
       localStorage.removeItem('accessToken')
-      // Optional: Redirect to login or let the UI handle the null state
-      if (!window.location.pathname.includes('/login')) {
+      
+      // Prevent redirect loop on public pages
+      const publicPaths = ['/login', '/register', '/forgot-password', '/reset-password']
+      const currentPath = window.location.pathname
+      const isPublicPath = publicPaths.some(path => currentPath.startsWith(path))
+
+      if (!isPublicPath) {
          window.location.href = '/login'
       }
     }

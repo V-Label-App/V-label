@@ -15,7 +15,8 @@ import { AdminLogsPage } from './AdminLogsPage';
 import { AdminChatSettingsPage } from './AdminChatSettingsPage';
 import { AdminDashboardPage } from './AdminDashboardPage';
 import { AdminEmailSettingsPage } from './AdminEmailSettingsPage';
-import { Users, Database, Activity, Settings, FileText, Plus, Star, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Eye, Sparkles, LayoutDashboard } from 'lucide-react';
+import { AdminNotificationSettingsPage } from './AdminNotificationSettingsPage';
+import { Users, Database, Activity, Settings, FileText, Plus, Star, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Eye, Sparkles, LayoutDashboard, Bell } from 'lucide-react';
 
 interface User {
   id: string;
@@ -301,6 +302,14 @@ export function AdminPanel({ }: AdminPanelProps) {
           >
             <Sparkles className="w-5 h-5" />
             <span className="font-medium">AI Chat</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('notifications')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors mt-1 ${activeTab === 'notifications' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'
+              }`}
+          >
+            <Bell className="w-5 h-5" />
+            <span className="font-medium">Notifications</span>
           </button>
         </nav>
 
@@ -594,6 +603,10 @@ export function AdminPanel({ }: AdminPanelProps) {
 
         {activeTab === 'ai-chat' && (
           <AdminChatSettingsPage />
+        )}
+
+        {activeTab === 'notifications' && (
+          <AdminNotificationSettingsPage />
         )}
       </div>
 

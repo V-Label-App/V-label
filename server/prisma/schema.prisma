@@ -197,6 +197,9 @@ enum NotificationType {
   TASK_REJECTED
   DEADLINE_WARNING
   COMMENT_MENTION
+  SYSTEM_ANNOUNCEMENT       // For generic system-wide messages
+  SYSTEM_CHAT_CONFIG        // Specific: AI Chat Widget enabled/disabled
+  SYSTEM_USER_ROLE_CHANGE   // Specific: User role updated
 }
 
 model ChatMessage {
@@ -211,6 +214,19 @@ model ChatMessage {
   
   @@index([projectId, createdAt])
   @@map("chat_messages")
+}
+
+model NotificationTemplate {
+  id              String           @id @default(uuid()) @db.Uuid
+  type            NotificationType @unique
+  titleTemplate   String           @map("title_template") @db.VarChar(255)
+  messageTemplate String           @map("message_template") @db.Text
+  variables       Json             // List of available variables for this type
+  isActive        Boolean          @default(true) @map("is_active")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  @@map("notification_templates")
 }
 
 // =========================================================

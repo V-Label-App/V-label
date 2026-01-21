@@ -2,14 +2,19 @@ import { Router } from 'express';
 import { AdminController } from '../controllers/admin.controller.js';
 import { authMiddleware } from '../middlewares/auth.middleware.js';
 import { requireRole } from '../middlewares/role.middleware.js';
+import notificationTemplateRoutes from './admin/notification-template.routes.js';
 
 const router = Router();
+
+// Notification Template Routes
+router.use('/notifications/templates', notificationTemplateRoutes);
 
 // Base path will be defined in index.ts, likely /api/v1/admin
 
 // Config Routes
 router.get('/config/chat', authMiddleware, requireRole(['ADMIN']), AdminController.getChatConfig);
 router.put('/config/chat', authMiddleware, requireRole(['ADMIN']), AdminController.updateChatConfig);
+router.get('/config/chat/defaults', authMiddleware, requireRole(['ADMIN']), AdminController.getDefaultRolePrompts);
 
 // Audit Log Config Routes
 router.get('/config/audit-log', authMiddleware, requireRole(['ADMIN']), AdminController.getAuditLogConfig);

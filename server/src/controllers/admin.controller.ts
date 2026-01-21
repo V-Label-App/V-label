@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { SystemConfigService } from '../services/system.config.service.js';
 import { prisma } from '../utils/database.js';
 import { EmailTemplateService } from '../services/email/template.service.js';
+import { ROLE_PROMPTS } from '../config/rolePrompts.js';
 
 export class AdminController {
     /**
@@ -26,10 +27,68 @@ export class AdminController {
             const newConfig = req.body;
             const adminId = (req as any).user?.sub;
             const updated = await SystemConfigService.updateChatConfig(newConfig, adminId);
+
+            // Render template first for both Broadcast and DB
+            const { NotificationService } = await import('../services/notification.service.js');
+            const { NotificationTemplateService } = await import('../services/notification.template.service.js');
+            const { NotificationType } = await import('@prisma/client');
+
+            const valueObj = updated.value as { enabled: boolean; modelName: string } | null;
+            const { title, message } = await NotificationTemplateService.render(
+                NotificationType.SYSTEM_CHAT_CONFIG,
+                {
+                    status: valueObj?.enabled ? 'enabled' : 'disabled',
+                    adminName: 'Admin',
+                    eventType: 'Chat Configuration Update'
+                }
+            );
+
+            // Broadcast config update to all connected clients via WebSocket
+            const { broadcastService } = await import('../websocket/events/broadcast.service.js');
+            const { SystemEventType } = await import('../websocket/events/types.js');
+
+            broadcastService.broadcastToAll(
+                SystemEventType.CHAT_CONFIG_UPDATED,
+                {
+                    enabled: valueObj?.enabled ?? false,
+                    modelName: valueObj?.modelName ?? 'gemini-pro',
+                    adminId,
+                    notification: {
+                        title,
+                        message
+                    }
+                },
+                adminId
+            );
+
+            // Save notification to database for offline users
+            await NotificationService.createNotificationForAllUsers({
+                type: NotificationType.SYSTEM_CHAT_CONFIG,
+                title,
+                message,
+                metadata: {
+                    eventType: 'chat_config_updated',
+                    enabled: valueObj?.enabled ?? false,
+                    adminId,
+                },
+            });
+
             return res.json(updated.value);
         } catch (error) {
             console.error('[Admin] Update chat config error:', error);
             return res.status(500).json({ error: 'Failed to update config' });
+        }
+    }
+
+    /**
+     * Get Default Role Prompts (Hardcoded from rolePrompts.ts)
+     */
+    static async getDefaultRolePrompts(req: Request, res: Response) {
+        try {
+            return res.json(ROLE_PROMPTS);
+        } catch (error) {
+            console.error('[Admin] Get default role prompts error:', error);
+            return res.status(500).json({ error: 'Failed to fetch default prompts' });
         }
     }
 
@@ -110,20 +169,20 @@ export class AdminController {
     static async updateEmailConfig(req: Request, res: Response) {
         try {
             const { provider, config, isActive } = req.body;
-            
+
             // Use a fixed key 'primary_config' since we only support one active config for now
             const updated = await prisma.emailConfig.upsert({
                 where: { key: 'primary_config' },
-                create: { 
+                create: {
                     key: 'primary_config',
-                    provider: provider || 'smtp', 
-                    config, 
-                    isActive: isActive ?? true 
-                },
-                update: { 
                     provider: provider || 'smtp',
-                    config, 
-                    isActive: isActive ?? true 
+                    config,
+                    isActive: isActive ?? true
+                },
+                update: {
+                    provider: provider || 'smtp',
+                    config,
+                    isActive: isActive ?? true
                 },
             });
             return res.json(updated);
@@ -208,6 +267,27 @@ export class AdminController {
         } catch (error) {
             console.error('[Admin] Clear email logs error:', error);
             return res.status(500).json({ error: 'Failed to clear logs' });
+        }
+    }
+    /**
+     * Broadcast System Announcement
+     */
+    static async broadcastAnnouncement(req: Request, res: Response) {
+        try {
+            const { title, message } = req.body;
+            const adminId = (req as any).user?.sub;
+
+            if (!title || !message) {
+                return res.status(400).json({ error: 'Title and message are required' });
+            }
+
+            const { NotificationService } = await import('../services/notification.service.js');
+            const result = await NotificationService.createSystemAnnouncement(title, message, adminId);
+
+            return res.json({ success: true, count: result.count });
+        } catch (error) {
+            console.error('[Admin] Broadcast announcement error:', error);
+            return res.status(500).json({ error: 'Failed to broadcast announcement' });
         }
     }
 }

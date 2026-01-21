@@ -1,5 +1,17 @@
 import { prisma } from '../utils/database.js';
 
+export interface ChatFunctionDefinition {
+  name: string;
+  description: string;
+  parameters: {
+    type: "object";
+    properties: Record<string, any>;
+    required?: string[];
+  };
+  enabled: boolean;
+  roles: string[]; // e.g. ['ADMIN', 'MANAGER']
+}
+
 export const SYSTEM_CONFIG_KEYS = {
   CHAT_WIDGET: 'chatWidget',
   AUDIT_LOG_RETENTION: 'auditLogRetention',
@@ -9,6 +21,16 @@ export interface ChatWidgetConfig {
   enabled: boolean;
   modelName: string;
   systemPrompt: string;
+  knowledgeBase?: string; // Documentation/FAQ content to enhance AI context
+  
+  // Per-role custom prompts (optional, overrides defaults from rolePrompts.ts)
+  rolePrompts?: {
+    MANAGER?: string;
+    ANNOTATOR?: string;
+    REVIEWER?: string;
+    ADMIN?: string;
+  };
+  
   temperature: number;
   ui: {
     themeColor: string;
@@ -19,6 +41,7 @@ export interface ChatWidgetConfig {
     customIconUrl?: string;
     quickReplies: string[];
   };
+  functions?: ChatFunctionDefinition[];
 }
 
 export interface AuditLogConfig {
@@ -28,19 +51,7 @@ export interface AuditLogConfig {
 const DEFAULT_CHAT_CONFIG: ChatWidgetConfig = {
   enabled: false,
   modelName: 'gemini-1.5-pro', // Fallback defaults
-  systemPrompt: `# Role
-You are the AI Assistant for V-Label, a professional data labeling platform. Your purpose is to help users manage projects, label data, and navigate the application efficiently.
-
-# Core Capabilities
-- **Project Management**: Explain how to create, edit, and manage labeling projects.
-- **Labeling Support**: Guide users on how to use bounding boxes, polygons, and classification tools.
-- **User Management**: Assist with role assignments (Admin, Manager, Annotator) and profile settings.
-- **Troubleshooting**: Help resolve common issues like login failures or export errors.
-
-# Tone & Style
-- Professional, concise, and technical when necessary.
-- Focus on actionable steps and platform-specific terminology.
-- Be encouraging and helpful.`,
+  systemPrompt: '', // Empty by default, so role-based prompts are used
   temperature: 0.7,
   ui: {
     themeColor: '#0ea5e9',
@@ -49,7 +60,8 @@ You are the AI Assistant for V-Label, a professional data labeling platform. You
     botId: 'v-label',
     iconType: 'default',
     quickReplies: []
-  }
+  },
+  functions: []
 };
 
 const DEFAULT_AUDIT_LOG_CONFIG: AuditLogConfig = {
@@ -78,12 +90,15 @@ export class SystemConfigService {
     return {
       enabled: saved.enabled ?? DEFAULT_CHAT_CONFIG.enabled,
       modelName: saved.modelName || DEFAULT_CHAT_CONFIG.modelName,
-      systemPrompt: saved.systemPrompt || DEFAULT_CHAT_CONFIG.systemPrompt,
+      systemPrompt: saved.systemPrompt ?? DEFAULT_CHAT_CONFIG.systemPrompt,
+      knowledgeBase: saved.knowledgeBase || '', // Return from DB or empty string
       temperature: saved.temperature ?? DEFAULT_CHAT_CONFIG.temperature,
+      rolePrompts: saved.rolePrompts || {}, // Return from DB or empty object
       ui: {
         ...DEFAULT_CHAT_CONFIG.ui,
         ...(saved.ui || {})
-      }
+      },
+      functions: saved.functions || []
     };
   }
 
@@ -100,7 +115,12 @@ export class SystemConfigService {
       ui: {
         ...current.ui,
         ...(newConfig.ui || {})
-      }
+      },
+      // Properly merge rolePrompts if provided
+      rolePrompts: newConfig.rolePrompts !== undefined ? {
+        ...current.rolePrompts,
+        ...newConfig.rolePrompts
+      } : current.rolePrompts
     };
 
     // Log all config changes if adminId is present
@@ -131,7 +151,8 @@ export class SystemConfigService {
                 iconType: newConfig.ui.iconType ? { old: current.ui.iconType, new: updated.ui.iconType } : undefined,
                 customIconUrl: newConfig.ui.customIconUrl ? { old: current.ui.customIconUrl, new: updated.ui.customIconUrl } : undefined,
                 quickReplies: newConfig.ui.quickReplies ? { old: current.ui.quickReplies, new: updated.ui.quickReplies } : undefined,
-              } : undefined
+              } : undefined,
+              functions: newConfig.functions ? { old: current.functions?.length, new: updated.functions?.length } : undefined
             },
             timestamp: new Date().toISOString()
           }
