@@ -11,6 +11,9 @@ router.use('/notifications/templates', notificationTemplateRoutes);
 
 // Base path will be defined in index.ts, likely /api/v1/admin
 
+// Dashboard Stats Route
+router.get('/dashboard/stats', authMiddleware, requireRole(['ADMIN']), AdminController.getDashboardStats);
+
 // Config Routes
 router.get('/config/chat', authMiddleware, requireRole(['ADMIN']), AdminController.getChatConfig);
 router.put('/config/chat', authMiddleware, requireRole(['ADMIN']), AdminController.updateChatConfig);

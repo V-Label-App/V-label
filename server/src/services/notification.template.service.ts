@@ -55,6 +55,26 @@ export class NotificationTemplateService {
         title: 'Role Updated',
         message: 'Your role has been changed from {oldRole} to {newRole} by {adminName}.',
         variables: ['oldRole', 'newRole', 'adminName', 'userName']
+      },
+      LABEL_REQUESTED: {
+        title: 'New Label Request',
+        message: '{requesterName} requested a new label "{labelName}" for project "{projectName}".',
+        variables: ['requesterName', 'labelName', 'projectName', 'projectId', 'requestId']
+      },
+      LABEL_REQUEST_APPROVED: {
+        title: 'Label Request Approved',
+        message: 'Your request for label "{labelName}" in project "{projectName}" has been approved.',
+        variables: ['labelName', 'projectName', 'projectId', 'labelId', 'requestId']
+      },
+      LABEL_REQUEST_REJECTED: {
+        title: 'Label Request Rejected',
+        message: 'Your request for label "{labelName}" in project "{projectName}" has been rejected.{reason}',
+        variables: ['labelName', 'projectName', 'projectId', 'requestId', 'reason']
+      },
+      LABEL_CREATED: {
+        title: 'New Label Created',
+        message: 'A new label "{labelName}" has been created in category "{categoryName}" by {creatorName}.',
+        variables: ['labelName', 'labelColor', 'categoryName', 'creatorName', 'isGlobal']
       }
     };
 

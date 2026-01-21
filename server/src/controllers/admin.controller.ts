@@ -3,8 +3,22 @@ import { SystemConfigService } from '../services/system.config.service.js';
 import { prisma } from '../utils/database.js';
 import { EmailTemplateService } from '../services/email/template.service.js';
 import { ROLE_PROMPTS } from '../config/rolePrompts.js';
+import { AdminDashboardService } from '../services/admin-dashboard.service.js';
 
 export class AdminController {
+    /**
+     * Get Dashboard Statistics
+     */
+    static async getDashboardStats(req: Request, res: Response) {
+        try {
+            const stats = await AdminDashboardService.getStats();
+            return res.json(stats);
+        } catch (error) {
+            console.error('[Admin] Get dashboard stats error:', error);
+            return res.status(500).json({ error: 'Failed to fetch dashboard statistics' });
+        }
+    }
+
     /**
      * Get System Configuration (Chat Widget)
      */

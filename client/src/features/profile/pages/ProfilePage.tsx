@@ -210,18 +210,21 @@ export default function ProfilePage() {
                 <TabsContent value="overview" className="space-y-6">
                     {/* Role Specific Stats / Dashboard */}
                     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                        <Card>
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-sm font-medium">Reputation Score</CardTitle>
-                                <Shield className="h-4 w-4 text-muted-foreground" />
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold">{(user as any).reputationScore ?? 0}</div>
-                                <p className="text-xs text-muted-foreground">
-                                    Current reliability score
-                                </p>
-                            </CardContent>
-                        </Card>
+                        {/* Only show Reputation Score for non-admin/manager roles */}
+                        {user.role !== 'ADMIN' && user.role !== 'MANAGER' && (
+                            <Card>
+                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                    <CardTitle className="text-sm font-medium">Reputation Score</CardTitle>
+                                    <Shield className="h-4 w-4 text-muted-foreground" />
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="text-2xl font-bold">{(user as any).reputationScore ?? 0}</div>
+                                    <p className="text-xs text-muted-foreground">
+                                        Current reliability score
+                                    </p>
+                                </CardContent>
+                            </Card>
+                        )}
 
                         <Card>
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

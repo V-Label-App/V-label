@@ -13,6 +13,7 @@ import { AdminPanel } from '../features/admin/pages/AdminPanel';
 import { AdminUserDetailPage } from '../features/admin/pages/AdminUserDetailPage';
 import { ProjectListPage } from '../features/manager/pages/ProjectListPage';
 import { ProjectDetailPage } from '../features/manager/pages/ProjectDetailPage';
+import { LabelManagementPage } from '../features/manager/pages/LabelManagementPage';
 import { AnnotatorTasks } from '../features/annotator/pages/AnnotatorTasks';
 import { ReviewerQueue } from '../features/reviewer/pages/ReviewerQueue';
 
@@ -101,6 +102,14 @@ export const AppRoutes = () => {
                 element={
                     <ProtectedRoute allowedRoles={['MANAGER']}>
                         <ProjectDetailPage />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/manager/labels"
+                element={
+                    <ProtectedRoute allowedRoles={['MANAGER']}>
+                        <LabelManagementPage />
                     </ProtectedRoute>
                 }
             />

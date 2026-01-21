@@ -1,4 +1,8 @@
-export interface Label {
+// Re-export types from the API service for backwards compatibility
+export type { Label, LabelCategory, ProjectLabel, LabelRequest } from '../services/label.api';
+
+// Legacy types for backwards compatibility with existing components
+export interface LegacyLabel {
   id: string;
   name: string;
   color: string;
@@ -7,7 +11,7 @@ export interface Label {
   createdAt: string;
 }
 
-export interface LabelCategory {
+export interface LegacyLabelCategory {
   id: string;
   name: string;
   description: string;

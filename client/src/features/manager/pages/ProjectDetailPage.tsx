@@ -46,7 +46,7 @@ import { UserNav } from '../../../components/common/UserNav';
 import { useAuth } from '../../../context/AuthContext';
 import { CompactImageSummary } from '../../../components/CompactImageSummary';
 import { ManageImagesDialog } from '../../../components/ManageImagesDialog';
-import type { Label as LabelType, LabelCategory } from '../../../types/label.types';
+import type { LegacyLabel as LabelType, LegacyLabelCategory as LabelCategory } from '../../../types/label.types';
 import { LabelSelector } from '../../../components/LabelSelector';
 import { ChatPanel } from '../../../components/chat/ChatPanel';
 import { getProjectById, updateProject, deleteProject, annotators, initialLabels as mockLabels, initialCategories as mockCategories } from '../data/projects.mock';
@@ -59,7 +59,7 @@ export function ProjectDetailPage() {
     const [project, setProject] = useState<Project | undefined>();
     const [activeTab, setActiveTab] = useState('tasks');
     const [labels] = useState<LabelType[]>(mockLabels);
-    const [categories] = useState<LabelCategory[]>(mockCategories);
+    const [_categories] = useState<LabelCategory[]>(mockCategories);
 
     // Load Project
     useEffect(() => {
@@ -835,8 +835,6 @@ export function ProjectDetailPage() {
 
                                 <div className="space-y-2">
                                     <LabelSelector
-                                        availableLabels={labels}
-                                        categories={categories}
                                         selectedLabelIds={editLabelIds}
                                         onSelectionChange={setEditLabelIds}
                                     />

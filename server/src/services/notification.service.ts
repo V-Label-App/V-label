@@ -134,6 +134,7 @@ export class NotificationService {
       adminId
     );
 
+
     // 3. Save to database for all users
     return await this.createNotificationForAllUsers({
       type: NotificationType.SYSTEM_ANNOUNCEMENT,
@@ -143,6 +144,66 @@ export class NotificationService {
         adminId,
         originalTitle: title,
         originalMessage: message,
+      },
+    });
+  }
+
+  /**
+   * Create and broadcast a label created notification to all users
+   */
+  static async createLabelCreatedNotification(data: {
+    labelId: string;
+    labelName: string;
+    labelColor: string;
+    categoryName?: string;
+    isGlobal: boolean;
+    creatorId: string;
+    creatorName: string;
+  }) {
+    // 1. Render content using the LABEL_CREATED template
+    const rendered = await NotificationTemplateService.render(
+      NotificationType.LABEL_CREATED,
+      {
+        labelName: data.labelName,
+        labelColor: data.labelColor,
+        categoryName: data.categoryName || 'No Category',
+        creatorName: data.creatorName,
+        isGlobal: data.isGlobal ? 'Yes' : 'No',
+      }
+    );
+
+    // 2. Broadcast to all online users
+    broadcastService.broadcastToAll(
+      SystemEventType.LABEL_CREATED,
+      {
+        notification: {
+          title: rendered.title,
+          message: rendered.message,
+        },
+        label: {
+          id: data.labelId,
+          name: data.labelName,
+          color: data.labelColor,
+          isGlobal: data.isGlobal,
+          categoryName: data.categoryName,
+        },
+      },
+      data.creatorId
+    );
+
+    // 3. Save to database for all users
+    return await this.createNotificationForAllUsers({
+      type: NotificationType.LABEL_CREATED,
+      title: rendered.title,
+      message: rendered.message,
+      metadata: {
+        labelId: data.labelId,
+        labelName: data.labelName,
+        labelColor: data.labelColor,
+        categoryName: data.categoryName,
+        isGlobal: data.isGlobal,
+        creatorId: data.creatorId,
+        creatorName: data.creatorName,
       },
     });
   }
