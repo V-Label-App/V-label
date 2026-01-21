@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ProtectedRoute } from '../components/ProtectedRoute';
 
@@ -18,7 +18,7 @@ import { ReviewerQueue } from '../features/reviewer/pages/ReviewerQueue';
 
 // Other pages
 import DashboardPage from '../pages/DashboardPage';
-import { Workspace } from '../features/annotation/pages/Workspace';
+import { WorkspacePage } from '../features/annotation/pages/WorkspacePage';
 import ProfilePage from '../features/profile/pages/ProfilePage';
 
 // Root redirect component
@@ -41,10 +41,7 @@ const RootRedirect = () => {
     return <Navigate to={redirectPath} replace />;
 };
 
-const WorkspaceRoute = () => {
-    const { taskId } = useParams();
-    return <Workspace taskId={taskId} />;
-};
+
 
 export const AppRoutes = () => {
     // const { logout } = useAuth();
@@ -130,12 +127,12 @@ export const AppRoutes = () => {
                 }
             />
 
-            {/* Workspace Route */}
+            {/* Workspace Route - New Refactored Version */}
             <Route
                 path="/workspace/:taskId"
                 element={
                     <ProtectedRoute>
-                        <WorkspaceRoute />
+                        <WorkspacePage />
                     </ProtectedRoute>
                 }
             />

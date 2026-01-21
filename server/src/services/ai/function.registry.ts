@@ -81,7 +81,6 @@ FunctionRegistry.register('echo_test', async (params) => {
 });
 
 // 3. Get Users (List)
-// 3. Get Users (List)
 FunctionRegistry.register('get_users', async (params, context) => {
   // Security: Only allow ADMIN or MANAGER to list users
   if (!['ADMIN', 'MANAGER'].includes(context.userRole)) {

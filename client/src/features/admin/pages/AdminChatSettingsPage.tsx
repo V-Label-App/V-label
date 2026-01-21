@@ -542,7 +542,7 @@ export function AdminChatSettingsPage() {
                                 </Tooltip>
                             </CardTitle>
                             <CardDescription>
-                                Edit prompts for MANAGER, ANNOTATOR, REVIEWER, and ADMIN roles separately.
+                                Edit prompts for Manager, Annotator, Reviewer, and Admin roles separately.
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
@@ -742,20 +742,6 @@ export function AdminChatSettingsPage() {
                                     </p>
                                 </TabsContent>
                             </Tabs>
-
-                            <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950 rounded-md border border-blue-200 dark:border-blue-800">
-                                <div className="flex gap-2 text-sm text-blue-900 dark:text-blue-100">
-                                    <Info className="w-4 h-4 mt-0.5 shrink-0" />
-                                    <div className="space-y-1">
-                                        <p><strong>How it works:</strong></p>
-                                        <ul className="list-disc list-inside space-y-1 text-xs">
-                                            <li>Empty fields → Use hardcoded defaults from <code className="text-xs bg-blue-100 dark:bg-blue-900 px-1 rounded">rolePrompts.ts</code></li>
-                                            <li>Custom role prompts override global "System Prompt" above</li>
-                                            <li>Knowledge Base content is appended to all prompts</li>
-                                        </ul>
-                                    </div>
-                                </div>
-                            </div>
                         </CardContent>
                     </Card>
                 </TabsContent>
