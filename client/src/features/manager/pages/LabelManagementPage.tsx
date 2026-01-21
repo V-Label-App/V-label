@@ -30,7 +30,26 @@ import {
   FileSpreadsheet,
   CheckCircle,
   XCircle,
+  GripVertical,
+  Copy,
 } from 'lucide-react';
+import {
+  DndContext,
+  DragOverlay,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragStartEvent,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  useSortable,
+  SortableContext,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { toast } from 'sonner';
 import { labelApi, labelCategoryApi, type Label, type LabelCategory, type LabelImportResult } from '../../../services/label.api';
 import { Alert, AlertDescription } from '../../../components/ui/alert';
@@ -47,11 +66,143 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '../../../components/ui/collapsible';
+import { HexColorPicker } from 'react-colorful';
 
 const DEFAULT_COLORS = [
   '#EF4444', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6',
   '#EC4899', '#06B6D4', '#84CC16', '#F97316', '#6366F1',
 ];
+
+// Draggable Label Item Component
+interface DraggableLabelProps {
+  label: Label;
+  isSelected: boolean;
+  categories: LabelCategory[];
+  onToggleSelect: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  onDuplicate: () => void;
+  onMoveToCategory: (categoryId: string | null) => void;
+}
+
+function DraggableLabelItem({
+  label,
+  isSelected,
+  categories,
+  onToggleSelect,
+  onEdit,
+  onDelete,
+  onDuplicate,
+  onMoveToCategory
+}: DraggableLabelProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: label.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  // Filter out current category from move options
+  const moveOptions = [
+    { id: null, name: 'Uncategorized' },
+    ...categories.filter(c => c.id !== label.categoryId)
+  ].filter(opt => !(opt.id === null && label.categoryId === null));
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`group flex items-center gap-2 p-3 rounded-lg border transition-all ${
+        isSelected
+          ? 'bg-blue-50 border-blue-200'
+          : 'bg-white border-gray-200 hover:border-gray-300'
+      } ${isDragging ? 'shadow-lg z-50' : ''}`}
+    >
+      <button
+        {...attributes}
+        {...listeners}
+        className="cursor-grab active:cursor-grabbing p-0.5 -ml-1 text-gray-400 hover:text-gray-600 touch-none"
+        title="Drag to reorder"
+      >
+        <GripVertical className="w-4 h-4" />
+      </button>
+      <Checkbox
+        checked={isSelected}
+        onCheckedChange={onToggleSelect}
+        className="data-[state=checked]:bg-blue-600"
+      />
+      <div
+        className="w-3 h-3 rounded-full flex-shrink-0"
+        style={{ backgroundColor: label.color }}
+      />
+      <span className="flex-1 truncate">{label.name}</span>
+      {label.isGlobal ? (
+        <span title="Global"><Globe className="w-3.5 h-3.5 text-blue-500" /></span>
+      ) : (
+        <span title="Local"><Lock className="w-3.5 h-3.5 text-gray-400" /></span>
+      )}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100">
+            <MoreHorizontal className="w-4 h-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuItem onClick={onEdit}>
+            <Edit2 className="w-4 h-4 mr-2" />
+            Edit
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={onDuplicate}>
+            <Copy className="w-4 h-4 mr-2" />
+            Duplicate
+          </DropdownMenuItem>
+          {moveOptions.length > 0 && (
+            <>
+              <div className="h-px bg-gray-200 my-1" />
+              <div className="px-2 py-1.5 text-xs font-medium text-gray-500">Move to</div>
+              {moveOptions.map(opt => (
+                <DropdownMenuItem
+                  key={opt.id || 'uncategorized'}
+                  onClick={() => onMoveToCategory(opt.id)}
+                >
+                  <FolderOpen className="w-4 h-4 mr-2" />
+                  {opt.name}
+                </DropdownMenuItem>
+              ))}
+            </>
+          )}
+          <div className="h-px bg-gray-200 my-1" />
+          <DropdownMenuItem onClick={onDelete} className="text-red-600 focus:text-red-600">
+            <Trash2 className="w-4 h-4 mr-2" />
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
+// Label preview for drag overlay
+function LabelDragOverlay({ label }: { label: Label }) {
+  return (
+    <div className="flex items-center gap-2 p-3 rounded-lg border bg-white border-blue-400 shadow-xl">
+      <GripVertical className="w-4 h-4 text-gray-400" />
+      <div
+        className="w-3 h-3 rounded-full flex-shrink-0"
+        style={{ backgroundColor: label.color }}
+      />
+      <span className="truncate">{label.name}</span>
+    </div>
+  );
+}
 
 export function LabelManagementPage() {
   const navigate = useNavigate();
@@ -105,6 +256,17 @@ export function LabelManagementPage() {
   const [isImporting, setIsImporting] = useState(false);
   const [importResult, setImportResult] = useState<LabelImportResult | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+
+  // Drag and drop state
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor)
+  );
 
   // Fetch data
   const fetchData = useCallback(async () => {
@@ -556,6 +718,95 @@ export function LabelManagementPage() {
     setIsImportDialogOpen(false);
   };
 
+  // Drag and drop handlers
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveId(null);
+
+    if (!over) return;
+
+    const labelId = active.id as string;
+    const overId = over.id as string;
+
+    // Find the label being dragged
+    const label = labels.find(l => l.id === labelId);
+    if (!label) return;
+
+    // Determine target category:
+    // - If overId is 'uncategorized', target is uncategorized
+    // - If overId matches a category ID, use that category
+    // - If overId matches another label ID, find that label's category
+    let targetCategoryId: string | null = null;
+
+    if (overId === 'uncategorized') {
+      targetCategoryId = null;
+    } else if (categories.some(c => c.id === overId)) {
+      // Dropped on a category
+      targetCategoryId = overId;
+    } else {
+      // Dropped on another label - find its category
+      const targetLabel = labels.find(l => l.id === overId);
+      if (targetLabel) {
+        targetCategoryId = targetLabel.categoryId;
+      } else {
+        // Unknown target, ignore
+        return;
+      }
+    }
+
+    // Get the current category id
+    const currentCategoryId = label.categoryId;
+
+    // If dropped on the same category, do nothing
+    if (currentCategoryId === targetCategoryId) return;
+
+    try {
+      await labelApi.update(labelId, { categoryId: targetCategoryId });
+      const targetName = targetCategoryId === null
+        ? 'Uncategorized'
+        : categories.find(c => c.id === targetCategoryId)?.name;
+      toast.success(`Moved "${label.name}" to ${targetName}`);
+      await fetchData();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to move label');
+    }
+  };
+
+  // Duplicate label
+  const handleDuplicateLabel = (label: Label) => {
+    setEditingLabel(null);
+    setLabelName(`${label.name} (copy)`);
+    setLabelColor(label.color);
+    setLabelCategory(label.categoryId || '');
+    setIsGlobal(label.isGlobal);
+    setIsCategoryLocked(false);
+    setIsAddLabelOpen(true);
+  };
+
+  // Move label to category (from dropdown menu)
+  const handleMoveToCategory = async (labelId: string, categoryId: string | null) => {
+    const label = labels.find(l => l.id === labelId);
+    if (!label) return;
+
+    try {
+      await labelApi.update(labelId, { categoryId });
+      const targetName = categoryId === null
+        ? 'Uncategorized'
+        : categories.find(c => c.id === categoryId)?.name;
+      toast.success(`Moved "${label.name}" to ${targetName}`);
+      await fetchData();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to move label');
+    }
+  };
+
+  // Get active label for drag overlay
+  const activeLabel = activeId ? labels.find(l => l.id === activeId) : null;
+
   // Get total filtered labels count
   const totalFilteredLabels = useMemo(() => {
     return Object.values(labelsByCategory).reduce((sum, arr) => sum + arr.length, 0);
@@ -729,242 +980,192 @@ export function LabelManagementPage() {
                     </div>
                   </Card>
                 ) : (
-                  <div className="space-y-4">
-                    {/* Render categories with labels */}
-                    {categories.map(category => {
-                      const categoryLabels = labelsByCategory[category.id] || [];
-                      const isExpanded = expandedCategories.has(category.id);
-                      const allSelected = isAllSelectedInCategory(category.id);
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragStart={handleDragStart}
+                    onDragEnd={handleDragEnd}
+                  >
+                    <div className="space-y-4">
+                      {/* Render categories with labels */}
+                      {categories.map(category => {
+                        const categoryLabels = labelsByCategory[category.id] || [];
+                        const isExpanded = expandedCategories.has(category.id);
+                        const allSelected = isAllSelectedInCategory(category.id);
 
-                      return (
+                        return (
+                          <Collapsible
+                            key={category.id}
+                            open={isExpanded}
+                            onOpenChange={() => toggleCategory(category.id)}
+                          >
+                            <Card className="overflow-hidden" id={category.id}>
+                              {/* Category Header */}
+                              <CollapsibleTrigger asChild>
+                                <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b cursor-pointer hover:bg-gray-100 transition-colors">
+                                  <div className="flex items-center gap-2">
+                                    <ChevronRight className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} />
+                                    <span className="font-medium">{category.name}</span>
+                                    <Badge variant="secondary" className="ml-1">
+                                      {categoryLabels.length}
+                                    </Badge>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    {categoryLabels.length > 0 && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="text-sm text-blue-600 hover:text-blue-700 h-auto py-1"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          selectAllInCategory(category.id);
+                                        }}
+                                      >
+                                        {allSelected ? 'Deselect All' : 'Select All'}
+                                      </Button>
+                                    )}
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                          <MoreHorizontal className="w-4 h-4" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onClick={() => openEditCategory(category)}>
+                                          <Edit2 className="w-4 h-4 mr-2" />
+                                          Edit Category
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          onClick={() => handleDeleteCategory(category.id)}
+                                          className="text-red-600 focus:text-red-600"
+                                        >
+                                          <Trash2 className="w-4 h-4 mr-2" />
+                                          Delete Category
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  </div>
+                                </div>
+                              </CollapsibleTrigger>
+
+                              {/* Labels Grid */}
+                              <CollapsibleContent className="data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up overflow-hidden">
+                                <div className="p-4" data-category-id={category.id}>
+                                  <SortableContext
+                                    items={categoryLabels.map(l => l.id)}
+                                    strategy={verticalListSortingStrategy}
+                                  >
+                                    <div className="grid grid-cols-2 gap-3">
+                                      {categoryLabels.map(label => (
+                                        <DraggableLabelItem
+                                          key={label.id}
+                                          label={label}
+                                          isSelected={selectedLabelIds.includes(label.id)}
+                                          categories={categories}
+                                          onToggleSelect={() => toggleLabelSelection(label.id)}
+                                          onEdit={() => openEditLabel(label)}
+                                          onDelete={() => handleDeleteLabel(label.id)}
+                                          onDuplicate={() => handleDuplicateLabel(label)}
+                                          onMoveToCategory={(catId) => handleMoveToCategory(label.id, catId)}
+                                        />
+                                      ))}
+
+                                      {/* Add Label Button */}
+                                      <button
+                                        onClick={() => openCreateLabelInCategory(category.id)}
+                                        className="flex items-center justify-center gap-2 p-3 rounded-lg border-2 border-dashed border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                                      >
+                                        <Plus className="w-4 h-4" />
+                                        <span>Add Label</span>
+                                      </button>
+                                    </div>
+                                  </SortableContext>
+                                </div>
+                              </CollapsibleContent>
+                            </Card>
+                          </Collapsible>
+                        );
+                      })}
+
+                      {/* Uncategorized Labels */}
+                      {(labelsByCategory['uncategorized']?.length > 0 || categories.length === 0) && (
                         <Collapsible
-                          key={category.id}
-                          open={isExpanded}
-                          onOpenChange={() => toggleCategory(category.id)}
+                          open={expandedCategories.has('uncategorized')}
+                          onOpenChange={() => toggleCategory('uncategorized')}
                         >
-                          <Card className="overflow-hidden">
-                            {/* Category Header */}
+                          <Card className="overflow-hidden" id="uncategorized">
+                            {/* Uncategorized Header */}
                             <CollapsibleTrigger asChild>
                               <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b cursor-pointer hover:bg-gray-100 transition-colors">
                                 <div className="flex items-center gap-2">
-                                  <ChevronRight className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} />
-                                  <span className="font-medium">{category.name}</span>
+                                  <ChevronRight className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${expandedCategories.has('uncategorized') ? 'rotate-90' : ''}`} />
+                                  <span className="font-medium text-gray-600">Uncategorized</span>
                                   <Badge variant="secondary" className="ml-1">
-                                    {categoryLabels.length}
+                                    {labelsByCategory['uncategorized']?.length || 0}
                                   </Badge>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  {categoryLabels.length > 0 && (
+                                  {(labelsByCategory['uncategorized']?.length || 0) > 0 && (
                                     <Button
                                       variant="ghost"
                                       size="sm"
                                       className="text-sm text-blue-600 hover:text-blue-700 h-auto py-1"
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        selectAllInCategory(category.id);
+                                        selectAllInCategory('uncategorized');
                                       }}
                                     >
-                                      {allSelected ? 'Deselect All' : 'Select All'}
+                                      {isAllSelectedInCategory('uncategorized') ? 'Deselect All' : 'Select All'}
                                     </Button>
                                   )}
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                        <MoreHorizontal className="w-4 h-4" />
-                                      </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                      <DropdownMenuItem onClick={() => openEditCategory(category)}>
-                                        <Edit2 className="w-4 h-4 mr-2" />
-                                        Edit Category
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem
-                                        onClick={() => handleDeleteCategory(category.id)}
-                                        className="text-red-600 focus:text-red-600"
-                                      >
-                                        <Trash2 className="w-4 h-4 mr-2" />
-                                        Delete Category
-                                      </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
                                 </div>
                               </div>
                             </CollapsibleTrigger>
 
-                            {/* Labels Grid */}
+                            {/* Uncategorized Labels Grid */}
                             <CollapsibleContent className="data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up overflow-hidden">
-                              <div className="p-4">
-                                <div className="grid grid-cols-2 gap-3">
-                                  {categoryLabels.map(label => {
-                                    const isSelected = selectedLabelIds.includes(label.id);
-                                    return (
-                                      <div
+                              <div className="p-4" data-category-id="uncategorized">
+                                <SortableContext
+                                  items={(labelsByCategory['uncategorized'] || []).map(l => l.id)}
+                                  strategy={verticalListSortingStrategy}
+                                >
+                                  <div className="grid grid-cols-2 gap-3">
+                                    {(labelsByCategory['uncategorized'] || []).map(label => (
+                                      <DraggableLabelItem
                                         key={label.id}
-                                        className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${
-                                          isSelected
-                                            ? 'bg-blue-50 border-blue-200'
-                                            : 'bg-white border-gray-200 hover:border-gray-300'
-                                        }`}
-                                      >
-                                        <Checkbox
-                                          checked={isSelected}
-                                          onCheckedChange={() => toggleLabelSelection(label.id)}
-                                          className="data-[state=checked]:bg-blue-600"
-                                        />
-                                        <div
-                                          className="w-3 h-3 rounded-full flex-shrink-0"
-                                          style={{ backgroundColor: label.color }}
-                                        />
-                                        <span className="flex-1 truncate">{label.name}</span>
-                                        {label.isGlobal ? (
-                                          <span title="Global"><Globe className="w-3.5 h-3.5 text-blue-500" /></span>
-                                        ) : (
-                                          <span title="Local"><Lock className="w-3.5 h-3.5 text-gray-400" /></span>
-                                        )}
-                                        <DropdownMenu>
-                                          <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 hover:opacity-100">
-                                              <MoreHorizontal className="w-4 h-4" />
-                                            </Button>
-                                          </DropdownMenuTrigger>
-                                          <DropdownMenuContent align="end">
-                                            <DropdownMenuItem onClick={() => openEditLabel(label)}>
-                                              <Edit2 className="w-4 h-4 mr-2" />
-                                              Edit
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem
-                                              onClick={() => handleDeleteLabel(label.id)}
-                                              className="text-red-600 focus:text-red-600"
-                                            >
-                                              <Trash2 className="w-4 h-4 mr-2" />
-                                              Delete
-                                            </DropdownMenuItem>
-                                          </DropdownMenuContent>
-                                        </DropdownMenu>
-                                      </div>
-                                    );
-                                  })}
+                                        label={label}
+                                        isSelected={selectedLabelIds.includes(label.id)}
+                                        categories={categories}
+                                        onToggleSelect={() => toggleLabelSelection(label.id)}
+                                        onEdit={() => openEditLabel(label)}
+                                        onDelete={() => handleDeleteLabel(label.id)}
+                                        onDuplicate={() => handleDuplicateLabel(label)}
+                                        onMoveToCategory={(catId) => handleMoveToCategory(label.id, catId)}
+                                      />
+                                    ))}
 
-                                  {/* Add Label Button */}
-                                  <button
-                                    onClick={() => openCreateLabelInCategory(category.id)}
-                                    className="flex items-center justify-center gap-2 p-3 rounded-lg border-2 border-dashed border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-                                  >
-                                    <Plus className="w-4 h-4" />
-                                    <span>Add Label</span>
-                                  </button>
-                                </div>
+                                    {/* Add Label Button */}
+                                    <button
+                                      onClick={() => openCreateLabelInCategory('uncategorized')}
+                                      className="flex items-center justify-center gap-2 p-3 rounded-lg border-2 border-dashed border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                                    >
+                                      <Plus className="w-4 h-4" />
+                                      <span>Add Label</span>
+                                    </button>
+                                  </div>
+                                </SortableContext>
                               </div>
                             </CollapsibleContent>
                           </Card>
                         </Collapsible>
-                      );
-                    })}
+                      )}
+                    </div>
 
-                    {/* Uncategorized Labels */}
-                    {(labelsByCategory['uncategorized']?.length > 0 || categories.length === 0) && (
-                      <Collapsible
-                        open={expandedCategories.has('uncategorized')}
-                        onOpenChange={() => toggleCategory('uncategorized')}
-                      >
-                        <Card className="overflow-hidden">
-                          {/* Uncategorized Header */}
-                          <CollapsibleTrigger asChild>
-                            <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b cursor-pointer hover:bg-gray-100 transition-colors">
-                              <div className="flex items-center gap-2">
-                                <ChevronRight className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${expandedCategories.has('uncategorized') ? 'rotate-90' : ''}`} />
-                                <span className="font-medium text-gray-600">Uncategorized</span>
-                                <Badge variant="secondary" className="ml-1">
-                                  {labelsByCategory['uncategorized']?.length || 0}
-                                </Badge>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                {(labelsByCategory['uncategorized']?.length || 0) > 0 && (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="text-sm text-blue-600 hover:text-blue-700 h-auto py-1"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      selectAllInCategory('uncategorized');
-                                    }}
-                                  >
-                                    {isAllSelectedInCategory('uncategorized') ? 'Deselect All' : 'Select All'}
-                                  </Button>
-                                )}
-                              </div>
-                            </div>
-                          </CollapsibleTrigger>
-
-                          {/* Uncategorized Labels Grid */}
-                          <CollapsibleContent className="data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up overflow-hidden">
-                            <div className="p-4">
-                              <div className="grid grid-cols-2 gap-3">
-                                {(labelsByCategory['uncategorized'] || []).map(label => {
-                                  const isSelected = selectedLabelIds.includes(label.id);
-                                  return (
-                                    <div
-                                      key={label.id}
-                                      className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${
-                                        isSelected
-                                          ? 'bg-blue-50 border-blue-200'
-                                          : 'bg-white border-gray-200 hover:border-gray-300'
-                                      }`}
-                                    >
-                                      <Checkbox
-                                        checked={isSelected}
-                                        onCheckedChange={() => toggleLabelSelection(label.id)}
-                                        className="data-[state=checked]:bg-blue-600"
-                                      />
-                                      <div
-                                        className="w-3 h-3 rounded-full flex-shrink-0"
-                                        style={{ backgroundColor: label.color }}
-                                      />
-                                      <span className="flex-1 truncate">{label.name}</span>
-                                      {label.isGlobal ? (
-                                        <span title="Global"><Globe className="w-3.5 h-3.5 text-blue-500" /></span>
-                                      ) : (
-                                        <span title="Local"><Lock className="w-3.5 h-3.5 text-gray-400" /></span>
-                                      )}
-                                      <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                                            <MoreHorizontal className="w-4 h-4" />
-                                          </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
-                                          <DropdownMenuItem onClick={() => openEditLabel(label)}>
-                                            <Edit2 className="w-4 h-4 mr-2" />
-                                            Edit
-                                          </DropdownMenuItem>
-                                          <DropdownMenuItem
-                                            onClick={() => handleDeleteLabel(label.id)}
-                                            className="text-red-600 focus:text-red-600"
-                                          >
-                                            <Trash2 className="w-4 h-4 mr-2" />
-                                            Delete
-                                          </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                      </DropdownMenu>
-                                    </div>
-                                  );
-                                })}
-
-                                {/* Add Label Button */}
-                                <button
-                                  onClick={() => openCreateLabelInCategory('uncategorized')}
-                                  className="flex items-center justify-center gap-2 p-3 rounded-lg border-2 border-dashed border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-                                >
-                                  <Plus className="w-4 h-4" />
-                                  <span>Add Label</span>
-                                </button>
-                              </div>
-                            </div>
-                          </CollapsibleContent>
-                        </Card>
-                      </Collapsible>
-                    )}
-                  </div>
+                    {/* Drag Overlay */}
+                    <DragOverlay>
+                      {activeLabel ? <LabelDragOverlay label={activeLabel} /> : null}
+                    </DragOverlay>
+                  </DndContext>
                 )}
               </div>
             )}
@@ -1104,17 +1305,41 @@ export function LabelManagementPage() {
 
             <div className="space-y-2">
               <UILabel>Color *</UILabel>
-              <div className="flex gap-2 flex-wrap">
-                {DEFAULT_COLORS.map(color => (
-                  <button
-                    key={color}
-                    type="button"
-                    className={`w-8 h-8 rounded-full border-2 transition-all ${labelColor === color ? 'border-gray-900 scale-110 ring-2 ring-gray-900/20' : 'border-white shadow'
-                      }`}
-                    style={{ backgroundColor: color }}
-                    onClick={() => setLabelColor(color)}
-                  />
-                ))}
+              <div className="flex items-start gap-4">
+                <HexColorPicker
+                  color={labelColor}
+                  onChange={setLabelColor}
+                  style={{ width: '160px', height: '160px' }}
+                />
+                <div className="space-y-3">
+                  {/* Color Preview */}
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-12 h-12 rounded-lg border-2 border-gray-200 shadow-sm"
+                      style={{ backgroundColor: labelColor }}
+                    />
+                    <div>
+                      <p className="text-xs text-gray-500">Selected</p>
+                      <p className="font-mono text-sm font-medium uppercase">{labelColor}</p>
+                    </div>
+                  </div>
+                  {/* Hex Input */}
+                  <div>
+                    <Input
+                      value={labelColor}
+                      onChange={(e) => {
+                        let value = e.target.value;
+                        if (!value.startsWith('#')) value = '#' + value;
+                        if (/^#[0-9A-Fa-f]{0,6}$/.test(value)) {
+                          setLabelColor(value);
+                        }
+                      }}
+                      placeholder="#000000"
+                      className="font-mono text-sm w-28"
+                      maxLength={7}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 

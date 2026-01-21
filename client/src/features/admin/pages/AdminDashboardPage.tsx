@@ -1,46 +1,93 @@
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
-import { Users, FolderKanban, Tag, HardDrive, TrendingUp, Clock, Award, CheckCircle } from 'lucide-react';
+import { Users, FolderKanban, Tag, HardDrive, TrendingUp, Clock, Award, CheckCircle, Loader2 } from 'lucide-react';
+import api from '../../../api/axiosClient';
 
-// Mock data - sẽ thay bằng API call sau
-const MOCK_STATS = {
-    totalUsers: 156,
+interface DashboardStats {
+    totalUsers: number;
+    userGrowth: number;
     usersByRole: {
-        admin: 3,
-        manager: 12,
-        reviewer: 28,
-        annotator: 113
-    },
+        admin: number;
+        manager: number;
+        reviewer: number;
+        annotator: number;
+    };
     projects: {
-        active: 24,
-        completed: 87,
-        total: 111
-    },
+        active: number;
+        completed: number;
+        total: number;
+    };
     annotations: {
-        today: 1247,
-        thisWeek: 8932,
-        thisMonth: 34521,
-        total: 245678
-    },
+        today: number;
+        thisWeek: number;
+        thisMonth: number;
+        total: number;
+    };
     storage: {
-        used: 45.2, // GB
-        total: 100, // GB
-        percentage: 45.2
-    },
-    topAnnotators: [
-        { id: '1', name: 'Nguyễn Văn A', count: 2341, quality: 98.5 },
-        { id: '2', name: 'Trần Thị B', count: 2156, quality: 97.8 },
-        { id: '3', name: 'Lê Văn C', count: 1987, quality: 96.2 },
-        { id: '4', name: 'Phạm Thị D', count: 1823, quality: 95.9 },
-        { id: '5', name: 'Hoàng Văn E', count: 1654, quality: 94.7 }
-    ],
+        used: number;
+        total: number;
+        percentage: number;
+    };
+    topAnnotators: {
+        id: string;
+        name: string;
+        count: number;
+        quality: number;
+    }[];
     performance: {
-        avgAnnotationTime: 45, // seconds
-        completionRate: 87.3, // percentage
-        qualityScore: 96.8 // percentage
-    }
-};
+        avgAnnotationTime: number;
+        completionRate: number;
+        qualityScore: number;
+    };
+}
 
 export function AdminDashboardPage() {
+    const [stats, setStats] = useState<DashboardStats | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const fetchStats = async () => {
+            try {
+                setIsLoading(true);
+                const response = await api.get('/admin/dashboard/stats');
+                setStats(response.data);
+                setError(null);
+            } catch (err: any) {
+                console.error('Failed to fetch dashboard stats:', err);
+                setError(err.response?.data?.error || 'Failed to load dashboard data');
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchStats();
+    }, []);
+
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center h-64">
+                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+            </div>
+        );
+    }
+
+    if (error || !stats) {
+        return (
+            <div className="flex items-center justify-center h-64">
+                <div className="text-center">
+                    <p className="text-red-500 mb-2">{error || 'No data available'}</p>
+                    <button
+                        onClick={() => window.location.reload()}
+                        className="text-blue-600 hover:underline"
+                    >
+                        Try again
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
             {/* Header */}
@@ -58,9 +105,11 @@ export function AdminDashboardPage() {
                         <Users className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{MOCK_STATS.totalUsers}</div>
+                        <div className="text-2xl font-bold">{stats.totalUsers}</div>
                         <p className="text-xs text-muted-foreground mt-1">
-                            <span className="text-green-600">+12</span> so với tháng trước
+                            <span className={stats.userGrowth >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                {stats.userGrowth >= 0 ? '+' : ''}{stats.userGrowth}
+                            </span> so với tháng trước
                         </p>
                     </CardContent>
                 </Card>
@@ -72,9 +121,9 @@ export function AdminDashboardPage() {
                         <FolderKanban className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{MOCK_STATS.projects.active}</div>
+                        <div className="text-2xl font-bold">{stats.projects.active}</div>
                         <p className="text-xs text-muted-foreground mt-1">
-                            {MOCK_STATS.projects.completed} đã hoàn thành
+                            {stats.projects.completed} đã hoàn thành
                         </p>
                     </CardContent>
                 </Card>
@@ -86,9 +135,9 @@ export function AdminDashboardPage() {
                         <Tag className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{MOCK_STATS.annotations.thisMonth.toLocaleString()}</div>
+                        <div className="text-2xl font-bold">{stats.annotations.thisMonth.toLocaleString()}</div>
                         <p className="text-xs text-muted-foreground mt-1">
-                            <span className="text-green-600">+23%</span> so với tháng trước
+                            Tổng: {stats.annotations.total.toLocaleString()} nhãn
                         </p>
                     </CardContent>
                 </Card>
@@ -100,16 +149,16 @@ export function AdminDashboardPage() {
                         <HardDrive className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{MOCK_STATS.storage.used} GB</div>
+                        <div className="text-2xl font-bold">{stats.storage.used} GB</div>
                         <div className="mt-2">
                             <div className="w-full bg-gray-200 rounded-full h-2">
                                 <div
                                     className="bg-blue-600 h-2 rounded-full"
-                                    style={{ width: `${MOCK_STATS.storage.percentage}%` }}
+                                    style={{ width: `${stats.storage.percentage}%` }}
                                 />
                             </div>
                             <p className="text-xs text-muted-foreground mt-1">
-                                {MOCK_STATS.storage.percentage}% / {MOCK_STATS.storage.total} GB
+                                {stats.storage.percentage}% / {stats.storage.total} GB
                             </p>
                         </div>
                     </CardContent>
@@ -125,19 +174,19 @@ export function AdminDashboardPage() {
                 <CardContent>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div className="flex flex-col items-center p-4 bg-blue-50 rounded-lg">
-                            <div className="text-3xl font-bold text-blue-600">{MOCK_STATS.usersByRole.admin}</div>
+                            <div className="text-3xl font-bold text-blue-600">{stats.usersByRole.admin}</div>
                             <div className="text-sm text-gray-600 mt-1">Admin</div>
                         </div>
                         <div className="flex flex-col items-center p-4 bg-purple-50 rounded-lg">
-                            <div className="text-3xl font-bold text-purple-600">{MOCK_STATS.usersByRole.manager}</div>
+                            <div className="text-3xl font-bold text-purple-600">{stats.usersByRole.manager}</div>
                             <div className="text-sm text-gray-600 mt-1">Manager</div>
                         </div>
                         <div className="flex flex-col items-center p-4 bg-green-50 rounded-lg">
-                            <div className="text-3xl font-bold text-green-600">{MOCK_STATS.usersByRole.reviewer}</div>
+                            <div className="text-3xl font-bold text-green-600">{stats.usersByRole.reviewer}</div>
                             <div className="text-sm text-gray-600 mt-1">Reviewer</div>
                         </div>
                         <div className="flex flex-col items-center p-4 bg-orange-50 rounded-lg">
-                            <div className="text-3xl font-bold text-orange-600">{MOCK_STATS.usersByRole.annotator}</div>
+                            <div className="text-3xl font-bold text-orange-600">{stats.usersByRole.annotator}</div>
                             <div className="text-sm text-gray-600 mt-1">Annotator</div>
                         </div>
                     </div>
@@ -157,21 +206,21 @@ export function AdminDashboardPage() {
                                 <Clock className="h-4 w-4 text-blue-600" />
                                 <span className="text-sm font-medium">Thời gian TB/ảnh</span>
                             </div>
-                            <span className="text-2xl font-bold">{MOCK_STATS.performance.avgAnnotationTime}s</span>
+                            <span className="text-2xl font-bold">{stats.performance.avgAnnotationTime}s</span>
                         </div>
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <CheckCircle className="h-4 w-4 text-green-600" />
                                 <span className="text-sm font-medium">Tỷ lệ hoàn thành</span>
                             </div>
-                            <span className="text-2xl font-bold">{MOCK_STATS.performance.completionRate}%</span>
+                            <span className="text-2xl font-bold">{stats.performance.completionRate}%</span>
                         </div>
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <Award className="h-4 w-4 text-yellow-600" />
                                 <span className="text-sm font-medium">Điểm chất lượng</span>
                             </div>
-                            <span className="text-2xl font-bold">{MOCK_STATS.performance.qualityScore}%</span>
+                            <span className="text-2xl font-bold">{stats.performance.qualityScore}%</span>
                         </div>
                     </CardContent>
                 </Card>
@@ -180,32 +229,38 @@ export function AdminDashboardPage() {
                 <Card>
                     <CardHeader>
                         <CardTitle>Top Annotators</CardTitle>
-                        <CardDescription>5 người gán nhãn xuất sắc nhất tháng này</CardDescription>
+                        <CardDescription>5 người gán nhãn xuất sắc nhất</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="space-y-3">
-                            {MOCK_STATS.topAnnotators.map((annotator, index) => (
-                                <div key={annotator.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                                    <div className="flex items-center gap-3">
-                                        <div className={`flex items-center justify-center w-8 h-8 rounded-full font-bold text-white ${index === 0 ? 'bg-yellow-500' :
-                                            index === 1 ? 'bg-gray-400' :
-                                                index === 2 ? 'bg-orange-600' :
-                                                    'bg-blue-500'
-                                            }`}>
-                                            {index + 1}
+                        {stats.topAnnotators.length > 0 ? (
+                            <div className="space-y-3">
+                                {stats.topAnnotators.map((annotator, index) => (
+                                    <div key={annotator.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`flex items-center justify-center w-8 h-8 rounded-full font-bold text-white ${index === 0 ? 'bg-yellow-500' :
+                                                index === 1 ? 'bg-gray-400' :
+                                                    index === 2 ? 'bg-orange-600' :
+                                                        'bg-blue-500'
+                                                }`}>
+                                                {index + 1}
+                                            </div>
+                                            <div>
+                                                <div className="font-medium">{annotator.name}</div>
+                                                <div className="text-xs text-gray-500">{annotator.count.toLocaleString()} nhãn</div>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <div className="font-medium">{annotator.name}</div>
-                                            <div className="text-xs text-gray-500">{annotator.count.toLocaleString()} nhãn</div>
+                                        <div className="text-right">
+                                            <div className="text-sm font-medium text-green-600">{annotator.quality.toFixed(1)}%</div>
+                                            <div className="text-xs text-gray-500">Chất lượng</div>
                                         </div>
                                     </div>
-                                    <div className="text-right">
-                                        <div className="text-sm font-medium text-green-600">{annotator.quality}%</div>
-                                        <div className="text-xs text-gray-500">Chất lượng</div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center text-gray-500 py-8">
+                                Chưa có dữ liệu annotator
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
             </div>
@@ -220,22 +275,22 @@ export function AdminDashboardPage() {
                     <div className="grid grid-cols-3 gap-4 text-center">
                         <div className="p-4 bg-blue-50 rounded-lg">
                             <TrendingUp className="h-6 w-6 text-blue-600 mx-auto mb-2" />
-                            <div className="text-2xl font-bold text-blue-600">{MOCK_STATS.annotations.today.toLocaleString()}</div>
+                            <div className="text-2xl font-bold text-blue-600">{stats.annotations.today.toLocaleString()}</div>
                             <div className="text-sm text-gray-600 mt-1">Hôm nay</div>
                         </div>
                         <div className="p-4 bg-purple-50 rounded-lg">
                             <TrendingUp className="h-6 w-6 text-purple-600 mx-auto mb-2" />
-                            <div className="text-2xl font-bold text-purple-600">{MOCK_STATS.annotations.thisWeek.toLocaleString()}</div>
+                            <div className="text-2xl font-bold text-purple-600">{stats.annotations.thisWeek.toLocaleString()}</div>
                             <div className="text-sm text-gray-600 mt-1">Tuần này</div>
                         </div>
                         <div className="p-4 bg-green-50 rounded-lg">
                             <TrendingUp className="h-6 w-6 text-green-600 mx-auto mb-2" />
-                            <div className="text-2xl font-bold text-green-600">{MOCK_STATS.annotations.thisMonth.toLocaleString()}</div>
+                            <div className="text-2xl font-bold text-green-600">{stats.annotations.thisMonth.toLocaleString()}</div>
                             <div className="text-sm text-gray-600 mt-1">Tháng này</div>
                         </div>
                     </div>
                     <div className="mt-4 p-4 bg-gray-50 rounded-lg text-center">
-                        <div className="text-3xl font-bold text-gray-700">{MOCK_STATS.annotations.total.toLocaleString()}</div>
+                        <div className="text-3xl font-bold text-gray-700">{stats.annotations.total.toLocaleString()}</div>
                         <div className="text-sm text-gray-600 mt-1">Tổng số nhãn đã tạo</div>
                     </div>
                 </CardContent>
