@@ -1,4 +1,4 @@
-import type { Label as LabelType, LabelCategory } from '../../../types/label.types';
+import type { LegacyLabel as LabelType, LegacyLabelCategory as LabelCategory } from '../../../types/label.types';
 
 export interface Task {
   id: string;

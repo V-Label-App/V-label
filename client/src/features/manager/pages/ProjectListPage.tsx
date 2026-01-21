@@ -23,17 +23,14 @@ import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { UserNav } from '../../../components/common/UserNav';
 import { useAuth } from '../../../context/AuthContext';
-import { LabelManagement } from '../../../components/LabelManagement';
-import { getProjects, addProject, initialLabels, initialCategories } from '../data/projects.mock';
+import { getProjects, addProject } from '../data/projects.mock';
 import type { Project } from '../data/projects.mock';
-import type { Label as LabelType, LabelCategory } from '../../../types/label.types';
 
 export function ProjectListPage() {
     const navigate = useNavigate();
     const { isImpersonating } = useAuth();
     const [projects, setProjects] = useState<Project[]>(getProjects());
     const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
-    const [isLabelManagementOpen, setIsLabelManagementOpen] = useState(false);
 
     // Search & Filter State
     const [searchQuery, setSearchQuery] = useState('');
@@ -45,10 +42,6 @@ export function ProjectListPage() {
     const [projectDescription, setProjectDescription] = useState('');
     const [annotationType, setAnnotationType] = useState<'bounding-box' | 'polygon' | 'segmentation'>('bounding-box');
     const [projectDeadline, setProjectDeadline] = useState<Date>();
-
-    // Label Management State (using mock data initial values, in real app this would be state or api)
-    const [labels, setLabels] = useState<LabelType[]>(initialLabels);
-    const [categories, setCategories] = useState<LabelCategory[]>(initialCategories);
 
     // Filtered Projects
     const filteredProjects = useMemo(() => {
@@ -148,7 +141,7 @@ export function ProjectListPage() {
                     <div className="flex gap-2">
                         <Button
                             variant="outline"
-                            onClick={() => setIsLabelManagementOpen(true)}
+                            onClick={() => navigate('/manager/labels')}
                         >
                             <Tag className="w-4 h-4 mr-2" />
                             Manage Labels
@@ -379,15 +372,6 @@ export function ProjectListPage() {
                 </DialogContent>
             </Dialog>
 
-            {/* Label Management Dialog */}
-            <LabelManagement
-                open={isLabelManagementOpen}
-                onClose={() => setIsLabelManagementOpen(false)}
-                labels={labels}
-                categories={categories}
-                onLabelsChange={setLabels}
-                onCategoriesChange={setCategories}
-            />
-        </div>
+                    </div>
     );
 }

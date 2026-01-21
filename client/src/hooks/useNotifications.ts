@@ -115,6 +115,42 @@ export function useNotifications() {
             setUnreadCount((prev) => prev + 1);
             break;
 
+          case 'notification:created':
+            console.log('[Notifications] Handling notification created:', event.data);
+
+            if (event.data.notification) {
+              const newNotification: Notification = {
+                id: event.data.notification.id || `temp-${Date.now()}`,
+                type: event.data.notification.type,
+                title: event.data.notification.title,
+                message: event.data.notification.message,
+                isRead: event.data.notification.isRead || false,
+                createdAt: event.data.notification.createdAt || new Date().toISOString(),
+                metadata: event.data.notification.metadata,
+              };
+
+              setNotifications((prev) => [newNotification, ...prev]);
+              setUnreadCount((prev) => prev + 1);
+            }
+            break;
+
+          case 'label:created':
+            console.log('[Notifications] Handling label created:', event.data);
+
+            const labelNotification: Notification = {
+              id: `temp-${Date.now()}`,
+              type: 'LABEL_CREATED',
+              title: event.data.notification?.title || 'New Label Created',
+              message: event.data.notification?.message || `A new label "${event.data.label?.name}" has been created.`,
+              isRead: false,
+              createdAt: new Date().toISOString(),
+              metadata: event.data.label,
+            };
+
+            setNotifications((prev) => [labelNotification, ...prev]);
+            setUnreadCount((prev) => prev + 1);
+            break;
+
           case 'task:assigned':
           case 'task:submitted':
           case 'user:role:changed':

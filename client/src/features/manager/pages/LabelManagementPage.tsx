@@ -1,0 +1,1405 @@
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../../components/ui/dialog';
+import { Button } from '../../../components/ui/button';
+import { Input } from '../../../components/ui/input';
+import { Label as UILabel } from '../../../components/ui/label';
+import { Badge } from '../../../components/ui/badge';
+import { Textarea } from '../../../components/ui/textarea';
+import { Card } from '../../../components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
+import { Checkbox } from '../../../components/ui/checkbox';
+import {
+  Plus,
+  Trash2,
+  Tag,
+  Edit2,
+  FolderOpen,
+  Loader2,
+  Globe,
+  Lock,
+  AlertTriangle,
+  Search,
+  MoreHorizontal,
+  ArrowLeft,
+  ChevronRight,
+  Upload,
+  Download,
+  FileDown,
+  FileText,
+  FileSpreadsheet,
+  CheckCircle,
+  XCircle,
+} from 'lucide-react';
+import { toast } from 'sonner';
+import { labelApi, labelCategoryApi, type Label, type LabelCategory, type LabelImportResult } from '../../../services/label.api';
+import { Alert, AlertDescription } from '../../../components/ui/alert';
+import { UserNav } from '../../../components/common/UserNav';
+import { useAuth } from '../../../context/AuthContext';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../../../components/ui/dropdown-menu';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '../../../components/ui/collapsible';
+
+const DEFAULT_COLORS = [
+  '#EF4444', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6',
+  '#EC4899', '#06B6D4', '#84CC16', '#F97316', '#6366F1',
+];
+
+export function LabelManagementPage() {
+  const navigate = useNavigate();
+  const { isImpersonating } = useAuth();
+  const [view, setView] = useState<'labels' | 'categories'>('labels');
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Data state
+  const [labels, setLabels] = useState<Label[]>([]);
+  const [categories, setCategories] = useState<LabelCategory[]>([]);
+
+  // Label form state
+  const [isAddLabelOpen, setIsAddLabelOpen] = useState(false);
+  const [editingLabel, setEditingLabel] = useState<Label | null>(null);
+  const [labelName, setLabelName] = useState('');
+  const [labelColor, setLabelColor] = useState(DEFAULT_COLORS[0]);
+  const [labelCategory, setLabelCategory] = useState('');
+  const [isGlobal, setIsGlobal] = useState(true);
+  const [isCategoryLocked, setIsCategoryLocked] = useState(false);
+
+  // Category form state
+  const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<LabelCategory | null>(null);
+  const [categoryName, setCategoryName] = useState('');
+  const [categoryDescription, setCategoryDescription] = useState('');
+
+  // Filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterGlobal, setFilterGlobal] = useState<string>('all');
+
+  // Expand/Collapse state
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+
+  // Multi-select state
+  const [selectedLabelIds, setSelectedLabelIds] = useState<string[]>([]);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Confirmation dialog state
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({ open: false, title: '', message: '', onConfirm: () => {} });
+
+  // Import dialog state
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [importCsvText, setImportCsvText] = useState('');
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importFormat, setImportFormat] = useState<'csv' | 'excel'>('csv');
+  const [isImporting, setIsImporting] = useState(false);
+  const [importResult, setImportResult] = useState<LabelImportResult | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+
+  // Fetch data
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const [labelsData, categoriesData] = await Promise.all([
+        labelApi.getAll(),
+        labelCategoryApi.getAll(),
+      ]);
+      setLabels(labelsData);
+      setCategories(categoriesData);
+      // Expand all categories by default
+      const allCategoryIds = new Set(categoriesData.map(c => c.id));
+      allCategoryIds.add('uncategorized');
+      setExpandedCategories(allCategoryIds);
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to load data');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Group labels by category
+  const labelsByCategory = useMemo(() => {
+    const grouped: Record<string, Label[]> = {};
+
+    // Initialize with all categories
+    categories.forEach(cat => {
+      grouped[cat.id] = [];
+    });
+    grouped['uncategorized'] = [];
+
+    // Filter and group labels
+    labels.forEach(label => {
+      const matchesSearch = label.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesGlobal = filterGlobal === 'all' ||
+        (filterGlobal === 'global' && label.isGlobal) ||
+        (filterGlobal === 'local' && !label.isGlobal);
+
+      if (matchesSearch && matchesGlobal) {
+        const categoryId = label.categoryId || 'uncategorized';
+        if (!grouped[categoryId]) {
+          grouped[categoryId] = [];
+        }
+        grouped[categoryId].push(label);
+      }
+    });
+
+    return grouped;
+  }, [labels, categories, searchQuery, filterGlobal]);
+
+  // Toggle category expansion
+  const toggleCategory = (categoryId: string) => {
+    setExpandedCategories(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(categoryId)) {
+        newSet.delete(categoryId);
+      } else {
+        newSet.add(categoryId);
+      }
+      return newSet;
+    });
+  };
+
+  // Select all labels in a category
+  const selectAllInCategory = (categoryId: string) => {
+    const categoryLabels = labelsByCategory[categoryId] || [];
+    const categoryLabelIds = categoryLabels.map(l => l.id);
+    const allSelected = categoryLabelIds.every(id => selectedLabelIds.includes(id));
+
+    if (allSelected) {
+      setSelectedLabelIds(prev => prev.filter(id => !categoryLabelIds.includes(id)));
+    } else {
+      setSelectedLabelIds(prev => [...new Set([...prev, ...categoryLabelIds])]);
+    }
+  };
+
+  // Check if all labels in category are selected
+  const isAllSelectedInCategory = (categoryId: string) => {
+    const categoryLabels = labelsByCategory[categoryId] || [];
+    if (categoryLabels.length === 0) return false;
+    return categoryLabels.every(l => selectedLabelIds.includes(l.id));
+  };
+
+  // Create/Update Label
+  const handleSaveLabel = async () => {
+    if (!labelName.trim()) {
+      toast.error('Label name is required');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      if (editingLabel) {
+        await labelApi.update(editingLabel.id, {
+          name: labelName,
+          color: labelColor,
+          categoryId: labelCategory || null,
+          isGlobal,
+        });
+        toast.success('Label updated successfully');
+      } else {
+        await labelApi.create({
+          name: labelName,
+          color: labelColor,
+          categoryId: labelCategory || undefined,
+          isGlobal,
+        });
+        toast.success('Label created successfully');
+      }
+      await fetchData();
+      resetLabelForm();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to save label');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const resetLabelForm = () => {
+    setLabelName('');
+    setLabelColor(DEFAULT_COLORS[Math.floor(Math.random() * DEFAULT_COLORS.length)]);
+    setLabelCategory('');
+    setIsGlobal(true);
+    setEditingLabel(null);
+    setIsAddLabelOpen(false);
+    setIsCategoryLocked(false);
+  };
+
+  const openEditLabel = (label: Label) => {
+    setEditingLabel(label);
+    setLabelName(label.name);
+    setLabelColor(label.color);
+    setLabelCategory(label.categoryId || '');
+    setIsGlobal(label.isGlobal);
+    setIsCategoryLocked(false);
+    setIsAddLabelOpen(true);
+  };
+
+  const openCreateLabelInCategory = (categoryId: string) => {
+    resetLabelForm();
+    if (categoryId !== 'uncategorized') {
+      setLabelCategory(categoryId);
+      setIsCategoryLocked(true);
+    }
+    setIsAddLabelOpen(true);
+  };
+
+  const handleDeleteLabel = async (labelId: string) => {
+    const label = labels.find(l => l.id === labelId);
+    setConfirmDialog({
+      open: true,
+      title: 'Delete Label',
+      message: `Are you sure you want to delete "${label?.name}"? This action cannot be undone.`,
+      onConfirm: async () => {
+        setConfirmDialog(prev => ({ ...prev, open: false }));
+        setIsLoading(true);
+        try {
+          await labelApi.delete(labelId);
+          toast.success('Label deleted');
+          await fetchData();
+        } catch (error: any) {
+          toast.error(error.response?.data?.error || 'Failed to delete label');
+        } finally {
+          setIsLoading(false);
+        }
+      },
+    });
+  };
+
+  // Create/Update Category
+  const handleSaveCategory = async () => {
+    if (!categoryName.trim()) {
+      toast.error('Category name is required');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      if (editingCategory) {
+        await labelCategoryApi.update(editingCategory.id, {
+          name: categoryName,
+          description: categoryDescription || undefined,
+        });
+        toast.success('Category updated successfully');
+      } else {
+        await labelCategoryApi.create({
+          name: categoryName,
+          description: categoryDescription || undefined,
+        });
+        toast.success('Category created successfully');
+      }
+      await fetchData();
+      resetCategoryForm();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to save category');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const resetCategoryForm = () => {
+    setCategoryName('');
+    setCategoryDescription('');
+    setEditingCategory(null);
+    setIsAddCategoryOpen(false);
+  };
+
+  const openEditCategory = (category: LabelCategory) => {
+    setEditingCategory(category);
+    setCategoryName(category.name);
+    setCategoryDescription(category.description || '');
+    setIsAddCategoryOpen(true);
+  };
+
+  const handleDeleteCategory = async (categoryId: string) => {
+    const category = categories.find(c => c.id === categoryId);
+    const labelsInCategory = labels.filter(l => l.categoryId === categoryId);
+
+    if (labelsInCategory.length > 0) {
+      toast.error(`Cannot delete category with ${labelsInCategory.length} label(s). Delete labels first.`);
+      return;
+    }
+
+    setConfirmDialog({
+      open: true,
+      title: 'Delete Category',
+      message: `Are you sure you want to delete "${category?.name}"? This action cannot be undone.`,
+      onConfirm: async () => {
+        setConfirmDialog(prev => ({ ...prev, open: false }));
+        setIsLoading(true);
+        try {
+          await labelCategoryApi.delete(categoryId);
+          toast.success('Category deleted');
+          await fetchData();
+        } catch (error: any) {
+          toast.error(error.response?.data?.error || 'Failed to delete category');
+        } finally {
+          setIsLoading(false);
+        }
+      },
+    });
+  };
+
+  // Multi-select functions
+  const toggleLabelSelection = (labelId: string) => {
+    setSelectedLabelIds(prev =>
+      prev.includes(labelId)
+        ? prev.filter(id => id !== labelId)
+        : [...prev, labelId]
+    );
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedLabelIds.length === 0) return;
+
+    setConfirmDialog({
+      open: true,
+      title: 'Delete Selected Labels',
+      message: `Are you sure you want to delete ${selectedLabelIds.length} label(s)? This action cannot be undone.`,
+      onConfirm: async () => {
+        setConfirmDialog(prev => ({ ...prev, open: false }));
+        setIsDeleting(true);
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const labelId of selectedLabelIds) {
+          try {
+            await labelApi.delete(labelId);
+            successCount++;
+          } catch (error: any) {
+            failCount++;
+          }
+        }
+
+        if (successCount > 0) {
+          toast.success(`${successCount} label(s) deleted successfully`);
+        }
+        if (failCount > 0) {
+          toast.error(`${failCount} label(s) could not be deleted (may be in use)`);
+        }
+
+        setSelectedLabelIds([]);
+        await fetchData();
+        setIsDeleting(false);
+      },
+    });
+  };
+
+  // Clear selection when filters change
+  useEffect(() => {
+    setSelectedLabelIds([]);
+  }, [filterGlobal, searchQuery]);
+
+  // Import/Export handlers
+  const handleExportCSV = async () => {
+    setIsExporting(true);
+    try {
+      const csvData = await labelApi.exportCSV();
+      const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `labels_export_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success('Labels exported as CSV');
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to export labels');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleExportExcel = async () => {
+    setIsExporting(true);
+    try {
+      const blob = await labelApi.exportExcel();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `labels_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success('Labels exported as Excel');
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to export labels');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleDownloadCSVTemplate = async () => {
+    try {
+      const templateData = await labelApi.getTemplate();
+      const blob = new Blob([templateData], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'labels_import_template.csv';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success('CSV template downloaded');
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to download template');
+    }
+  };
+
+  const handleDownloadExcelTemplate = async () => {
+    try {
+      const blob = await labelApi.getExcelTemplate();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'labels_import_template.xlsx';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success('Excel template downloaded');
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to download template');
+    }
+  };
+
+  const handleImport = async () => {
+    setIsImporting(true);
+    setImportResult(null);
+    try {
+      let result: LabelImportResult;
+
+      if (importFormat === 'excel') {
+        if (!importFile) {
+          toast.error('Please select an Excel file');
+          setIsImporting(false);
+          return;
+        }
+        result = await labelApi.importExcel(importFile);
+      } else {
+        if (!importCsvText.trim() && !importFile) {
+          toast.error('Please enter CSV data or upload a file');
+          setIsImporting(false);
+          return;
+        }
+        // If we have a file selected and it's CSV, read it
+        if (importFile && !importCsvText.trim()) {
+          const text = await importFile.text();
+          result = await labelApi.importCSV(text);
+        } else {
+          result = await labelApi.importCSV(importCsvText);
+        }
+      }
+
+      setImportResult(result);
+      if (result.success) {
+        toast.success(`Import completed: ${result.labelsCreated} labels created`);
+        await fetchData();
+      }
+    } catch (error: any) {
+      // Check if the error response contains import result data
+      const errorData = error.response?.data;
+      if (errorData && typeof errorData.labelsSkipped === 'number') {
+        // This is an import result with errors
+        setImportResult(errorData as LabelImportResult);
+      } else {
+        toast.error(errorData?.error || 'Failed to import labels');
+      }
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setImportFile(file);
+      // Detect format from file extension
+      const ext = file.name.split('.').pop()?.toLowerCase();
+      if (ext === 'xlsx' || ext === 'xls') {
+        setImportFormat('excel');
+      } else {
+        setImportFormat('csv');
+        // Read CSV file content for preview
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const text = e.target?.result as string;
+          setImportCsvText(text);
+        };
+        reader.readAsText(file);
+      }
+    }
+  };
+
+  const resetImportDialog = () => {
+    setImportCsvText('');
+    setImportFile(null);
+    setImportFormat('csv');
+    setImportResult(null);
+    setIsImportDialogOpen(false);
+  };
+
+  // Get total filtered labels count
+  const totalFilteredLabels = useMemo(() => {
+    return Object.values(labelsByCategory).reduce((sum, arr) => sum + arr.length, 0);
+  }, [labelsByCategory]);
+
+  return (
+    <div className="min-h-screen bg-gray-50 animate-in fade-in slide-in-from-bottom-5 duration-700">
+      {/* Header */}
+      {!isImpersonating && (
+        <div className="bg-white border-b border-gray-200">
+          <div className="max-w-7xl mx-auto px-8 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <img
+                src="/src/assets/android-chrome-192x192.png"
+                alt="VLabel Logo"
+                className="w-8 h-8 rounded-lg"
+              />
+              <div>
+                <h1 className="text-xl font-semibold">VLabel</h1>
+                <p className="text-xs text-muted-foreground">Label Management</p>
+              </div>
+            </div>
+            <UserNav />
+          </div>
+        </div>
+      )}
+
+      <div className="max-w-7xl mx-auto px-8 py-8">
+        {/* Page Header with Back Button */}
+        <div className="mb-6">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mb-4 -ml-2 text-muted-foreground"
+            onClick={() => navigate('/manager/projects')}
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Projects
+          </Button>
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-3xl font-semibold mb-2">Label Management</h2>
+              <p className="text-muted-foreground">
+                Create and manage label categories and labels for your annotation projects
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-2 mb-6">
+          <Button
+            variant={view === 'labels' ? 'default' : 'outline'}
+            onClick={() => setView('labels')}
+            className={view === 'labels' ? 'bg-blue-600 hover:bg-blue-700' : ''}
+          >
+            <Tag className="w-4 h-4 mr-2" />
+            Labels ({labels.length})
+          </Button>
+          <Button
+            variant={view === 'categories' ? 'default' : 'outline'}
+            onClick={() => setView('categories')}
+            className={view === 'categories' ? 'bg-blue-600 hover:bg-blue-700' : ''}
+          >
+            <FolderOpen className="w-4 h-4 mr-2" />
+            Categories ({categories.length})
+          </Button>
+        </div>
+
+        {/* Content */}
+        {isLoading && !labels.length && !categories.length ? (
+          <Card className="flex items-center justify-center h-64">
+            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+          </Card>
+        ) : (
+          <>
+            {/* Labels View */}
+            {view === 'labels' && (
+              <div className="space-y-6">
+                {/* Toolbar */}
+                <Card className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="relative flex-1 max-w-sm">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Input
+                        placeholder="Search labels..."
+                        value={searchQuery}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
+                        className="pl-9"
+                      />
+                    </div>
+                    <Select value={filterGlobal} onValueChange={setFilterGlobal}>
+                      <SelectTrigger className="w-[150px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Types</SelectItem>
+                        <SelectItem value="global">Global</SelectItem>
+                        <SelectItem value="local">Local</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <div className="flex-1" />
+                    {selectedLabelIds.length > 0 && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={handleBulkDelete}
+                        disabled={isDeleting}
+                      >
+                        {isDeleting ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4 mr-2" />
+                        )}
+                        Delete ({selectedLabelIds.length})
+                      </Button>
+                    )}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" disabled={isExporting}>
+                          {isExporting ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <Download className="w-4 h-4 mr-2" />
+                          )}
+                          Export
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-56">
+                        <DropdownMenuItem onClick={handleExportCSV}>
+                          <FileText className="w-4 h-4 mr-2" />
+                          Export as CSV
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={handleExportExcel}>
+                          <FileSpreadsheet className="w-4 h-4 mr-2" />
+                          Export as Excel
+                        </DropdownMenuItem>
+                        <div className="h-px bg-gray-200 my-1" />
+                        <DropdownMenuItem onClick={handleDownloadCSVTemplate}>
+                          <FileText className="w-4 h-4 mr-2" />
+                          CSV Template
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={handleDownloadExcelTemplate}>
+                          <FileSpreadsheet className="w-4 h-4 mr-2" />
+                          Excel Template
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    <Button variant="outline" onClick={() => setIsImportDialogOpen(true)}>
+                      <Upload className="w-4 h-4 mr-2" />
+                      Import
+                    </Button>
+                    <Button onClick={() => setIsAddCategoryOpen(true)} variant="outline">
+                      <Plus className="w-4 h-4 mr-2" />
+                      New Category
+                    </Button>
+                  </div>
+                </Card>
+
+                {/* Labels by Category */}
+                {totalFilteredLabels === 0 && !isLoading ? (
+                  <Card className="p-12">
+                    <div className="flex flex-col items-center justify-center text-gray-500">
+                      <Tag className="w-16 h-16 mb-4 opacity-30" />
+                      <p className="font-medium text-lg">No labels found</p>
+                      <p className="text-sm mt-1">Create a category first, then add labels</p>
+                      <Button className="mt-4" onClick={() => setIsAddCategoryOpen(true)}>
+                        <Plus className="w-4 h-4 mr-2" />
+                        Create Category
+                      </Button>
+                    </div>
+                  </Card>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Render categories with labels */}
+                    {categories.map(category => {
+                      const categoryLabels = labelsByCategory[category.id] || [];
+                      const isExpanded = expandedCategories.has(category.id);
+                      const allSelected = isAllSelectedInCategory(category.id);
+
+                      return (
+                        <Collapsible
+                          key={category.id}
+                          open={isExpanded}
+                          onOpenChange={() => toggleCategory(category.id)}
+                        >
+                          <Card className="overflow-hidden">
+                            {/* Category Header */}
+                            <CollapsibleTrigger asChild>
+                              <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b cursor-pointer hover:bg-gray-100 transition-colors">
+                                <div className="flex items-center gap-2">
+                                  <ChevronRight className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} />
+                                  <span className="font-medium">{category.name}</span>
+                                  <Badge variant="secondary" className="ml-1">
+                                    {categoryLabels.length}
+                                  </Badge>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {categoryLabels.length > 0 && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="text-sm text-blue-600 hover:text-blue-700 h-auto py-1"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        selectAllInCategory(category.id);
+                                      }}
+                                    >
+                                      {allSelected ? 'Deselect All' : 'Select All'}
+                                    </Button>
+                                  )}
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                        <MoreHorizontal className="w-4 h-4" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                      <DropdownMenuItem onClick={() => openEditCategory(category)}>
+                                        <Edit2 className="w-4 h-4 mr-2" />
+                                        Edit Category
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        onClick={() => handleDeleteCategory(category.id)}
+                                        className="text-red-600 focus:text-red-600"
+                                      >
+                                        <Trash2 className="w-4 h-4 mr-2" />
+                                        Delete Category
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </div>
+                              </div>
+                            </CollapsibleTrigger>
+
+                            {/* Labels Grid */}
+                            <CollapsibleContent className="data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up overflow-hidden">
+                              <div className="p-4">
+                                <div className="grid grid-cols-2 gap-3">
+                                  {categoryLabels.map(label => {
+                                    const isSelected = selectedLabelIds.includes(label.id);
+                                    return (
+                                      <div
+                                        key={label.id}
+                                        className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${
+                                          isSelected
+                                            ? 'bg-blue-50 border-blue-200'
+                                            : 'bg-white border-gray-200 hover:border-gray-300'
+                                        }`}
+                                      >
+                                        <Checkbox
+                                          checked={isSelected}
+                                          onCheckedChange={() => toggleLabelSelection(label.id)}
+                                          className="data-[state=checked]:bg-blue-600"
+                                        />
+                                        <div
+                                          className="w-3 h-3 rounded-full flex-shrink-0"
+                                          style={{ backgroundColor: label.color }}
+                                        />
+                                        <span className="flex-1 truncate">{label.name}</span>
+                                        {label.isGlobal ? (
+                                          <span title="Global"><Globe className="w-3.5 h-3.5 text-blue-500" /></span>
+                                        ) : (
+                                          <span title="Local"><Lock className="w-3.5 h-3.5 text-gray-400" /></span>
+                                        )}
+                                        <DropdownMenu>
+                                          <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 hover:opacity-100">
+                                              <MoreHorizontal className="w-4 h-4" />
+                                            </Button>
+                                          </DropdownMenuTrigger>
+                                          <DropdownMenuContent align="end">
+                                            <DropdownMenuItem onClick={() => openEditLabel(label)}>
+                                              <Edit2 className="w-4 h-4 mr-2" />
+                                              Edit
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem
+                                              onClick={() => handleDeleteLabel(label.id)}
+                                              className="text-red-600 focus:text-red-600"
+                                            >
+                                              <Trash2 className="w-4 h-4 mr-2" />
+                                              Delete
+                                            </DropdownMenuItem>
+                                          </DropdownMenuContent>
+                                        </DropdownMenu>
+                                      </div>
+                                    );
+                                  })}
+
+                                  {/* Add Label Button */}
+                                  <button
+                                    onClick={() => openCreateLabelInCategory(category.id)}
+                                    className="flex items-center justify-center gap-2 p-3 rounded-lg border-2 border-dashed border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                                  >
+                                    <Plus className="w-4 h-4" />
+                                    <span>Add Label</span>
+                                  </button>
+                                </div>
+                              </div>
+                            </CollapsibleContent>
+                          </Card>
+                        </Collapsible>
+                      );
+                    })}
+
+                    {/* Uncategorized Labels */}
+                    {(labelsByCategory['uncategorized']?.length > 0 || categories.length === 0) && (
+                      <Collapsible
+                        open={expandedCategories.has('uncategorized')}
+                        onOpenChange={() => toggleCategory('uncategorized')}
+                      >
+                        <Card className="overflow-hidden">
+                          {/* Uncategorized Header */}
+                          <CollapsibleTrigger asChild>
+                            <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b cursor-pointer hover:bg-gray-100 transition-colors">
+                              <div className="flex items-center gap-2">
+                                <ChevronRight className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${expandedCategories.has('uncategorized') ? 'rotate-90' : ''}`} />
+                                <span className="font-medium text-gray-600">Uncategorized</span>
+                                <Badge variant="secondary" className="ml-1">
+                                  {labelsByCategory['uncategorized']?.length || 0}
+                                </Badge>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {(labelsByCategory['uncategorized']?.length || 0) > 0 && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-sm text-blue-600 hover:text-blue-700 h-auto py-1"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      selectAllInCategory('uncategorized');
+                                    }}
+                                  >
+                                    {isAllSelectedInCategory('uncategorized') ? 'Deselect All' : 'Select All'}
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          </CollapsibleTrigger>
+
+                          {/* Uncategorized Labels Grid */}
+                          <CollapsibleContent className="data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up overflow-hidden">
+                            <div className="p-4">
+                              <div className="grid grid-cols-2 gap-3">
+                                {(labelsByCategory['uncategorized'] || []).map(label => {
+                                  const isSelected = selectedLabelIds.includes(label.id);
+                                  return (
+                                    <div
+                                      key={label.id}
+                                      className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${
+                                        isSelected
+                                          ? 'bg-blue-50 border-blue-200'
+                                          : 'bg-white border-gray-200 hover:border-gray-300'
+                                      }`}
+                                    >
+                                      <Checkbox
+                                        checked={isSelected}
+                                        onCheckedChange={() => toggleLabelSelection(label.id)}
+                                        className="data-[state=checked]:bg-blue-600"
+                                      />
+                                      <div
+                                        className="w-3 h-3 rounded-full flex-shrink-0"
+                                        style={{ backgroundColor: label.color }}
+                                      />
+                                      <span className="flex-1 truncate">{label.name}</span>
+                                      {label.isGlobal ? (
+                                        <span title="Global"><Globe className="w-3.5 h-3.5 text-blue-500" /></span>
+                                      ) : (
+                                        <span title="Local"><Lock className="w-3.5 h-3.5 text-gray-400" /></span>
+                                      )}
+                                      <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                                            <MoreHorizontal className="w-4 h-4" />
+                                          </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                          <DropdownMenuItem onClick={() => openEditLabel(label)}>
+                                            <Edit2 className="w-4 h-4 mr-2" />
+                                            Edit
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem
+                                            onClick={() => handleDeleteLabel(label.id)}
+                                            className="text-red-600 focus:text-red-600"
+                                          >
+                                            <Trash2 className="w-4 h-4 mr-2" />
+                                            Delete
+                                          </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                      </DropdownMenu>
+                                    </div>
+                                  );
+                                })}
+
+                                {/* Add Label Button */}
+                                <button
+                                  onClick={() => openCreateLabelInCategory('uncategorized')}
+                                  className="flex items-center justify-center gap-2 p-3 rounded-lg border-2 border-dashed border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                                >
+                                  <Plus className="w-4 h-4" />
+                                  <span>Add Label</span>
+                                </button>
+                              </div>
+                            </div>
+                          </CollapsibleContent>
+                        </Card>
+                      </Collapsible>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Categories View */}
+            {view === 'categories' && (
+              <Card className="overflow-hidden">
+                {/* Toolbar */}
+                <div className="px-6 py-4 border-b bg-gray-50/50 flex justify-between items-center">
+                  <p className="text-gray-600">
+                    Organize your labels into categories for better management
+                  </p>
+                  <Button onClick={() => setIsAddCategoryOpen(true)} disabled={isLoading}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    New Category
+                  </Button>
+                </div>
+
+                {/* Categories List */}
+                <div className="p-6">
+                  {categories.length > 0 ? (
+                    <div className="space-y-3">
+                      {categories.map(category => {
+                        const labelCount = (labelsByCategory[category.id] || []).length;
+
+                        return (
+                          <div
+                            key={category.id}
+                            className="flex items-center gap-4 p-5 rounded-lg border bg-white border-gray-200 hover:border-gray-300 transition-all hover:shadow-sm"
+                          >
+                            <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
+                              <FolderOpen className="w-6 h-6 text-gray-500" />
+                            </div>
+
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-gray-900 text-lg">{category.name}</span>
+                                <Badge variant="secondary">
+                                  {labelCount} label{labelCount !== 1 ? 's' : ''}
+                                </Badge>
+                              </div>
+                              {category.description && (
+                                <p className="text-sm text-gray-500 mt-1 line-clamp-2">
+                                  {category.description}
+                                </p>
+                              )}
+                            </div>
+
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                  <MoreHorizontal className="w-4 h-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => openEditCategory(category)}>
+                                  <Edit2 className="w-4 h-4 mr-2" />
+                                  Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => handleDeleteCategory(category.id)}
+                                  className="text-red-600 focus:text-red-600"
+                                >
+                                  <Trash2 className="w-4 h-4 mr-2" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-64 text-gray-500">
+                      <FolderOpen className="w-16 h-16 mb-4 opacity-30" />
+                      <p className="font-medium text-lg">No categories yet</p>
+                      <p className="text-sm mt-1">Create a category to organize your labels</p>
+                      <Button className="mt-4" onClick={() => setIsAddCategoryOpen(true)}>
+                        <Plus className="w-4 h-4 mr-2" />
+                        Create Category
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </Card>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Add/Edit Label Dialog */}
+      <Dialog open={isAddLabelOpen} onOpenChange={(open) => !open && resetLabelForm()}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingLabel ? 'Edit Label' : 'Create New Label'}</DialogTitle>
+            <DialogDescription>
+              {editingLabel ? 'Update label information' : 'Add a new label for annotation'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <UILabel>Label Name *</UILabel>
+              <Input
+                placeholder="e.g. Person, Car, Dog"
+                value={labelName}
+                onChange={(e) => setLabelName(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <UILabel>Category {isCategoryLocked ? '' : '(Optional)'}</UILabel>
+              {isCategoryLocked ? (
+                <div className="flex items-center gap-2 p-2 bg-gray-100 rounded-md">
+                  <FolderOpen className="w-4 h-4 text-gray-500" />
+                  <span className="text-sm">
+                    {categories.find(c => c.id === labelCategory)?.name || 'No Category'}
+                  </span>
+                  <Badge variant="secondary" className="ml-auto text-xs">Locked</Badge>
+                </div>
+              ) : (
+                <Select value={labelCategory || '__none__'} onValueChange={(v) => setLabelCategory(v === '__none__' ? '' : v)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">No Category</SelectItem>
+                    {categories.map(cat => (
+                      <SelectItem key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <UILabel>Color *</UILabel>
+              <div className="flex gap-2 flex-wrap">
+                {DEFAULT_COLORS.map(color => (
+                  <button
+                    key={color}
+                    type="button"
+                    className={`w-8 h-8 rounded-full border-2 transition-all ${labelColor === color ? 'border-gray-900 scale-110 ring-2 ring-gray-900/20' : 'border-white shadow'
+                      }`}
+                    style={{ backgroundColor: color }}
+                    onClick={() => setLabelColor(color)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-start space-x-3 p-3 rounded-lg bg-gray-50">
+              <Checkbox
+                id="isGlobal"
+                checked={isGlobal}
+                onCheckedChange={(checked) => setIsGlobal(!!checked)}
+                className="mt-0.5"
+              />
+              <div>
+                <UILabel htmlFor="isGlobal" className="cursor-pointer font-medium">
+                  Global Label
+                </UILabel>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Global labels can be assigned to any project
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4">
+            <Button variant="outline" onClick={resetLabelForm} disabled={isLoading}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveLabel} disabled={isLoading}>
+              {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {editingLabel ? 'Update' : 'Create'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add/Edit Category Dialog */}
+      <Dialog open={isAddCategoryOpen} onOpenChange={(open) => !open && resetCategoryForm()}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingCategory ? 'Edit Category' : 'Create New Category'}</DialogTitle>
+            <DialogDescription>
+              {editingCategory ? 'Update category information' : 'Add a new category to organize labels'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <UILabel>Category Name *</UILabel>
+              <Input
+                placeholder="e.g. Medical, Animals, Vehicles"
+                value={categoryName}
+                onChange={(e) => setCategoryName(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <UILabel>Description (Optional)</UILabel>
+              <Textarea
+                placeholder="What types of labels belong to this category?"
+                value={categoryDescription}
+                onChange={(e) => setCategoryDescription(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4">
+            <Button variant="outline" onClick={resetCategoryForm} disabled={isLoading}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveCategory} disabled={isLoading}>
+              {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {editingCategory ? 'Update' : 'Create'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmation Dialog */}
+      <Dialog open={confirmDialog.open} onOpenChange={(open) => !open && setConfirmDialog(prev => ({ ...prev, open: false }))}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center w-10 h-10 rounded-full bg-red-100">
+                <AlertTriangle className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <DialogTitle>{confirmDialog.title}</DialogTitle>
+              </div>
+            </div>
+            <DialogDescription className="pt-3">
+              {confirmDialog.message}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => setConfirmDialog(prev => ({ ...prev, open: false }))}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDialog.onConfirm}
+            >
+              Delete
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Import Dialog */}
+      <Dialog open={isImportDialogOpen} onOpenChange={(open) => !open && resetImportDialog()}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Upload className="w-5 h-5" />
+              Import Labels
+            </DialogTitle>
+            <DialogDescription>
+              Import labels with their categories from a CSV or Excel file. Categories will be created automatically if they don't exist.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-4">
+            {/* File Upload */}
+            <div className="space-y-2">
+              <UILabel>Upload File (CSV or Excel)</UILabel>
+              <div className="flex items-center gap-3">
+                <Input
+                  type="file"
+                  accept=".csv,.xlsx,.xls"
+                  onChange={handleFileUpload}
+                  className="flex-1"
+                />
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <FileDown className="w-4 h-4 mr-2" />
+                      Template
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={handleDownloadCSVTemplate}>
+                      <FileText className="w-4 h-4 mr-2" />
+                      CSV Template
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleDownloadExcelTemplate}>
+                      <FileSpreadsheet className="w-4 h-4 mr-2" />
+                      Excel Template
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+              {importFile && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  {importFormat === 'excel' ? (
+                    <FileSpreadsheet className="w-4 h-4 text-green-600" />
+                  ) : (
+                    <FileText className="w-4 h-4 text-blue-600" />
+                  )}
+                  <span>{importFile.name}</span>
+                  <Badge variant="secondary" className="text-xs">
+                    {importFormat.toUpperCase()}
+                  </Badge>
+                </div>
+              )}
+            </div>
+
+            {/* Only show CSV paste option when not using Excel */}
+            {importFormat === 'csv' && (
+              <>
+                {/* Or paste CSV */}
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background px-2 text-muted-foreground">Or paste CSV data</span>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <UILabel>CSV Data</UILabel>
+                  <Textarea
+                    placeholder={`category_name,category_description,label_name,label_color,is_global
+Vehicles,,Car,#3B82F6,true
+Vehicles,,Truck,#10B981,true
+Animals,Living creatures,Dog,#F59E0B,false`}
+                    value={importCsvText}
+                    onChange={(e) => setImportCsvText(e.target.value)}
+                    rows={8}
+                    className="font-mono text-sm"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Format: category_name, category_description, label_name, label_color, is_global
+                  </p>
+                </div>
+              </>
+            )}
+
+            {importFormat === 'excel' && !importFile && (
+              <Alert>
+                <FileSpreadsheet className="w-4 h-4" />
+                <AlertDescription>
+                  Please select an Excel file (.xlsx or .xls) to import labels.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Import Result */}
+            {importResult && (
+              <div className="space-y-3">
+                {/* Success/Failure Summary */}
+                {importResult.success ? (
+                  <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0">
+                        <CheckCircle className="w-5 h-5 text-green-600" />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="font-medium text-green-800">Import completed successfully!</p>
+                        <ul className="text-sm text-green-700 space-y-0.5">
+                          {importResult.categoriesCreated > 0 && (
+                            <li>• Categories created: {importResult.categoriesCreated}</li>
+                          )}
+                          <li>• Labels created: {importResult.labelsCreated}</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0">
+                        <XCircle className="w-5 h-5 text-red-600" />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="font-medium text-red-800">Import failed</p>
+                        <p className="text-sm text-red-700">No labels were imported. Please check the errors below.</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Warnings for skipped items */}
+                {importResult.labelsSkipped > 0 && (
+                  <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0">
+                        <AlertTriangle className="w-5 h-5 text-yellow-600" />
+                      </div>
+                      <div className="space-y-2">
+                        <p className="font-medium text-yellow-800">
+                          {importResult.labelsSkipped} label(s) skipped
+                        </p>
+                        {importResult.errors.length > 0 && (
+                          <ul className="text-sm text-yellow-700 space-y-1 max-h-40 overflow-y-auto">
+                            {importResult.errors.map((err, i) => (
+                              <li key={i}>• {err}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4">
+            <Button variant="outline" onClick={resetImportDialog} disabled={isImporting}>
+              {importResult?.success ? 'Close' : 'Cancel'}
+            </Button>
+            {!importResult?.success && (
+              <Button
+                onClick={handleImport}
+                disabled={isImporting || (importFormat === 'excel' ? !importFile : !importCsvText.trim() && !importFile)}
+              >
+                {isImporting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Import Labels
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
