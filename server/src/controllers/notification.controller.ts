@@ -8,7 +8,7 @@ export class NotificationController {
   static async getMyNotifications(req: Request, res: Response) {
     try {
       const userId = (req as any).user?.sub;
-      
+
       if (!userId) {
         return res.status(401).json({ error: 'Unauthorized' });
       }
@@ -29,7 +29,8 @@ export class NotificationController {
   static async markAsRead(req: Request, res: Response) {
     try {
       const userId = (req as any).user?.sub;
-      const { id } = req.params;
+      const rawId = req.params.id;
+      const id = (Array.isArray(rawId) ? rawId[0] : rawId) ?? '';
 
       if (!userId) {
         return res.status(401).json({ error: 'Unauthorized' });

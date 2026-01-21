@@ -24,7 +24,7 @@ export const useCanvasStore = create<CanvasState>((set) => ({
     setZoom: (zoom) => set({ zoom: Math.max(50, Math.min(500, zoom)) }),
     setPan: (pan) => set({ pan }),
     setTool: (tool) => set({ tool }),
-    resetCanvas: () => set({ zoom: 100, pan: { x: 0, y: 0 }, tool: ' select' }),
+    resetCanvas: () => set({ zoom: 100, pan: { x: 0, y: 0 }, tool: 'select' }),
     zoomIn: () => set((state) => ({ zoom: Math.min(500, state.zoom + 25) })),
     zoomOut: () => set((state) => ({ zoom: Math.max(50, state.zoom - 25) })),
 }));

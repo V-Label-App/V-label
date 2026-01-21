@@ -114,7 +114,7 @@ export class ResponseFormatter {
         return {
             type: 'action_buttons',
             content: config,
-            metadata: { title: config.title }
+            ...(config.title && { metadata: { title: config.title } })
         };
     }
 

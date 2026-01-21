@@ -140,7 +140,6 @@ export function FormRenderer({ content, onSubmit }: FormRendererProps) {
                             onChange={(e) => handleChange(field.name, e.target.value)}
                             placeholder={field.placeholder}
                             disabled={isSubmitting}
-                            label=""
                         />
                     )}
 

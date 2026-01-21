@@ -33,10 +33,11 @@ export class AdminController {
             const { NotificationTemplateService } = await import('../services/notification.template.service.js');
             const { NotificationType } = await import('@prisma/client');
 
+            const valueObj = updated.value as { enabled: boolean; modelName: string } | null;
             const { title, message } = await NotificationTemplateService.render(
                 NotificationType.SYSTEM_CHAT_CONFIG,
                 {
-                    status: updated.value.enabled ? 'enabled' : 'disabled',
+                    status: valueObj?.enabled ? 'enabled' : 'disabled',
                     adminName: 'Admin',
                     eventType: 'Chat Configuration Update'
                 }
@@ -49,8 +50,8 @@ export class AdminController {
             broadcastService.broadcastToAll(
                 SystemEventType.CHAT_CONFIG_UPDATED,
                 {
-                    enabled: updated.value.enabled,
-                    modelName: updated.value.modelName,
+                    enabled: valueObj?.enabled ?? false,
+                    modelName: valueObj?.modelName ?? 'gemini-pro',
                     adminId,
                     notification: {
                         title,
@@ -67,7 +68,7 @@ export class AdminController {
                 message,
                 metadata: {
                     eventType: 'chat_config_updated',
-                    enabled: updated.value.enabled,
+                    enabled: valueObj?.enabled ?? false,
                     adminId,
                 },
             });

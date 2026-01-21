@@ -8,7 +8,7 @@ export function ImageNavigator() {
 
     if (images.length === 0) return null;
 
-    const currentImage = images[currentIndex];
+    // const currentImage = images[currentIndex];
 
     return (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-slate-800/95 backdrop-blur rounded-lg px-4 py-3 shadow-2xl border border-slate-700 z-20">

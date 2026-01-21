@@ -8,12 +8,12 @@ import { Button } from '../../../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Label } from '../../../components/ui/label';
 import { toast } from 'sonner';
-import { Bot, Save, Loader2, Sparkles, Plus, X, MessageSquarePlus, Info, RotateCcw, Hammer, Code, Shield, Trash2, Check, ExternalLink, RefreshCw } from 'lucide-react';
+import { Bot, Save, Loader2, Sparkles, Plus, X, MessageSquarePlus, Info, RotateCcw, Hammer, Code, Trash2, ExternalLink, RefreshCw } from 'lucide-react';
 import { ChatWidget } from '../../chat-widget/components/ChatWidget';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../components/ui/tooltip';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
 import { Checkbox } from '../../../components/ui/checkbox';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '../../../components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../components/ui/dialog';
 import { Badge } from '../../../components/ui/badge';
 
 export function AdminChatSettingsPage() {

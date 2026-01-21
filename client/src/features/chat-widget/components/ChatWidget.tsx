@@ -232,7 +232,7 @@ export function ChatWidget({ variant = 'floating', className, style }: ChatWidge
                                 {isLastMessage && msg.role === 'model' && dynamicReplies.length > 0 && (
                                     <div className="grid grid-cols-1 gap-2 mt-2 px-1 pl-12 w-full animate-in fade-in slide-in-from-bottom-2 duration-500">
                                         <p className="text-xs text-gray-400 mb-1 ml-1">Suggested:</p>
-                                        {dynamicReplies.map((reply, rIdx) => (
+                                        {dynamicReplies.map((reply: string, rIdx: number) => (
                                             <button
                                                 key={rIdx}
                                                 onClick={() => handleSendMessage(undefined, reply)}
@@ -467,7 +467,7 @@ export function ChatWidget({ variant = 'floating', className, style }: ChatWidge
                                             {isLastMessage && msg.role === 'model' && dynamicReplies.length > 0 && (
                                                 <div className="grid grid-cols-1 gap-2 mt-2 px-1 pl-12 max-w-[85%] animate-in fade-in slide-in-from-bottom-2 duration-500">
                                                     <p className="text-xs text-gray-400 mb-1 ml-1">Suggested:</p>
-                                                    {dynamicReplies.map((reply, rIdx) => (
+                                                    {dynamicReplies.map((reply: string, rIdx: number) => (
                                                         <button
                                                             key={rIdx}
                                                             onClick={() => handleSendMessage(undefined, reply)}
