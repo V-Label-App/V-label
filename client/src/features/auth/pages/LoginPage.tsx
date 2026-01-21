@@ -5,7 +5,7 @@ import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
 import { Checkbox } from '../../../components/ui/checkbox';
 import { Shield, Users, CheckCircle, Pencil, Eye, EyeOff, AlertCircle, Sparkles, ShieldCheck, Lock } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../../context/AuthContext';
 import { logger } from '../../../utils/logger';
 
@@ -228,9 +228,11 @@ export const LoginPage = () => {
                 >
                     {/* Mobile Logo */}
                     <div className="lg:hidden flex items-center gap-3 mb-8">
-                        <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                            <span className="text-white font-bold">V</span>
-                        </div>
+                        <img
+                            src="/src/assets/android-chrome-192x192.png"
+                            alt="VLabel Logo"
+                            className="w-10 h-10 rounded-lg"
+                        />
                         <h1 className="text-2xl font-semibold">VLabel</h1>
                     </div>
 
@@ -257,12 +259,20 @@ export const LoginPage = () => {
                         className="space-y-5"
                     >
                         {/* Error Message */}
-                        {error && (
-                            <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
-                                <AlertCircle className="w-4 h-4" />
-                                {error}
-                            </div>
-                        )}
+                        <AnimatePresence mode="wait">
+                            {error && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                                    animate={{ opacity: 1, y: 0, scale: 1, x: [0, -10, 10, -5, 5, 0] }}
+                                    exit={{ opacity: 0, y: -20, scale: 0.95 }}
+                                    transition={{ duration: 0.4, type: "spring", stiffness: 400, damping: 25 }}
+                                    className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 shake-animation"
+                                >
+                                    <AlertCircle className="w-4 h-4 shrink-0" />
+                                    <span className="font-medium">{error}</span>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
 
                         {/* Email Input */}
                         <div className="space-y-2">
@@ -315,12 +325,12 @@ export const LoginPage = () => {
                                     Remember me
                                 </label>
                             </div>
-                            <button
-                                type="button"
+                            <Link
+                                to="/forgot-password"
                                 className="text-sm text-blue-600 hover:text-blue-700 font-medium"
                             >
                                 Forgot password?
-                            </button>
+                            </Link>
                         </div>
 
                         {/* Sign In Button */}

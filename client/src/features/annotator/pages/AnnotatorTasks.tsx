@@ -242,9 +242,11 @@ export function AnnotatorTasks({ onOpenWorkspace }: AnnotatorTasksProps) {
         <div className="max-w-7xl mx-auto px-8 py-6">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold">V</span>
-              </div>
+              <img
+                src="/src/assets/android-chrome-192x192.png"
+                alt="VLabel Logo"
+                className="w-10 h-10 rounded-lg"
+              />
               <div>
                 <h1 className="text-2xl font-semibold">VLabel</h1>
                 <p className="text-sm text-muted-foreground">Annotator Workspace</p>

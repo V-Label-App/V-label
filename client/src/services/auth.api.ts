@@ -3,7 +3,7 @@ import axios from 'axios'
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api/v1'
 
 // Create axios instance with default config
-const apiClient = axios.create({
+export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true, // Important for cookies (refresh token)
   headers: {
@@ -26,15 +26,20 @@ apiClient.interceptors.request.use(
 // Add response interceptor to debug
 apiClient.interceptors.response.use(
   (response) => {
-    console.log('✅ API Response:', response.config.url, response.data)
+    // console.log('✅ API Response:', response.config.url, response.data)
     return response
   },
   (error) => {
     if (error.response?.status === 401) {
       console.warn('Unauthorized - Clearing session')
       localStorage.removeItem('accessToken')
-      // Optional: Redirect to login or let the UI handle the null state
-      if (!window.location.pathname.includes('/login')) {
+      
+      // Prevent redirect loop on public pages
+      const publicPaths = ['/login', '/register', '/forgot-password', '/reset-password']
+      const currentPath = window.location.pathname
+      const isPublicPath = publicPaths.some(path => currentPath.startsWith(path))
+
+      if (!isPublicPath) {
          window.location.href = '/login'
       }
     }
@@ -119,5 +124,111 @@ export const authApi = {
   logout: async (): Promise<void> => {
     // Future implementation
     localStorage.removeItem('accessToken')
+  },
+
+  // --- Admin API ---
+
+  /**
+   * Get all users (Admin only)
+   */
+  getAllUsers: async (): Promise<AuthResponse['user'][]> => {
+    const response = await apiClient.get<AuthResponse['user'][]>('/users')
+    return response.data
+  },
+
+  /**
+   * Get single user (Admin only)
+   */
+  getUserById: async (id: string): Promise<AuthResponse['user']> => {
+     // We are reusing the User interface from jwt.utils or defining a compatible one
+     // The backend returns the user object directly
+     const response = await apiClient.get<AuthResponse['user']>(`/users/${id}`)
+     return response.data
+  },
+
+  /**
+   * Create new user (Admin only)
+   */
+  createUser: async (data: any): Promise<AuthResponse['user']> => {
+    const response = await apiClient.post<AuthResponse['user']>('/users', data)
+    return response.data
+  },
+
+  /**
+   * Update user details (Admin only)
+   */
+  updateUser: async (id: string, data: any): Promise<AuthResponse['user']> => {
+    const response = await apiClient.put<AuthResponse['user']>(`/users/${id}`, data)
+    return response.data
+  },
+
+  /**
+   * Delete user (Admin only)
+   */
+  deleteUser: async (id: string): Promise<void> => {
+    await apiClient.delete(`/users/${id}`)
+  },
+  /**
+   * Impersonate User (Admin only)
+   */
+  impersonate: async (userId: string): Promise<AuthResponse> => {
+    const response = await apiClient.post<AuthResponse>(`/auth/impersonate/${userId}`)
+    return response.data
+  },
+
+  /**
+   * Get System Logs (Admin only)
+   */
+  getSystemLogs: async (): Promise<any[]> => {
+    const response = await apiClient.get<any[]>('/auth/logs')
+    return response.data
+  },
+
+  /**
+   * Get Audit Log Retention Policy
+   */
+  getAuditLogConfig: async (): Promise<{ retentionDays: number }> => {
+    const response = await apiClient.get<{ retentionDays: number }>('/admin/config/audit-log');
+    return response.data;
+  },
+
+  /**
+   * Update Audit Log Retention Policy
+   */
+  updateAuditLogConfig: async (config: { retentionDays: number }): Promise<{ retentionDays: number }> => {
+    const response = await apiClient.put<{ retentionDays: number }>('/admin/config/audit-log', config);
+    return response.data;
+  },
+
+  /**
+   * Manually cleanup old logs
+   */
+  cleanUpLogs: async (): Promise<{ deletedCount: number }> => {
+    const response = await apiClient.post<{ deletedCount: number }>('/admin/logs/cleanup');
+    return response.data;
+  },
+
+  /**
+   * Request password reset email
+   */
+  forgotPassword: async (email: string): Promise<{ message: string }> => {
+    const response = await apiClient.post<{ message: string }>('/auth/forgot-password', { email });
+    return response.data;
+  },
+
+  /**
+   * Verify if password reset token is valid
+   */
+  verifyResetToken: async (token: string): Promise<{ valid: boolean; email?: string; error?: string }> => {
+    const response = await apiClient.get<{ valid: boolean; email?: string; error?: string }>(`/auth/verify-reset-token/${token}`);
+    return response.data;
+  },
+
+  /**
+   * Reset password using token
+   */
+  resetPassword: async (token: string, newPassword: string): Promise<{ message: string }> => {
+    const response = await apiClient.post<{ message: string }>('/auth/reset-password', { token, newPassword });
+    return response.data;
   },
 }

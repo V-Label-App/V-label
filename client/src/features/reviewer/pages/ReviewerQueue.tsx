@@ -114,9 +114,11 @@ export function ReviewerQueue({ onOpenWorkspace }: ReviewerQueueProps) {
         <div className="max-w-7xl mx-auto px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">V</span>
-              </div>
+              <img
+                src="/src/assets/android-chrome-192x192.png"
+                alt="VLabel Logo"
+                className="w-8 h-8 rounded-lg"
+              />
               <div>
                 <h1 className="text-xl font-semibold">VLabel</h1>
                 <p className="text-xs text-muted-foreground">Quality Assurance Dashboard</p>

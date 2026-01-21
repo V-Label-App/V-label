@@ -1,20 +1,24 @@
-import { Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ProtectedRoute } from '../components/ProtectedRoute';
 
 // Auth pages
 import { LoginPage } from '../features/auth/pages/LoginPage';
 import { RegisterPage } from '../features/auth/pages/RegisterPage';
+import { ForgotPasswordPage } from '../features/auth/pages/ForgotPasswordPage';
+import { ResetPasswordPage } from '../features/auth/pages/ResetPasswordPage';
 
 // Role-specific pages
 import { AdminPanel } from '../features/admin/pages/AdminPanel';
-import { ManagerDashboard } from '../features/manager/pages/ManagerDashboard';
+import { AdminUserDetailPage } from '../features/admin/pages/AdminUserDetailPage';
+import { ProjectListPage } from '../features/manager/pages/ProjectListPage';
+import { ProjectDetailPage } from '../features/manager/pages/ProjectDetailPage';
 import { AnnotatorTasks } from '../features/annotator/pages/AnnotatorTasks';
 import { ReviewerQueue } from '../features/reviewer/pages/ReviewerQueue';
 
 // Other pages
 import DashboardPage from '../pages/DashboardPage';
-import { Workspace } from '../features/annotation/pages/Workspace';
+import { WorkspacePage } from '../features/annotation/pages/WorkspacePage';
 import ProfilePage from '../features/profile/pages/ProfilePage';
 
 // Root redirect component
@@ -37,10 +41,7 @@ const RootRedirect = () => {
     return <Navigate to={redirectPath} replace />;
 };
 
-const WorkspaceRoute = () => {
-    const { taskId } = useParams();
-    return <Workspace taskId={taskId} />;
-};
+
 
 export const AppRoutes = () => {
     // const { logout } = useAuth();
@@ -50,6 +51,8 @@ export const AppRoutes = () => {
             {/* Public routes */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
 
             {/* Root redirect */}
             <Route path="/" element={<RootRedirect />} />
@@ -63,12 +66,41 @@ export const AppRoutes = () => {
                     </ProtectedRoute>
                 }
             />
+            <Route
+                path="/admin/users/:userId"
+                element={
+                    <ProtectedRoute allowedRoles={['ADMIN']}>
+                        <AdminUserDetailPage />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/admin/users/:userId"
+                element={
+                    <ProtectedRoute allowedRoles={['ADMIN']}>
+                        <AdminUserDetailPage />
+                    </ProtectedRoute>
+                }
+            />
 
+            {/* Manager Routes */}
             <Route
                 path="/manager"
+                element={<Navigate to="/manager/projects" replace />}
+            />
+            <Route
+                path="/manager/projects"
                 element={
                     <ProtectedRoute allowedRoles={['MANAGER']}>
-                        <ManagerDashboard />
+                        <ProjectListPage />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/manager/projects/:projectId"
+                element={
+                    <ProtectedRoute allowedRoles={['MANAGER']}>
+                        <ProjectDetailPage />
                     </ProtectedRoute>
                 }
             />
@@ -95,12 +127,12 @@ export const AppRoutes = () => {
                 }
             />
 
-            {/* Workspace Route */}
+            {/* Workspace Route - New Refactored Version */}
             <Route
                 path="/workspace/:taskId"
                 element={
                     <ProtectedRoute>
-                        <WorkspaceRoute />
+                        <WorkspacePage />
                     </ProtectedRoute>
                 }
             />
