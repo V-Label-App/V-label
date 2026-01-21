@@ -1,8 +1,8 @@
 import { useRef, useEffect } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+
 import { useChatWidget } from '../hooks/useChatWidget';
 import { useAuth } from '../../../context/AuthContext';
+import { AIMessageRenderer, parseAIResponse } from './renderers';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Card } from '../../../components/ui/card';
@@ -86,11 +86,25 @@ export function ChatWidget({ variant = 'floating', className, style }: ChatWidge
 
     // Helper to parse quick replies from AI response
     const parseContent = (content: string) => {
-        const replyRegex = /<<<REPLIES>>>([\s\S]*?)<<<REPLIES>>>/;
-        const match = content.match(replyRegex);
-
         let cleanContent = content;
         let dynamicReplies: string[] = [];
+
+        // First, check if content is a JSON AIResponse
+        try {
+            const parsed = JSON.parse(content);
+            if (parsed && typeof parsed === 'object' && parsed.type && parsed.content) {
+                // It's a structured AIResponse
+                // Extract Quick Replies from metadata if present
+                const quickRepliesFromMetadata = parsed.metadata?.quickReplies || [];
+                return { cleanContent: content, dynamicReplies: quickRepliesFromMetadata };
+            }
+        } catch {
+            // Not JSON, continue with text parsing
+        }
+
+        // Parse Quick Replies from text response
+        const replyRegex = /<<<REPLIES>>>([\s\S]*?)<<<REPLIES>>>/;
+        const match = content.match(replyRegex);
 
         if (match && match[1]) {
             try {
@@ -189,7 +203,16 @@ export function ChatWidget({ variant = 'floating', className, style }: ChatWidge
                                     )}>
                                         {msg.role === 'model' ? (
                                             <div className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-6">
-                                                <ReactMarkdown remarkPlugins={[remarkGfm]}>{cleanContent}</ReactMarkdown>
+                                                <AIMessageRenderer
+                                                    response={parseAIResponse(cleanContent)}
+                                                    onAction={(action, data) => {
+                                                        // Handle action button clicks and form submissions
+                                                        const message = data
+                                                            ? `Execute ${action} with: ${JSON.stringify(data)}`
+                                                            : action;
+                                                        handleSendMessage(undefined, message);
+                                                    }}
+                                                />
                                             </div>
                                         ) : (
                                             <p className="whitespace-pre-wrap">{cleanContent}</p>
@@ -416,7 +439,15 @@ export function ChatWidget({ variant = 'floating', className, style }: ChatWidge
                                                 )}>
                                                     {msg.role === 'model' ? (
                                                         <div className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-6">
-                                                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{cleanContent}</ReactMarkdown>
+                                                            <AIMessageRenderer
+                                                                response={parseAIResponse(cleanContent)}
+                                                                onAction={(action, data) => {
+                                                                    const message = data
+                                                                        ? `Execute ${action} with: ${JSON.stringify(data)}`
+                                                                        : action;
+                                                                    handleSendMessage(undefined, message);
+                                                                }}
+                                                            />
                                                         </div>
                                                     ) : (
                                                         <p className="whitespace-pre-wrap">{cleanContent}</p>

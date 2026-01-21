@@ -27,7 +27,7 @@ export class AdminController {
             const newConfig = req.body;
             const adminId = (req as any).user?.sub;
             const updated = await SystemConfigService.updateChatConfig(newConfig, adminId);
-            
+
             // Render template first for both Broadcast and DB
             const { NotificationService } = await import('../services/notification.service.js');
             const { NotificationTemplateService } = await import('../services/notification.template.service.js');
@@ -41,11 +41,11 @@ export class AdminController {
                     eventType: 'Chat Configuration Update'
                 }
             );
-            
+
             // Broadcast config update to all connected clients via WebSocket
             const { broadcastService } = await import('../websocket/events/broadcast.service.js');
             const { SystemEventType } = await import('../websocket/events/types.js');
-            
+
             broadcastService.broadcastToAll(
                 SystemEventType.CHAT_CONFIG_UPDATED,
                 {
@@ -59,7 +59,7 @@ export class AdminController {
                 },
                 adminId
             );
-            
+
             // Save notification to database for offline users
             await NotificationService.createNotificationForAllUsers({
                 type: NotificationType.SYSTEM_CHAT_CONFIG,
@@ -71,7 +71,7 @@ export class AdminController {
                     adminId,
                 },
             });
-            
+
             return res.json(updated.value);
         } catch (error) {
             console.error('[Admin] Update chat config error:', error);
@@ -168,20 +168,20 @@ export class AdminController {
     static async updateEmailConfig(req: Request, res: Response) {
         try {
             const { provider, config, isActive } = req.body;
-            
+
             // Use a fixed key 'primary_config' since we only support one active config for now
             const updated = await prisma.emailConfig.upsert({
                 where: { key: 'primary_config' },
-                create: { 
+                create: {
                     key: 'primary_config',
-                    provider: provider || 'smtp', 
-                    config, 
-                    isActive: isActive ?? true 
-                },
-                update: { 
                     provider: provider || 'smtp',
-                    config, 
-                    isActive: isActive ?? true 
+                    config,
+                    isActive: isActive ?? true
+                },
+                update: {
+                    provider: provider || 'smtp',
+                    config,
+                    isActive: isActive ?? true
                 },
             });
             return res.json(updated);
@@ -282,7 +282,7 @@ export class AdminController {
 
             const { NotificationService } = await import('../services/notification.service.js');
             const result = await NotificationService.createSystemAnnouncement(title, message, adminId);
-            
+
             return res.json({ success: true, count: result.count });
         } catch (error) {
             console.error('[Admin] Broadcast announcement error:', error);

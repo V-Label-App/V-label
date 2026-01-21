@@ -1,5 +1,6 @@
 import { prisma } from '../../utils/database.js';
 import bcrypt from 'bcryptjs';
+import { ResponseFormatter } from './responseFormatter.js';
 
 type FunctionImplementation = (params: any, context?: any) => Promise<any>;
 
@@ -55,9 +56,18 @@ export class FunctionRegistry {
 // 1. Get User Count
 // 1. Get User Count
 FunctionRegistry.register('get_user_count', async (params, context) => {
-  // Optional: Check permissions via context.userRole
   const count = await prisma.user.count();
-  return { count, message: `There are currently ${count} users in the system.` };
+
+  return ResponseFormatter.asCard({
+    title: 'System Users',
+    subtitle: 'Total registered users in the system',
+    icon: '',
+    fields: {
+      'Total Users': count,
+      'Status': count > 0 ? 'Active' : 'Empty'
+    },
+    variant: 'default'
+  });
 }, {
   description: 'Get the total number of users in the system.',
   parameters: {
@@ -69,7 +79,11 @@ FunctionRegistry.register('get_user_count', async (params, context) => {
 // 2. Echo (Test)
 // 2. Echo (Test)
 FunctionRegistry.register('echo_test', async (params) => {
-  return { received: params, timestamp: new Date() };
+  return ResponseFormatter.asText(
+    `**Echo Test Result**\n\n` +
+    `Received parameters:\n\`\`\`json\n${JSON.stringify(params, null, 2)}\n\`\`\`\n\n` +
+    `Timestamp: ${new Date().toLocaleString('vi-VN')}`
+  );
 }, {
   description: 'Echo back parameters for testing.',
   parameters: {
@@ -94,15 +108,19 @@ FunctionRegistry.register('get_users', async (params, context) => {
   const users = await prisma.user.findMany({
     where,
     take: Math.min(Number(limit) || 5, 20), // Max 20 to prevent overload
-    select: { id: true, email: true, role: true, fullName: true, createdAt: true }
+    select: { email: true, fullName: true, role: true, createdAt: true }
   });
 
-  return { 
-    users, 
-    count: users.length, 
-    total: await prisma.user.count({ where }),
-    message: `Found ${users.length} users.` 
-  };
+  // Format dates for display
+  const formattedUsers = users.map(u => ({
+    Email: u.email,
+    'Full Name': u.fullName,
+    Role: u.role,
+    Created: new Date(u.createdAt).toLocaleDateString('vi-VN')
+  }));
+
+  // Return as interactive table
+  return ResponseFormatter.asTable(formattedUsers);
 }, {
   description: 'List user details including email, role, and name. Supports filtering by role.',
   parameters: {
@@ -123,9 +141,44 @@ FunctionRegistry.register('create_user', async (params, context) => {
 
   const { email, password, fullName, role = 'ANNOTATOR' } = params;
 
-  // Validation
+  // If missing required params, return interactive form
   if (!email || !password || !fullName) {
-    throw new Error('Missing required fields: email, password, fullName');
+    return ResponseFormatter.asForm({
+      id: 'create_user',
+      title: 'Create New User',
+      description: 'Fill in the details to create a new user account',
+      fields: [
+        {
+          name: 'email',
+          type: 'email',
+          label: 'Email Address',
+          placeholder: 'user@example.com',
+          required: true
+        },
+        {
+          name: 'fullName',
+          type: 'text',
+          label: 'Full Name',
+          placeholder: 'John Doe',
+          required: true
+        },
+        {
+          name: 'password',
+          type: 'password',
+          label: 'Password',
+          placeholder: 'Min 8 characters',
+          required: true,
+          minLength: 8
+        },
+        {
+          name: 'role',
+          type: 'select',
+          label: 'Role',
+          options: ['ADMIN', 'MANAGER', 'ANNOTATOR', 'REVIEWER'],
+          defaultValue: 'ANNOTATOR'
+        }
+      ]
+    });
   }
 
   // Check existence
@@ -151,24 +204,34 @@ FunctionRegistry.register('create_user', async (params, context) => {
     select: { id: true, email: true, role: true, fullName: true }
   });
 
-  return {
-    user: newUser,
-    message: `Successfully created user ${newUser.fullName} (${newUser.email}) with role ${newUser.role}.`
-  };
+  // Return success card
+  return ResponseFormatter.asCard({
+    title: '✅ User Created Successfully',
+    variant: 'success',
+    fields: {
+      'Email': newUser.email,
+      'Full Name': newUser.fullName,
+      'Role': newUser.role
+    },
+    actions: [
+      { label: 'Xem tất cả người dùng', action: 'Xem tất cả người dùng', variant: 'primary' },
+      { label: 'Tạo người dùng mới', action: 'Tạo người dùng mới', variant: 'secondary' }
+    ]
+  });
 }, {
-  description: 'Create a new user in the system. Requires email, password, and full name.',
+  description: 'Create a new user account. IMPORTANT: Call this function IMMEDIATELY when user wants to create a user, even if they haven\'t provided email, password, or name yet. The function will automatically show an interactive form to collect any missing information. Do NOT ask the user for details - just call this function right away.',
   parameters: {
     type: 'object',
     properties: {
-      email: { type: 'string', description: 'User email address' },
-      password: { type: 'string', description: 'User password' },
-      fullName: { type: 'string', description: 'User full name' },
-      role: { 
-        type: 'string', 
-        description: 'User role (default: ANNOTATOR)', 
-        enum: ['ADMIN', 'MANAGER', 'ANNOTATOR', 'REVIEWER'] 
+      email: { type: 'string', description: 'User email address (optional - form will ask if missing)' },
+      password: { type: 'string', description: 'User password min 8 chars (optional - form will ask if missing)' },
+      fullName: { type: 'string', description: 'User full name (optional - form will ask if missing)' },
+      role: {
+        type: 'string',
+        description: 'User role: ADMIN, MANAGER, ANNOTATOR, REVIEWER (optional - defaults to ANNOTATOR)',
+        enum: ['ADMIN', 'MANAGER', 'ANNOTATOR', 'REVIEWER']
       }
-    },
-    required: ['email', 'password', 'fullName']
+    }
+    // No required fields - function shows form for missing params
   }
 });

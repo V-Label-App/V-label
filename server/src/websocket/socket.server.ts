@@ -27,8 +27,9 @@ export function initializeSocketServer(httpServer: HttpServer) {
   io.use(socketAuthMiddleware);
 
   io.on('connection', (socket: Socket) => {
-    const userId = socket.data.userId;
+    const userId = socket.data.userId || 'Default';
     const userRole = socket.data.userRole || 'UNKNOWN';
+    const userName = socket.data.userName;
     logger.info('WEBSOCKET', `User connected: ${userId} | Role: ${userRole} | AI Widget: ${userRole}-specific prompt`);
 
     // Join user's personal room for direct notifications

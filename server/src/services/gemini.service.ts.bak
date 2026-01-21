@@ -188,7 +188,8 @@ Example: <<<REPLIES>>>["Next Step", "Alternative"]<<<REPLIES>>>
                 console.log('[Gemini] Function returned structured AIResponse');
 
                 // Extract Quick Replies from Gemini's text if present
-                const replyRegex = /<<<REPLIES>>>([\s\S]*?)<<<REPLIES>>>/;
+                const replyRegex = /<<<REPLIES>>>([
+                \s\S]*?)<< <REPLIES>>>/;
                 const match = text.match(replyRegex);
 
                 if (match && match[1]) {
