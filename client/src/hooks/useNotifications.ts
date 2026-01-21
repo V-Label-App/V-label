@@ -30,121 +30,140 @@ export function useNotifications() {
     // Load existing notifications from DB
     loadNotificationsFromDB();
 
-    const socket = socketService.getSocket();
-    
-    if (!socket) {
-      console.warn('[Notifications] Socket not initialized');
-      return;
-    }
+    // Retry getting socket until it's available (max 10 attempts, 200ms apart = 2s total)
+    let attempts = 0;
+    const maxAttempts = 10;
+    let timeoutId: number | null = null;
+    let listenersRegistered = false; // Guard against StrictMode double-mount
 
-    console.log('[Notifications] Setting up event listeners, socket connected:', socket.connected);
+    const setupSocket = () => {
+      const socket = socketService.getSocket();
 
-    const handleNewNotification = (notification: Notification) => {
-      console.log('[Notifications] New notification received:', notification);
-      setNotifications((prev) => [notification, ...prev]);
-      setUnreadCount((prev) => prev + 1);
-      
-      // Show toast - REMOVED as requested
-      // toast.info(notification.title, {
-      //   description: notification.message,
-      // });
-    };
-
-    const handleSystemEvent = (event: SystemEvent) => {
-      console.log('[Notifications] System event received:', event);
-      
-      switch (event.type) {
-        case 'system:chat:config:updated':
-          console.log('[Notifications] Handling chat config update:', event.data);
-          
-          let title, message;
-          if (event.data.notification) {
-            title = event.data.notification.title;
-            message = event.data.notification.message;
-          } else {
-            title = 'AI Chat Widget Updated';
-            message = event.data.enabled 
-              ? 'AI Chat Widget has been enabled by Admin' 
-              : 'AI Chat Widget has been disabled by Admin';
-          }
-          
-          // Add to notification bell
-          const notification: Notification = {
-            id: `temp-${Date.now()}`, // Temporary ID for real-time notification
-            type: 'SYSTEM_CHAT_CONFIG', // Match DB type
-            title,
-            message,
-            isRead: false,
-            createdAt: new Date().toISOString(),
-            metadata: event.data,
-          };
-          
-          setNotifications((prev) => [notification, ...prev]);
-          setUnreadCount((prev) => prev + 1);
-          break;
-
-        case 'system:announcement':
-          console.log('[Notifications] Handling system announcement:', event.data);
-          
-          // Add to notification bell
-          const announcement: Notification = {
-            id: `temp-${Date.now()}`,
-            type: 'SYSTEM_ANNOUNCEMENT',
-            title: event.data.notification.title,
-            message: event.data.notification.message,
-            isRead: false,
-            createdAt: new Date().toISOString(),
-            metadata: event.data,
-          };
-          
-          setNotifications((prev) => [announcement, ...prev]);
-          setUnreadCount((prev) => prev + 1);
-          break;
-          
-        // Add more system event handlers here in the future
-        case 'task:assigned':
-        case 'task:submitted':
-        case 'user:role:changed':
-          // Handle other event types
-          break;
-          
-        default:
-          console.log('[Notifications] Unhandled system event type:', event.type);
+      if (!socket) {
+        attempts++;
+        if (attempts < maxAttempts) {
+          console.log(`[Notifications] Socket not ready yet, retrying... (${attempts}/${maxAttempts})`);
+          timeoutId = setTimeout(setupSocket, 200);
+          return null;
+        } else {
+          console.warn('[Notifications] Socket not initialized after', maxAttempts, 'attempts');
+          return null;
+        }
       }
-    };
 
-    const setupListeners = () => {
+      // Guard: If listeners already registered (StrictMode double-mount), skip
+      if (listenersRegistered) {
+        console.log('[Notifications] Listeners already registered, skipping duplicate setup');
+        return null;
+      }
+
+      console.log('[Notifications] Socket ready, setting up event listeners. Connected:', socket.connected);
+      listenersRegistered = true;
+
+      const handleNewNotification = (notification: Notification) => {
+        console.log('[Notifications] New notification received:', notification);
+        setNotifications((prev) => [notification, ...prev]);
+        setUnreadCount((prev) => prev + 1);
+      };
+
+      const handleSystemEvent = (event: SystemEvent) => {
+        console.log('[Notifications] System event received:', event);
+
+        switch (event.type) {
+          case 'system:chat:config:updated':
+            console.log('[Notifications] Handling chat config update:', event.data);
+
+            let title, message;
+            if (event.data.notification) {
+              title = event.data.notification.title;
+              message = event.data.notification.message;
+            } else {
+              title = 'AI Chat Widget Updated';
+              message = event.data.enabled
+                ? 'AI Chat Widget has been enabled by Admin'
+                : 'AI Chat Widget has been disabled by Admin';
+            }
+
+            const notification: Notification = {
+              id: `temp-${Date.now()}`,
+              type: 'SYSTEM_CHAT_CONFIG',
+              title,
+              message,
+              isRead: false,
+              createdAt: new Date().toISOString(),
+              metadata: event.data,
+            };
+
+            setNotifications((prev) => [notification, ...prev]);
+            setUnreadCount((prev) => prev + 1);
+            break;
+
+          case 'system:announcement':
+            console.log('[Notifications] Handling system announcement:', event.data);
+
+            const announcement: Notification = {
+              id: `temp-${Date.now()}`,
+              type: 'SYSTEM_ANNOUNCEMENT',
+              title: event.data.notification.title,
+              message: event.data.notification.message,
+              isRead: false,
+              createdAt: new Date().toISOString(),
+              metadata: event.data,
+            };
+
+            setNotifications((prev) => [announcement, ...prev]);
+            setUnreadCount((prev) => prev + 1);
+            break;
+
+          case 'task:assigned':
+          case 'task:submitted':
+          case 'user:role:changed':
+            break;
+
+          default:
+            console.log('[Notifications] Unhandled system event type:', event.type);
+        }
+      };
+
+      // Setup listeners immediately
       socket.on('notification:new', handleNewNotification);
       socket.on('system:event', handleSystemEvent);
       console.log('[Notifications] Event listeners registered');
+
+      // Handle reconnection
+      const handleReconnect = () => {
+        console.log('[Notifications] Socket reconnected, reloading notifications');
+        loadNotificationsFromDB();
+      };
+
+      socket.on('connect', handleReconnect);
+
+      // Return cleanup function
+      return () => {
+        console.log('[Notifications] Cleaning up event listeners');
+        socket.off('notification:new', handleNewNotification);
+        socket.off('system:event', handleSystemEvent);
+        socket.off('connect', handleReconnect);
+      };
     };
 
-    // If already connected, setup immediately
-    if (socket.connected) {
-      setupListeners();
-    } else {
-      // Wait for connection
-      console.log('[Notifications] Waiting for socket connection...');
-      socket.on('connect', () => {
-        console.log('[Notifications] Socket connected, setting up listeners');
-        setupListeners();
-      });
-    }
+    // Start the setup process
+    const cleanup = setupSocket();
 
+    // Cleanup function
     return () => {
-      console.log('[Notifications] Cleaning up event listeners');
-      socket.off('notification:new', handleNewNotification);
-      socket.off('system:event', handleSystemEvent);
-      socket.off('connect');
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      if (cleanup) {
+        cleanup();
+      }
     };
   }, []);
 
   const markAsRead = async (notificationId: string) => {
     try {
-      // Call API to mark as read in DB
       await notificationApi.markAsRead(notificationId);
-      
-      // Update local state
       setNotifications((prev) =>
         prev.map((n) => (n.id === notificationId ? { ...n, isRead: true } : n))
       );

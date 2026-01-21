@@ -28,12 +28,14 @@ export function SocketProvider({ children }: { children: ReactNode }) {
                 socket.on('disconnect', onDisconnect);
 
                 return () => {
+                    // Only remove listeners, DON'T disconnect the socket
+                    // Socket should stay connected across component re-renders
                     socket.off('connect', onConnect);
                     socket.off('disconnect', onDisconnect);
-                    socketService.disconnect();
                 };
             }
         } else {
+            // Only disconnect when user logs out
             socketService.disconnect();
             setIsConnected(false);
         }
