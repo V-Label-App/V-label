@@ -1,8 +1,12 @@
 import { useEffect } from 'react'
 import { BrowserRouter } from 'react-router-dom'
 import { AppRoutes } from './routes/AppRoutes'
+import { SocketProvider } from './context/SocketContext'
 import { logger } from './utils/logger'
+import { ImpersonationBanner } from './components/ImpersonationBanner'
 import './App.css'
+
+import { ChatWidget } from './features/chat-widget/components/ChatWidget'
 
 function App() {
   useEffect(() => {
@@ -23,7 +27,11 @@ function App() {
 
   return (
     <BrowserRouter>
-      <AppRoutes />
+      <SocketProvider>
+        <ImpersonationBanner />
+        <AppRoutes />
+        <ChatWidget />
+      </SocketProvider>
     </BrowserRouter>
   )
 }

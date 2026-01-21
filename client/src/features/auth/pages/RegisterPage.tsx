@@ -181,9 +181,11 @@ export const RegisterPage = () => {
                 >
                     {/* Mobile Logo */}
                     <div className="lg:hidden flex items-center gap-3 mb-8">
-                        <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                            <span className="text-white font-bold">V</span>
-                        </div>
+                        <img
+                            src="/src/assets/android-chrome-192x192.png"
+                            alt="VLabel Logo"
+                            className="w-10 h-10 rounded-lg"
+                        />
                         <h1 className="text-2xl font-semibold">VLabel</h1>
                     </div>
 
