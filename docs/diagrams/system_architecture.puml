@@ -1,0 +1,193 @@
+@startuml V-Label System Architecture
+
+!define LAYER_COLOR #FFFACD
+!define COMPONENT_COLOR #E6E6FA
+!define DB_COLOR #E6E6FA
+
+title V-Label Platform - System Architecture (Layered Design)
+
+skinparam componentStyle rectangle
+skinparam backgroundColor white
+skinparam shadowing false
+
+' ============================================
+' LAYER 1: FRONTEND CLIENTS
+' ============================================
+package "Frontend Clients" as frontend LAYER_COLOR {
+  component "Manager\nDashboard" as manager COMPONENT_COLOR
+  component "Annotator\nWorkspace" as annotator COMPONENT_COLOR
+  component "Reviewer\nQueue" as reviewer COMPONENT_COLOR
+  component "Admin\nPanel" as admin COMPONENT_COLOR
+}
+
+' ============================================
+' LAYER 2: BACKEND API SERVER
+' ============================================
+package "Backend API Server" as backend LAYER_COLOR {
+  component "Express.js / NestJS" as express COMPONENT_COLOR
+
+  component "Auth Middleware\nRBAC" as auth COMPONENT_COLOR
+
+  component "Controllers:\n/projects, /tasks,\n/annotations, /reviews,\n/labels, /users" as controllers COMPONENT_COLOR
+
+  component "WebSocket Server\n(Socket.IO)\nReal-time Status" as websocket COMPONENT_COLOR
+}
+
+' ============================================
+' LAYER 3: CORE SERVICES
+' ============================================
+package "Core Services" as services LAYER_COLOR {
+  component "Assignment &\nDeadline Engine\n\n• Round-robin\n• Skill-based\n• Workload balance" as assignment COMPONENT_COLOR
+
+  component "Reputation\nScoring Service\n\n• Quality score\n• Speed metrics\n• Accuracy rate" as reputation COMPONENT_COLOR
+
+  component "Auto-Save /\nDraft Handler\n\n• Periodic save\n• On change\n• Conflict resolution" as autosave COMPONENT_COLOR
+
+  component "Notification\nService\n\n• Email (SMTP)\n• In-app alerts\n• WebSocket push" as notification COMPONENT_COLOR
+
+  component "AI Assistant\nService\n\n• Gemini API\n• Function calling\n• Auto-suggest" as ai COMPONENT_COLOR
+
+  component "Export\nService\n\n• YOLO format\n• COCO format\n• Pascal VOC" as export COMPONENT_COLOR
+}
+
+' ============================================
+' LAYER 4: DATA PERSISTENCE
+' ============================================
+package "Data Persistence Layer" as persistence LAYER_COLOR {
+  database "PostgreSQL\nPrimary DB\n\n• Users\n• Projects\n• Images\n• Annotations\n• Labels\n• Tasks" as postgres DB_COLOR
+
+  database "Redis\nCache/Queue\n\n• Session store\n• Task queue\n• Rate limiting\n• Real-time data" as redis DB_COLOR
+
+  component "Object Storage\nImages\n\n• AWS S3\n• Cloudinary\n• Local FS" as storage DB_COLOR
+}
+
+' ============================================
+' RELATIONSHIPS: FRONTEND -> BACKEND
+' ============================================
+manager -down-> express : HTTP/REST
+annotator -down-> express : HTTP/REST
+reviewer -down-> express : HTTP/REST
+admin -down-> express : HTTP/REST
+
+manager -down-> websocket : WebSocket
+annotator -down-> websocket : WebSocket
+reviewer -down-> websocket : WebSocket
+admin -down-> websocket : WebSocket
+
+' ============================================
+' RELATIONSHIPS: BACKEND INTERNAL
+' ============================================
+express -down-> auth
+auth -down-> controllers
+
+controllers -right-> websocket
+
+' ============================================
+' RELATIONSHIPS: BACKEND -> SERVICES
+' ============================================
+controllers -down-> assignment
+controllers -down-> reputation
+controllers -down-> autosave
+controllers -down-> notification
+controllers -down-> ai
+controllers -down-> export
+
+websocket -down-> notification
+
+' ============================================
+' RELATIONSHIPS: SERVICES -> PERSISTENCE
+' ============================================
+assignment -down-> postgres
+assignment -down-> redis
+
+reputation -down-> postgres
+
+autosave -down-> postgres
+autosave -down-> redis
+
+notification -down-> redis
+
+ai -down-> postgres
+
+export -down-> postgres
+export -down-> storage
+
+controllers -down-> postgres
+controllers -down-> storage
+
+' ============================================
+' EXTERNAL SYSTEMS
+' ============================================
+cloud "Google Gemini API" as gemini #FFE0B2
+cloud "Email Service\n(SMTP)" as email #FFE0B2
+cloud "AWS S3 /\nCloudinary" as cloud #FFE0B2
+
+ai -right-> gemini : API calls
+notification -right-> email : Send emails
+storage -right-> cloud : Store/retrieve
+
+' ============================================
+' NOTES
+' ============================================
+note right of frontend
+  **Frontend Stack:**
+  • React 19 + TypeScript
+  • Vite build tool
+  • TailwindCSS styling
+  • Konva.js for canvas
+  • Socket.IO client
+  • React Query
+end note
+
+note right of backend
+  **Backend Stack:**
+  • Node.js 20
+  • Express.js
+  • TypeScript
+  • Prisma ORM
+  • Socket.IO server
+  • JWT authentication
+end note
+
+note right of services
+  **Service Layer:**
+  • Business logic isolation
+  • Reusable components
+  • Stateless operations
+  • Error handling
+  • Logging
+end note
+
+note right of persistence
+  **Data Layer:**
+  • PostgreSQL: Primary data
+  • Redis: Cache + Queue
+  • S3: Image storage
+  • Prisma migrations
+  • Backup strategy
+end note
+
+' ============================================
+' LEGEND
+' ============================================
+legend bottom left
+  **Architecture Style:** Layered Monolithic
+  **Current Status:** MVP Phase (40% complete)
+  **Scalability:** Vertical (short-term), Horizontal (planned)
+
+  **Key Design Principles:**
+  1. Separation of concerns (4 layers)
+  2. Role-based access control (RBAC)
+  3. Real-time collaboration (WebSocket)
+  4. Extensible plugin architecture
+  5. Cloud-ready for horizontal scaling
+
+  **Technology Decisions:**
+  • Monolithic → Faster MVP development
+  • PostgreSQL → Relational data integrity
+  • Socket.IO → Real-time collaboration
+  • Konva.js → Rich canvas interactions
+  • Google Gemini → AI-assisted features
+endlegend
+
+@enduml
