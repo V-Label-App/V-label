@@ -1,0 +1,239 @@
+@startuml V-Label Use Case Diagram
+
+!define RECTANGLE_COLOR #E8F5E9
+!define ACTOR_COLOR #BBDEFB
+!define USECASE_COLOR #FFF9C4
+
+title V-Label Platform - Use Case Diagram
+
+' Actors
+actor "Guest" as guest <<User>> ACTOR_COLOR
+actor "Annotator" as annotator <<User>> ACTOR_COLOR
+actor "Reviewer" as reviewer <<User>> ACTOR_COLOR
+actor "Manager" as manager <<User>> ACTOR_COLOR
+actor "Admin" as admin <<User>> ACTOR_COLOR
+actor "AI Assistant\n(Gemini)" as ai <<External System>> #FFE0B2
+actor "Email Service" as email <<External System>> #FFE0B2
+actor "Cloud Storage" as storage <<External System>> #FFE0B2
+
+' Inheritance
+annotator --|> reviewer
+reviewer --|> manager
+manager --|> admin
+
+rectangle "V-Label Platform" RECTANGLE_COLOR {
+
+  package "Authentication" {
+    usecase "UC-01: Register Account" as UC01
+    usecase "UC-02: Login\n(Email/Password)" as UC02
+    usecase "UC-03: Login\n(Google OAuth)" as UC03
+    usecase "UC-04: Reset Password" as UC04
+    usecase "UC-05: Logout" as UC05
+  }
+
+  package "Annotation" {
+    usecase "UC-10: View\nAssigned Tasks" as UC10
+    usecase "UC-11: Open\nWorkspace" as UC11
+    usecase "UC-12: Draw\nAnnotations" as UC12
+    usecase "UC-13: Request AI\nSuggestions" as UC13
+    usecase "UC-14: Save\nAnnotations" as UC14
+    usecase "UC-15: Submit\nfor Review" as UC15
+    usecase "UC-16: Request\nNew Label" as UC16
+  }
+
+  package "Review" {
+    usecase "UC-20: View\nReview Queue" as UC20
+    usecase "UC-21: Review\nTask" as UC21
+    usecase "UC-22: Approve\nTask" as UC22
+    usecase "UC-23: Reject Task\nwith Feedback" as UC23
+    usecase "UC-24: Re-annotate\nTask" as UC24
+    usecase "UC-25: Compare\nConsensus" as UC25
+  }
+
+  package "Project Management" {
+    usecase "UC-30: Create\nProject" as UC30
+    usecase "UC-31: Upload\nImages" as UC31
+    usecase "UC-32: Add Team\nMembers" as UC32
+    usecase "UC-33: Assign Tasks\n(Manual)" as UC33
+    usecase "UC-34: Assign Tasks\n(Automatic)" as UC34
+    usecase "UC-35: View Project\nDashboard" as UC35
+    usecase "UC-36: Export\nDataset" as UC36
+    usecase "UC-37: Delete\nProject" as UC37
+  }
+
+  package "Label Management" {
+    usecase "UC-40: Create\nLabel" as UC40
+    usecase "UC-41: Create\nCategory" as UC41
+    usecase "UC-42: Edit\nLabel" as UC42
+    usecase "UC-43: Delete\nLabel" as UC43
+    usecase "UC-44: Review Label\nRequests" as UC44
+    usecase "UC-45: Approve/Reject\nLabel Request" as UC45
+  }
+
+  package "System Administration" {
+    usecase "UC-50: Manage\nUsers" as UC50
+    usecase "UC-51: Change\nUser Role" as UC51
+    usecase "UC-52: Activate/\nDeactivate User" as UC52
+    usecase "UC-53: Impersonate\nUser" as UC53
+    usecase "UC-54: Configure\nSystem Settings" as UC54
+    usecase "UC-55: Manage Email\nTemplates" as UC55
+    usecase "UC-56: View\nAudit Logs" as UC56
+    usecase "UC-57: Send System\nAnnouncement" as UC57
+    usecase "UC-58: Configure\nAI Chat" as UC58
+  }
+
+  package "Notifications" {
+    usecase "UC-60: View\nNotifications" as UC60
+    usecase "UC-61: Mark as\nRead" as UC61
+    usecase "UC-62: Delete\nNotification" as UC62
+  }
+
+  package "AI Assistant" {
+    usecase "UC-70: Chat\nwith AI" as UC70
+    usecase "UC-71: AI Auto-Create\nLabels" as UC71
+    usecase "UC-72: AI Create\nUser" as UC72
+  }
+}
+
+' Guest relationships
+guest --> UC01
+guest --> UC02
+guest --> UC03
+guest --> UC04
+
+' Annotator relationships
+annotator --> UC05
+annotator --> UC10
+annotator --> UC11
+annotator --> UC12
+annotator --> UC13
+annotator --> UC14
+annotator --> UC15
+annotator --> UC16
+annotator --> UC60
+annotator --> UC61
+annotator --> UC62
+annotator --> UC70
+
+' Reviewer relationships
+reviewer --> UC20
+reviewer --> UC21
+reviewer --> UC22
+reviewer --> UC23
+reviewer --> UC24
+reviewer --> UC25
+
+' Manager relationships
+manager --> UC30
+manager --> UC31
+manager --> UC32
+manager --> UC33
+manager --> UC34
+manager --> UC35
+manager --> UC36
+manager --> UC37
+manager --> UC40
+manager --> UC41
+manager --> UC42
+manager --> UC43
+manager --> UC44
+manager --> UC45
+manager --> UC71
+
+' Admin relationships
+admin --> UC50
+admin --> UC51
+admin --> UC52
+admin --> UC53
+admin --> UC54
+admin --> UC55
+admin --> UC56
+admin --> UC57
+admin --> UC58
+admin --> UC72
+
+' Include relationships
+UC11 .> UC10 : <<include>>
+UC15 .> UC14 : <<include>>
+UC22 ..> UC21 : <<include>>
+UC23 ..> UC21 : <<include>>
+UC24 ..> UC21 : <<include>>
+UC33 ..> UC31 : <<include>>
+UC34 ..> UC31 : <<include>>
+UC36 ..> UC30 : <<include>>
+UC51 ..> UC50 : <<include>>
+UC52 ..> UC50 : <<include>>
+UC53 ..> UC50 : <<include>>
+UC45 ..> UC44 : <<include>>
+
+' Extend relationships
+UC13 ..> UC12 : <<extend>>
+UC25 ..> UC21 : <<extend>>
+UC34 ..> UC33 : <<extend>>
+
+' External actor relationships
+UC13 --> ai : <<use>>
+UC70 --> ai : <<use>>
+UC71 --> ai : <<use>>
+UC72 --> ai : <<use>>
+
+UC04 --> email : <<notify>>
+UC15 --> email : <<notify>>
+UC22 --> email : <<notify>>
+UC23 --> email : <<notify>>
+UC33 --> email : <<notify>>
+UC57 --> email : <<notify>>
+
+UC31 --> storage : <<store>>
+UC36 --> storage : <<store>>
+
+note right of annotator
+  **Annotator**
+  - Complete assigned tasks
+  - Draw annotations
+  - Submit for review
+  - Request labels
+end note
+
+note right of reviewer
+  **Reviewer (extends Annotator)**
+  - All Annotator capabilities
+  - Review submitted tasks
+  - Approve/reject work
+  - Provide feedback
+end note
+
+note right of manager
+  **Manager (extends Reviewer)**
+  - All Reviewer capabilities
+  - Create projects
+  - Assign tasks
+  - Manage labels
+  - Export datasets
+end note
+
+note right of admin
+  **Admin (extends Manager)**
+  - All Manager capabilities
+  - Manage users & roles
+  - System configuration
+  - Audit logs
+  - Announcements
+end note
+
+legend right
+  |<back:#90EE90>   </back>| Implemented |
+  |<back:#FFD700>   </back>| In Progress |
+  |<back:#FF6B6B>   </back>| Not Implemented |
+
+  **Status:**
+  Authentication: 100% ✅
+  Annotation: 25% 🟡
+  Review: 0% ❌
+  Project Management: 0% ❌
+  Label Management: 100% ✅
+  Admin: 100% ✅
+  AI Assistant: 100% ✅
+endlegend
+
+@enduml

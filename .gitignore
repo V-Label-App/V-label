@@ -1,3 +1,35 @@
 node_modules
 logs
 dist
+.turbo
+
+# Environment files (keep examples)
+.env
+.env.local
+.env.production
+.env.*.local
+!.env.example
+!.env.production.example
+
+# SSL certificates
+nginx/ssl/
+certbot/conf/
+certbot/www/
+
+# Backups
+backups/
+*.sql
+*.sql.gz
+
+# Docker
+.docker/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

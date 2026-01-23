@@ -6,7 +6,7 @@ import { UserRole } from '@prisma/client'
 // Validation schemas
 const loginSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(8),
+  password: z.string().min(3),
 })
 
 const devLoginSchema = z.object({
@@ -15,7 +15,7 @@ const devLoginSchema = z.object({
 
 const registerSchema = z.object({
   email: z.string().email('Invalid email format'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  password: z.string().min(3, 'Password must be at least 3 characters'),
   fullName: z.string().optional(),
 })
 
@@ -53,7 +53,13 @@ export class AuthController {
       if (error instanceof z.ZodError) {
         return res.status(400).json({
           error: 'Validation failed',
-          details: error.errors,
+          details: (error as any).errors,
+        })
+      }
+
+      if ((error as Error).message === 'Account is disabled') {
+        return res.status(403).json({
+          error: 'Your account is inactive. Please contact administrator.',
         })
       }
 
@@ -103,7 +109,7 @@ export class AuthController {
       if (error instanceof z.ZodError) {
         return res.status(400).json({
           error: 'Validation failed',
-          details: error.errors,
+          details: (error as any).errors,
         })
       }
 
@@ -146,7 +152,7 @@ export class AuthController {
       if (error instanceof z.ZodError) {
         return res.status(400).json({
           error: 'Validation failed',
-          details: error.errors,
+          details: (error as any).errors,
         })
       }
 
@@ -154,6 +160,181 @@ export class AuthController {
       return res.status(500).json({
         error: 'Internal server error',
       })
+    }
+  }
+
+  /**
+   * POST /api/v1/auth/google
+   * Login with Google ID Token
+   */
+  static async googleLogin(req: Request, res: Response) {
+    try {
+      const { idToken } = req.body
+
+      if (!idToken) {
+        return res.status(400).json({ error: 'Missing idToken' })
+      }
+
+      const result = await AuthService.loginWithGoogle(idToken)
+
+      if (!result) {
+        return res.status(401).json({ error: 'Google login failed' })
+      }
+
+      // Set refresh token in HTTP-only cookie
+      res.cookie('refreshToken', result.refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      })
+
+      return res.status(200).json({
+        accessToken: result.accessToken,
+        user: result.user,
+      })
+    } catch (error: any) {
+      console.error('[AUTH] Google login error:', error)
+      return res.status(401).json({
+        error: error.message || 'Invalid token',
+      })
+    }
+  }
+  /**
+   * POST /api/v1/auth/impersonate/:userId
+   * Admin Only: Get token for target user
+   */
+  static async impersonate(req: Request, res: Response) {
+    try {
+      const { userId } = req.params
+      // req.user is populated by authenticateToken middleware
+      // Token payload uses 'sub' for userId
+      const user = (req as any).user
+      const adminId = user?.sub || user?.id
+
+      if (!userId || typeof userId !== 'string') {
+          return res.status(400).json({ error: 'Target userId is required' })
+      } 
+
+      if (!adminId) {
+        return res.status(401).json({ error: 'Unauthorized - Invalid Token Payload' })
+      }
+
+      // Note: Role check is handled by middleware in routes file
+
+      const result = await AuthService.impersonateUser(userId, adminId)
+
+      if (!result) {
+        return res.status(404).json({
+          error: 'Target user not found or inactive',
+        })
+      }
+
+      // We do NOT set the refresh token cookie strictly for the admin here to avoid overwriting their main session permanently (?)
+      // Actually, for "Simple Assumption", we treat it as a full login.
+      // So yes, we overwrite the cookie so the browser considers them fully that user.
+      res.cookie('refreshToken', result.refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      })
+
+      return res.status(200).json({
+        accessToken: result.accessToken,
+        user: result.user,
+      })
+    } catch (error) {
+       console.error('[AUTH] Impersonation error:', error)
+       return res.status(500).json({ error: 'Internal server error' })
+    }
+  }
+
+  /**
+   * GET /api/v1/auth/logs
+   * Admin Only: Fetch audit logs
+   */
+  static async getLogs(req: Request, res: Response) {
+    try {
+      const logs = await AuthService.getSystemLogs()
+      return res.status(200).json(logs)
+    } catch (error) {
+      console.error('[AUTH] Get logs error:', error)
+      return res.status(500).json({ error: 'Internal server error' })
+    }
+  }
+
+  /**
+   * POST /api/v1/auth/forgot-password
+   * Request password reset email
+   */
+  static async forgotPassword(req: Request, res: Response) {
+    try {
+      const { email } = req.body;
+
+      if (!email || typeof email !== 'string') {
+        return res.status(400).json({ error: 'Email is required' });
+      }
+
+      const { PasswordResetService } = await import('../services/password-reset.service.js');
+      const service = new PasswordResetService();
+      const result = await service.requestPasswordReset(email);
+
+      return res.status(200).json(result);
+    } catch (error: any) {
+      console.error('[AUTH] Forgot password error:', error);
+      return res.status(500).json({ error: error.message || 'Failed to process request' });
+    }
+  }
+
+  /**
+   * GET /api/v1/auth/verify-reset-token/:token
+   * Verify if password reset token is valid
+   */
+  static async verifyResetToken(req: Request, res: Response) {
+    try {
+      const rawToken = req.params.token;
+      const token = Array.isArray(rawToken) ? rawToken[0] : rawToken;
+
+      if (!token) {
+        return res.status(400).json({ error: 'Token is required' });
+      }
+
+      const { PasswordResetService } = await import('../services/password-reset.service.js');
+      const service = new PasswordResetService();
+      const result = await service.verifyResetToken(token);
+
+      return res.status(200).json(result);
+    } catch (error: any) {
+      console.error('[AUTH] Verify token error:', error);
+      return res.status(500).json({ error: error.message || 'Failed to verify token' });
+    }
+  }
+
+  /**
+   * POST /api/v1/auth/reset-password
+   * Reset password using token
+   */
+  static async resetPassword(req: Request, res: Response) {
+    try {
+      const { token, newPassword } = req.body;
+
+      if (!token || !newPassword) {
+        return res.status(400).json({ error: 'Token and new password are required' });
+      }
+
+      if (newPassword.length < 3) {
+        return res.status(400).json({ error: 'Password must be at least 3 characters long' });
+      }
+
+      const { PasswordResetService } = await import('../services/password-reset.service.js');
+      const service = new PasswordResetService();
+      const result = await service.resetPassword(token, newPassword);
+
+      return res.status(200).json(result);
+    } catch (error: any) {
+      console.error('[AUTH] Reset password error:', error);
+      return res.status(400).json({ error: error.message || 'Failed to reset password' });
     }
   }
 }
