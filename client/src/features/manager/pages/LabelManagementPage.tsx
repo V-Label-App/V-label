@@ -299,7 +299,7 @@ export function LabelManagementPage() {
     const handleSystemEvent = (event: any) => {
 
       // Check if this event was triggered by current user
-      const isMyAction = event.triggeredBy === user?.sub;
+      const isMyAction = event.triggeredBy === user?.id;
 
       // Handle label events and auto-refresh
       switch (event.type) {
@@ -340,7 +340,7 @@ export function LabelManagementPage() {
     return () => {
       socketService.off('system:event', handleSystemEvent);
     };
-  }, [fetchData, user?.sub]);
+  }, [fetchData, user?.id]);
 
   // Group labels by category
   const labelsByCategory = useMemo(() => {
