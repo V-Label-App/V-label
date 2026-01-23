@@ -23,11 +23,47 @@ export class AIController {
       // 3. Extract user role for role-based prompts
       const userRole = user?.role || 'ANNOTATOR'; // Fallback to ANNOTATOR role
 
-      // Filter functions available for this role
-      const availableFunctions = (config.functions || []).filter(fn => 
-        fn.enabled && 
+      // Get ALL function names from database config (to check what's been configured)
+      const allConfigFunctionNames = (config.functions || []).map(fn => fn.name);
+
+      // Get enabled functions from database config (filtered by role)
+      const enabledConfigFunctions = (config.functions || []).filter(fn =>
+        fn.enabled &&
         fn.roles.includes(userRole)
       );
+
+      // Get functions from FunctionRegistry that are NOT in config
+      // (new functions that haven't been synced yet)
+      const registryFunctions = FunctionRegistry.getDefinitions()
+        .filter(fn => !allConfigFunctionNames.includes(fn.name))
+        .map(fn => ({
+          ...fn,
+          enabled: true,
+          roles: ['ADMIN', 'MANAGER', 'REVIEWER', 'ANNOTATOR']
+        }));
+
+      // Merge: enabled config functions + new registry functions
+      const availableFunctions = [...enabledConfigFunctions, ...registryFunctions];
+
+      // DEBUG: Log available functions
+      console.log('[AI] ========== DEBUG INFO ==========');
+      console.log('[AI] Model name:', config.modelName);
+      console.log('[AI] User role:', userRole);
+      console.log('[AI] Total config functions:', allConfigFunctionNames.length);
+      console.log('[AI] Config function names:', allConfigFunctionNames);
+      console.log('[AI] Enabled config functions:', enabledConfigFunctions.map(f => `${f.name} (roles: ${f.roles.join(',')})`));
+      console.log('[AI] New registry functions:', registryFunctions.map(f => f.name));
+      console.log('[AI] Total available functions:', availableFunctions.map(f => f.name));
+      console.log('[AI] ====================================');
+
+      // Warning: If no functions available, log it
+      if (availableFunctions.length === 0 && allConfigFunctionNames.length > 0) {
+        console.warn(`[AI] ⚠️  WARNING: User ${userRole} has NO available functions!`);
+        console.warn(`[AI] This may be because:`);
+        console.warn(`[AI]   1. Functions are disabled in Admin settings`);
+        console.warn(`[AI]   2. Role "${userRole}" is not added to function roles`);
+        console.warn(`[AI]   3. User needs to go to Admin → AI Chat → Tools → Enable functions for their role`);
+      }
 
       // 4. Call Gemini with role-based prompt, knowledge base, custom role prompts, and functions
       const responseText = await geminiService.chatCompletion(
@@ -39,7 +75,8 @@ export class AIController {
         userRole,
         config.knowledgeBase,
         config.rolePrompts,     // Custom role-specific prompts
-        availableFunctions      // NEW: Enabled functions for this role
+        availableFunctions,     // NEW: Enabled functions for this role
+        user?.sub               // User ID for function context
       );
 
       return res.json({ text: responseText });

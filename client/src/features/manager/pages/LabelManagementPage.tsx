@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { socketService } from '../../../services/socket.service';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../../components/ui/dialog';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
@@ -120,11 +121,10 @@ function DraggableLabelItem({
     <div
       ref={setNodeRef}
       style={style}
-      className={`group flex items-center gap-2 p-3 rounded-lg border transition-all ${
-        isSelected
+      className={`group flex items-center gap-2 p-3 rounded-lg border transition-all ${isSelected
           ? 'bg-blue-50 border-blue-200'
           : 'bg-white border-gray-200 hover:border-gray-300'
-      } ${isDragging ? 'shadow-lg z-50' : ''}`}
+        } ${isDragging ? 'shadow-lg z-50' : ''}`}
     >
       <button
         {...attributes}
@@ -206,7 +206,7 @@ function LabelDragOverlay({ label }: { label: Label }) {
 
 export function LabelManagementPage() {
   const navigate = useNavigate();
-  const { isImpersonating } = useAuth();
+  const { isImpersonating, user } = useAuth();
   const [view, setView] = useState<'labels' | 'categories'>('labels');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -246,7 +246,7 @@ export function LabelManagementPage() {
     title: string;
     message: string;
     onConfirm: () => void;
-  }>({ open: false, title: '', message: '', onConfirm: () => {} });
+  }>({ open: false, title: '', message: '', onConfirm: () => { } });
 
   // Import dialog state
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
@@ -292,6 +292,55 @@ export function LabelManagementPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Listen for label events from socket (create/update/delete)
+  useEffect(() => {
+
+    const handleSystemEvent = (event: any) => {
+
+      // Check if this event was triggered by current user
+      const isMyAction = event.triggeredBy === user?.id;
+
+      // Handle label events and auto-refresh
+      switch (event.type) {
+        case 'label:created':
+          console.log('[LabelManagement] Labels created, refreshing...', event.data);
+
+          // Show toast logic:
+          // 1. If MY action from AI → show toast (because UI doesn't have feedback)
+          // 2. If MY action from manual UI → DON'T show (UI already has toast)
+          // 3. If OTHER user's action → silent refresh (no toast spam)
+          const isFromAI = event.data.source === 'ai';
+
+          if (isMyAction && isFromAI && event.data.count > 0) {
+            // My AI action - show toast
+            toast.success(`Created ${event.data.count} label${event.data.count > 1 ? 's' : ''} successfully!`);
+          }
+          // All other cases: silent refresh only
+
+          // Always refresh data
+          fetchData();
+          break;
+
+        case 'label:updated':
+        case 'label:deleted':
+          console.log('[LabelManagement] Label modified, refreshing...', event.data);
+          // Silent refresh - user already got feedback from UI action
+          fetchData();
+          break;
+
+        default:
+          // Ignore other event types
+          break;
+      }
+    };
+
+    socketService.on('system:event', handleSystemEvent);
+
+    return () => {
+      socketService.off('system:event', handleSystemEvent);
+    };
+  }, [fetchData, user?.id]);
 
   // Group labels by category
   const labelsByCategory = useMemo(() => {

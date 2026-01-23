@@ -110,6 +110,82 @@ export class NotificationService {
     });
   }
   /**
+   * Create notification for targeted users (by role or email)
+   */
+  static async createNotificationForTargetedUsers(data: {
+    type: NotificationType;
+    title: string;
+    message: string;
+    metadata?: any;
+    targetRoles?: string[];
+    targetEmails?: string[];
+  }) {
+    // Build where clause
+    const whereConditions: any[] = [{ isActive: true }];
+
+    if (data.targetRoles && data.targetRoles.length > 0) {
+      whereConditions.push({ role: { in: data.targetRoles } });
+    }
+
+    if (data.targetEmails && data.targetEmails.length > 0) {
+      whereConditions.push({ email: { in: data.targetEmails } });
+    }
+
+    // If both roles and emails specified, use OR logic for targeting
+    let users;
+    if (data.targetRoles && data.targetEmails && data.targetRoles.length > 0 && data.targetEmails.length > 0) {
+      users = await prisma.user.findMany({
+        where: {
+          isActive: true,
+          OR: [
+            { role: { in: data.targetRoles as any } },
+            { email: { in: data.targetEmails } }
+          ]
+        },
+        select: { id: true },
+      });
+    } else if (data.targetRoles && data.targetRoles.length > 0) {
+      users = await prisma.user.findMany({
+        where: {
+          isActive: true,
+          role: { in: data.targetRoles as any }
+        },
+        select: { id: true },
+      });
+    } else if (data.targetEmails && data.targetEmails.length > 0) {
+      users = await prisma.user.findMany({
+        where: {
+          isActive: true,
+          email: { in: data.targetEmails }
+        },
+        select: { id: true },
+      });
+    } else {
+      users = await prisma.user.findMany({
+        where: { isActive: true },
+        select: { id: true },
+      });
+    }
+
+    if (users.length === 0) {
+      return { count: 0 };
+    }
+
+    // Create notification for each user
+    const notifications = await prisma.notification.createMany({
+      data: users.map((user) => ({
+        userId: user.id,
+        type: data.type,
+        title: data.title,
+        message: data.message,
+        metadata: data.metadata || {},
+      })),
+    });
+
+    return notifications;
+  }
+
+  /**
    * Create and broadcast a system announcement
    */
   static async createSystemAnnouncement(title: string, message: string, adminId: string) {
@@ -136,6 +212,115 @@ export class NotificationService {
 
 
     // 3. Save to database for all users
+    return await this.createNotificationForAllUsers({
+      type: NotificationType.SYSTEM_ANNOUNCEMENT,
+      title: rendered.title,
+      message: rendered.message,
+      metadata: {
+        adminId,
+        originalTitle: title,
+        originalMessage: message,
+      },
+    });
+  }
+
+  /**
+   * Create and broadcast a targeted announcement (by role or email)
+   */
+  static async createTargetedAnnouncement(
+    title: string,
+    message: string,
+    adminId: string,
+    options?: {
+      targetRoles?: string[];
+      targetEmails?: string[];
+    }
+  ) {
+    // 1. Render content using the SYSTEM_ANNOUNCEMENT template
+    const rendered = await NotificationTemplateService.render(
+      NotificationType.SYSTEM_ANNOUNCEMENT,
+      {
+        title,
+        message,
+      }
+    );
+
+    // 2. Broadcast to targeted online users
+    if (options?.targetRoles && options.targetRoles.length > 0) {
+      broadcastService.broadcastToRoles(
+        options.targetRoles,
+        SystemEventType.ANNOUNCEMENT,
+        {
+          notification: {
+            title: rendered.title,
+            message: rendered.message,
+          },
+        },
+        adminId
+      );
+    } else if (options?.targetEmails && options.targetEmails.length > 0) {
+      // Get user IDs from emails for targeted broadcast
+      const users = await prisma.user.findMany({
+        where: { email: { in: options.targetEmails }, isActive: true },
+        select: { id: true }
+      });
+      for (const user of users) {
+        broadcastService.broadcastToUser(
+          user.id,
+          SystemEventType.ANNOUNCEMENT,
+          {
+            notification: {
+              title: rendered.title,
+              message: rendered.message,
+            },
+          }
+        );
+      }
+    } else {
+      // No targeting = all users
+      broadcastService.broadcastToAll(
+        SystemEventType.ANNOUNCEMENT,
+        {
+          notification: {
+            title: rendered.title,
+            message: rendered.message,
+          },
+        },
+        adminId
+      );
+    }
+
+    // 3. Save to database
+    if (options?.targetRoles && options.targetRoles.length > 0) {
+      return await this.createNotificationForTargetedUsers({
+        type: NotificationType.SYSTEM_ANNOUNCEMENT,
+        title: rendered.title,
+        message: rendered.message,
+        metadata: {
+          adminId,
+          originalTitle: title,
+          originalMessage: message,
+          targetRoles: options.targetRoles,
+        },
+        targetRoles: options.targetRoles,
+      });
+    }
+
+    if (options?.targetEmails && options.targetEmails.length > 0) {
+      return await this.createNotificationForTargetedUsers({
+        type: NotificationType.SYSTEM_ANNOUNCEMENT,
+        title: rendered.title,
+        message: rendered.message,
+        metadata: {
+          adminId,
+          originalTitle: title,
+          originalMessage: message,
+          targetEmails: options.targetEmails,
+        },
+        targetEmails: options.targetEmails,
+      });
+    }
+
     return await this.createNotificationForAllUsers({
       type: NotificationType.SYSTEM_ANNOUNCEMENT,
       title: rendered.title,

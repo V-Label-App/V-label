@@ -103,16 +103,25 @@ export function ChatWidget({ variant = 'floating', className, style }: ChatWidge
         }
 
         // Parse Quick Replies from text response
-        const replyRegex = /<<<REPLIES>>>([\s\S]*?)<<<REPLIES>>>/;
+        // Support multiple formats: <<<REPLIES>>>...<<<REPLIES>>> or <<<REPLIES>>>...<<< (truncated)
+        const replyRegex = /<<<REPLIES>>>([\s\S]*?)(?:<<<REPLIES>>>|<<<[^R]|$)/;
         const match = content.match(replyRegex);
 
         if (match && match[1]) {
             try {
-                dynamicReplies = JSON.parse(match[1]);
-                // Remove the block from content
-                cleanContent = content.replace(replyRegex, '').trim();
+                // Clean the JSON string - remove trailing incomplete markers
+                let jsonStr = match[1].trim();
+                // Try to find a valid JSON array
+                const jsonMatch = jsonStr.match(/\[[\s\S]*\]/);
+                if (jsonMatch) {
+                    dynamicReplies = JSON.parse(jsonMatch[0]);
+                }
+                // Remove the entire REPLIES block from content (including any trailing <<<)
+                cleanContent = content.replace(/<<<REPLIES>>>[\s\S]*?(<<<REPLIES>>>|<<<|$)/, '').trim();
             } catch (e) {
                 console.error("Failed to parse quick replies:", e);
+                // Still try to remove the raw REPLIES block even if parsing failed
+                cleanContent = content.replace(/<<<REPLIES>>>[\s\S]*?(<<<REPLIES>>>|<<<|$)/, '').trim();
             }
         }
         return { cleanContent, dynamicReplies };
