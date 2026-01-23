@@ -1,20 +1,27 @@
 import { prisma } from '../utils/database.js';
 
+const SYSTEM_CONFIG_KEYS = {
+  CHAT_WIDGET: 'chatWidget',
+};
+
 async function fixFunctions() {
   console.log('Fixing function configurations...');
 
   // Get system config
-  const config = await prisma.systemConfig.findFirst();
+  const config = await prisma.systemConfig.findUnique({
+    where: { key: SYSTEM_CONFIG_KEYS.CHAT_WIDGET }
+  });
 
   if (!config) {
     console.error('No system config found!');
     return;
   }
 
-  console.log('Current config ID:', config.id);
+  console.log('Current config key:', config.key);
 
-  // Parse functions
-  const functions = config.chatConfig ? (config.chatConfig as any).functions || [] : [];
+  // Parse functions from value field
+  const configValue = config.value as any;
+  const functions = configValue?.functions || [];
   console.log('Current functions:', functions.length);
 
   // Update all functions to be enabled for MANAGER role
@@ -46,10 +53,10 @@ async function fixFunctions() {
 
   // Update database
   await prisma.systemConfig.update({
-    where: { id: config.id },
+    where: { key: SYSTEM_CONFIG_KEYS.CHAT_WIDGET },
     data: {
-      chatConfig: {
-        ...(config.chatConfig as any),
+      value: {
+        ...configValue,
         functions: updatedFunctions
       }
     }
