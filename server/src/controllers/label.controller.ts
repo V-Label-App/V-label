@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import { LabelService, LabelCategoryService, ProjectLabelService } from '../services/label.service.js';
 import { LabelRequestService } from '../services/label-request.service.js';
 import { LabelRequestStatus } from '@prisma/client';
+import { broadcastService } from '../websocket/events/broadcast.service.js';
+import { SystemEventType } from '../websocket/events/types.js';
 
 // =========================================================
 // LABEL CATEGORY CONTROLLER
@@ -50,6 +52,16 @@ export class LabelCategoryController {
       }
 
       const category = await LabelCategoryService.create({ name, description });
+
+      // Broadcast to refresh label management page
+      const userId = (req as any).user?.sub as string;
+      broadcastService.broadcastToAll(SystemEventType.LABEL_CREATED, {
+        count: 0,
+        categoryName: category.name,
+        categoryCreated: true,
+        triggeredBy: userId
+      }, userId);
+
       res.status(201).json({ success: true, data: category });
     } catch (error: any) {
       if (error.code === 'P2002') {
@@ -68,6 +80,15 @@ export class LabelCategoryController {
       const { name, description } = req.body;
 
       const category = await LabelCategoryService.update(id, { name, description });
+
+      // Broadcast to refresh label management page
+      const userId = (req as any).user?.sub as string;
+      broadcastService.broadcastToAll(SystemEventType.LABEL_UPDATED, {
+        categoryId: category.id,
+        categoryName: category.name,
+        triggeredBy: userId
+      }, userId);
+
       res.json({ success: true, data: category });
     } catch (error: any) {
       if (error.code === 'P2025') {
@@ -84,6 +105,14 @@ export class LabelCategoryController {
     try {
       const id = req.params.id as string;
       await LabelCategoryService.delete(id);
+
+      // Broadcast to refresh label management page
+      const userId = (req as any).user?.sub as string;
+      broadcastService.broadcastToAll(SystemEventType.LABEL_DELETED, {
+        categoryId: id,
+        triggeredBy: userId
+      }, userId);
+
       res.json({ success: true, message: 'Category deleted successfully' });
     } catch (error: any) {
       if (error.code === 'P2025') {
@@ -161,6 +190,15 @@ export class LabelController {
         createdBy: userId,
       });
 
+      // Broadcast for other users to see updates
+      // Add source metadata to help frontend avoid duplicate toasts
+      broadcastService.broadcastToAll(SystemEventType.LABEL_CREATED, {
+        count: 1,
+        labels: [label.name],
+        triggeredBy: userId,
+        source: 'manual' // Indicates this is from manual UI, not AI
+      }, userId);
+
       res.status(201).json({ success: true, data: label });
     } catch (error: any) {
       res.status(400).json({ success: false, error: error.message });
@@ -176,6 +214,15 @@ export class LabelController {
       const { name, color, isGlobal, categoryId } = req.body;
 
       const label = await LabelService.update(id, { name, color, isGlobal, categoryId });
+
+      // Broadcast label update event
+      const userId = (req as any).user?.sub as string;
+      broadcastService.broadcastToAll(SystemEventType.LABEL_UPDATED, {
+        labelId: label.id,
+        labelName: label.name,
+        triggeredBy: userId
+      }, userId);
+
       res.json({ success: true, data: label });
     } catch (error: any) {
       if (error.code === 'P2025') {
@@ -192,6 +239,14 @@ export class LabelController {
     try {
       const id = req.params.id as string;
       await LabelService.delete(id);
+
+      // Broadcast label delete event
+      const userId = (req as any).user?.sub as string;
+      broadcastService.broadcastToAll(SystemEventType.LABEL_DELETED, {
+        labelId: id,
+        triggeredBy: userId
+      }, userId);
+
       res.json({ success: true, message: 'Label deleted successfully' });
     } catch (error: any) {
       if (error.code === 'P2025') {

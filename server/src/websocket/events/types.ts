@@ -18,6 +18,8 @@ export enum SystemEventType {
 
   // Label Events
   LABEL_CREATED = 'label:created',
+  LABEL_UPDATED = 'label:updated',
+  LABEL_DELETED = 'label:deleted',
 
   // User Events (Future)
   USER_ROLE_CHANGED = 'user:role:changed',

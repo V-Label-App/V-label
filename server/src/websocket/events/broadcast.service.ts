@@ -86,6 +86,27 @@ export class BroadcastService {
   }
 
   /**
+   * Broadcast event to users with specific roles
+   */
+  broadcastToRoles<T>(roles: string[], eventType: SystemEventType, data: T, triggeredBy?: string) {
+    if (!this.io) {
+      logger.warn('BROADCAST', 'Socket.IO not initialized, skipping broadcast');
+      return;
+    }
+
+    // Emit to role-based rooms (users join these rooms on connect based on their role)
+    roles.forEach(role => {
+      this.io!.to(`role:${role}`).emit('system:event', {
+        type: eventType,
+        timestamp: new Date(),
+        data,
+        ...(triggeredBy && { triggeredBy }),
+      });
+    });
+    logger.info('BROADCAST', `Event sent to roles [${roles.join(', ')}]: ${eventType}`);
+  }
+
+  /**
    * Get Socket.IO instance (for advanced use cases)
    */
   getIO(): SocketServer | null {

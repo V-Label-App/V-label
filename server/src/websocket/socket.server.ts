@@ -35,6 +35,9 @@ export function initializeSocketServer(httpServer: HttpServer) {
     // Join user's personal room for direct notifications
     socket.join(`user:${userId}`);
 
+    // Join role-based room for targeted announcements
+    socket.join(`role:${userRole}`);
+
     // Register event handlers
     registerChatHandlers(io, socket);
 

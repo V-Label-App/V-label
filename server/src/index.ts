@@ -40,8 +40,8 @@ app.set('io', io) // Make io accessible in routes
 
 app.use(helmet())
 app.use(cors({
-  origin: 'http://localhost:5173', // Frontend URL
-  credentials: true, // Allow cookies
+  origin: true, // Cho phép mọi origin (tất cả các port/domain) đều qua được
+  credentials: true, // Vẫn cho phép gửi cookies
 }))
 app.use(express.json())
 app.use(requestLogger)
@@ -73,10 +73,10 @@ const NODE_ENV = process.env.NODE_ENV || 'development'
 
 const server = httpServer.listen(PORT, async () => {
   const startTime = new Date().toISOString()
-  
+
   logger.server(`Started on http://localhost:${PORT}`)
   logger.info('ENV', `${NODE_ENV}`)
-  
+
   // Check Docker Status
   exec('docker ps', (err) => {
     if (err) {
@@ -91,7 +91,7 @@ const server = httpServer.listen(PORT, async () => {
   const dbPort = process.env.DB_PORT || '5433'
   const dbName = process.env.DB_NAME || 'vlabel_db'
   const dbConnected = await testConnection()
-  
+
   if (dbConnected) {
     logger.info('DATABASE', `PostgreSQL@${dbHost}:${dbPort} | Database: ${dbName} | Status: ✅ Connected`)
   } else {
@@ -112,13 +112,13 @@ const server = httpServer.listen(PORT, async () => {
   } catch (error) {
     logger.error('NOTIF', 'Failed to seed default notification templates:', error);
   }
-  
+
   // CORS info
   logger.info('CORS', `Enabled for all origins`)
-  
+
   // Security info
   logger.info('SECURITY', `Helmet enabled | Rate limiting active`)
-  
+
   // Automated Health Check
   try {
     const healthUrl = `http://localhost:${PORT}/api/v1/health`
