@@ -21,6 +21,7 @@ import projectLabelRoutes from './routes/project-label.routes.js'
 import { initializeSocketServer } from './websocket/socket.server.js'
 import { EmailTemplateService } from './services/email/template.service.js'
 import { NotificationTemplateService } from './services/notification.template.service.js'
+import { setupSwagger } from './docs/swagger.js'
 
 const app = express()
 const httpServer = http.createServer(app)
@@ -59,6 +60,9 @@ app.use('/api/v1/admin', adminRoutes)
 app.use('/api/v1/ai', aiRoutes)
 app.use('/api/v1/labels', labelRoutes)
 app.use('/api/v1/projects/:projectId/labels', projectLabelRoutes)
+
+// Setup Swagger API Documentation
+setupSwagger(app)
 
 // 404 Catch-all
 app.use((req, res, next) => {

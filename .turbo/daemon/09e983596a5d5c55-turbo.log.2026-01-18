@@ -1,0 +1,538 @@
+2026-01-18T14:56:16.388270Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/controllers/auth.controller.ts")}
+2026-01-18T14:56:16.389423Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T14:59:20.087631Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminLogsPage.tsx")}
+2026-01-18T14:59:20.087654Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:00:41.888560Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/services/auth.service.ts")}
+2026-01-18T15:00:41.888580Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T15:01:28.387661Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminLogsPage.tsx")}
+2026-01-18T15:01:28.387687Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:04:22.989531Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/index.html")}
+2026-01-18T15:04:22.989558Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:09:08.787689Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/index.html")}
+2026-01-18T15:09:08.787721Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:09:08.889240Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/index.html")}
+2026-01-18T15:09:08.889253Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:09:08.889306Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-01-18T15:09:22.488508Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/config/chat-widget.ts")}
+2026-01-18T15:09:22.488543Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:09:22.588337Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/config/chat-widget.ts")}
+2026-01-18T15:09:22.588352Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:09:22.588383Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-01-18T15:09:35.188778Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/main.tsx")}
+2026-01-18T15:09:35.189036Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:11:03.287002Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/main.tsx")}
+2026-01-18T15:11:03.287026Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:11:06.589008Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/config/chat-widget.ts")}
+2026-01-18T15:11:06.589180Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:17:35.070261Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/index.html")}
+2026-01-18T15:17:35.070283Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:18:09.288888Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/index.html")}
+2026-01-18T15:18:09.288924Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:18:14.190645Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/index.html")}
+2026-01-18T15:18:14.190772Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:18:17.689034Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/index.html")}
+2026-01-18T15:18:17.689044Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:18:26.888235Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/index.html")}
+2026-01-18T15:18:26.888261Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:18:26.936758Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-01-18T15:18:29.889284Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/index.html")}
+2026-01-18T15:18:29.889295Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:18:32.887908Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/index.html")}
+2026-01-18T15:18:32.887922Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:19:25.889061Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/index.html")}
+2026-01-18T15:19:25.889086Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:19:25.934265Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-01-18T15:21:39.088919Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/index.html")}
+2026-01-18T15:21:39.088941Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:24:08.589917Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".specify/memory/005-ai-chat-widget")}
+2026-01-18T15:24:08.589941Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-01-18T15:24:18.589830Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".specify/memory/005-ai-chat-widget/spec.md")}
+2026-01-18T15:24:18.589840Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-01-18T15:24:18.689451Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".specify/memory/005-ai-chat-widget/spec.md")}
+2026-01-18T15:24:18.689460Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-01-18T15:24:26.989741Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".specify/memory/006-admin-impersonation"), AnchoredSystemPathBuf(".specify/memory/admin-impersonation")}
+2026-01-18T15:24:26.989755Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-01-18T15:26:32.387899Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".specify/memory/005-ai-chat-widget/spec.md")}
+2026-01-18T15:26:32.387924Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-01-18T15:26:47.192997Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".specify/memory/005-ai-chat-widget/plan.md")}
+2026-01-18T15:26:47.193011Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-01-18T15:27:16.588662Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".specify/memory/005-ai-chat-widget/tasks.md")}
+2026-01-18T15:27:16.588683Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-01-18T15:27:16.688932Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".specify/memory/005-ai-chat-widget/tasks.md")}
+2026-01-18T15:27:16.688944Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-01-18T15:27:53.888761Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/prisma/schema.prisma")}
+2026-01-18T15:27:53.888786Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T15:28:05.088122Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/prisma/migrations/migration_lock.toml"), AnchoredSystemPathBuf("server/prisma/migrations/20260118152805_add_system_config"), AnchoredSystemPathBuf("server/prisma/migrations/20260118152805_add_system_config/migration.sql")}
+2026-01-18T15:28:05.088132Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T15:28:19.288225Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/package.json")}
+2026-01-18T15:28:19.288237Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T15:28:19.390338Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("package-lock.json")}
+2026-01-18T15:28:19.390357Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-01-18T15:28:37.088565Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/services/gemini.service.ts")}
+2026-01-18T15:28:37.088575Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T15:28:58.589163Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/services/system.config.service.ts")}
+2026-01-18T15:28:58.589185Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T15:29:19.888355Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/controllers/admin.controller.ts")}
+2026-01-18T15:29:19.888372Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T15:29:35.498150Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/routes/admin.routes.ts")}
+2026-01-18T15:29:35.499149Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T15:29:52.089461Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/controllers/ai.controller.ts")}
+2026-01-18T15:29:52.089510Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T15:30:00.797106Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/routes/ai.routes.ts")}
+2026-01-18T15:30:00.797120Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T15:30:15.989047Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/index.ts")}
+2026-01-18T15:30:15.989062Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T15:30:18.188715Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/index.ts")}
+2026-01-18T15:30:18.188729Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T15:30:31.388786Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/services/chatSettings.api.ts")}
+2026-01-18T15:30:31.388799Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:30:31.488653Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/services/chatSettings.api.ts")}
+2026-01-18T15:30:31.488690Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:30:31.488742Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-01-18T15:31:12.190169Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminChatSettingsPage.tsx")}
+2026-01-18T15:31:12.190193Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:31:31.389017Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/.env")}
+2026-01-18T15:31:31.389039Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T15:31:32.388285Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/.env")}
+2026-01-18T15:31:32.388395Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T15:31:32.588731Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminPanel.tsx")}
+2026-01-18T15:31:32.588746Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:31:34.499309Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminPanel.tsx")}
+2026-01-18T15:31:34.499320Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:31:36.288141Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminPanel.tsx")}
+2026-01-18T15:31:36.288165Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:31:49.389209Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/.env")}
+2026-01-18T15:31:49.389225Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T15:32:13.189502Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminPanel.tsx")}
+2026-01-18T15:32:13.189519Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:32:14.789510Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/services/auth.api.ts")}
+2026-01-18T15:32:14.789522Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:32:16.989045Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/services/chatSettings.api.ts")}
+2026-01-18T15:32:16.989056Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:32:26.688672Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminChatSettingsPage.tsx")}
+2026-01-18T15:32:26.688682Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:32:40.888173Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/controllers/ai.controller.ts")}
+2026-01-18T15:32:40.888194Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T15:32:49.389395Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/routes/ai.routes.ts")}
+2026-01-18T15:32:49.389404Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T15:33:00.089482Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/services"), AnchoredSystemPathBuf("client/src/features/chat-widget"), AnchoredSystemPathBuf("client/src/features/chat-widget/components"), AnchoredSystemPathBuf("client/src/features/chat-widget/hooks")}
+2026-01-18T15:33:00.089502Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:33:00.094423Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-01-18T15:33:08.788670Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/services/chatWidget.api.ts")}
+2026-01-18T15:33:08.788691Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:33:08.888806Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/services/chatWidget.api.ts")}
+2026-01-18T15:33:08.888818Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:33:33.288700Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/package.json")}
+2026-01-18T15:33:33.288723Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:33:33.488018Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("package-lock.json")}
+2026-01-18T15:33:33.488028Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-01-18T15:33:42.289307Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/hooks/useChatWidget.ts")}
+2026-01-18T15:33:42.289386Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:33:42.402184Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/hooks/useChatWidget.ts")}
+2026-01-18T15:33:42.402206Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:34:08.289781Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/components/ChatWidget.tsx")}
+2026-01-18T15:34:08.289808Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:34:39.090510Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/components/ChatWidget.tsx")}
+2026-01-18T15:34:39.090907Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:34:40.489660Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/components/ChatWidget.tsx")}
+2026-01-18T15:34:40.489669Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:35:01.188879Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/hooks/useChatWidget.ts")}
+2026-01-18T15:35:01.188929Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:35:05.789636Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/components/ChatWidget.tsx")}
+2026-01-18T15:35:05.789668Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:35:07.188826Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/App.tsx")}
+2026-01-18T15:35:07.188841Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:35:36.706860Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/manager/pages/ProjectDetailPage.tsx")}
+2026-01-18T15:35:36.706979Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:37:38.589754Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/components/ui/switch.tsx")}
+2026-01-18T15:37:38.589778Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:39:08.789217Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/components/ChatWidget.tsx")}
+2026-01-18T15:39:08.789241Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:39:10.790249Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/hooks/useChatWidget.ts")}
+2026-01-18T15:39:10.790261Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:41:27.888933Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/services/gemini.service.ts")}
+2026-01-18T15:41:27.889090Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T15:41:36.689200Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/services/gemini.service.ts")}
+2026-01-18T15:41:36.689209Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T15:43:43.589842Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/components/ChatWidget.tsx")}
+2026-01-18T15:43:43.589865Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:45:55.891116Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/components/ChatWidget.tsx")}
+2026-01-18T15:45:55.891253Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:47:53.690956Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/hooks/useChatWidget.ts")}
+2026-01-18T15:47:53.691011Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:48:08.490660Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/components/ChatWidget.tsx")}
+2026-01-18T15:48:08.490672Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:48:09.790471Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/components/ChatWidget.tsx")}
+2026-01-18T15:48:09.790483Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:48:31.490336Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/hooks/useChatWidget.ts")}
+2026-01-18T15:48:31.490360Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:49:41.590892Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/components/ChatWidget.tsx")}
+2026-01-18T15:49:41.590917Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:52:35.390813Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminChatSettingsPage.tsx")}
+2026-01-18T15:52:35.390833Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:56:18.690574Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/components/ChatWidget.tsx")}
+2026-01-18T15:56:18.690597Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:56:30.390985Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminChatSettingsPage.tsx")}
+2026-01-18T15:56:30.390995Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:56:48.690672Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/services/chatWidget.api.ts")}
+2026-01-18T15:56:48.690693Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:56:50.790664Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/components/ChatWidget.tsx")}
+2026-01-18T15:56:50.790682Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:57:10.790963Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminChatSettingsPage.tsx")}
+2026-01-18T15:57:10.790994Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:57:10.891421Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminChatSettingsPage.tsx")}
+2026-01-18T15:57:10.891429Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:57:10.891480Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-01-18T15:57:12.391606Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminChatSettingsPage.tsx")}
+2026-01-18T15:57:12.391617Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:57:12.428602Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-01-18T15:58:41.091016Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminChatSettingsPage.tsx")}
+2026-01-18T15:58:41.091056Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T15:59:23.890207Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminChatSettingsPage.tsx")}
+2026-01-18T15:59:23.890237Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:00:50.991042Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/services/chatWidget.api.ts")}
+2026-01-18T16:00:50.991063Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:00:52.791240Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/hooks/useChatWidget.ts")}
+2026-01-18T16:00:52.791251Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:01:49.590656Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/components/ChatWidget.tsx")}
+2026-01-18T16:01:49.590680Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:03:02.791790Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/components/ChatWidget.tsx")}
+2026-01-18T16:03:02.791814Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:03:56.693225Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/components/ChatWidget.tsx")}
+2026-01-18T16:03:56.694971Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:04:13.192472Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".specify/memory/005-ai-chat-widget/tasks.md")}
+2026-01-18T16:04:13.192525Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-01-18T16:06:25.591683Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/services/system.config.service.ts")}
+2026-01-18T16:06:25.591712Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T16:06:33.792486Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/services/chatWidget.api.ts")}
+2026-01-18T16:06:33.792511Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:06:57.696159Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminChatSettingsPage.tsx")}
+2026-01-18T16:06:57.696184Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:07:19.791829Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/services/chatSettings.api.ts")}
+2026-01-18T16:07:19.791846Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:07:37.992923Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/components/ChatWidget.tsx")}
+2026-01-18T16:07:37.993064Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:07:43.392728Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/components/ChatWidget.tsx")}
+2026-01-18T16:07:43.393884Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:07:45.492182Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/components/ChatWidget.tsx")}
+2026-01-18T16:07:45.492200Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:09:24.492254Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/components/ChatWidget.tsx")}
+2026-01-18T16:09:24.492284Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:09:26.599751Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/components/ChatWidget.tsx")}
+2026-01-18T16:09:26.599771Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:12:28.493195Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/controllers/ai.controller.ts")}
+2026-01-18T16:12:28.493216Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T16:14:23.390693Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/hooks/useChatWidget.ts")}
+2026-01-18T16:14:23.390717Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:14:24.991570Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/hooks/useChatWidget.ts")}
+2026-01-18T16:14:24.991579Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:14:26.290334Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/hooks/useChatWidget.ts")}
+2026-01-18T16:14:26.290354Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:15:53.681389Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/hooks/useChatWidget.ts")}
+2026-01-18T16:15:53.683515Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:15:55.094115Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/hooks/useChatWidget.ts")}
+2026-01-18T16:15:55.094130Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:16:24.290751Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/components/ChatWidget.tsx")}
+2026-01-18T16:16:24.290767Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:16:59.790942Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/components/ChatWidget.tsx")}
+2026-01-18T16:16:59.790950Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:17:01.189997Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/components/ChatWidget.tsx")}
+2026-01-18T16:17:01.190011Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:17:25.791093Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/hooks/useChatWidget.ts")}
+2026-01-18T16:17:25.791114Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:17:51.090592Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminChatSettingsPage.tsx")}
+2026-01-18T16:17:51.090624Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:18:14.293342Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminChatSettingsPage.tsx")}
+2026-01-18T16:18:14.293412Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:18:36.491005Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/hooks/useChatWidget.ts")}
+2026-01-18T16:18:36.491018Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:18:38.490760Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminChatSettingsPage.tsx")}
+2026-01-18T16:18:38.490776Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:20:52.190442Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/services/system.config.service.ts")}
+2026-01-18T16:20:52.190467Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T16:21:12.095697Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminChatSettingsPage.tsx")}
+2026-01-18T16:21:12.095711Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:21:13.491715Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminChatSettingsPage.tsx")}
+2026-01-18T16:21:13.491724Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:22:31.891553Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/services/system.config.service.ts")}
+2026-01-18T16:22:31.891606Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T16:22:33.891874Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminChatSettingsPage.tsx")}
+2026-01-18T16:22:33.891883Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:25:09.490593Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/services/system.config.service.ts")}
+2026-01-18T16:25:09.490611Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T16:25:11.292056Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/services/system.config.service.ts")}
+2026-01-18T16:25:11.292065Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T16:25:13.590980Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/services/chatSettings.api.ts")}
+2026-01-18T16:25:13.590991Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:25:17.591643Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/services/chatWidget.api.ts")}
+2026-01-18T16:25:17.591654Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:25:49.591583Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminChatSettingsPage.tsx")}
+2026-01-18T16:25:49.591606Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:26:09.991328Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminChatSettingsPage.tsx")}
+2026-01-18T16:26:09.991365Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:26:37.891828Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/hooks/useChatWidget.ts")}
+2026-01-18T16:26:37.891848Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:26:49.391283Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/components/ChatWidget.tsx")}
+2026-01-18T16:26:49.391310Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:27:01.091323Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/components/ChatWidget.tsx")}
+2026-01-18T16:27:01.091342Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:31:10.683430Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/hooks/useChatWidget.ts")}
+2026-01-18T16:31:10.683450Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:31:17.683525Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/components/ChatWidget.tsx")}
+2026-01-18T16:31:17.683545Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:31:19.483068Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/components/ChatWidget.tsx")}
+2026-01-18T16:31:19.483079Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:32:59.283305Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/components/ChatWidget.tsx")}
+2026-01-18T16:32:59.283326Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:33:33.083241Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/chat-widget/components/ChatWidget.tsx")}
+2026-01-18T16:33:33.083269Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:37:54.483273Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/controllers/admin.controller.ts")}
+2026-01-18T16:37:54.483302Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T16:37:56.184110Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/services/system.config.service.ts")}
+2026-01-18T16:37:56.184123Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T16:39:55.684782Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/services/system.config.service.ts")}
+2026-01-18T16:39:55.684981Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T16:46:03.984833Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminChatSettingsPage.tsx")}
+2026-01-18T16:46:03.984857Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:46:05.986344Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminChatSettingsPage.tsx")}
+2026-01-18T16:46:05.986378Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:53:53.485733Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/services/system.config.service.ts")}
+2026-01-18T16:53:53.485762Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T16:53:55.386200Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/services/system.config.service.ts")}
+2026-01-18T16:53:55.386212Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T16:54:29.686749Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/services/system.config.service.ts")}
+2026-01-18T16:54:29.686775Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T16:54:52.786139Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/controllers/admin.controller.ts")}
+2026-01-18T16:54:52.786167Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T16:54:55.885625Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/routes/admin.routes.ts")}
+2026-01-18T16:54:55.885636Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T16:55:15.186845Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/services/system.config.service.ts")}
+2026-01-18T16:55:15.186866Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T16:55:26.291207Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/services/auth.api.ts")}
+2026-01-18T16:55:26.291236Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:55:51.385668Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminLogsPage.tsx")}
+2026-01-18T16:55:51.385685Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:56:39.586161Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminLogsPage.tsx")}
+2026-01-18T16:56:39.586182Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:57:52.286096Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminLogsPage.tsx")}
+2026-01-18T16:57:52.286150Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:58:46.586511Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminLogsPage.tsx")}
+2026-01-18T16:58:46.586721Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T16:58:46.611151Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-01-18T17:01:08.286900Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminLogsPage.tsx")}
+2026-01-18T17:01:08.286920Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T17:04:22.186561Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminLogsPage.tsx")}
+2026-01-18T17:04:22.186578Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T17:09:23.288077Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminDashboardPage.tsx")}
+2026-01-18T17:09:23.288118Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T17:09:23.441966Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminDashboardPage.tsx")}
+2026-01-18T17:09:23.441979Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T17:09:23.442023Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-01-18T17:09:55.087094Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminPanel.tsx")}
+2026-01-18T17:09:55.087112Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T17:10:15.087066Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminPanel.tsx")}
+2026-01-18T17:10:15.087272Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T17:10:24.887022Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminPanel.tsx")}
+2026-01-18T17:10:24.887034Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T17:14:24.387398Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/services/system.config.service.ts")}
+2026-01-18T17:14:24.387420Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:14:53.487340Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/services/system.config.service.ts")}
+2026-01-18T17:14:53.487372Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:17:02.788736Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminPanel.tsx")}
+2026-01-18T17:17:02.789032Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T17:18:11.886688Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/annotator/pages/AnnotatorTasks.tsx")}
+2026-01-18T17:18:11.886713Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T17:18:29.484536Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/reviewer/pages/ReviewerQueue.tsx")}
+2026-01-18T17:18:29.484565Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T17:18:51.185796Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/auth/pages/LoginPage.tsx")}
+2026-01-18T17:18:51.185836Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T17:19:07.682480Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/auth/pages/RegisterPage.tsx")}
+2026-01-18T17:19:07.682507Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T17:19:20.082547Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/auth/pages/RegisterPage.tsx")}
+2026-01-18T17:19:20.082567Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T17:20:00.482513Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/manager/pages/ProjectListPage.tsx")}
+2026-01-18T17:20:00.482567Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T17:20:11.482281Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/manager/pages/ProjectDetailPage.tsx")}
+2026-01-18T17:20:11.482349Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T17:21:24.381465Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".specify/memory/007-forgot-password/spec.md"), AnchoredSystemPathBuf(".specify/memory/007-forgot-password")}
+2026-01-18T17:21:24.381483Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-01-18T17:21:24.482335Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".specify/memory/007-forgot-password/spec.md")}
+2026-01-18T17:21:24.482345Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-01-18T17:22:05.982026Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".specify/memory/007-forgot-password/plan.md")}
+2026-01-18T17:22:05.982069Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-01-18T17:22:06.082169Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".specify/memory/007-forgot-password/plan.md")}
+2026-01-18T17:22:06.082180Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-01-18T17:24:07.584803Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".specify/memory/007-forgot-password/tasks.md")}
+2026-01-18T17:24:07.584834Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-01-18T17:24:07.681622Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".specify/memory/007-forgot-password/tasks.md")}
+2026-01-18T17:24:07.681635Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-01-18T17:25:03.191999Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/.env")}
+2026-01-18T17:25:03.192024Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:25:04.782025Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/.env")}
+2026-01-18T17:25:04.782034Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:25:06.381597Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/.env")}
+2026-01-18T17:25:06.381605Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:25:14.081937Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/.env")}
+2026-01-18T17:25:14.081946Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:26:14.081242Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/.env")}
+2026-01-18T17:26:14.081263Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:26:20.481620Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/.env")}
+2026-01-18T17:26:20.481631Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:26:27.496867Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/.env")}
+2026-01-18T17:26:27.496887Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:26:29.580994Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/.env")}
+2026-01-18T17:26:29.581006Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:26:59.981382Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".specify/memory/007-forgot-password/email-service-architecture.md")}
+2026-01-18T17:26:59.981395Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-01-18T17:27:00.081532Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".specify/memory/007-forgot-password/email-service-architecture.md")}
+2026-01-18T17:27:00.081544Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-01-18T17:27:58.781296Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/prisma/schema.prisma")}
+2026-01-18T17:27:58.781368Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:28:15.186401Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/prisma/schema.prisma")}
+2026-01-18T17:28:15.186429Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:28:24.881353Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/prisma/migrations/20260118172824_add_password_reset_and_email_service"), AnchoredSystemPathBuf("server/prisma/migrations/20260118172824_add_password_reset_and_email_service/migration.sql"), AnchoredSystemPathBuf("server/prisma/migrations/migration_lock.toml")}
+2026-01-18T17:28:24.881363Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:28:39.851186Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/package.json")}
+2026-01-18T17:28:39.851226Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:28:40.081378Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("package-lock.json")}
+2026-01-18T17:28:40.081389Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-01-18T17:28:45.681889Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/package.json")}
+2026-01-18T17:28:45.681901Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:28:45.880190Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("package-lock.json")}
+2026-01-18T17:28:45.880201Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-01-18T17:29:10.908727Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/services/email/email.service.ts"), AnchoredSystemPathBuf("server/src/services/email")}
+2026-01-18T17:29:10.915861Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:29:43.880034Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/services/email/template.service.ts")}
+2026-01-18T17:29:43.880058Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:30:08.881282Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/services/password-reset.service.ts")}
+2026-01-18T17:30:08.881346Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:30:44.181383Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/controllers/auth.controller.ts")}
+2026-01-18T17:30:44.181412Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:31:12.181816Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/services/password-reset.service.ts")}
+2026-01-18T17:31:12.181836Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:31:14.981742Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/services/password-reset.service.ts")}
+2026-01-18T17:31:14.981753Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:31:40.181478Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/services/email/email.service.ts")}
+2026-01-18T17:31:40.181502Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:32:00.180987Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/package.json")}
+2026-01-18T17:32:00.181011Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:32:00.381063Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("package-lock.json")}
+2026-01-18T17:32:00.381073Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-01-18T17:32:01.681410Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/package.json")}
+2026-01-18T17:32:01.681421Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:32:01.881297Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("package-lock.json")}
+2026-01-18T17:32:01.881306Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-01-18T17:32:20.081558Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/services/email/email.service.ts")}
+2026-01-18T17:32:20.081578Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:32:20.081605Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-01-18T17:32:52.280158Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/routes/auth.routes.ts")}
+2026-01-18T17:32:52.280274Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:33:17.980714Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/.env")}
+2026-01-18T17:33:17.980735Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:35:22.686530Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/services/auth.api.ts")}
+2026-01-18T17:35:22.686570Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T17:35:53.886159Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/services/auth.api.ts")}
+2026-01-18T17:35:53.886277Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T17:36:09.986677Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/services/auth.api.ts")}
+2026-01-18T17:36:09.986697Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T17:36:29.985655Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/auth/pages/ForgotPasswordPage.tsx")}
+2026-01-18T17:36:29.985699Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T17:36:52.186908Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/auth/pages/ResetPasswordPage.tsx")}
+2026-01-18T17:36:52.186933Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T17:36:52.386548Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/auth/pages/ResetPasswordPage.tsx")}
+2026-01-18T17:36:52.386570Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T17:37:05.685430Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/routes/AppRoutes.tsx")}
+2026-01-18T17:37:05.685450Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T17:37:11.886291Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/auth/pages/LoginPage.tsx")}
+2026-01-18T17:37:11.886304Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T17:37:46.886781Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/services/email/email.service.ts")}
+2026-01-18T17:37:46.886800Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:37:48.986955Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/services/email/email.service.ts")}
+2026-01-18T17:37:48.986985Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:37:55.485913Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/services/email/email.service.ts")}
+2026-01-18T17:37:55.485930Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:37:57.085882Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/services/email/email.service.ts")}
+2026-01-18T17:37:57.085892Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:37:58.288408Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/services/email/email.service.ts")}
+2026-01-18T17:37:58.288419Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:37:59.686610Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/services/email/email.service.ts")}
+2026-01-18T17:37:59.686620Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:38:01.685957Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/services/email/email.service.ts")}
+2026-01-18T17:38:01.685970Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:38:04.485158Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/services/email/email.service.ts")}
+2026-01-18T17:38:04.485167Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:38:09.886543Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/services/email/email.service.ts")}
+2026-01-18T17:38:09.886878Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:38:14.485123Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/services/email/email.service.ts")}
+2026-01-18T17:38:14.485134Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:38:44.986362Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/services/email/email.service.ts")}
+2026-01-18T17:38:44.986384Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:38:54.385514Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/services/email/email.service.ts")}
+2026-01-18T17:38:54.385525Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:40:03.685950Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/auth/pages/LoginPage.tsx")}
+2026-01-18T17:40:03.686034Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T17:40:53.186433Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/auth/pages/ResetPasswordPage.tsx")}
+2026-01-18T17:40:53.186454Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T17:41:01.286211Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/auth/pages/ResetPasswordPage.tsx")}
+2026-01-18T17:41:01.286301Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T17:43:19.986304Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/index.ts")}
+2026-01-18T17:43:19.986332Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:43:36.190888Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/services/email/email.service.ts")}
+2026-01-18T17:43:36.190898Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:47:34.286699Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/.env")}
+2026-01-18T17:47:34.286749Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:47:35.985836Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/.env")}
+2026-01-18T17:47:35.985846Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:50:56.889375Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/.env")}
+2026-01-18T17:50:56.889437Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:50:59.089060Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/.env")}
+2026-01-18T17:50:59.089074Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:51:00.603399Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/.env")}
+2026-01-18T17:51:00.603622Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:52:02.489389Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/.env")}
+2026-01-18T17:52:02.489412Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:56:01.590787Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/controllers/admin.controller.ts")}
+2026-01-18T17:56:01.590810Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:56:16.390128Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/routes/admin.routes.ts")}
+2026-01-18T17:56:16.390754Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:56:32.990831Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/services/admin.api.ts")}
+2026-01-18T17:56:32.990853Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T17:56:57.890578Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminEmailSettingsPage.tsx")}
+2026-01-18T17:56:57.890603Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T17:56:58.082866Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminEmailSettingsPage.tsx")}
+2026-01-18T17:56:58.082884Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T17:56:58.083052Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2026-01-18T17:57:12.190859Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminPanel.tsx")}
+2026-01-18T17:57:12.190880Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T17:57:23.689357Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/controllers/admin.controller.ts")}
+2026-01-18T17:57:23.689382Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:57:41.491117Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/controllers/admin.controller.ts")}
+2026-01-18T17:57:41.491221Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T17:57:46.691800Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/controllers/admin.controller.ts")}
+2026-01-18T17:57:46.691881Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T18:03:01.591089Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/services/admin.api.ts")}
+2026-01-18T18:03:01.591164Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T18:03:09.697664Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/services/admin.api.ts")}
+2026-01-18T18:03:09.698096Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T18:08:16.593130Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/controllers/admin.controller.ts")}
+2026-01-18T18:08:16.593232Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T18:09:42.992940Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminEmailSettingsPage.tsx")}
+2026-01-18T18:09:42.992961Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T18:16:50.293061Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminEmailSettingsPage.tsx")}
+2026-01-18T18:16:50.293092Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T18:18:03.093971Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminUserDetailPage.tsx")}
+2026-01-18T18:18:03.094004Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T18:18:14.194492Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminUserDetailPage.tsx")}
+2026-01-18T18:18:14.194511Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T18:20:08.294364Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/controllers/admin.controller.ts")}
+2026-01-18T18:20:08.294394Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T18:20:13.994235Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/services/admin.api.ts")}
+2026-01-18T18:20:13.994251Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T18:20:25.895642Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("server/src/routes/admin.routes.ts")}
+2026-01-18T18:20:25.895811Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("server"), path: AnchoredSystemPathBuf("server") }}))
+2026-01-18T18:20:37.593913Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminEmailSettingsPage.tsx")}
+2026-01-18T18:20:37.593927Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T18:20:50.993736Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminEmailSettingsPage.tsx")}
+2026-01-18T18:20:50.993776Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))
+2026-01-18T18:22:03.994399Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("client/src/features/admin/pages/AdminEmailSettingsPage.tsx")}
+2026-01-18T18:22:03.994420Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("client"), path: AnchoredSystemPathBuf("client") }}))

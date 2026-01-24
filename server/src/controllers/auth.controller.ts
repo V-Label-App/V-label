@@ -22,8 +22,52 @@ const registerSchema = z.object({
 
 export class AuthController {
   /**
-   * POST /api/v1/auth/login
-   * Standard email/password login
+   * @swagger
+   * /api/v1/auth/login:
+   *   post:
+   *     summary: User login with email and password
+   *     tags: [Authentication]
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             $ref: '#/components/schemas/LoginRequest'
+   *     responses:
+   *       200:
+   *         description: Login successful
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/LoginResponse'
+   *       400:
+   *         description: Validation error
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       401:
+   *         description: Invalid credentials
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 error:
+   *                   type: string
+   *                   example: "Invalid email or password"
+   *       403:
+   *         description: Account is disabled
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 error:
+   *                   type: string
+   *                   example: "Your account is inactive. Please contact administrator."
+   *       500:
+   *         $ref: '#/components/responses/ServerError'
    */
   static async login(req: Request, res: Response) {
     try {
@@ -121,8 +165,42 @@ export class AuthController {
   }
 
   /**
-   * POST /api/v1/auth/register
-   * User registration with email/password
+   * @swagger
+   * /api/v1/auth/register:
+   *   post:
+   *     summary: Register a new user account
+   *     tags: [Authentication]
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             $ref: '#/components/schemas/RegisterRequest'
+   *     responses:
+   *       201:
+   *         description: Registration successful
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/LoginResponse'
+   *       400:
+   *         description: Validation error
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       409:
+   *         description: Email already exists
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 error:
+   *                   type: string
+   *                   example: "Email already exists"
+   *       500:
+   *         $ref: '#/components/responses/ServerError'
    */
   static async register(req: Request, res: Response) {
     try {
@@ -164,8 +242,51 @@ export class AuthController {
   }
 
   /**
-   * POST /api/v1/auth/google
-   * Login with Google ID Token
+   * @swagger
+   * /api/v1/auth/google:
+   *   post:
+   *     summary: Login with Google ID Token
+   *     tags: [Authentication]
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - idToken
+   *             properties:
+   *               idToken:
+   *                 type: string
+   *                 description: Google ID Token from OAuth flow
+   *                 example: "eyJhbGciOiJSUzI1NiIsImtpZCI6..."
+   *     responses:
+   *       200:
+   *         description: Google login successful
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/LoginResponse'
+   *       400:
+   *         description: Missing ID token
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 error:
+   *                   type: string
+   *                   example: "Missing idToken"
+   *       401:
+   *         description: Invalid Google token
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 error:
+   *                   type: string
+   *                   example: "Invalid token"
    */
   static async googleLogin(req: Request, res: Response) {
     try {
@@ -213,8 +334,8 @@ export class AuthController {
       const adminId = user?.sub || user?.id
 
       if (!userId || typeof userId !== 'string') {
-          return res.status(400).json({ error: 'Target userId is required' })
-      } 
+        return res.status(400).json({ error: 'Target userId is required' })
+      }
 
       if (!adminId) {
         return res.status(401).json({ error: 'Unauthorized - Invalid Token Payload' })
@@ -245,8 +366,8 @@ export class AuthController {
         user: result.user,
       })
     } catch (error) {
-       console.error('[AUTH] Impersonation error:', error)
-       return res.status(500).json({ error: 'Internal server error' })
+      console.error('[AUTH] Impersonation error:', error)
+      return res.status(500).json({ error: 'Internal server error' })
     }
   }
 
@@ -265,8 +386,36 @@ export class AuthController {
   }
 
   /**
-   * POST /api/v1/auth/forgot-password
-   * Request password reset email
+   * @swagger
+   * /api/v1/auth/forgot-password:
+   *   post:
+   *     summary: Request password reset email
+   *     tags: [Authentication]
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             $ref: '#/components/schemas/ForgotPasswordRequest'
+   *     responses:
+   *       200:
+   *         description: Password reset email sent
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 message:
+   *                   type: string
+   *                   example: "Password reset email sent"
+   *       400:
+   *         description: Email is required
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       500:
+   *         $ref: '#/components/responses/ServerError'
    */
   static async forgotPassword(req: Request, res: Response) {
     try {
@@ -312,8 +461,36 @@ export class AuthController {
   }
 
   /**
-   * POST /api/v1/auth/reset-password
-   * Reset password using token
+   * @swagger
+   * /api/v1/auth/reset-password:
+   *   post:
+   *     summary: Reset password using token from email
+   *     tags: [Authentication]
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             $ref: '#/components/schemas/ResetPasswordRequest'
+   *     responses:
+   *       200:
+   *         description: Password reset successful
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 message:
+   *                   type: string
+   *                   example: "Password reset successful"
+   *       400:
+   *         description: Invalid token or password
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       500:
+   *         $ref: '#/components/responses/ServerError'
    */
   static async resetPassword(req: Request, res: Response) {
     try {
