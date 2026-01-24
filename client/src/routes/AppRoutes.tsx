@@ -21,6 +21,7 @@ import { ReviewerQueue } from '../features/reviewer/pages/ReviewerQueue';
 import DashboardPage from '../pages/DashboardPage';
 import { WorkspacePage } from '../features/annotation/pages/WorkspacePage';
 import ProfilePage from '../features/profile/pages/ProfilePage';
+import { NotFoundPage } from '../pages/NotFoundPage';
 
 // Root redirect component
 const RootRedirect = () => {
@@ -165,8 +166,8 @@ export const AppRoutes = () => {
                 }
             />
 
-            {/* Fallback */}
-            <Route path="*" element={<Navigate to="/" replace />} />
+            {/* 404 Not Found - Catch all invalid routes */}
+            <Route path="*" element={<NotFoundPage />} />
         </Routes>
     );
 };

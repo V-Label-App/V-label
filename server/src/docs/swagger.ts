@@ -24,7 +24,7 @@ export function setupSwagger(app: Express): void {
             customSiteTitle: 'V-Label API Documentation',
             swaggerOptions: {
                 persistAuthorization: true,
-                displayRequestDuration: true,
+                displayRequestDuration: false,
                 filter: true,
                 tryItOutEnabled: true,
             },
