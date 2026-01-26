@@ -2,10 +2,11 @@
 
 > Comprehensive guide to V-Label's PostgreSQL database architecture, design patterns, and implementation rationale
 
-**Last Updated:** 2026-01-19  
-**Database Version:** PostgreSQL 15/16  
-**ORM:** Prisma 6.19  
-**Schema Migrations:** 7 migrations applied
+**Last Updated:** 2026-01-24 (Phase 2)
+**Database Version:** PostgreSQL 15/16
+**ORM:** Prisma 6.19
+**Schema Migrations:** 12+ migrations applied
+**Phase:** Production Ready (Phase 2 - ML Export & Auto-Assignment)
 
 ---
 
@@ -65,20 +66,38 @@ erDiagram
     USER ||--o{ NOTIFICATION : "receives"
     USER ||--o{ CHAT_MESSAGE : "sends"
     USER ||--o{ PASSWORD_RESET_TOKEN : "requests"
-    
+    USER ||--o{ IMAGE : "uploads"
+    USER ||--o{ DATASET : "creates"
+    USER ||--o{ EXPORT : "exports"
+    USER ||--o{ USER_WORKLOAD : "has"
+    USER ||--o{ TASK_REASSIGNMENT : "from"
+    USER ||--o{ TASK_REASSIGNMENT : "to"
+
     PROJECT ||--o{ PROJECT_MEMBER : "contains"
     PROJECT ||--o{ TASK : "has"
     PROJECT ||--o{ CHAT_MESSAGE : "contains"
-    
+    PROJECT ||--o{ DATASET : "contains"
+    PROJECT ||--o{ IMAGE : "contains"
+    PROJECT ||--o{ EXPORT : "generates"
+    PROJECT ||--|| ASSIGNMENT_RULE : "configures"
+    PROJECT ||--o{ USER_WORKLOAD : "tracks"
+
+    DATASET ||--o{ IMAGE : "groups"
+    IMAGE ||--o{ TASK : "references"
+
     TASK ||--o{ TASK_ASSIGNMENT : "assigned_to"
-    
+    TASK ||--|| ANNOTATION_CONSENSUS : "finalizes"
+    TASK ||--o{ TASK_REASSIGNMENT : "reassigns"
+
+    TASK_ASSIGNMENT }o--|| AI_MODEL : "uses"
+
     PROJECT_MEMBER }o--|| USER : "user"
     PROJECT_MEMBER }o--|| PROJECT : "project"
-    
+
     TASK_ASSIGNMENT }o--|| TASK : "task"
     TASK_ASSIGNMENT }o--|| USER : "annotator"
     TASK_ASSIGNMENT }o--|| USER : "reviewer"
-    
+
     EMAIL_TEMPLATE ||--o{ EMAIL_LOG : "uses"
 ```
 
@@ -94,7 +113,12 @@ erDiagram
 │  ├─ 1:N → TaskAssignment (as reviewer)                     │
 │  ├─ 1:N → Notification (receives)                          │
 │  ├─ 1:N → ChatMessage (sends)                              │
-│  └─ 1:N → PasswordResetToken (requests)                    │
+│  ├─ 1:N → PasswordResetToken (requests)                    │
+│  ├─ 1:N → Image (uploads) ⭐ PHASE 2                       │
+│  ├─ 1:N → Dataset (creates) ⭐ PHASE 2                     │
+│  ├─ 1:N → Export (exports) ⭐ PHASE 2                      │
+│  ├─ 1:N → UserWorkload (tracked) ⭐ PHASE 2                │
+│  └─ 1:N → TaskReassignment (reassigns) ⭐ PHASE 2          │
 └─────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────┐
@@ -103,16 +127,39 @@ erDiagram
 │  Project                                                    │
 │  ├─ 1:N → ProjectMember (M:N with User via junction)       │
 │  ├─ 1:N → Task (images to label)                           │
-│  └─ 1:N → ChatMessage (project communication)              │
+│  ├─ 1:N → ChatMessage (project communication)              │
+│  ├─ 1:N → Dataset (image groups) ⭐ PHASE 2                │
+│  ├─ 1:N → Image (uploaded images) ⭐ PHASE 2               │
+│  ├─ 1:N → Export (ML exports) ⭐ PHASE 2                   │
+│  ├─ 1:1 → AssignmentRule (auto-assign config) ⭐ PHASE 2   │
+│  └─ 1:N → UserWorkload (team workload) ⭐ PHASE 2          │
+│                                                             │
+│  Dataset ⭐ PHASE 2                                         │
+│  ├─ N:1 → Project (belongs to)                             │
+│  └─ 1:N → Image (contains images)                          │
+│                                                             │
+│  Image ⭐ PHASE 2                                           │
+│  ├─ N:1 → Project (belongs to)                             │
+│  ├─ N:1 → Dataset (optional, grouped by)                   │
+│  └─ 1:N → Task (referenced in tasks)                       │
 │                                                             │
 │  Task                                                       │
 │  ├─ N:1 → Project (belongs to)                             │
-│  └─ 1:N → TaskAssignment (assigned to users)               │
+│  ├─ N:1 → Image (references) ⭐ PHASE 2                    │
+│  ├─ 1:N → TaskAssignment (assigned to users)               │
+│  ├─ 1:1 → AnnotationConsensus (final annotation) ⭐ PHASE 2│
+│  └─ 1:N → TaskReassignment (history) ⭐ PHASE 2            │
 │                                                             │
 │  TaskAssignment                                             │
 │  ├─ N:1 → Task (references)                                │
 │  ├─ N:1 → User as annotator (assigned to)                  │
-│  └─ N:1 → User as reviewer (optional, assigned after)      │
+│  ├─ N:1 → User as reviewer (optional, assigned after)      │
+│  ├─ N:1 → User as assignedBy ⭐ PHASE 2                    │
+│  └─ N:1 → AiModel (optional, if AI-assisted) ⭐ PHASE 2    │
+│                                                             │
+│  AnnotationConsensus ⭐ PHASE 2                             │
+│  ├─ 1:1 → Task (final annotation for export)               │
+│  └─ N:1 → User as verifier (quality check)                 │
 └─────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────┐
@@ -130,17 +177,19 @@ erDiagram
 
 ## Schema Overview
 
-### Database Statistics
+### Database Statistics (Phase 2)
 
-| Aspect | Count |
-|--------|-------|
-| **Total Tables** | 14 |
-| **Core Workflow Tables** | 5 (User, Project, Task, TaskAssignment, ProjectMember) |
-| **Communication Tables** | 2 (Notification, ChatMessage) |
-| **System Tables** | 3 (AuditLog, SystemConfig, PasswordResetToken) |
-| **Email Service Tables** | 3 (EmailTemplate, EmailConfig, EmailLog) |
-| **Enum Types** | 5 (UserRole, AuthProvider, ProjectStatus, TaskStatus, AssignmentStatus, NotificationType) |
-| **Total Indexes** | 12+ (composite + single column) |
+| Aspect | Count | Phase 2 Changes |
+|--------|-------|----------------|
+| **Total Tables** | 22 | +8 tables |
+| **Core Workflow Tables** | 13 | +8 (Image, Dataset, AnnotationConsensus, Export, AiModel, AssignmentRule, UserWorkload, TaskReassignment) |
+| **Communication Tables** | 2 | No change |
+| **System Tables** | 3 | No change |
+| **Email Service Tables** | 3 | No change |
+| **Label Management Tables** | 4 | (From previous migration) |
+| **Enum Types** | 10 | +5 (ProjectRole, TaskPriority, DifficultyLevel, AssignmentMethod, + enhancements) |
+| **Total Indexes** | 30+ | +18 new indexes |
+| **Foreign Keys** | 25+ | +15 new constraints |
 
 ### Table Categories
 
@@ -148,11 +197,19 @@ erDiagram
 - `users` - User accounts, roles, reputation
 - `password_reset_tokens` - Secure password recovery
 
-#### 2. **Project Workflow** (4 tables)
+#### 2. **Project Workflow** (12 tables) ⭐ PHASE 2 ENHANCED
 - `projects` - Labeling projects
-- `project_members` - Many-to-many junction table
-- `tasks` - Individual images to annotate
-- `task_assignments` - Assignment and annotation data
+- `project_members` - Many-to-many junction table (+ project_role)
+- `tasks` - Individual images to annotate (+ priority, deadline, difficulty)
+- `task_assignments` - Assignment and annotation data (+ AI tracking, rejection count)
+- ⭐ `images` - Image metadata with dimensions for ML export
+- ⭐ `datasets` - Group images by upload batch
+- ⭐ `annotation_consensus` - Final annotations for ML export
+- ⭐ `exports` - ML dataset export tracking (YOLO, COCO, etc.)
+- ⭐ `ai_models` - AI model tracking for assisted annotation
+- ⭐ `assignment_rules` - Auto-assignment configuration
+- ⭐ `user_workload` - Real-time workload tracking
+- ⭐ `task_reassignments` - Reassignment audit trail
 
 #### 3. **Communication** (2 tables)
 - `notifications` - In-app notifications
@@ -166,6 +223,12 @@ erDiagram
 - `email_templates` - HTML/text templates
 - `email_configs` - SMTP provider configs
 - `email_logs` - Delivery history
+
+#### 6. **Label Management** (4 tables)
+- `label_categories` - Label categories
+- `labels` - Global and project labels
+- `project_labels` - Project-label associations
+- `label_requests` - Label requests from annotators
 
 ---
 
@@ -671,6 +734,420 @@ CREATE INDEX "idx_email_log_status" ON "email_logs"("status");
 
 ---
 
+## ⭐ Phase 2: ML Export & Enhanced Workflow Tables
+
+### 12. Images Table
+
+**Purpose:** Store image metadata with dimensions for ML export normalization
+
+**Why Critical:**
+- ML models require **normalized coordinates** (0-1 range)
+- Cannot export to YOLO/COCO without image width/height
+- Replaces simple `image_url` string with structured metadata
+
+```sql
+CREATE TABLE "images" (
+    "id" UUID PRIMARY KEY,
+    "project_id" UUID NOT NULL REFERENCES "projects"(id),
+    "dataset_id" UUID REFERENCES "datasets"(id),
+
+    -- File information
+    "original_filename" VARCHAR(255) NOT NULL,
+    "storage_url" TEXT NOT NULL,
+    "storage_path" TEXT,
+
+    -- CRITICAL: Dimensions for ML export
+    "width" INTEGER NOT NULL,
+    "height" INTEGER NOT NULL,
+    "channels" INTEGER DEFAULT 3,
+
+    -- Metadata
+    "file_size_bytes" BIGINT,
+    "format" VARCHAR(10),
+    "checksum" VARCHAR(64),  -- SHA-256 for duplicate detection
+
+    "uploaded_by" UUID REFERENCES "users"(id),
+    "uploaded_at" TIMESTAMP DEFAULT NOW(),
+
+    UNIQUE("project_id", "checksum")
+);
+
+CREATE INDEX "idx_images_project" ON "images"("project_id");
+CREATE INDEX "idx_images_checksum" ON "images"("checksum");
+```
+
+**Example:**
+| id | original_filename | width | height | storage_url |
+|----|-------------------|-------|--------|-------------|
+| img-1 | street_001.jpg | 1920 | 1080 | https://s3.../street_001.jpg |
+| img-2 | street_002.jpg | 3840 | 2160 | https://s3.../street_002.jpg |
+
+**Key Points:**
+- Width/height used to calculate: `x_center_normalized = (x + w/2) / image.width`
+- Checksum prevents duplicate uploads
+- Can extract dimensions using `sharp` library on upload
+
+---
+
+### 13. Datasets Table
+
+**Purpose:** Group images by upload batch for organization
+
+**Design Rationale:**
+- Upload 1000 images → group as 1 dataset
+- Track source (camera_A, web_scraping, manual_upload)
+- Version control for images
+
+```sql
+CREATE TABLE "datasets" (
+    "id" UUID PRIMARY KEY,
+    "project_id" UUID NOT NULL REFERENCES "projects"(id),
+
+    "name" VARCHAR(255) NOT NULL,
+    "description" TEXT,
+
+    -- Source tracking
+    "source" VARCHAR(100),  -- "camera_A", "web_scraping"
+    "source_metadata" JSONB,
+
+    -- Statistics
+    "total_images" INTEGER DEFAULT 0,
+    "processed_images" INTEGER DEFAULT 0,
+
+    "uploaded_by" UUID REFERENCES "users"(id),
+    "created_at" TIMESTAMP DEFAULT NOW()
+);
+```
+
+**Example:**
+```json
+{
+  "source": "dash_camera",
+  "source_metadata": {
+    "camera_model": "GoPro Hero 11",
+    "location": "Downtown",
+    "weather": "Clear",
+    "time_of_day": "Morning"
+  }
+}
+```
+
+---
+
+### 14. AnnotationConsensus Table
+
+**Purpose:** Store final annotation to export when multiple annotators label same image
+
+**Why Needed:**
+- Task can have multiple TaskAssignments (3 annotators label same image)
+- Need to pick ONE final annotation for ML export
+- Store consensus method (majority_vote, expert_review, etc.)
+
+```sql
+CREATE TABLE "annotation_consensus" (
+    "id" UUID PRIMARY KEY,
+    "task_id" UUID UNIQUE NOT NULL REFERENCES "tasks"(id),
+
+    -- Final annotation (after consensus/merge)
+    "final_annotations" JSONB NOT NULL,
+
+    -- Consensus metadata
+    "consensus_method" VARCHAR(50) NOT NULL,
+    -- "single_annotator", "majority_vote", "weighted_average", "expert_review"
+
+    "source_assignment_ids" UUID[] NOT NULL,
+    "agreement_score" FLOAT,  -- Inter-Annotator Agreement (0-1)
+
+    -- Quality verification
+    "is_verified" BOOLEAN DEFAULT false,
+    "verified_by" UUID REFERENCES "users"(id),
+    "verified_at" TIMESTAMP,
+
+    "created_at" TIMESTAMP DEFAULT NOW()
+);
+```
+
+**Workflow:**
+```
+TaskAssignment 1 (Annotator A) ─┐
+TaskAssignment 2 (Annotator B) ─┼─> Consensus Algorithm
+TaskAssignment 3 (Annotator C) ─┘        │
+                                          ▼
+                            AnnotationConsensus (Final)
+                                          │
+                                          ▼
+                                    EXPORT TO ML
+```
+
+---
+
+### 15. Exports Table
+
+**Purpose:** Track ML dataset exports (YOLO, COCO, Pascal VOC formats)
+
+**Design Rationale:**
+- Know what was exported, when, by whom
+- Track download count
+- Preserve label_config snapshot (in case project config changes)
+
+```sql
+CREATE TABLE "exports" (
+    "id" UUID PRIMARY KEY,
+    "project_id" UUID NOT NULL REFERENCES "projects"(id),
+
+    -- Export configuration
+    "format" VARCHAR(50) NOT NULL,  -- "yolo", "coco", "pascal_voc"
+    "version" INTEGER DEFAULT 1,
+
+    -- Split configuration
+    "split_type" VARCHAR(50),  -- "train_val_test", "train_val"
+    "split_ratio" JSONB,  -- {"train": 0.7, "val": 0.2, "test": 0.1}
+
+    -- Filter criteria
+    "filter_criteria" JSONB,
+    -- {"status": "APPROVED", "is_verified": true, "min_review_score": 8}
+
+    -- Statistics
+    "total_images" INTEGER,
+    "total_annotations" INTEGER,
+    "class_distribution" JSONB,  -- {"person": 450, "car": 320}
+
+    -- File information
+    "file_url" TEXT NOT NULL,
+    "file_size_bytes" BIGINT,
+    "checksum" VARCHAR(64),
+
+    "exported_by" UUID NOT NULL REFERENCES "users"(id),
+    "download_count" INTEGER DEFAULT 0,
+    "created_at" TIMESTAMP DEFAULT NOW(),
+
+    -- Config snapshot (preserve label_config at export time)
+    "label_config_snapshot" JSONB
+);
+```
+
+**Example:**
+```json
+{
+  "format": "yolo",
+  "split_ratio": {"train": 0.8, "val": 0.2},
+  "filter_criteria": {
+    "status": "APPROVED",
+    "is_verified": true,
+    "min_review_score": 8
+  },
+  "class_distribution": {
+    "person": 450,
+    "car": 320,
+    "bicycle": 180
+  }
+}
+```
+
+---
+
+### 16. AiModel Table
+
+**Purpose:** Track AI models used for assisted annotation
+
+**Design Rationale:**
+- Know which AI model generated which annotations
+- Track model version, accuracy metrics
+- Enable/disable specific models
+
+```sql
+CREATE TABLE "ai_models" (
+    "id" UUID PRIMARY KEY,
+
+    "name" VARCHAR(100) NOT NULL,  -- "YOLOv8", "SAM", "GPT-4V"
+    "version" VARCHAR(50) NOT NULL,
+    "model_type" VARCHAR(50) NOT NULL,
+    -- "object_detection", "segmentation", "classification"
+
+    -- Model configuration
+    "config" JSONB,
+    -- {"confidence_threshold": 0.5, "nms_threshold": 0.4}
+
+    -- Performance metrics
+    "metrics" JSONB,
+    -- {"mAP": 0.85, "precision": 0.90, "recall": 0.82}
+
+    "is_active" BOOLEAN DEFAULT true,
+    "endpoint_url" TEXT,
+
+    "created_at" TIMESTAMP DEFAULT NOW()
+);
+```
+
+**Example:**
+| name | version | model_type | mAP | is_active |
+|------|---------|------------|-----|-----------|
+| YOLOv8 | v8.0.0 | object_detection | 0.85 | true |
+| SAM | v1.0 | segmentation | 0.92 | true |
+
+---
+
+### 17. AssignmentRule Table
+
+**Purpose:** Auto-assignment configuration per project
+
+**Design Rationale:**
+- Enable auto-assignment for scalability
+- Configure strategy (round-robin, least-busy, skill-based)
+- Set workload limits
+- Configure rejection handling
+
+```sql
+CREATE TABLE "assignment_rules" (
+    "id" UUID PRIMARY KEY,
+    "project_id" UUID UNIQUE NOT NULL REFERENCES "projects"(id),
+
+    -- Enable/disable auto-assignment
+    "is_auto_assign_enabled" BOOLEAN DEFAULT false,
+
+    -- Assignment strategy
+    "assignment_strategy" VARCHAR(50) DEFAULT 'ROUND_ROBIN',
+    -- "ROUND_ROBIN", "LEAST_BUSY", "SKILL_BASED", "RANDOM"
+
+    -- Reviewer settings
+    "auto_assign_reviewer" BOOLEAN DEFAULT true,
+    "reviewer_delay_hours" INTEGER DEFAULT 0,
+
+    -- Workload limits
+    "max_tasks_per_annotator" INTEGER DEFAULT 10,
+    "max_tasks_per_reviewer" INTEGER DEFAULT 20,
+
+    -- Quality thresholds
+    "min_annotator_reputation" FLOAT DEFAULT 0,
+    "min_reviewer_reputation" FLOAT DEFAULT 70,
+
+    -- Rejection handling
+    "max_rejections_before_reassign" INTEGER DEFAULT 3,
+    "auto_reassign_on_skip" BOOLEAN DEFAULT true,
+
+    "created_at" TIMESTAMP DEFAULT NOW()
+);
+```
+
+**Assignment Strategies:**
+- **ROUND_ROBIN**: Rotate through annotators sequentially
+- **LEAST_BUSY**: Assign to annotator with fewest active tasks
+- **SKILL_BASED**: Assign to annotators with highest reputation
+- **RANDOM**: Random assignment
+
+---
+
+### 18. UserWorkload Table
+
+**Purpose:** Real-time workload tracking for load balancing
+
+**Design Rationale:**
+- Track how many tasks each user currently has
+- Check availability before auto-assignment
+- Prevent overload
+
+```sql
+CREATE TABLE "user_workload" (
+    "id" UUID PRIMARY KEY,
+    "user_id" UUID NOT NULL REFERENCES "users"(id),
+    "project_id" UUID NOT NULL REFERENCES "projects"(id),
+
+    -- Current workload counters
+    "assigned_tasks" INTEGER DEFAULT 0,
+    "in_progress_tasks" INTEGER DEFAULT 0,
+    "pending_review_tasks" INTEGER DEFAULT 0,  -- For reviewers
+
+    -- Limits
+    "max_concurrent_tasks" INTEGER DEFAULT 10,
+
+    -- Availability
+    "availability_status" VARCHAR(50) DEFAULT 'AVAILABLE',
+    -- "AVAILABLE", "BUSY", "OFFLINE", "ON_VACATION"
+
+    "last_assigned_at" TIMESTAMP,
+    "updated_at" TIMESTAMP DEFAULT NOW(),
+
+    UNIQUE("user_id", "project_id")
+);
+```
+
+**Auto-Assignment Logic:**
+```typescript
+async function autoAssignTask(taskId: string, projectId: string) {
+  // Get available annotators
+  const annotators = await prisma.userWorkload.findMany({
+    where: {
+      projectId,
+      availabilityStatus: 'AVAILABLE',
+      assignedTasks: { lt: prisma.raw('max_concurrent_tasks') }
+    },
+    orderBy: { assignedTasks: 'asc' }  // LEAST_BUSY strategy
+  });
+
+  if (annotators.length === 0) throw new Error('No available annotators');
+
+  const selectedAnnotator = annotators[0];
+
+  // Create assignment
+  await prisma.taskAssignment.create({
+    data: {
+      taskId,
+      annotatorId: selectedAnnotator.userId,
+      assignmentMethod: 'AUTO_LEAST_BUSY'
+    }
+  });
+
+  // Update workload
+  await prisma.userWorkload.update({
+    where: { id: selectedAnnotator.id },
+    data: {
+      assignedTasks: { increment: 1 },
+      lastAssignedAt: new Date()
+    }
+  });
+}
+```
+
+---
+
+### 19. TaskReassignment Table
+
+**Purpose:** Audit trail for task reassignments
+
+**Design Rationale:**
+- Track when and why tasks are reassigned
+- Who was the old/new annotator
+- Reasons: REJECTED_TOO_MANY, USER_SKIPPED, USER_UNAVAILABLE, MANUAL_REASSIGN
+
+```sql
+CREATE TABLE "task_reassignments" (
+    "id" UUID PRIMARY KEY,
+    "task_id" UUID NOT NULL REFERENCES "tasks"(id),
+
+    "old_annotator_id" UUID REFERENCES "users"(id),
+    "new_annotator_id" UUID REFERENCES "users"(id),
+
+    "reason" VARCHAR(100) NOT NULL,
+    -- "REJECTED_TOO_MANY", "USER_SKIPPED", "USER_UNAVAILABLE", "MANUAL_REASSIGN"
+
+    "reassigned_by" UUID NOT NULL REFERENCES "users"(id),
+    "notes" TEXT,
+
+    "created_at" TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX "idx_reassign_task" ON "task_reassignments"("task_id");
+CREATE INDEX "idx_reassign_old_annotator" ON "task_reassignments"("old_annotator_id");
+```
+
+**Example:**
+| task_id | old_annotator | new_annotator | reason | notes |
+|---------|---------------|---------------|--------|-------|
+| task-123 | user-A | user-B | REJECTED_TOO_MANY | Failed 3 times |
+| task-456 | user-C | user-D | USER_SKIPPED | Image too blurry |
+
+---
+
 ## Data Flow Patterns
 
 ### Pattern 1: User Registration → Email Verification
@@ -697,45 +1174,219 @@ Send email via configured provider (SMTP/SendGrid)
 INSERT INTO email_logs (to, template_type, status='sent')
 ```
 
-### Pattern 2: Task Assignment → Annotation → Review → Reputation Update
+### Pattern 2: ⭐ PHASE 2 Complete Workflow (Image Upload → Auto-Assignment → Annotation → Review → Export)
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  2. Complete Annotation Workflow                            │
-└─────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────┐
+│  2. PHASE 2: Complete Annotation & Export Workflow                │
+└────────────────────────────────────────────────────────────────────┘
 
-Manager creates task:
-  INSERT INTO tasks (project_id, image_url, status='TODO')
+STEP 1: Manager uploads images
+  POST /api/projects/{id}/images (multipart/form-data)
     ↓
-Manager assigns to annotator:
-  INSERT INTO task_assignments 
-    (task_id, annotator_id, status='ASSIGNED')
-  UPDATE tasks SET status='IN_PROGRESS'
-  INSERT INTO notifications 
-    (user_id=annotator_id, type='TASK_ASSIGNED')
+  Extract image dimensions using sharp:
+    const metadata = await sharp(buffer).metadata();
     ↓
-Annotator works on task:
-  UPDATE task_assignments 
-    SET annotations='...', status='IN_PROGRESS'
+  INSERT INTO images (
+    project_id, dataset_id,
+    original_filename, storage_url,
+    width=1920, height=1080, channels=3,  ⭐ CRITICAL for ML export
+    uploaded_by=manager_id
+  )
     ↓
-Annotator submits:
+  Upload to S3/Storage
+    ↓
+  FOR EACH image:
+    INSERT INTO tasks (
+      project_id, image_id,  ⭐ Reference to images table
+      priority='MEDIUM',
+      difficulty_level='NORMAL',
+      status='TODO'
+    )
+
+STEP 2: Auto-Assignment (if enabled)
+  ↓
+  Check assignment_rules for project:
+    SELECT * FROM assignment_rules WHERE project_id=?
+    ↓
+  IF is_auto_assign_enabled = true:
+    ↓
+    Get available annotators:
+      SELECT * FROM user_workload
+      WHERE project_id=?
+        AND availability_status='AVAILABLE'
+        AND assigned_tasks < max_concurrent_tasks
+      ORDER BY assigned_tasks ASC  ⭐ LEAST_BUSY strategy
+      LIMIT 1
+    ↓
+    Create assignment:
+      INSERT INTO task_assignments (
+        task_id, annotator_id,
+        reviewer_id=<auto_select_reviewer>,  ⭐ Auto-assigned
+        assignment_method='AUTO_LEAST_BUSY',
+        assigned_by=manager_id,
+        status='ASSIGNED'
+      )
+    ↓
+    Update workload:
+      UPDATE user_workload
+      SET assigned_tasks += 1, last_assigned_at=NOW()
+      WHERE user_id=annotator_id AND project_id=?
+    ↓
+    Send notification:
+      INSERT INTO notifications (
+        user_id=annotator_id,
+        type='TASK_ASSIGNED',
+        metadata='{"task_id": "...", "priority": "MEDIUM"}'
+      )
+
+STEP 3: Annotator works on task
+  ↓
+  GET /api/tasks/{id}
+  → Returns image with width/height for canvas sizing
+    ↓
+  Annotator draws bounding boxes on canvas
+    ↓
+  Frontend calculates BOTH pixel AND normalized coordinates:
+    const normalized = {
+      x_center: (bbox.x + bbox.width/2) / image.width,
+      y_center: (bbox.y + bbox.height/2) / image.height,
+      width: bbox.width / image.width,
+      height: bbox.height / image.height
+    };
+    ↓
+  PATCH /api/assignments/{id} (auto-save):
+    UPDATE task_assignments SET
+      annotations = {
+        "annotations": [{
+          "label_id": "person",
+          "bbox_pixel": {x: 100, y: 150, width: 200, height: 300},
+          "bbox_normalized": {  ⭐ REQUIRED for ML export
+            "x_center": 0.1041, "y_center": 0.2777,
+            "width": 0.1041, "height": 0.2777
+          }
+        }],
+        "metadata": {"time_spent": 120}
+      },
+      status='IN_PROGRESS',
+      actual_time_seconds=120
+
+STEP 4: Annotator submits
+  ↓
+  POST /api/assignments/{id}/submit
+    ↓
   UPDATE task_assignments SET status='SUBMITTED'
-  UPDATE task_assignments SET reviewer_id=<auto_assigned>
-  INSERT INTO notifications 
-    (user_id=reviewer_id, type='TASK_SUBMITTED')
+  UPDATE user_workload SET in_progress_tasks -= 1
+  INSERT INTO notifications (user_id=reviewer_id, type='TASK_SUBMITTED')
+
+STEP 5: Reviewer reviews
+  ↓
+  POST /api/assignments/{id}/review
+  Body: {decision: 'APPROVE', score: 9, comment: '...'}
     ↓
-Reviewer inspects and approves:
-  UPDATE task_assignments 
-    SET status='APPROVED', review_score=9, review_comment='...'
-  UPDATE users 
-    SET reputation_score += 2, total_tasks_done += 1
-    WHERE id=annotator_id
-  UPDATE tasks SET status='DONE'
-  INSERT INTO notifications 
-    (user_id=annotator_id, type='TASK_APPROVED')
-  INSERT INTO audit_logs 
-    (action='TASK_APPROVED', actor_id=reviewer_id, target_id=task_id)
+  IF (decision === 'APPROVE'):
+    ├─ UPDATE task_assignments SET
+    │    status='APPROVED', review_score=9
+    ├─ UPDATE users SET
+    │    reputation_score += (9-5)*2,  ⭐ Dynamic calculation
+    │    total_tasks_done += 1
+    ├─ UPDATE tasks SET status='DONE'
+    ├─ CREATE annotation consensus:  ⭐ PHASE 2
+    │    INSERT INTO annotation_consensus (
+    │      task_id,
+    │      final_annotations=<from task_assignment>,
+    │      consensus_method='single_annotator',
+    │      is_verified=true,
+    │      verified_by=reviewer_id
+    │    )
+    ├─ UPDATE user_workload
+    │    SET assigned_tasks -= 1, pending_review_tasks -= 1
+    └─ INSERT INTO notifications (type='TASK_APPROVED')
+    ↓
+  ELSE IF (decision === 'REJECT'):
+    ├─ UPDATE task_assignments SET
+    │    status='REJECTED',
+    │    rejection_count += 1
+    ├─ IF (rejection_count >= max_rejections):  ⭐ PHASE 2 Auto-reassign
+    │   ├─ INSERT INTO task_reassignments (
+    │   │     task_id, old_annotator_id, new_annotator_id,
+    │   │     reason='REJECTED_TOO_MANY',
+    │   │     reassigned_by=manager_id
+    │   │   )
+    │   └─ Run auto-assignment again for new annotator
+    ├─ ELSE:
+    │   └─ Annotator reworks the task
+    └─ INSERT INTO notifications (type='TASK_REJECTED')
+
+STEP 6: Manager exports dataset for ML training  ⭐ PHASE 2
+  ↓
+  POST /api/projects/{id}/export
+  Body: {
+    format: 'yolo',
+    split: {train: 0.8, val: 0.2},
+    filter: {is_verified: true, min_score: 8}
+  }
+    ↓
+  Backend service:
+    ├─ Query verified annotations:
+    │    SELECT ac.*, t.*, i.width, i.height
+    │    FROM annotation_consensus ac
+    │    JOIN tasks t ON ac.task_id = t.id
+    │    JOIN images i ON t.image_id = i.id  ⭐ Need width/height
+    │    WHERE ac.is_verified = true
+    │
+    ├─ Generate YOLO format:
+    │    FOR EACH annotation:
+    │      class_id = get_class_id(label_name)
+    │      # Use normalized coordinates ⭐
+    │      line = f"{class_id} {x_center} {y_center} {width} {height}"
+    │      WRITE to labels/image_001.txt
+    │
+    ├─ Split into train/val:
+    │    images_train/ (80% of images)
+    │    images_val/   (20% of images)
+    │    labels_train/ (corresponding labels)
+    │    labels_val/
+    │
+    ├─ Generate dataset.yaml:
+    │    path: /dataset
+    │    train: images/train
+    │    val: images/val
+    │    names:
+    │      0: person
+    │      1: car
+    │
+    ├─ Zip all files
+    ├─ Upload to S3
+    │
+    └─ INSERT INTO exports (
+          project_id, format='yolo',
+          total_images=1000, total_annotations=4520,
+          class_distribution='{"person": 2500, "car": 1800, "bike": 220}',
+          file_url='https://s3.../yolo_export_v1.zip',
+          filter_criteria='{"is_verified": true, "min_score": 8}',
+          label_config_snapshot=<project.label_config>,
+          exported_by=manager_id
+        )
+    ↓
+  RETURN {
+    download_url: "https://s3.../yolo_export_v1.zip",
+    stats: {
+      total_images: 1000,
+      train: 800,
+      val: 200,
+      classes: {person: 2500, car: 1800}
+    }
+  }
 ```
+
+**Key Phase 2 Enhancements:**
+- ✅ Images table stores width/height for ML export normalization
+- ✅ Auto-assignment with workload balancing
+- ✅ Annotations store BOTH pixel and normalized coordinates
+- ✅ Annotation consensus for quality control
+- ✅ Export tracking with statistics
+- ✅ Auto-reassignment after too many rejections
 
 ### Pattern 3: Password Reset Flow
 
@@ -1073,6 +1724,7 @@ newReputation = oldReputation + change;
 
 | Date | Migration | Description |
 |------|-----------|-------------|
+| **Phase 1: MVP** | | |
 | 2026-01-14 | `init_vlabel_schema` | Initial schema with Users, Projects, Tasks, Assignments |
 | 2026-01-17 | `add_google_id_fix` | Added Google OAuth support (google_id column) |
 | 2026-01-17 | `update_user_defaults` | Changed user defaults (is_active=false) |
@@ -1080,6 +1732,47 @@ newReputation = oldReputation + change;
 | 2026-01-18 | `add_audit_log` | Added AuditLog for action tracking |
 | 2026-01-18 | `add_system_config` | Added SystemConfig key-value store |
 | 2026-01-18 | `add_password_reset_and_email_service` | Password reset + Email tables |
+| 2026-01-19 | `add_system_announcement` | System announcement notifications |
+| 2026-01-19 | `add_notification_templates` | Notification templates |
+| 2026-01-19 | `granular_system_notifications` | Granular notification types |
+| 2026-01-21 | `init_label_system` | Label management system (categories, labels, requests) |
+| 2026-01-22 | `add_label_created_notification` | Label created notification type |
+| **Phase 2: Production Ready** ⭐ | | |
+| 2026-01-24 | `phase2_enhanced_ml_export_and_workflow` | **Major upgrade:** Added 8 tables for ML export, auto-assignment, workload management |
+
+### Phase 2 Migration Details
+
+**Migration ID:** `20260124_phase2_enhanced_ml_export_and_workflow`
+
+**What Changed:**
+
+**New Tables (8):**
+1. `images` - Image metadata with dimensions for ML export
+2. `datasets` - Image grouping by upload batch
+3. `annotation_consensus` - Final annotations for export
+4. `exports` - ML dataset export tracking
+5. `ai_models` - AI model tracking
+6. `assignment_rules` - Auto-assignment configuration
+7. `user_workload` - Real-time workload tracking
+8. `task_reassignments` - Reassignment audit trail
+
+**Modified Tables (3):**
+- `project_members` + `project_role` column (PROJECT_MANAGER, REVIEWER, ANNOTATOR)
+- `tasks` + `image_id`, `priority`, `deadline`, `difficulty_level`
+- `task_assignments` + `ai_model_id`, `rejection_count`, `skip_reason`, `assigned_by`, `assignment_method`, etc.
+
+**New Enums (4):**
+- `ProjectRole` (PROJECT_MANAGER, REVIEWER, ANNOTATOR)
+- `TaskPriority` (LOW, MEDIUM, HIGH, URGENT)
+- `DifficultyLevel` (EASY, NORMAL, HARD, EXPERT_ONLY)
+- `AssignmentMethod` (MANUAL, AUTO_ROUND_ROBIN, AUTO_LEAST_BUSY, AUTO_SKILL_BASED, AUTO_RANDOM)
+
+**Impact:**
+- ✅ Enables ML dataset export (YOLO, COCO, Pascal VOC)
+- ✅ Auto-assignment with workload balancing
+- ✅ Enhanced workflow with rejection tracking & reassignment
+- ✅ Image metadata for proper coordinate normalization
+- ✅ Annotation consensus for quality control
 
 ### How to Apply Migrations
 
@@ -1116,22 +1809,64 @@ DROP TYPE notification_type;
 
 ## Summary
 
-### Key Strengths of This Design
+### Key Strengths of This Design (Phase 2)
 
 1. ✅ **Type-Safe**: UUIDs, enums, constraints enforce data integrity
 2. ✅ **Flexible**: JSONB allows schema evolution without migrations
 3. ✅ **Scalable**: Indexed foreign keys, composite indexes, JSONB GIN
-4. ✅ **Auditable**: Timestamps, audit logs, email logs
+4. ✅ **Auditable**: Timestamps, audit logs, email logs, reassignment history
 5. ✅ **Secure**: Password hashing, token expiry, cascade deletes
 6. ✅ **Developer-Friendly**: Prisma ORM, clear relationships, meaningful names
+7. ⭐ **ML-Ready**: Image dimensions, normalized coordinates, export tracking
+8. ⭐ **Production-Ready**: Auto-assignment, workload balancing, quality control
 
-### Future Improvements
+### Phase 2 Achievements
 
-- **Partitioning**: Partition `email_logs` and `audit_logs` by date
-- **Soft Deletes**: Add `deleted_at` to critical tables
-- **Full-Text Search**: GIN indexes on text columns
-- **Read Replicas**: Split read/write workloads
-- **Caching Layer**: Redis for hot data (user sessions, notifications)
+✅ **ML Dataset Export**
+- Image metadata with dimensions (width, height) for coordinate normalization
+- Annotation consensus for multi-annotator quality control
+- Export tracking (YOLO, COCO, Pascal VOC formats)
+- Label config snapshots for reproducibility
+
+✅ **Enhanced Workflow**
+- Auto-assignment with configurable strategies (round-robin, least-busy, skill-based)
+- Real-time workload tracking and balancing
+- Rejection tracking with auto-reassignment
+- Skip workflow for problematic tasks
+- Comprehensive audit trail
+
+✅ **AI Integration**
+- AI model tracking for assisted annotation
+- Confidence scores and model performance metrics
+- AI vs human annotation tracking
+
+✅ **Quality Control**
+- Annotation consensus mechanism
+- Inter-Annotator Agreement scoring
+- Quality verification by reviewers
+- Project-specific roles and permissions
+
+### Current Statistics (Phase 2)
+
+- **Total Tables**: 22
+- **Total Indexes**: 30+
+- **Total Enums**: 10
+- **Foreign Keys**: 25+
+- **Lines of SQL**: ~2000+
+- **JSONB Fields**: 15+ (flexible, queryable)
+
+### Future Improvements (Phase 3+)
+
+- **Soft Deletes**: Add `deleted_at` to critical tables (projects, tasks, users)
+- **Annotation History**: Version control for annotations
+- **Comments System**: Discussion threads on specific annotations
+- **Webhooks**: Integration with external systems
+- **Partitioning**: Partition `email_logs`, `audit_logs`, `task_reassignments` by date
+- **Full-Text Search**: GIN indexes on text columns for search
+- **Read Replicas**: Split read/write workloads for performance
+- **Caching Layer**: Redis for hot data (user sessions, notifications, workload counters)
+- **Time-Series Data**: Dedicated table for metrics and analytics
+- **Multi-Model Support**: Support for segmentation, keypoint detection, classification
 
 ---
 
