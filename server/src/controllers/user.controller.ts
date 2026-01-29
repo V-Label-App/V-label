@@ -28,11 +28,14 @@ export class UserController {
           totalTasksDone: true,
           createdAt: true,
           isActive: true,
-          phoneNumber: true
-        }
+          phoneNumber: true,
+        },
       })
-      logger.info('USER', 'User profile:', JSON.stringify({ userId, user }, null, 2))
-      
+      logger.info(
+        'USER',
+        'User profile:',
+        JSON.stringify({ userId, user }, null, 2),
+      )
 
       if (!user) {
         return res.status(404).json({ error: 'User not found' })
@@ -44,7 +47,6 @@ export class UserController {
       return res.status(500).json({ error: 'Internal server error' })
     }
   }
-
 
   /**
    * PUT /api/v1/users/me
@@ -61,12 +63,12 @@ export class UserController {
       }
 
       // Simple validation could be added here or via middleware
-      
+
       const updatedUser = await prisma.user.update({
         where: { id: userId },
         data: {
           fullName,
-          phoneNumber
+          phoneNumber,
         },
         select: {
           id: true,
@@ -78,8 +80,8 @@ export class UserController {
           totalTasksDone: true,
           createdAt: true,
           isActive: true,
-          phoneNumber: true
-        }
+          phoneNumber: true,
+        },
       })
 
       logger.info('USER', `User updated profile: ${userId}`)
@@ -89,7 +91,6 @@ export class UserController {
       return res.status(500).json({ error: 'Internal server error' })
     }
   }
-
 
   /**
    * GET /api/v1/users
@@ -108,9 +109,9 @@ export class UserController {
           totalTasksDone: true,
           createdAt: true,
           isActive: true,
-          phoneNumber: true
+          phoneNumber: true,
         },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'desc' },
       })
 
       return res.json(users)
@@ -130,7 +131,7 @@ export class UserController {
    */
   static async createUser(req: Request, res: Response) {
     try {
-      const { email, password, fullName, role } = req.body
+      const { email, password, fullName, role, phoneNumber } = req.body
 
       if (!email || !password || !fullName) {
         return res.status(400).json({ error: 'Missing required fields' })
@@ -138,7 +139,7 @@ export class UserController {
 
       // Check if user exists
       const existingUser = await prisma.user.findUnique({
-        where: { email }
+        where: { email },
       })
 
       if (existingUser) {
@@ -152,17 +153,19 @@ export class UserController {
           email,
           passwordHash: hashedPassword,
           fullName,
+          phoneNumber,
           role: role || 'ANNOTATOR',
-          isActive: true
+          isActive: true,
         },
         select: {
           id: true,
           email: true,
           fullName: true,
+          phoneNumber: true,
           role: true,
           isActive: true,
-          createdAt: true
-        }
+          createdAt: true,
+        },
       })
 
       logger.info('USER', `Admin created user: ${newUser.email}`)
@@ -188,7 +191,7 @@ export class UserController {
           fullName,
           role,
           isActive,
-          phoneNumber
+          phoneNumber,
         },
         select: {
           id: true,
@@ -196,8 +199,8 @@ export class UserController {
           fullName: true,
           role: true,
           isActive: true,
-          createdAt: true
-        }
+          createdAt: true,
+        },
       })
 
       logger.info('USER', `Admin updated user: ${id}`)
@@ -215,7 +218,7 @@ export class UserController {
   static async getUserById(req: Request, res: Response) {
     try {
       const { id } = req.params as { id: string }
-      
+
       const user = await prisma.user.findUnique({
         where: { id },
         select: {
@@ -228,8 +231,8 @@ export class UserController {
           totalTasksDone: true,
           createdAt: true,
           isActive: true,
-          phoneNumber: true
-        }
+          phoneNumber: true,
+        },
       })
 
       if (!user) {
@@ -238,8 +241,8 @@ export class UserController {
 
       return res.json(user)
     } catch (error) {
-       console.error('Get user error:', error)
-       return res.status(500).json({ error: 'Internal server error' })
+      console.error('Get user error:', error)
+      return res.status(500).json({ error: 'Internal server error' })
     }
   }
 
@@ -252,7 +255,7 @@ export class UserController {
       const { id } = req.params as { id: string }
 
       await prisma.user.delete({
-        where: { id }
+        where: { id },
       })
 
       logger.info('USER', `Admin deleted user: ${id}`)
