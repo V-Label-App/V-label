@@ -21,6 +21,12 @@ async function main() {
       fullName: 'Manager User',
     },
     {
+      email: 'manager2@vlabel.com',
+      password: '123',
+      role: UserRole.MANAGER,
+      fullName: 'Manager User 2',
+    },
+    {
       email: 'reviewer@vlabel.com',
       password: '123',
       role: UserRole.REVIEWER,
