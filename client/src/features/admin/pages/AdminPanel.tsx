@@ -37,6 +37,7 @@ import { AdminChatSettingsPage } from "./AdminChatSettingsPage";
 import { AdminDashboardPage } from "./AdminDashboardPage";
 import { AdminEmailSettingsPage } from "./AdminEmailSettingsPage";
 import { AdminNotificationSettingsPage } from "./AdminNotificationSettingsPage";
+import { AdminProjectCategoriesPage } from "./AdminProjectCategoriesPage";
 import {
   Users,
   Database,
@@ -53,6 +54,7 @@ import {
   Sparkles,
   LayoutDashboard,
   Bell,
+  FolderOpen,
 } from "lucide-react";
 
 interface User {
@@ -346,6 +348,17 @@ export function AdminPanel({}: AdminPanelProps) {
           >
             <Users className="w-5 h-5" />
             <span className="font-medium">Users</span>
+          </button>
+          <button
+            onClick={() => setActiveTab("categories")}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors mt-1 ${
+              activeTab === "categories"
+                ? "bg-blue-50 text-blue-700"
+                : "text-gray-700 hover:bg-gray-50"
+            }`}
+          >
+            <FolderOpen className="w-5 h-5" />
+            <span className="font-medium">Project Categories</span>
           </button>
           <button
             onClick={() => setActiveTab("settings")}
@@ -789,6 +802,8 @@ export function AdminPanel({}: AdminPanelProps) {
         {activeTab === "ai-chat" && <AdminChatSettingsPage />}
 
         {activeTab === "notifications" && <AdminNotificationSettingsPage />}
+
+        {activeTab === "categories" && <AdminProjectCategoriesPage />}
       </div>
 
       <Dialog
