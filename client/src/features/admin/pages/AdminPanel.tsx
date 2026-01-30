@@ -28,6 +28,7 @@ import {
   DialogDescription,
 } from "../../../components/ui/dialog";
 import { Label } from "../../../components/ui/label";
+
 import { motion } from "framer-motion";
 import { authApi } from "../../../services/auth.api";
 import { toast } from "sonner";
@@ -114,6 +115,7 @@ export function AdminPanel() {
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [newPhone, setNewPhone] = useState("");
   const [newRole, setNewRole] = useState<
     "ADMIN" | "MANAGER" | "REVIEWER" | "ANNOTATOR"
   >("ANNOTATOR");
@@ -142,7 +144,6 @@ export function AdminPanel() {
           };
         })
         .filter((u): u is User => u !== null);
-
       setUsers(transformedUsers);
     } catch (error) {
       console.error("Failed to fetch users", error);
@@ -169,6 +170,7 @@ export function AdminPanel() {
         fullName: newName,
         email: newEmail,
         password: newPassword,
+        phoneNumber: newPhone,
         role: newRole,
       });
       toast.success("User created successfully");
@@ -177,6 +179,7 @@ export function AdminPanel() {
       setNewName("");
       setNewEmail("");
       setNewPassword("");
+      setNewPhone("");
       setNewRole("ANNOTATOR");
       fetchUsers();
     } catch (error: unknown) {
@@ -466,6 +469,16 @@ export function AdminPanel() {
                             placeholder="••••••••"
                             value={newPassword}
                             onChange={(e) => setNewPassword(e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Phone Number (Optional)</Label>
+                          <input
+                            type="tel"
+                            className="w-full px-4 py-2 rounded-md border border-gray-300"
+                            placeholder="+84 123 456 789"
+                            value={newPhone}
+                            onChange={(e) => setNewPhone(e.target.value)}
                           />
                         </div>
                         <div className="space-y-2">
