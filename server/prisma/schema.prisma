@@ -46,6 +46,20 @@ model User {
   labelRequestsSent    LabelRequest[]         @relation("LabelRequester")
   labelRequestsReviewed LabelRequest[]        @relation("LabelReviewer")
 
+  // Phase 2: Workflow Relations
+  imagesUploaded       Image[]                @relation("ImageUploader")
+  datasetsUploaded     Dataset[]              @relation("DatasetUploader")
+  exportsGenerated     Export[]               @relation("Exporter")
+  taskAssignmentsGiven TaskAssignment[]       @relation("TaskAssigner")
+  consensusVerified    AnnotationConsensus[]  @relation("ConsensusVerifier")
+  
+  // Reassignment tracking
+  reassignmentsTriggered TaskReassignment[]     @relation("Reassigner")
+  reassignmentsFrom      TaskReassignment[]     @relation("OldAnnotator")
+  reassignmentsTo        TaskReassignment[]     @relation("NewAnnotator")
+
+  workloads            UserWorkload[]
+
   @@map("users")
 }
 
@@ -92,6 +106,13 @@ model Project {
   projectLabels ProjectLabel[]
   labelRequests LabelRequest[]
 
+  // Phase 2: Workflow Relations
+  images          Image[]
+  datasets        Dataset[]
+  exports         Export[]
+  assignmentRule  AssignmentRule?
+  userWorkloads   UserWorkload[]
+
   @@map("projects")
 }
 
@@ -112,21 +133,21 @@ model ProjectMember {
   project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  // Phase 2: Project Role
+  projectRole ProjectRole @default(ANNOTATOR) @map("project_role")
+
   @@unique([projectId, userId])
+  @@index([projectRole])
   @@map("project_members")
 }
 
-model ProjectCategory {
-  id          String    @id @default(uuid()) @db.Uuid
-  name        String    @unique @db.VarChar(100)
-  description String?   @db.Text
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-
-  projects    Project[]
-
-  @@map("project_categories")
+enum ProjectRole {
+  MANAGER
+  REVIEWER
+  ANNOTATOR
 }
+
+
 
 // =========================================================
 // 3. TASK & ASSIGNMENT
@@ -135,14 +156,45 @@ model ProjectCategory {
 model Task {
   id        String     @id @default(uuid()) @db.Uuid
   projectId String     @map("project_id") @db.Uuid
-  imageUrl  String     @map("image_url") @db.Text
+  
+  // Phase 2: Enhanced Image Management
+  // Old field - optionally keep for backward compat or remove if migrated
+  imageUrl  String?    @map("image_url") @db.Text 
+  imageId   String?    @map("image_id") @db.Uuid
+  
   status    TaskStatus @default(TODO)
 
+  // Phase 2: Task Management
+  priority        TaskPriority    @default(MEDIUM)
+  deadline        DateTime?
+  difficultyLevel DifficultyLevel @default(NORMAL) @map("difficulty_level")
+
   project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  image     Image?     @relation(fields: [imageId], references: [id], onDelete: Cascade)
   
   assignments TaskAssignment[]
+  
+  // Phase 2: Consensus & Re-assignments
+  consensus               AnnotationConsensus?
+  reassignments           TaskReassignment[]
 
+  @@index([imageId])
+  @@index([priority, deadline])
   @@map("tasks")
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum DifficultyLevel {
+  EASY
+  NORMAL
+  HARD
+  EXPERT_ONLY
 }
 
 enum TaskStatus {
@@ -179,7 +231,35 @@ model TaskAssignment {
   annotator      User    @relation("Annotator", fields: [annotatorId], references: [id])
   reviewer       User?   @relation("Reviewer", fields: [reviewerId], references: [id])
 
+  // Phase 2: AI & Workflow
+  aiModelId      String?  @map("ai_model_id") @db.Uuid
+  aiModel        AiModel? @relation(fields: [aiModelId], references: [id])
+  aiConfidence   Float?   @map("ai_confidence")
+
+  // Workflow tracking
+  rejectionCount Int      @default(0) @map("rejection_count")
+  maxRejections  Int      @default(3) @map("max_rejections")
+  skipReason     String?  @map("skip_reason") @db.Text
+  
+  // Time tracking
+  estimatedTimeMinutes Int? @map("estimated_time_minutes")
+  actualTimeSeconds    Int? @map("actual_time_seconds")
+
+  // Assignment metadata
+  assignedBy       String?          @map("assigned_by") @db.Uuid
+  assigner         User?            @relation("TaskAssigner", fields: [assignedBy], references: [id])
+  assignmentMethod AssignmentMethod @default(MANUAL) @map("assignment_method")
+
+  @@index([aiModelId])
   @@map("task_assignments")
+}
+
+enum AssignmentMethod {
+  MANUAL
+  AUTO_ROUND_ROBIN
+  AUTO_LEAST_BUSY
+  AUTO_SKILL_BASED
+  AUTO_RANDOM
 }
 
 enum AssignmentStatus {
@@ -351,8 +431,234 @@ model EmailLog {
 }
 
 // =========================================================
+// PHASE 2: ML EXPORT & ADVANCED WORKFLOW
+// =========================================================
+
+model Image {
+  id               String   @id @default(uuid()) @db.Uuid
+  projectId        String   @map("project_id") @db.Uuid
+  datasetId        String?  @map("dataset_id") @db.Uuid
+
+  originalFilename String   @map("original_filename") @db.VarChar(255)
+  storageUrl       String   @map("storage_url") @db.Text
+  storagePath      String?  @map("storage_path") @db.Text
+
+  // CRITICAL: Dimensions for normalization
+  width            Int
+  height           Int
+  channels         Int      @default(3)
+
+  fileSizeBytes    BigInt?  @map("file_size_bytes")
+  format           String?  @db.VarChar(10)
+  checksum         String?  @db.VarChar(64)
+
+  uploadedBy       String?  @map("uploaded_by") @db.Uuid
+  uploadedAt       DateTime @default(now()) @map("uploaded_at")
+
+  project          Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  dataset          Dataset? @relation(fields: [datasetId], references: [id])
+  uploader         User?    @relation("ImageUploader", fields: [uploadedBy], references: [id])
+  tasks            Task[]
+
+  @@unique([projectId, checksum])
+  @@index([projectId])
+  @@index([datasetId])
+  @@index([checksum])
+  @@map("images")
+}
+
+model Dataset {
+  id              String   @id @default(uuid()) @db.Uuid
+  projectId       String   @map("project_id") @db.Uuid
+  
+  name            String   @db.VarChar(255)
+  description     String?  @db.Text
+  
+  source          String?  @db.VarChar(100)
+  sourceMetadata  Json?    @map("source_metadata")
+  
+  totalImages     Int      @default(0) @map("total_images")
+  processedImages Int      @default(0) @map("processed_images")
+  
+  uploadedBy      String?  @map("uploaded_by") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploader        User?    @relation("DatasetUploader", fields: [uploadedBy], references: [id])
+  images          Image[]
+
+  @@index([projectId])
+  @@map("datasets")
+}
+
+model AnnotationConsensus {
+  id                  String   @id @default(uuid()) @db.Uuid
+  taskId              String   @unique @map("task_id") @db.Uuid
+  
+  finalAnnotations    Json     @map("final_annotations")
+  
+  consensusMethod     String   @map("consensus_method") @db.VarChar(50)
+  sourceAssignmentIds String[] @map("source_assignment_ids") @db.Uuid
+  agreementScore      Float?   @map("agreement_score")
+  
+  isVerified          Boolean  @default(false) @map("is_verified")
+  verifiedBy          String?  @map("verified_by") @db.Uuid
+  verifiedAt          DateTime? @map("verified_at")
+  
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  task                Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  verifier            User?    @relation("ConsensusVerifier", fields: [verifiedBy], references: [id])
+
+  @@index([isVerified])
+  @@map("annotation_consensus")
+}
+
+model Export {
+  id               String   @id @default(uuid()) @db.Uuid
+  projectId        String   @map("project_id") @db.Uuid
+  
+  format           String   @db.VarChar(50)
+  version          Int      @default(1)
+  
+  splitType        String?  @map("split_type") @db.VarChar(50)
+  splitRatio       Json?    @map("split_ratio")
+  filterCriteria   Json?    @map("filter_criteria")
+  
+  totalImages        Int?   @map("total_images")
+  totalAnnotations   Int?   @map("total_annotations")
+  classDistribution  Json?  @map("class_distribution")
+  
+  fileUrl          String   @map("file_url") @db.Text
+  fileSizeBytes    BigInt?  @map("file_size_bytes")
+  checksum         String?  @db.VarChar(64)
+  
+  exportedBy       String   @map("exported_by") @db.Uuid
+  downloadCount    Int      @default(0) @map("download_count")
+  createdAt        DateTime @default(now()) @map("created_at")
+  
+  labelConfigSnapshot Json? @map("label_config_snapshot")
+
+  project          Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  exporter         User     @relation("Exporter", fields: [exportedBy], references: [id])
+
+  @@index([projectId])
+  @@index([createdAt])
+  @@index([format])
+  @@map("exports")
+}
+
+model AiModel {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @db.VarChar(100)
+  version     String   @db.VarChar(50)
+  modelType   String   @map("model_type") @db.VarChar(50)
+  
+  config      Json?
+  metrics     Json?
+  
+  isActive    Boolean  @default(true) @map("is_active")
+  endpointUrl String?  @map("endpoint_url") @db.Text
+  
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  taskAssignments TaskAssignment[]
+
+  @@index([isActive])
+  @@map("ai_models")
+}
+
+model AssignmentRule {
+  id                String   @id @default(uuid()) @db.Uuid
+  projectId         String   @unique @map("project_id") @db.Uuid
+  
+  isAutoAssignEnabled Boolean @default(false) @map("is_auto_assign_enabled")
+  assignmentStrategy  String  @default("ROUND_ROBIN") @map("assignment_strategy") @db.VarChar(50)
+  
+  autoAssignReviewer  Boolean @default(true) @map("auto_assign_reviewer")
+  reviewerDelayHours  Int     @default(0) @map("reviewer_delay_hours")
+  
+  maxTasksPerAnnotator Int    @default(10) @map("max_tasks_per_annotator")
+  maxTasksPerReviewer  Int    @default(20) @map("max_tasks_per_reviewer")
+  
+  minAnnotatorReputation Float @default(0) @map("min_annotator_reputation")
+  minReviewerReputation  Float @default(70) @map("min_reviewer_reputation")
+  
+  maxRejectionsBeforeReassign Int @default(3) @map("max_rejections_before_reassign")
+  autoReassignOnSkip          Boolean @default(true) @map("auto_reassign_on_skip")
+  
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  project             Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("assignment_rules")
+}
+
+model UserWorkload {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @map("user_id") @db.Uuid
+  projectId         String   @map("project_id") @db.Uuid
+  
+  assignedTasks      Int      @default(0) @map("assigned_tasks")
+  inProgressTasks    Int      @default(0) @map("in_progress_tasks")
+  pendingReviewTasks Int      @default(0) @map("pending_review_tasks")
+  
+  maxConcurrentTasks Int      @default(10) @map("max_concurrent_tasks")
+  availabilityStatus String   @default("AVAILABLE") @map("availability_status") @db.VarChar(50)
+  
+  lastAssignedAt     DateTime? @map("last_assigned_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project            Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId])
+  @@index([availabilityStatus, assignedTasks])
+  @@map("user_workload")
+}
+
+model TaskReassignment {
+  id             String   @id @default(uuid()) @db.Uuid
+  taskId         String   @map("task_id") @db.Uuid
+  
+  oldAnnotatorId String?  @map("old_annotator_id") @db.Uuid
+  newAnnotatorId String?  @map("new_annotator_id") @db.Uuid
+  
+  reason         String   @db.VarChar(100)
+  reassignedBy   String   @map("reassigned_by") @db.Uuid
+  notes          String?  @db.Text
+  
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  task           Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  oldAnnotator   User?    @relation("OldAnnotator", fields: [oldAnnotatorId], references: [id])
+  newAnnotator   User?    @relation("NewAnnotator", fields: [newAnnotatorId], references: [id])
+  reassigner     User     @relation("Reassigner", fields: [reassignedBy], references: [id])
+
+  @@index([oldAnnotatorId])
+  @@index([createdAt])
+  @@map("task_reassignments")
+}
+
+// =========================================================
 // LABEL MANAGEMENT SYSTEM
 // =========================================================
+
+model ProjectCategory {
+  id          String    @id @default(uuid()) @db.Uuid
+  name        String    @unique @db.VarChar(100)
+  description String?   @db.Text
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  projects    Project[]
+
+  @@map("project_categories")
+}
 
 model LabelCategory {
   id          String   @id @default(uuid()) @db.Uuid
