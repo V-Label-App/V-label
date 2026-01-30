@@ -6,8 +6,8 @@ import { Checkbox } from './ui/checkbox';
 import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Card } from './ui/card';
-import { labelApi, labelCategoryApi, type Label, type LabelCategory } from '../services/label.api';
-import { Tag, Search, Info, ChevronDown, ChevronRight, Loader2, Plus } from 'lucide-react';
+import { labelApi, labelCategoryApi, projectLabelApi, type Label, type LabelCategory } from '../services/label.api';
+import { Tag, Search, Info, ChevronDown, ChevronRight, Loader2, Plus, Globe, Lock } from 'lucide-react';
 import { Alert, AlertDescription } from './ui/alert';
 import { toast } from 'sonner';
 import {
@@ -34,7 +34,7 @@ const COLOR_PALETTE = [
 ];
 
 export function LabelSelector({
-  projectId: _projectId,
+  projectId,
   selectedLabelIds,
   onSelectionChange,
   error,
@@ -62,20 +62,38 @@ export function LabelSelector({
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [labelsData, categoriesData] = await Promise.all([
-        labelApi.getAll(), // Get all labels (global + project-specific)
-        labelCategoryApi.getAll(),
-      ]);
-      setAvailableLabels(labelsData);
-      setCategories(categoriesData);
-      // Auto-expand all categories
-      setExpandedCategories(categoriesData.map(c => c.id));
+      if (projectId) {
+        // Project context: Get available (global) + assigned (including private)
+        const [{ available, assigned }, categoriesData] = await Promise.all([
+          projectLabelApi.getAvailableLabels(projectId),
+          labelCategoryApi.getAll(),
+        ]);
+        // Merge available and assigned, ensuring uniqueness by ID just in case
+        const merged = [...available];
+        assigned.forEach(l => {
+          if (!merged.find(existing => existing.id === l.id)) {
+            merged.push(l);
+          }
+        });
+        setAvailableLabels(merged);
+        setCategories(categoriesData);
+        setExpandedCategories(categoriesData.map(c => c.id));
+      } else {
+        // Global context: Get ALL labels
+        const [labelsData, categoriesData] = await Promise.all([
+          labelApi.getAll(),
+          labelCategoryApi.getAll(),
+        ]);
+        setAvailableLabels(labelsData);
+        setCategories(categoriesData);
+        setExpandedCategories(categoriesData.map(c => c.id));
+      }
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'Failed to load labels');
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [projectId]);
 
   useEffect(() => {
     fetchData();
@@ -185,9 +203,14 @@ export function LabelSelector({
       const newLabel = await labelApi.create({
         name: newLabelName.trim(),
         color: newLabelColor,
-        isGlobal: false, // Project-specific label
+        isGlobal: !projectId, // Private if in project, global if outside
         categoryId,
       });
+
+      // If in project context, immediately assign to project to prevent orphans and ensure visibility
+      if (projectId) {
+        await projectLabelApi.assignLabel(projectId, newLabel.id);
+      }
 
       // Add to available labels and auto-select it
       setAvailableLabels(prev => [...prev, newLabel]);
@@ -367,6 +390,11 @@ export function LabelSelector({
                                   style={{ backgroundColor: label.color }}
                                 />
                                 <span className="text-sm truncate">{label.name}</span>
+                                {label.isGlobal ? (
+                                  <Globe className="w-3 h-3 text-blue-600 ml-auto flex-shrink-0" />
+                                ) : (
+                                  <Lock className="w-3 h-3 text-muted-foreground opacity-50 ml-auto flex-shrink-0" />
+                                )}
                               </div>
                             </div>
                           );
@@ -440,11 +468,10 @@ export function LabelSelector({
                   <button
                     key={color}
                     type="button"
-                    className={`w-8 h-8 rounded-full border-2 transition-all ${
-                      newLabelColor === color
-                        ? 'border-gray-900 scale-110'
-                        : 'border-transparent hover:scale-105'
-                    }`}
+                    className={`w-8 h-8 rounded-full border-2 transition-all ${newLabelColor === color
+                      ? 'border-gray-900 scale-110'
+                      : 'border-transparent hover:scale-105'
+                      }`}
                     style={{ backgroundColor: color }}
                     onClick={() => setNewLabelColor(color)}
                   />

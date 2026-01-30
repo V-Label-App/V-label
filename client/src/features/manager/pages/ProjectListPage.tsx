@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../../components/ui/button';
 import { Card } from '../../../components/ui/card';
@@ -18,24 +18,29 @@ import {
     Tag,
     Users,
     Calendar as CalendarIcon,
+    Loader2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { UserNav } from '../../../components/common/UserNav';
 import { useAuth } from '../../../context/AuthContext';
-import { getProjects, addProject } from '../data/projects.mock';
-import type { Project } from '../data/projects.mock';
+import { projectApi } from '../../../services/project.api';
+import { ProjectStatus } from '../../../types/project.types';
+import type { Project } from '../../../types/project.types';
 
 export function ProjectListPage() {
     const navigate = useNavigate();
     const { isImpersonating } = useAuth();
-    const [projects, setProjects] = useState<Project[]>(getProjects());
+
+    // Data State
+    const [projects, setProjects] = useState<Project[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
 
     // Search & Filter State
     const [searchQuery, setSearchQuery] = useState('');
-    const [filterStatus, setFilterStatus] = useState<string>('all');
-    const [filterAnnotationType, setFilterAnnotationType] = useState<string>('all');
+    const [filterStatus, setFilterStatus] = useState<ProjectStatus | 'ALL'>('ALL');
+    // const [filterAnnotationType, setFilterAnnotationType] = useState<string>('all'); // Not supported by backend yet
 
     // Create Project Form State
     const [projectName, setProjectName] = useState('');
@@ -43,70 +48,83 @@ export function ProjectListPage() {
     const [annotationType, setAnnotationType] = useState<'bounding-box' | 'polygon' | 'segmentation'>('bounding-box');
     const [projectDeadline, setProjectDeadline] = useState<Date>();
 
-    // Filtered Projects
-    const filteredProjects = useMemo(() => {
-        return projects.filter(project => {
-            const matchesSearch = project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                project.id.toLowerCase().includes(searchQuery.toLowerCase());
+    // Fetch Projects
+    const fetchProjects = async () => {
+        setIsLoading(true);
+        try {
+            const response = await projectApi.getAll({
+                search: searchQuery || undefined,
+                status: filterStatus === 'ALL' ? undefined : filterStatus
+            });
+            setProjects(response.data);
+        } catch (error) {
+            console.error('Failed to fetch projects', error);
+            toast.error('Failed to load projects');
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
-            const projectProgress = project.tasks.length > 0
-                ? (project.tasks.filter(t => t.status === 'approved').length / project.tasks.length) * 100
-                : 0;
+    // Debounce search
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            fetchProjects();
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [searchQuery, filterStatus]);
 
-            let matchesStatus = true;
-            if (filterStatus === 'completed') {
-                matchesStatus = projectProgress === 100;
-            } else if (filterStatus === 'in-progress') {
-                matchesStatus = projectProgress > 0 && projectProgress < 100;
-            } else if (filterStatus === 'not-started') {
-                matchesStatus = projectProgress === 0;
-            }
-
-            const matchesType = filterAnnotationType === 'all' || project.annotationType === filterAnnotationType;
-
-            return matchesSearch && matchesStatus && matchesType;
-        });
-    }, [projects, searchQuery, filterStatus, filterAnnotationType]);
-
-    const handleCreateProject = () => {
-        if (!projectName || !projectDescription || !projectDeadline) {
+    const handleCreateProject = async () => {
+        if (!projectName || !projectDeadline) {
             toast.error('Please fill in all required fields');
             return;
         }
 
-        const newProject: Project = {
-            id: `PRJ-${Date.now()}`,
-            name: projectName,
-            description: projectDescription,
-            annotationType,
-            deadline: format(projectDeadline, 'yyyy-MM-dd'),
-            createdAt: format(new Date(), 'yyyy-MM-dd'),
-            totalImages: 0,
-            assignedTo: [],
-            labelIds: [],
-            tasks: [],
-        };
+        try {
+            await projectApi.create({
+                name: projectName,
+                description: projectDescription,
+                deadline: projectDeadline.toISOString(),
+                enableAiAssistance: false,
+                // store annotationType in labelConfig for now as metadata
+                labelConfig: [{ type: 'meta', annotationType }]
+            });
 
-        addProject(newProject);
-        setProjects(getProjects()); // Refresh list
+            toast.success('Project created successfully!');
+            setIsCreateProjectOpen(false);
 
-        // Reset form
-        setProjectName('');
-        setProjectDescription('');
-        setAnnotationType('bounding-box');
-        setProjectDeadline(undefined);
-        setIsCreateProjectOpen(false);
+            // Reset form
+            setProjectName('');
+            setProjectDescription('');
+            setAnnotationType('bounding-box');
+            setProjectDeadline(undefined);
 
-        toast.success('Project created successfully! You can now add images and labels.');
+            // Refresh list
+            fetchProjects();
+        } catch (error) {
+            console.error('Create project failed', error);
+            toast.error('Failed to create project');
+        }
     };
 
-    const getAnnotationTypeLabel = (type: string) => {
+    const getAnnotationTypeLabel = (project: Project) => {
+        // Try to find annotation type in labelConfig
+        const meta = project.labelConfig?.find((l: any) => l.type === 'meta');
+        const type = meta?.annotationType || 'bounding-box';
+
         const labels = {
             'bounding-box': 'Bounding Box',
             'polygon': 'Polygon',
             'segmentation': 'Segmentation',
         };
-        return labels[type as keyof typeof labels];
+        return labels[type as keyof typeof labels] || type;
+    };
+
+    const getProgress = (project: Project) => {
+        // Calculate progress based on _count if available, or 0
+        if (!project._count || project._count.tasks === 0) return 0;
+        // Since we don't have task status details in list view, return 0 or placeholder
+        // To get real progress, backend needs to return status counts.
+        return 0;
     };
 
     return (
@@ -163,7 +181,7 @@ export function ProjectListPage() {
                             <div className="relative">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                                 <Input
-                                    placeholder="Search projects by name or ID..."
+                                    placeholder="Search projects by name..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     className="pl-9"
@@ -171,46 +189,36 @@ export function ProjectListPage() {
                             </div>
                         </div>
 
-                        <Select value={filterStatus} onValueChange={setFilterStatus}>
+                        <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as ProjectStatus | 'ALL')}>
                             <SelectTrigger className="w-[180px]">
                                 <SelectValue placeholder="Filter by status" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="all">All Status</SelectItem>
-                                <SelectItem value="not-started">Not Started</SelectItem>
-                                <SelectItem value="in-progress">In Progress</SelectItem>
-                                <SelectItem value="completed">Completed</SelectItem>
-                            </SelectContent>
-                        </Select>
-
-                        <Select value={filterAnnotationType} onValueChange={setFilterAnnotationType}>
-                            <SelectTrigger className="w-[180px]">
-                                <SelectValue placeholder="Annotation type" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Types</SelectItem>
-                                <SelectItem value="bounding-box">Bounding Box</SelectItem>
-                                <SelectItem value="polygon">Polygon</SelectItem>
-                                <SelectItem value="segmentation">Segmentation</SelectItem>
+                                <SelectItem value="ALL">All Status</SelectItem>
+                                <SelectItem value={ProjectStatus.ACTIVE}>Active</SelectItem>
+                                <SelectItem value={ProjectStatus.PAUSED}>Paused</SelectItem>
+                                <SelectItem value={ProjectStatus.COMPLETED}>Completed</SelectItem>
+                                <SelectItem value={ProjectStatus.ARCHIVED}>Archived</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
                 </Card>
 
                 {/* Projects Grid */}
-                {filteredProjects.length === 0 ? (
+                {isLoading ? (
+                    <div className="flex justify-center py-12">
+                        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+                    </div>
+                ) : projects.length === 0 ? (
                     <Card className="p-12 text-center">
                         <FolderKanban className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                        <p className="text-muted-foreground">No projects found matching your filters</p>
+                        <p className="text-muted-foreground">No projects found</p>
                     </Card>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {filteredProjects.map((project) => {
-                            const progress = project.tasks.length > 0
-                                ? (project.tasks.filter(t => t.status === 'approved').length / project.tasks.length) * 100
-                                : 0;
-
-                            const isProjectOverdue = new Date(project.deadline) < new Date();
+                        {projects.map((project) => {
+                            const progress = getProgress(project);
+                            const isProjectOverdue = project.deadline ? new Date(project.deadline) < new Date() : false;
 
                             return (
                                 <Card
@@ -226,12 +234,16 @@ export function ProjectListPage() {
                                             </div>
                                             <div>
                                                 <h3 className="font-semibold">{project.name}</h3>
-                                                <p className="text-xs text-muted-foreground">{project.id}</p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {project.status}
+                                                </p>
                                             </div>
                                         </div>
                                     </div>
 
-                                    <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{project.description}</p>
+                                    <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+                                        {project.description || 'No description'}
+                                    </p>
 
                                     <div className="space-y-3 mb-4">
                                         <div className="flex items-center justify-between text-sm">
@@ -244,18 +256,18 @@ export function ProjectListPage() {
                                     <div className="space-y-2 mb-4">
                                         <div className="flex items-center justify-between text-sm">
                                             <span className="text-muted-foreground">Total Images</span>
-                                            <span className="font-medium">{project.totalImages}</span>
+                                            <span className="font-medium">{project.totalImages || 0}</span>
                                         </div>
                                         <div className="flex items-center justify-between text-sm">
                                             <span className="text-muted-foreground">Annotation Type</span>
                                             <Badge variant="outline" className="text-xs">
-                                                {getAnnotationTypeLabel(project.annotationType)}
+                                                {getAnnotationTypeLabel(project)}
                                             </Badge>
                                         </div>
                                         <div className="flex items-center justify-between text-sm">
                                             <span className="text-muted-foreground">Deadline</span>
                                             <span className={isProjectOverdue ? 'text-red-600 font-medium' : 'font-medium'}>
-                                                {format(new Date(project.deadline), 'MMM dd, yyyy')}
+                                                {project.deadline ? format(new Date(project.deadline), 'MMM dd, yyyy') : 'No deadline'}
                                             </span>
                                         </div>
                                     </div>
@@ -263,14 +275,14 @@ export function ProjectListPage() {
                                     <div className="pt-4 border-t space-y-2">
                                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                             <Users className="w-4 h-4" />
-                                            <span>Assigned to {project.assignedTo.length} annotator{project.assignedTo.length !== 1 ? 's' : ''}</span>
+                                            <span>
+                                                {project._count?.members || 0} members
+                                            </span>
                                         </div>
-                                        {project.labelIds && project.labelIds.length > 0 && (
-                                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                                <Tag className="w-4 h-4" />
-                                                <span>{project.labelIds.length} label{project.labelIds.length !== 1 ? 's' : ''}</span>
-                                            </div>
-                                        )}
+                                        {/* 
+                                         // Label count not strictly available in list response _count unless requested
+                                         // skipping for now
+                                        */}
                                     </div>
                                 </Card>
                             );
@@ -285,7 +297,7 @@ export function ProjectListPage() {
                     <DialogHeader>
                         <DialogTitle>Create New Project</DialogTitle>
                         <DialogDescription>
-                            Set up a new annotation project with images and assign annotators
+                            Set up a new annotation project
                         </DialogDescription>
                     </DialogHeader>
 
@@ -301,9 +313,9 @@ export function ProjectListPage() {
                             </div>
 
                             <div className="space-y-2">
-                                <Label>Description *</Label>
+                                <Label>Description</Label>
                                 <Textarea
-                                    placeholder="Describe the project goals and requirements..."
+                                    placeholder="Describe the project goals..."
                                     value={projectDescription}
                                     onChange={(e) => setProjectDescription(e.target.value)}
                                     rows={3}
@@ -363,7 +375,7 @@ export function ProjectListPage() {
                             <Button
                                 className="flex-1 bg-blue-500 hover:bg-blue-600"
                                 onClick={handleCreateProject}
-                                disabled={!projectName || !projectDescription || !projectDeadline}
+                                disabled={!projectName || !projectDeadline}
                             >
                                 Create Project
                             </Button>
@@ -371,7 +383,6 @@ export function ProjectListPage() {
                     </div>
                 </DialogContent>
             </Dialog>
-
-                    </div>
+        </div>
     );
-}
+}         
