@@ -3,10 +3,17 @@ import { socketService } from "../services/socket.service";
 import { notificationApi } from "../services/notification.api";
 import type { Notification } from "../services/notification.api";
 
+interface SystemEventData {
+  notification?: Notification;
+  label?: { name: string };
+  enabled?: boolean;
+  [key: string]: unknown;
+}
+
 interface SystemEvent {
   type: string;
   timestamp: Date;
-  data: any;
+  data: SystemEventData;
   triggeredBy?: string;
 }
 
@@ -106,8 +113,8 @@ export function useNotifications() {
             const notification: Notification = {
               id: `temp-${Date.now()}`,
               type: "SYSTEM_CHAT_CONFIG",
-              title,
-              message,
+              title: title || "System Update",
+              message: message || "Configuration updated",
               isRead: false,
               createdAt: new Date().toISOString(),
               metadata: event.data,
@@ -124,18 +131,20 @@ export function useNotifications() {
               event.data,
             );
 
-            const announcement: Notification = {
-              id: `temp-${Date.now()}`,
-              type: "SYSTEM_ANNOUNCEMENT",
-              title: event.data.notification.title,
-              message: event.data.notification.message,
-              isRead: false,
-              createdAt: new Date().toISOString(),
-              metadata: event.data,
-            };
+            if (event.data.notification) {
+              const announcement: Notification = {
+                id: `temp-${Date.now()}`,
+                type: "SYSTEM_ANNOUNCEMENT",
+                title: event.data.notification.title,
+                message: event.data.notification.message,
+                isRead: false,
+                createdAt: new Date().toISOString(),
+                metadata: event.data,
+              };
 
-            setNotifications((prev) => [announcement, ...prev]);
-            setUnreadCount((prev) => prev + 1);
+              setNotifications((prev) => [announcement, ...prev]);
+              setUnreadCount((prev) => prev + 1);
+            }
             break;
           }
 
@@ -163,7 +172,7 @@ export function useNotifications() {
             break;
           }
 
-          case "label:created":
+          case "label:created": {
             // console.log('[Notifications] Handling label created:', event.data);
 
             // Validation: Ensure we have either a pre-formatted notification OR valid label data
@@ -187,6 +196,7 @@ export function useNotifications() {
             setNotifications((prev) => [labelNotification, ...prev]);
             setUnreadCount((prev) => prev + 1);
             break;
+          }
 
           case "task:assigned":
           case "task:submitted":
