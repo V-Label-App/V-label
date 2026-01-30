@@ -19,6 +19,7 @@ certbot/www/
 # Backups
 backups/
 *.sql
+!server/prisma/migrations/**/*.sql
 *.sql.gz
 
 # Docker
