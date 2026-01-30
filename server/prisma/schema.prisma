@@ -342,6 +342,7 @@ model EmailLog {
 model LabelCategory {
   id          String   @id @default(uuid()) @db.Uuid
   name        String   @unique @db.VarChar(100)
+  color       String?  @db.VarChar(7) // Hex color code
   description String?  @db.Text
   createdAt   DateTime @default(now()) @map("created_at")
 
