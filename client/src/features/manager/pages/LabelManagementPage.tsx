@@ -146,11 +146,10 @@ function DraggableLabelItem({
     <div
       ref={setNodeRef}
       style={style}
-      className={`group flex items-center gap-2 p-3 rounded-lg border transition-all ${
-        isSelected
-          ? "bg-blue-50 border-blue-200"
-          : "bg-white border-gray-200 hover:border-gray-300"
-      } ${isDragging ? "shadow-lg z-50" : ""}`}
+      className={`group flex items-center gap-2 p-3 rounded-lg border transition-all ${isSelected
+        ? 'bg-blue-50 border-blue-200'
+        : 'bg-white border-gray-200 hover:border-gray-300'
+        } ${isDragging ? 'shadow-lg z-50' : ''}`}
     >
       <button
         {...attributes}
@@ -272,8 +271,8 @@ export function LabelManagementPage() {
   const [categoryColor, setCategoryColor] = useState("#3B82F6"); // Default blue
 
   // Filter state
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filterGlobal, setFilterGlobal] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterGlobal, setFilterGlobal] = useState<string>('global'); // Default to global only to avoid clutter
 
   // Expand/Collapse state
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
@@ -1024,7 +1023,7 @@ export function LabelManagementPage() {
             className={view === "labels" ? "bg-blue-600 hover:bg-blue-700" : ""}
           >
             <Tag className="w-4 h-4 mr-2" />
-            Labels ({labels.length})
+            Labels ({totalFilteredLabels})
           </Button>
           <Button
             variant={view === "categories" ? "default" : "outline"}
