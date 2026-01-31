@@ -1,6 +1,6 @@
 import { prisma } from '../utils/database.js'
 import logger from '../utils/logger.js'
-import { Prisma, ProjectStatus } from '@prisma/client'
+import { Prisma, ProjectStatus, ProjectRole } from '@prisma/client'
 
 export class ProjectService {
     /**
@@ -29,6 +29,7 @@ export class ProjectService {
                     members: {
                         create: {
                             userId: data.creatorId,
+                            projectRole: ProjectRole.MANAGER,
                         },
                     },
                 },
@@ -129,7 +130,7 @@ export class ProjectService {
                         },
                     },
                     _count: {
-                        select: { tasks: true }, // Add detailed task stats later if needed
+                        select: { tasks: true, members: true },
                     },
                 },
             })
@@ -223,5 +224,228 @@ export class ProjectService {
             logger.error('SERVICE', 'Error deleting project', { id, error })
             throw error
         }
+    }
+
+    /**
+     * Get potential members (users not yet in project)
+     */
+    static async getPotentialMembers(projectId: string, search: string) {
+        try {
+            const users = await prisma.user.findMany({
+                where: {
+                    AND: [
+                        {
+                            OR: [
+                                { email: { contains: search, mode: 'insensitive' } },
+                                { fullName: { contains: search, mode: 'insensitive' } },
+                            ],
+                        },
+                        {
+                            role: {
+                                notIn: ['ADMIN', 'MANAGER']
+                            }
+                        },
+                        {
+                            projectsJoined: {
+                                none: {
+                                    projectId: projectId,
+                                },
+                            },
+                        },
+                    ],
+                },
+                select: {
+                    id: true,
+                    fullName: true,
+                    email: true,
+                    avatarUrl: true,
+                },
+                take: 20,
+            })
+
+            return users
+        } catch (error) {
+            logger.error('SERVICE', 'Error getting potential members', { projectId, search, error })
+            throw error
+        }
+    }
+
+    /**
+     * Add member to project
+     */
+    static async addMember(projectId: string, userId: string, role: string = 'ANNOTATOR') {
+        try {
+            // Check if already a member
+            const existingMember = await prisma.projectMember.findUnique({
+                where: {
+                    projectId_userId: {
+                        projectId,
+                        userId,
+                    },
+                },
+            })
+
+            if (existingMember) {
+                throw new Error('User is already a member of this project')
+            }
+
+            // Add member
+            const member = await prisma.projectMember.create({
+                data: {
+                    projectId,
+                    userId,
+                    projectRole: role as any,
+                },
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            fullName: true,
+                            email: true,
+                            avatarUrl: true,
+                        },
+                    },
+                    project: {
+                        select: {
+                            name: true
+                        }
+                    }
+                },
+            })
+
+            // Send persistent notification & emit real-time event (Unified Logic)
+            const { broadcastService } = await import('../websocket/events/broadcast.service.js');
+            const io = broadcastService.getIO();
+
+            if (io) {
+                const { sendNotification } = await import('../websocket/handlers/notification.handler.js');
+                const { NotificationType } = await import('@prisma/client');
+
+                await sendNotification(io, {
+                    userId,
+                    type: NotificationType.PROJECT_INVITATION,
+                    title: 'Project Invitation',
+                    message: `You have been added to project "${member.project.name}" as ${role}`,
+                    metadata: {
+                        projectId,
+                        projectName: member.project.name,
+                        role,
+                        invitedBy: 'System'
+                    }
+                });
+            } else {
+                // Fallback: If socket server not valid, just persist to DB
+                console.warn('[ProjectService] Socket.IO not ready, using fallback persistence');
+                const { NotificationService } = await import('./notification.service.js');
+                const { NotificationType } = await import('@prisma/client');
+
+                await NotificationService.createNotification({
+                    userId,
+                    type: NotificationType.PROJECT_INVITATION,
+                    title: 'Project Invitation',
+                    message: `You have been added to project "${member.project.name}" as ${role}`,
+                    metadata: {
+                        projectId,
+                        projectName: member.project.name,
+                        role,
+                        invitedBy: 'System'
+                    }
+                });
+            }
+
+            // Special event for Toast (keep this for now as client relies on it for the "View" action)
+            broadcastService.broadcastToUser(userId, 'project:invitation' as any, {
+                projectId,
+                projectName: member.project.name,
+                role,
+                invitedBy: 'System'
+            });
+
+            return member
+        } catch (error) {
+            logger.error('SERVICE', 'Error adding member', { projectId, userId, error })
+            throw error
+        }
+    }
+
+    /**
+     * Remove member from project
+     */
+    static async removeMember(projectId: string, userId: string) {
+        try {
+            await prisma.projectMember.delete({
+                where: {
+                    projectId_userId: {
+                        projectId,
+                        userId,
+                    },
+                },
+            })
+            return true
+        } catch (error) {
+            logger.error('SERVICE', 'Error removing member', { projectId, userId, error })
+            throw error
+        }
+    }
+
+    /**
+     * Update member role
+     */
+    static async updateMemberRole(projectId: string, userId: string, role: string) {
+        // Ensure valid role
+        const validRoles = ['MANAGER', 'REVIEWER', 'ANNOTATOR'];
+        if (!validRoles.includes(role)) {
+            throw new Error('Invalid role');
+        }
+
+        const updatedMember = await prisma.projectMember.update({
+            where: {
+                projectId_userId: { projectId, userId }
+            },
+            data: {
+                projectRole: role as any
+            },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        fullName: true,
+                        email: true,
+                        avatarUrl: true
+                    }
+                },
+                project: {
+                    select: {
+                        name: true
+                    }
+                }
+            }
+        });
+
+        // Notify user about role change (Unified Logic)
+        const { broadcastService } = await import('../websocket/events/broadcast.service.js');
+        const io = broadcastService.getIO();
+
+        if (io) {
+            const { sendNotification } = await import('../websocket/handlers/notification.handler.js');
+            const { NotificationType } = await import('@prisma/client');
+
+            // Use SYSTEM or create a specific type if needed. Using SYSTEM for now or check if we can reuse
+            const notifType = NotificationType.SYSTEM_USER_ROLE_CHANGE || NotificationType.SYSTEM;
+
+            await sendNotification(io, {
+                userId,
+                type: notifType as any,
+                title: 'Project Role Updated',
+                message: `Your role in project "${updatedMember.project.name}" has been updated to ${role}`,
+                metadata: {
+                    projectId,
+                    projectName: updatedMember.project.name,
+                    role
+                }
+            });
+        }
+
+        return updatedMember;
     }
 }

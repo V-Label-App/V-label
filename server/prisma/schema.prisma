@@ -308,6 +308,7 @@ enum NotificationType {
   LABEL_REQUEST_APPROVED    // Manager approved label request
   LABEL_REQUEST_REJECTED    // Manager rejected label request
   LABEL_CREATED             // New label created (system-wide)
+  PROJECT_INVITATION        // User added to a project
 }
 
 model ChatMessage {

@@ -32,4 +32,30 @@ router.delete(
     ProjectController.delete
 )
 
+// Member Management
+router.get(
+    '/:id/potential-members',
+    requireRole(['ADMIN', 'MANAGER']),
+    ProjectController.getPotentialMembers
+)
+
+router.post(
+    '/:id/members',
+    requireRole(['ADMIN', 'MANAGER']),
+    ProjectController.addMember
+)
+
+router.delete(
+    '/:id/members/:userId',
+    requireRole(['ADMIN', 'MANAGER']),
+    ProjectController.removeMember
+)
+
+router.patch(
+    '/:id/members/:userId',
+    requireRole(['ADMIN', 'MANAGER']),
+    ProjectController.updateMemberRole
+)
+
 export default router
+

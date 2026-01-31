@@ -18,6 +18,11 @@ const updateProjectSchema = createProjectSchema.partial().extend({
     status: z.nativeEnum(ProjectStatus).optional(),
 })
 
+const addMemberSchema = z.object({
+    userId: z.string().uuid('Invalid user ID'),
+    role: z.enum(['MANAGER', 'REVIEWER', 'ANNOTATOR']).optional(),
+})
+
 export class ProjectController {
     /**
      * POST /api/v1/projects
@@ -161,6 +166,88 @@ export class ProjectController {
             return res.json({ message: 'Project archived successfully' })
         } catch (error) {
             logger.error('API', 'Delete project failed', { error })
+            return res.status(500).json({ error: 'Internal server error' })
+        }
+    }
+
+    /**
+     * GET /api/v1/projects/:id/potential-members
+     */
+    static async getPotentialMembers(req: Request, res: Response) {
+        try {
+            const { id } = req.params as { id: string }
+            const search = req.query.search as string || ''
+
+            const users = await ProjectService.getPotentialMembers(id, search)
+            return res.json(users)
+        } catch (error) {
+            logger.error('API', 'Get potential members failed', { error })
+            return res.status(500).json({ error: 'Internal server error' })
+        }
+    }
+
+    /**
+     * POST /api/v1/projects/:id/members
+     */
+    static async addMember(req: Request, res: Response) {
+        try {
+            const { id } = req.params as { id: string }
+            const validatedData = addMemberSchema.parse(req.body)
+
+            const member = await ProjectService.addMember(id, validatedData.userId, validatedData.role)
+
+            logger.info('API', `Member added to project ${id}: ${validatedData.userId}`, { actorId: (req as any).user?.id })
+            return res.status(201).json(member)
+        } catch (error) {
+            if (error instanceof ZodError) {
+                return res.status(400).json({ error: 'Validation failed', details: (error as any).errors })
+            }
+            if (error instanceof Error && error.message.includes('already a member')) {
+                return res.status(409).json({ error: error.message })
+            }
+            logger.error('API', 'Add project member failed', { error })
+            return res.status(500).json({ error: 'Internal server error' })
+        }
+    }
+
+    /**
+     * DELETE /api/v1/projects/:id/members/:userId
+     */
+    static async removeMember(req: Request, res: Response) {
+        try {
+            const { id, userId } = req.params as { id: string, userId: string }
+
+            await ProjectService.removeMember(id, userId)
+
+            logger.info('API', `Member removed from project ${id}: ${userId}`, { actorId: (req as any).user?.id })
+            return res.json({ message: 'Member removed successfully' })
+        } catch (error) {
+            logger.error('API', 'Remove project member failed', { error })
+            return res.status(500).json({ error: 'Internal server error' })
+        }
+    }
+
+    /**
+     * PATCH /api/v1/projects/:id/members/:userId
+     */
+    static async updateMemberRole(req: Request, res: Response) {
+        try {
+            const { id, userId } = req.params as { id: string, userId: string }
+            const { role } = req.body
+
+            if (!role) {
+                return res.status(400).json({ error: 'Role is required' })
+            }
+
+            const member = await ProjectService.updateMemberRole(id, userId, role)
+
+            logger.info('API', `Member role updated in project ${id}: ${userId} -> ${role}`, { actorId: (req as any).user?.id })
+            return res.json(member)
+        } catch (error) {
+            logger.error('API', 'Update member role failed', { error })
+            if (error instanceof Error && error.message === 'Invalid role') {
+                return res.status(400).json({ error: 'Invalid role' })
+            }
             return res.status(500).json({ error: 'Internal server error' })
         }
     }
