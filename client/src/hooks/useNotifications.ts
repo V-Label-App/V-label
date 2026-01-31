@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { socketService } from '../services/socket.service';
 import { notificationApi } from '../services/notification.api';
 import type { Notification } from '../services/notification.api';
+import { toast } from 'sonner';
 
 interface SystemEvent {
   type: string;
@@ -59,6 +60,22 @@ export function useNotifications() {
 
       console.log('[Notifications] Socket ready, setting up event listeners. Connected:', socket.connected);
       listenersRegistered = true;
+
+      const handleProjectInvitation = (data: any) => {
+        // data: { projectId, projectName, role, invitedBy }
+        console.log('[Notifications] Received project invitation:', data);
+
+        toast.message('New Project Invitation', {
+          description: `You have been added to "${data.projectName}" as ${data.role}`,
+          action: {
+            label: 'View',
+            onClick: () => window.location.href = `/manager/projects/${data.projectId}`
+          },
+          duration: 5000,
+        });
+
+        // We now receive 'notification:new' separately for the list update
+      };
 
       const handleNewNotification = (notification: Notification) => {
         console.log('[Notifications] New notification received:', notification);
@@ -164,6 +181,7 @@ export function useNotifications() {
       // Setup listeners immediately
       socket.on('notification:new', handleNewNotification);
       socket.on('system:event', handleSystemEvent);
+      socket.on('project:invitation', handleProjectInvitation);
       console.log('[Notifications] Event listeners registered');
 
       // Handle reconnection
@@ -179,6 +197,7 @@ export function useNotifications() {
         console.log('[Notifications] Cleaning up event listeners');
         socket.off('notification:new', handleNewNotification);
         socket.off('system:event', handleSystemEvent);
+        socket.off('project:invitation', handleProjectInvitation);
         socket.off('connect', handleReconnect);
       };
     };

@@ -3,7 +3,17 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '../../../components/ui/button';
 import { Card } from '../../../components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../../components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../../components/ui/dialog';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "../../../components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
 import { Label } from '../../../components/ui/label';
 import { Input } from '../../../components/ui/input';
@@ -14,6 +24,8 @@ import { Calendar } from '../../../components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '../../../components/ui/popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '../../../components/ui/dropdown-menu';
+import { Avatar, AvatarFallback, AvatarImage } from '../../../components/ui/avatar';
+import { ScrollArea } from '../../../components/ui/scroll-area';
 import {
     FolderOpen,
     Calendar as CalendarIcon,
@@ -29,7 +41,10 @@ import {
     FileText,
     FileUp,
     Search,
-    Loader2
+    Loader2,
+    Shield,
+    Eye,
+    Pen,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -72,6 +87,91 @@ export function ProjectDetailPage() {
     const [editDescription, setEditDescription] = useState('');
     const [editDeadline, setEditDeadline] = useState<Date>();
 
+    // Member Management State
+    const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
+    const [memberSearchQuery, setMemberSearchQuery] = useState('');
+    const [potentialMembers, setPotentialMembers] = useState<any[]>([]);
+    const [selectedMembers, setSelectedMembers] = useState<any[]>([]); // Multi-select
+    const [selectedRole, setSelectedRole] = useState('ANNOTATOR');
+    const [isSearchingMembers, setIsSearchingMembers] = useState(false);
+    const [isAddingMembers, setIsAddingMembers] = useState(false);
+
+    // ... (keep Edit Role State)
+
+    // ... (keep Handlers)
+
+    const handleSearchUsers = async (query: string) => {
+        if (!project) return;
+        setMemberSearchQuery(query);
+
+        setIsSearchingMembers(true);
+        try {
+            // Debounce could be added here, but for now direct call
+            const users = await projectApi.searchPotentialMembers(project.id, query);
+            setPotentialMembers(users);
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setIsSearchingMembers(false);
+        }
+    };
+
+
+    const handleToggleMemberSelection = (user: any) => {
+        setSelectedMembers(prev => {
+            const exists = prev.find(m => m.id === user.id);
+            if (exists) {
+                return prev.filter(m => m.id !== user.id);
+            } else {
+                return [...prev, user];
+            }
+        });
+    };
+
+    const handleAddMembers = async () => {
+        if (!project || selectedMembers.length === 0) return;
+
+        setIsAddingMembers(true);
+        try {
+            // Process in parallel for speed, though sequentially might be safer for rate limits.
+            // Parallel is fine for < 100 usually.
+            const promises = selectedMembers.map(user =>
+                projectApi.addMember(project.id, user.id, selectedRole)
+            );
+
+            await Promise.all(promises);
+
+            toast.success(`Successfully added ${selectedMembers.length} members to the project`);
+
+            setIsAddMemberOpen(false);
+            setSelectedMembers([]);
+            setMemberSearchQuery('');
+            setPotentialMembers([]);
+
+            // Refresh project
+            const updated = await projectApi.getById(project.id);
+            setProject(updated);
+        } catch (error: any) {
+            console.error(error);
+            toast.error('Failed to add some members. Please try again.');
+        } finally {
+            setIsAddingMembers(false);
+        }
+    };
+
+    // ...
+
+
+
+    // Edit Role State
+    const [isEditRoleOpen, setIsEditRoleOpen] = useState(false);
+    const [memberToEdit, setMemberToEdit] = useState<any>(null);
+    const [roleToUpdate, setRoleToUpdate] = useState('');
+
+    // Remove Member State
+    const [isRemoveMemberOpen, setIsRemoveMemberOpen] = useState(false);
+    const [memberToRemove, setMemberToRemove] = useState<any>(null);
+
     // Load Project
     useEffect(() => {
         if (projectId) {
@@ -112,6 +212,18 @@ export function ProjectDetailPage() {
             if (project.deadline) setEditDeadline(new Date(project.deadline));
         }
     }, [project, activeTab]);
+
+    // Trigger initial search when Add Member dialog opens
+    useEffect(() => {
+        if (isAddMemberOpen) {
+            handleSearchUsers('');
+        } else {
+            // Cleanup when closed
+            setMemberSearchQuery('');
+            setPotentialMembers([]);
+            setSelectedMembers([]);
+        }
+    }, [isAddMemberOpen]);
 
 
     if (isLoading) {
@@ -232,6 +344,68 @@ export function ProjectDetailPage() {
 
     const exportProjectJSON = () => {
         toast.success('JSON export coming soon');
+    };
+
+    // Member Management Handlers
+
+
+
+
+    const handleUpdateRole = async () => {
+        if (!memberToEdit || !project) return;
+
+        try {
+            await projectApi.updateMemberRole(project.id, memberToEdit.userId, roleToUpdate);
+            toast.success('Member role updated successfully');
+
+            // Update local state
+            setProject(prev => {
+                if (!prev) return null;
+                const updatedMembers = (prev.members || []).map((m: any) =>
+                    m.userId === memberToEdit.userId ? { ...m, projectRole: roleToUpdate } : m
+                );
+                return { ...prev, members: updatedMembers };
+            });
+
+            setIsEditRoleOpen(false);
+        } catch (error) {
+            console.error(error);
+            toast.error('Failed to update member role');
+        }
+    };
+
+    const confirmRemoveMember = (member: any) => {
+        setMemberToRemove(member);
+        setIsRemoveMemberOpen(true);
+    };
+
+    const handleRemoveMember = async () => {
+        if (!memberToRemove || !project) return;
+
+        try {
+            await projectApi.removeMember(project.id, memberToRemove.userId);
+            toast.success('Member removed successfully');
+
+            // Update local state
+            setProject(prev => {
+                if (!prev) return null;
+                return {
+                    ...prev,
+                    members: (prev.members || []).filter((m: any) => m.userId !== memberToRemove.userId)
+                };
+            });
+
+            setIsRemoveMemberOpen(false);
+        } catch (error) {
+            console.error(error);
+            toast.error('Failed to remove member');
+        }
+    };
+
+    const openEditRoleDialog = (member: any) => {
+        setMemberToEdit(member);
+        setRoleToUpdate(member.projectRole || 'ANNOTATOR');
+        setIsEditRoleOpen(true);
     };
 
     return (
@@ -383,8 +557,9 @@ export function ProjectDetailPage() {
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
                     <TabsList>
                         <TabsTrigger value="tasks">Task Management</TabsTrigger>
-                        <TabsTrigger value="analytics">Analytics</TabsTrigger>
+                        <TabsTrigger value="members">Members</TabsTrigger>
                         <TabsTrigger value="settings">Settings</TabsTrigger>
+                        <TabsTrigger value="analytics">Analytics</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="tasks" className="space-y-6">
@@ -470,10 +645,122 @@ export function ProjectDetailPage() {
                         </div>
                     </TabsContent>
 
-                    <TabsContent value="analytics" className="space-y-6">
-                        <Card className="p-12 text-center text-muted-foreground">
-                            Analytics will be available once tasks are populated.
-                        </Card>
+                    <TabsContent value="members" className="space-y-6">
+                        <div className="flex items-center justify-between mb-2">
+                            <div>
+                                <h3 className="text-2xl font-bold tracking-tight">Team Members</h3>
+                                <p className="text-muted-foreground">
+                                    Manage access and roles for this project.
+                                </p>
+                            </div>
+                            <Button onClick={() => setIsAddMemberOpen(true)}>
+                                <Users className="w-4 h-4 mr-2" />
+                                Add Member
+                            </Button>
+                        </div>
+
+                        {[
+                            {
+                                title: 'Project Managers',
+                                icon: Shield,
+                                color: 'text-violet-600',
+                                bgColor: 'bg-violet-100',
+                                role: 'MANAGER',
+                                description: 'Has full access to project settings and members.'
+                            },
+                            {
+                                title: 'Reviewers',
+                                icon: Eye,
+                                color: 'text-blue-600',
+                                bgColor: 'bg-blue-100',
+                                role: 'REVIEWER',
+                                description: 'Can review and approve annotations.'
+                            },
+                            {
+                                title: 'Annotators',
+                                icon: Pen,
+                                color: 'text-emerald-600',
+                                bgColor: 'bg-emerald-100',
+                                role: 'ANNOTATOR',
+                                description: 'Can label tasks assigned to them.'
+                            }
+                        ].map((group) => {
+                            const groupMembers = projectMembers.filter((m: any) => m.projectRole === group.role);
+                            return (
+                                <Card key={group.role} className="p-6">
+                                    <div className="flex items-center gap-3 mb-6">
+                                        <div className={`p-2 rounded-lg ${group.bgColor}`}>
+                                            <group.icon className={`w-5 h-5 ${group.color}`} />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-lg font-semibold flex items-center gap-2">
+                                                {group.title}
+                                                <Badge variant="secondary" className="ml-2 font-normal">
+                                                    {groupMembers.length}
+                                                </Badge>
+                                            </h4>
+                                            <p className="text-sm text-muted-foreground">{group.description}</p>
+                                        </div>
+                                    </div>
+
+                                    {groupMembers.length === 0 ? (
+                                        <div className="text-center py-8 text-muted-foreground bg-gray-50 rounded-lg border border-dashed">
+                                            No {group.title.toLowerCase()} assigned.
+                                        </div>
+                                    ) : (
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>User</TableHead>
+                                                    <TableHead>Joined</TableHead>
+                                                    <TableHead className="text-right">Actions</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {groupMembers.map((member: any) => (
+                                                    <TableRow key={member.id}>
+                                                        <TableCell className="flex items-center gap-3">
+                                                            <Avatar className="w-8 h-8">
+                                                                <AvatarImage src={member.user?.avatarUrl} />
+                                                                <AvatarFallback>{member.user?.fullName?.[0] || member.user?.email?.[0]}</AvatarFallback>
+                                                            </Avatar>
+                                                            <div>
+                                                                <p className="font-medium">{member.user?.fullName || 'Unknown'}</p>
+                                                                <p className="text-xs text-muted-foreground">{member.user?.email}</p>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell className="text-muted-foreground text-sm">
+                                                            {format(new Date(member.joinedAt), 'MMM dd, yyyy')}
+                                                        </TableCell>
+                                                        <TableCell className="text-right">
+                                                            <div className="flex items-center justify-end gap-2">
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-8 w-8 p-0"
+                                                                    onClick={() => openEditRoleDialog(member)}
+                                                                >
+                                                                    <Edit className="h-4 w-4 text-muted-foreground" />
+                                                                    <span className="sr-only">Edit Role</span>
+                                                                </Button>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                                                    onClick={() => confirmRemoveMember(member)}
+                                                                >
+                                                                    Remove
+                                                                </Button>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    )}
+                                </Card>
+                            );
+                        })}
                     </TabsContent>
 
                     <TabsContent value="settings">
@@ -509,10 +796,9 @@ export function ProjectDetailPage() {
                                         </PopoverContent>
                                     </Popover>
                                 </div>
-                                <Button onClick={handleEditProject} className="bg-blue-600 text-white">Save Changes</Button>
                             </div>
 
-                            <div className="pt-6 border-t border-gray-200">
+                            <div className="pt-6 border-t border-gray-200 mt-6">
                                 <h3 className="text-lg font-semibold mb-4">Label Management</h3>
                                 <p className="text-sm text-muted-foreground mb-4">
                                     Select the labels that annotators can use in this project.
@@ -524,24 +810,213 @@ export function ProjectDetailPage() {
                                     allowCreateLabel={true}
                                 />
                             </div>
+
+                            <div className="pt-6 border-t border-gray-200 mt-6 flex justify-end">
+                                <Button onClick={handleEditProject} className="bg-blue-600 text-white">
+                                    Save Changes
+                                </Button>
+                            </div>
+                        </Card>
+                    </TabsContent>
+
+                    <TabsContent value="analytics" className="space-y-6">
+                        <Card className="p-12 text-center text-muted-foreground">
+                            Analytics will be available once tasks are populated.
                         </Card>
                     </TabsContent>
                 </Tabs>
-            </div>
 
-            <Dialog open={isAddImagesOpen} onOpenChange={setIsAddImagesOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Add Images</DialogTitle>
-                        <DialogDescription>
-                            Upload functionality is coming soon.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="flex justify-end">
-                        <Button onClick={() => setIsAddImagesOpen(false)}>Close</Button>
-                    </div>
-                </DialogContent>
-            </Dialog>
-        </div >
+                {/* Edit Role Dialog */}
+                <Dialog open={isEditRoleOpen} onOpenChange={setIsEditRoleOpen}>
+                    <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                            <DialogTitle>Edit Member Role</DialogTitle>
+                            <DialogDescription>
+                                Change the role for {memberToEdit?.user?.fullName}.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="py-4">
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="role" className="text-right">
+                                    Role
+                                </Label>
+                                <Select value={roleToUpdate} onValueChange={setRoleToUpdate}>
+                                    <SelectTrigger className="col-span-3">
+                                        <SelectValue placeholder="Select a role" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="ANNOTATOR">Annotator</SelectItem>
+                                        <SelectItem value="REVIEWER">Reviewer</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button variant="outline" onClick={() => setIsEditRoleOpen(false)}>Cancel</Button>
+                            <Button onClick={handleUpdateRole}>Save Changes</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
+                {/* Remove Member Alert Dialog */}
+                <AlertDialog open={isRemoveMemberOpen} onOpenChange={setIsRemoveMemberOpen}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                This will remove {memberToRemove?.user?.fullName} from the project. They will no longer have access to tasks and data.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={handleRemoveMember}>
+                                Remove Member
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+
+                <Dialog open={isAddImagesOpen} onOpenChange={setIsAddImagesOpen}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Add Images</DialogTitle>
+                            <DialogDescription>
+                                Upload functionality is coming soon.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="flex justify-end">
+                            <Button onClick={() => setIsAddImagesOpen(false)}>Close</Button>
+                        </div>
+                    </DialogContent>
+                </Dialog>
+
+                {/* Add Member Dialog */}
+                <Dialog open={isAddMemberOpen} onOpenChange={(open) => {
+                    setIsAddMemberOpen(open);
+                    if (open) {
+                        handleSearchUsers('');
+                    } else {
+                        // Reset state on close
+                        setMemberSearchQuery('');
+                        setPotentialMembers([]);
+                        setSelectedMembers([]);
+                    }
+                }}>
+                    <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                            <DialogTitle>Add Members to Project</DialogTitle>
+                            <DialogDescription>
+                                Search and select multiple users to invite.
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        <div className="space-y-4 py-4">
+                            <div className="space-y-2">
+                                <Label>Search User</Label>
+                                <Input
+                                    placeholder="Search by name or email..."
+                                    value={memberSearchQuery}
+                                    onChange={(e) => handleSearchUsers(e.target.value)}
+                                />
+
+                                {/* Selected Members Summary */}
+                                {selectedMembers.length > 0 && (
+                                    <div className="flex flex-wrap gap-2 mb-2 p-2 bg-blue-50 rounded-md border border-blue-100 max-h-[100px] overflow-y-auto">
+                                        {selectedMembers.map(user => (
+                                            <Badge key={user.id} variant="secondary" className="bg-white hover:bg-white text-blue-700 border-blue-200 pl-2 pr-1 py-1 flex items-center gap-1">
+                                                {user.fullName || user.email}
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-4 w-4 p-0 ml-1 rounded-full hover:bg-red-100 hover:text-red-600"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleToggleMemberSelection(user);
+                                                    }}
+                                                >
+                                                    <span className="sr-only">Remove</span>
+                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                                                </Button>
+                                            </Badge>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* Potential Members List */}
+                                <Card className="max-h-[200px] overflow-auto mt-2 border-gray-200 shadow-sm">
+                                    <ScrollArea className="h-full">
+                                        <div className="p-1 space-y-1">
+                                            {isSearchingMembers && <div className="p-2 text-center text-xs text-muted-foreground">Searching...</div>}
+
+                                            {!isSearchingMembers && potentialMembers.length === 0 && (
+                                                <div className="p-2 text-center text-xs text-muted-foreground">
+                                                    {memberSearchQuery.trim() === ''
+                                                        ? "No other users available to add."
+                                                        : "No users found matching your search."}
+                                                </div>
+                                            )}
+
+                                            {potentialMembers.map(user => {
+                                                const isSelected = selectedMembers.some(m => m.id === user.id);
+                                                return (
+                                                    <div
+                                                        key={user.id}
+                                                        className={`
+                                                                        flex items-center gap-3 p-2 rounded-md cursor-pointer transition-colors
+                                                                        ${isSelected ? 'bg-blue-50 border border-blue-200' : 'hover:bg-gray-100'}
+                                                                    `}
+                                                        onClick={() => handleToggleMemberSelection(user)}
+                                                    >
+                                                        <div className={`w-4 h-4 rounded border flex items-center justify-center ${isSelected ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}>
+                                                            {isSelected && <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3 text-white"><polyline points="20 6 9 17 4 12" /></svg>}
+                                                        </div>
+                                                        <Avatar className="w-8 h-8">
+                                                            <AvatarImage src={user.avatarUrl} />
+                                                            <AvatarFallback>{user.fullName?.[0] || user.email?.[0]}</AvatarFallback>
+                                                        </Avatar>
+                                                        <div className="flex-1 overflow-hidden">
+                                                            <p className="text-sm font-medium truncate">{user.fullName}</p>
+                                                            <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </ScrollArea>
+                                </Card>
+                            </div>
+
+                            <div className="space-y-2 animate-in fade-in zoom-in-95 duration-200">
+                                <Label>Role for Selected Members</Label>
+                                <Select value={selectedRole} onValueChange={setSelectedRole}>
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="ANNOTATOR">Annotator</SelectItem>
+                                        <SelectItem value="REVIEWER">Reviewer</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-2">
+                            <Button variant="ghost" onClick={() => setIsAddMemberOpen(false)}>Cancel</Button>
+                            <Button onClick={handleAddMembers} disabled={selectedMembers.length === 0 || isAddingMembers}>
+                                {isAddingMembers ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                        Adding...
+                                    </>
+                                ) : (
+                                    <>Add {selectedMembers.length > 0 ? `${selectedMembers.length} Members` : 'Members'}</>
+                                )}
+                            </Button>
+                        </div>
+                    </DialogContent>
+                </Dialog>
+            </div>
+        </div>
     );
 }
+
