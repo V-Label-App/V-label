@@ -982,8 +982,6 @@ export function LabelManagementPage() {
             className="mb-4 -ml-2 text-muted-foreground"
             onClick={() => navigate("/manager/projects")}
           >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Projects
           </Button>
           <div className="flex items-center justify-between">
             <div>
