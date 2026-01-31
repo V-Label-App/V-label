@@ -1,21 +1,23 @@
-import { useState } from 'react';
-import { Button } from '../../../components/ui/button';
-import { Card } from '../../../components/ui/card';
-import { Badge } from '../../../components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
-
+import { useState } from "react";
+import { Button } from "../../../components/ui/button";
+import { Card } from "../../../components/ui/card";
+import { Badge } from "../../../components/ui/badge";
 import {
-  Play, AlertTriangle, Calendar, Tag
-} from 'lucide-react';
-import { format, isPast, parseISO } from 'date-fns';
-import { motion } from 'framer-motion';
-import { UserNav } from '../../../components/common/UserNav';
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "../../../components/ui/tabs";
+
+import { Play, AlertTriangle, Calendar, Tag } from "lucide-react";
+import { format, isPast, parseISO } from "date-fns";
+import { motion } from "framer-motion";
 
 interface Task {
   id: string;
   thumbnail: string;
   title: string;
-  status: 'assigned' | 'submitted' | 'rejected';
+  status: "assigned" | "submitted" | "rejected";
   deadline: string;
   rejectionReason?: string;
   annotatorNote?: string;
@@ -31,90 +33,101 @@ interface Label {
 }
 
 interface AnnotatorTasksProps {
-  onOpenWorkspace: (taskId: string, mode: 'annotate') => void;
+  onOpenWorkspace: (taskId: string, mode: "annotate") => void;
 }
 
 export function AnnotatorTasks({ onOpenWorkspace }: AnnotatorTasksProps) {
   // Mock labels data
   const [labels] = useState<Label[]>([
-    { id: 'L-001', name: 'Tumor', color: '#EF4444' },
-    { id: 'L-002', name: 'Fracture', color: '#F59E0B' },
-    { id: 'L-003', name: 'Brain Lesion', color: '#8B5CF6' },
-    { id: 'L-004', name: 'Hemorrhage', color: '#EC4899' },
+    { id: "L-001", name: "Tumor", color: "#EF4444" },
+    { id: "L-002", name: "Fracture", color: "#F59E0B" },
+    { id: "L-003", name: "Brain Lesion", color: "#8B5CF6" },
+    { id: "L-004", name: "Hemorrhage", color: "#EC4899" },
   ]);
 
   const [tasks] = useState<Task[]>([
     {
-      id: 'T-002',
-      thumbnail: '🖼️',
-      title: 'Medical Scan - Chest X-Ray',
-      status: 'assigned',
-      deadline: '2026-01-15',
-      projectId: 'PRJ-001',
-      projectName: 'Medical Imaging Classification',
-      labelIds: ['L-001', 'L-002'],
+      id: "T-002",
+      thumbnail: "🖼️",
+      title: "Medical Scan - Chest X-Ray",
+      status: "assigned",
+      deadline: "2026-01-15",
+      projectId: "PRJ-001",
+      projectName: "Medical Imaging Classification",
+      labelIds: ["L-001", "L-002"],
     },
     {
-      id: 'T-007',
-      thumbnail: '🖼️',
-      title: 'Medical Scan - Brain MRI',
-      status: 'assigned',
-      deadline: '2026-01-16',
-      projectId: 'PRJ-002',
-      projectName: 'Neurology Diagnosis',
-      labelIds: ['L-003', 'L-004'],
+      id: "T-007",
+      thumbnail: "🖼️",
+      title: "Medical Scan - Brain MRI",
+      status: "assigned",
+      deadline: "2026-01-16",
+      projectId: "PRJ-002",
+      projectName: "Neurology Diagnosis",
+      labelIds: ["L-003", "L-004"],
     },
     {
-      id: 'T-003',
-      thumbnail: '🖼️',
-      title: 'Medical Scan - Lung CT',
-      status: 'submitted',
-      deadline: '2026-01-14',
-      projectId: 'PRJ-001',
-      projectName: 'Medical Imaging Classification',
-      labelIds: ['L-001', 'L-002'],
+      id: "T-003",
+      thumbnail: "🖼️",
+      title: "Medical Scan - Lung CT",
+      status: "submitted",
+      deadline: "2026-01-14",
+      projectId: "PRJ-001",
+      projectName: "Medical Imaging Classification",
+      labelIds: ["L-001", "L-002"],
     },
     {
-      id: 'T-008',
-      thumbnail: '🖼️',
-      title: 'Medical Scan - Cardiac Echo',
-      status: 'rejected',
-      deadline: '2026-01-12',
-      rejectionReason: 'Bounding box boundaries are not precise. The annotation extends beyond the actual region of interest. Please ensure all edges align with the target structure.',
-      annotatorNote: 'Initial attempt - need refinement',
-      projectId: 'PRJ-001',
-      projectName: 'Medical Imaging Classification',
-      labelIds: ['L-001', 'L-002'],
+      id: "T-008",
+      thumbnail: "🖼️",
+      title: "Medical Scan - Cardiac Echo",
+      status: "rejected",
+      deadline: "2026-01-12",
+      rejectionReason:
+        "Bounding box boundaries are not precise. The annotation extends beyond the actual region of interest. Please ensure all edges align with the target structure.",
+      annotatorNote: "Initial attempt - need refinement",
+      projectId: "PRJ-001",
+      projectName: "Medical Imaging Classification",
+      labelIds: ["L-001", "L-002"],
     },
     {
-      id: 'T-009',
-      thumbnail: '🖼️',
-      title: 'Medical Scan - Spine X-Ray',
-      status: 'rejected',
-      deadline: '2026-01-10',
-      rejectionReason: 'Missing labels for secondary findings. Please annotate all visible abnormalities.',
-      annotatorNote: 'Focused on primary finding only',
-      projectId: 'PRJ-001',
-      projectName: 'Medical Imaging Classification',
-      labelIds: ['L-001', 'L-002'],
+      id: "T-009",
+      thumbnail: "🖼️",
+      title: "Medical Scan - Spine X-Ray",
+      status: "rejected",
+      deadline: "2026-01-10",
+      rejectionReason:
+        "Missing labels for secondary findings. Please annotate all visible abnormalities.",
+      annotatorNote: "Focused on primary finding only",
+      projectId: "PRJ-001",
+      projectName: "Medical Imaging Classification",
+      labelIds: ["L-001", "L-002"],
     },
   ]);
 
-
-
   const getStatusBadge = (status: string) => {
     const styles = {
-      assigned: { className: 'bg-gray-100 text-gray-700 border-gray-300', label: 'Assigned' },
-      submitted: { className: 'bg-blue-100 text-blue-700 border-blue-300', label: 'Submitted' },
-      rejected: { className: 'bg-red-100 text-red-700 border-red-300', label: 'REJECTED' },
+      assigned: {
+        className: "bg-gray-100 text-gray-700 border-gray-300",
+        label: "Assigned",
+      },
+      submitted: {
+        className: "bg-blue-100 text-blue-700 border-blue-300",
+        label: "Submitted",
+      },
+      rejected: {
+        className: "bg-red-100 text-red-700 border-red-300",
+        label: "REJECTED",
+      },
     };
     return styles[status as keyof typeof styles];
   };
 
   const isDeadlineClose = (deadline: string) => {
     const deadlineDate = parseISO(deadline);
-    const today = new Date('2026-01-14');
-    const daysUntil = Math.ceil((deadlineDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    const today = new Date("2026-01-14");
+    const daysUntil = Math.ceil(
+      (deadlineDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
+    );
     return daysUntil <= 2 && daysUntil >= 0;
   };
 
@@ -122,9 +135,9 @@ export function AnnotatorTasks({ onOpenWorkspace }: AnnotatorTasksProps) {
     return isPast(parseISO(deadline));
   };
 
-  const assignedTasks = tasks.filter(t => t.status === 'assigned');
-  const submittedTasks = tasks.filter(t => t.status === 'submitted');
-  const rejectedTasks = tasks.filter(t => t.status === 'rejected');
+  const assignedTasks = tasks.filter((t) => t.status === "assigned");
+  const submittedTasks = tasks.filter((t) => t.status === "submitted");
+  const rejectedTasks = tasks.filter((t) => t.status === "rejected");
 
   const TaskCard = ({ task, index }: { task: Task; index?: number }) => {
     const statusBadge = getStatusBadge(task.status);
@@ -153,22 +166,30 @@ export function AnnotatorTasks({ onOpenWorkspace }: AnnotatorTasksProps) {
                       {statusBadge.label}
                     </Badge>
                   </div>
-                  <p className="text-sm text-muted-foreground">Task ID: {task.id}</p>
-                  <p className="text-sm text-muted-foreground">Project: {task.projectName}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Task ID: {task.id}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Project: {task.projectName}
+                  </p>
 
                   {/* Project Labels */}
                   {task.labelIds && task.labelIds.length > 0 && (
                     <div className="flex items-center gap-2 mt-2">
                       <Tag className="w-3 h-3 text-muted-foreground" />
                       <div className="flex flex-wrap gap-1">
-                        {task.labelIds.map(labelId => {
-                          const label = labels.find(l => l.id === labelId);
+                        {task.labelIds.map((labelId) => {
+                          const label = labels.find((l) => l.id === labelId);
                           if (!label) return null;
                           return (
                             <Badge
                               key={labelId}
                               className="text-xs"
-                              style={{ backgroundColor: label.color, color: 'white', borderColor: label.color }}
+                              style={{
+                                backgroundColor: label.color,
+                                color: "white",
+                                borderColor: label.color,
+                              }}
                             >
                               {label.name}
                             </Badge>
@@ -181,12 +202,19 @@ export function AnnotatorTasks({ onOpenWorkspace }: AnnotatorTasksProps) {
               </div>
 
               <div className="flex items-center gap-4 text-sm mb-3">
-                <div className={`flex items-center gap-1 ${overdueDeadline ? 'text-red-600 font-medium' :
-                  urgentDeadline ? 'text-orange-600 font-medium' :
-                    'text-muted-foreground'
-                  }`}>
+                <div
+                  className={`flex items-center gap-1 ${
+                    overdueDeadline
+                      ? "text-red-600 font-medium"
+                      : urgentDeadline
+                        ? "text-orange-600 font-medium"
+                        : "text-muted-foreground"
+                  }`}
+                >
                   <Calendar className="w-4 h-4" />
-                  <span>Due: {format(parseISO(task.deadline), 'MMM dd, yyyy')}</span>
+                  <span>
+                    Due: {format(parseISO(task.deadline), "MMM dd, yyyy")}
+                  </span>
                   {urgentDeadline && !overdueDeadline && (
                     <AlertTriangle className="w-4 h-4 ml-1 text-orange-500" />
                   )}
@@ -196,7 +224,7 @@ export function AnnotatorTasks({ onOpenWorkspace }: AnnotatorTasksProps) {
                 </div>
               </div>
 
-              {task.status === 'rejected' && task.rejectionReason && (
+              {task.status === "rejected" && task.rejectionReason && (
                 <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg">
                   <p className="text-xs font-medium text-red-800 mb-1 flex items-center gap-1">
                     <AlertTriangle className="w-3 h-3" />
@@ -209,12 +237,16 @@ export function AnnotatorTasks({ onOpenWorkspace }: AnnotatorTasksProps) {
               <div className="flex gap-2">
                 <Button
                   className="bg-blue-600 hover:bg-blue-700"
-                  onClick={() => onOpenWorkspace(task.id, 'annotate')}
+                  onClick={() => onOpenWorkspace(task.id, "annotate")}
                 >
                   <Play className="w-4 h-4 mr-2" />
-                  {task.status === 'rejected' ? 'Fix & Resubmit' : task.status === 'assigned' ? 'Start Labeling' : 'View Submission'}
+                  {task.status === "rejected"
+                    ? "Fix & Resubmit"
+                    : task.status === "assigned"
+                      ? "Start Labeling"
+                      : "View Submission"}
                 </Button>
-                {task.status === 'rejected' && (
+                {task.status === "rejected" && (
                   <Button variant="outline">View Details</Button>
                 )}
               </div>
@@ -249,10 +281,17 @@ export function AnnotatorTasks({ onOpenWorkspace }: AnnotatorTasksProps) {
               />
               <div>
                 <h1 className="text-2xl font-semibold">VLabel</h1>
-                <p className="text-sm text-muted-foreground">Annotator Workspace</p>
+                <p className="text-sm text-muted-foreground">
+                  Annotator Workspace
+                </p>
               </div>
             </div>
-            <UserNav />
+            <div className="flex items-center gap-4">
+              {/* <Button variant="ghost" size="icon" className="relative">
+                <Bell className="w-5 h-5" />
+                <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full" />
+              </Button> */}
+            </div>
           </div>
         </div>
       </motion.div>
@@ -265,21 +304,24 @@ export function AnnotatorTasks({ onOpenWorkspace }: AnnotatorTasksProps) {
           className="mb-6"
         >
           <h2 className="text-2xl font-semibold mb-2">My Tasks</h2>
-          <p className="text-muted-foreground">Manage your assigned labeling tasks and submissions</p>
+          <p className="text-muted-foreground">
+            Manage your assigned labeling tasks and submissions
+          </p>
         </motion.div>
 
         <Tabs defaultValue="all" className="space-y-6">
           <TabsList>
-            <TabsTrigger value="all">
-              All Tasks ({tasks.length})
-            </TabsTrigger>
+            <TabsTrigger value="all">All Tasks ({tasks.length})</TabsTrigger>
             <TabsTrigger value="assigned">
               Assigned ({assignedTasks.length})
             </TabsTrigger>
             <TabsTrigger value="submitted">
               Submitted ({submittedTasks.length})
             </TabsTrigger>
-            <TabsTrigger value="rejected" className="data-[state=active]:text-red-600">
+            <TabsTrigger
+              value="rejected"
+              className="data-[state=active]:text-red-600"
+            >
               Rejected ({rejectedTasks.length})
             </TabsTrigger>
           </TabsList>
@@ -295,22 +337,34 @@ export function AnnotatorTasks({ onOpenWorkspace }: AnnotatorTasksProps) {
                 <div className="flex items-start gap-2">
                   <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5" />
                   <div>
-                    <p className="font-medium text-red-800">Action Required: {rejectedTasks.length} Rejected Task{rejectedTasks.length !== 1 ? 's' : ''}</p>
-                    <p className="text-sm text-red-700 mt-1">Please review and fix the rejected tasks to maintain your reputation score.</p>
+                    <p className="font-medium text-red-800">
+                      Action Required: {rejectedTasks.length} Rejected Task
+                      {rejectedTasks.length !== 1 ? "s" : ""}
+                    </p>
+                    <p className="text-sm text-red-700 mt-1">
+                      Please review and fix the rejected tasks to maintain your
+                      reputation score.
+                    </p>
                   </div>
                 </div>
               </motion.div>
             )}
-            {tasks.map((task, index) => <TaskCard key={task.id} task={task} index={index} />)}
+            {tasks.map((task, index) => (
+              <TaskCard key={task.id} task={task} index={index} />
+            ))}
           </TabsContent>
 
           <TabsContent value="assigned" className="space-y-4">
             {assignedTasks.length === 0 ? (
               <Card className="p-12 text-center">
-                <p className="text-muted-foreground">No assigned tasks at the moment</p>
+                <p className="text-muted-foreground">
+                  No assigned tasks at the moment
+                </p>
               </Card>
             ) : (
-              assignedTasks.map((task, index) => <TaskCard key={task.id} task={task} index={index} />)
+              assignedTasks.map((task, index) => (
+                <TaskCard key={task.id} task={task} index={index} />
+              ))
             )}
           </TabsContent>
 
@@ -320,7 +374,9 @@ export function AnnotatorTasks({ onOpenWorkspace }: AnnotatorTasksProps) {
                 <p className="text-muted-foreground">No submitted tasks</p>
               </Card>
             ) : (
-              submittedTasks.map((task, index) => <TaskCard key={task.id} task={task} index={index} />)
+              submittedTasks.map((task, index) => (
+                <TaskCard key={task.id} task={task} index={index} />
+              ))
             )}
           </TabsContent>
 
@@ -330,7 +386,9 @@ export function AnnotatorTasks({ onOpenWorkspace }: AnnotatorTasksProps) {
                 <p className="text-muted-foreground">No rejected tasks</p>
               </Card>
             ) : (
-              rejectedTasks.map((task, index) => <TaskCard key={task.id} task={task} index={index} />)
+              rejectedTasks.map((task, index) => (
+                <TaskCard key={task.id} task={task} index={index} />
+              ))
             )}
           </TabsContent>
         </Tabs>

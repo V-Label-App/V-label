@@ -126,51 +126,167 @@ export function ProjectListPage() {
         // To get real progress, backend needs to return status counts.
         return 0;
     };
+    return labels[type as keyof typeof labels];
+  };
 
-    return (
-        <div className="min-h-screen bg-gray-50 animate-in fade-in slide-in-from-bottom-5 duration-700">
-            {/* Header */}
-            {!isImpersonating && (
-                <div className="bg-white border-b border-gray-200">
-                    <div className="max-w-7xl mx-auto px-8 py-4 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <img
-                                src="/src/assets/android-chrome-192x192.png"
-                                alt="VLabel Logo"
-                                className="w-8 h-8 rounded-lg"
-                            />
-                            <div>
-                                <h1 className="text-xl font-semibold">VLabel</h1>
-                                <p className="text-xs text-muted-foreground">Manager Dashboard</p>
-                            </div>
-                        </div>
-                        <UserNav />
-                    </div>
-                </div>
-            )}
+  return (
+    <div className="min-h-screen bg-gray-50 animate-in fade-in slide-in-from-bottom-5 duration-700">
+      {/* Header */}
+      {!isImpersonating && (
+        <div className="bg-white border-b border-gray-200">
+          <div className="max-w-7xl mx-auto px-8 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <img
+                src="/src/assets/android-chrome-192x192.png"
+                alt="VLabel Logo"
+                className="w-8 h-8 rounded-lg"
+              />
+              <div>
+                <h1 className="text-xl font-semibold">VLabel</h1>
+                <p className="text-xs text-muted-foreground">
+                  Manager Dashboard
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
-            <div className="max-w-7xl mx-auto px-8 py-8">
-                {/* Page Header */}
-                <div className="flex items-center justify-between mb-6">
-                    <div>
-                        <h2 className="text-3xl font-semibold mb-2">Projects</h2>
-                        <p className="text-muted-foreground">Manage and monitor all annotation projects</p>
+      <div className="max-w-7xl mx-auto px-8 py-8">
+        {/* Page Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-3xl font-semibold mb-2">Projects</h2>
+            <p className="text-muted-foreground">
+              Manage and monitor all annotation projects
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => navigate("/manager/labels")}
+            >
+              <Tag className="w-4 h-4 mr-2" />
+              Manage Labels
+            </Button>
+            <Button
+              className="bg-blue-500 hover:bg-blue-600"
+              onClick={() => setIsCreateProjectOpen(true)}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              New Project
+            </Button>
+          </div>
+        </div>
+
+        {/* Search & Filter Bar */}
+        <Card className="p-4 mb-6">
+          <div className="flex flex-wrap gap-4">
+            <div className="flex-1 min-w-[250px]">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search projects by name or ID..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+            </div>
+
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="not-started">Not Started</SelectItem>
+                <SelectItem value="in-progress">In Progress</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select
+              value={filterAnnotationType}
+              onValueChange={setFilterAnnotationType}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Annotation type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="bounding-box">Bounding Box</SelectItem>
+                <SelectItem value="polygon">Polygon</SelectItem>
+                <SelectItem value="segmentation">Segmentation</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </Card>
+
+        {/* Projects Grid */}
+        {filteredProjects.length === 0 ? (
+          <Card className="p-12 text-center">
+            <FolderKanban className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground">
+              No projects found matching your filters
+            </p>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredProjects.map((project) => {
+              const progress =
+                project.tasks.length > 0
+                  ? (project.tasks.filter((t) => t.status === "approved")
+                      .length /
+                      project.tasks.length) *
+                    100
+                  : 0;
+
+              const isProjectOverdue = new Date(project.deadline) < new Date();
+
+              return (
+                <Card
+                  key={project.id}
+                  className="p-6 hover:shadow-xl hover:scale-[1.02] transition-all duration-300 cursor-pointer border-t-4"
+                  style={{
+                    borderTopColor: progress === 100 ? "#22c55e" : "#3b82f6",
+                  }}
+                  onClick={() => navigate(`/manager/projects/${project.id}`)}
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <FolderKanban className="w-5 h-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold">{project.name}</h3>
+                        <p className="text-xs text-muted-foreground">
+                          {project.id}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex gap-2">
-                        <Button
-                            variant="outline"
-                            onClick={() => navigate('/manager/labels')}
-                        >
-                            <Tag className="w-4 h-4 mr-2" />
-                            Manage Labels
-                        </Button>
-                        <Button
-                            className="bg-blue-500 hover:bg-blue-600"
-                            onClick={() => setIsCreateProjectOpen(true)}
-                        >
-                            <Plus className="w-4 h-4 mr-2" />
-                            New Project
-                        </Button>
+                  </div>
+
+                  <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+                    {project.description}
+                  </p>
+
+                  <div className="space-y-3 mb-4">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Progress</span>
+                      <span className="font-semibold">
+                        {Math.round(progress)}%
+                      </span>
+                    </div>
+                    <Progress value={progress} className="h-1.5" />
+                  </div>
+
+                  <div className="space-y-2 mb-4">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        Total Images
+                      </span>
+                      <span className="font-medium">{project.totalImages}</span>
                     </div>
                 </div>
 

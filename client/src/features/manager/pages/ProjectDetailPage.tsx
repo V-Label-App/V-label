@@ -428,64 +428,54 @@ export function ProjectDetailPage() {
                         <UserNav />
                     </div>
                 </div>
-            )}
 
-            <div className="max-w-7xl mx-auto px-8 py-8">
-                {/* Back Button & Actions */}
-                <div className="flex items-center justify-between mb-6">
-                    <Button variant="ghost" onClick={() => navigate('/manager/projects')}>
-                        <ArrowLeft className="w-4 h-4 mr-2" />
-                        Back to Projects
-                    </Button>
+                <Select
+                  value={taskFilterStatus}
+                  onValueChange={setTaskFilterStatus}
+                >
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="assigned">Assigned</SelectItem>
+                    <SelectItem value="submitted">Submitted</SelectItem>
+                    <SelectItem value="approved">Approved</SelectItem>
+                  </SelectContent>
+                </Select>
 
-                    <div className="flex gap-2">
-                        <Button variant="outline" onClick={() => setIsAddImagesOpen(true)}>
-                            <Upload className="w-4 h-4 mr-2" />
-                            Add Images
-                        </Button>
+                <Select
+                  value={taskFilterAssignee}
+                  onValueChange={setTaskFilterAssignee}
+                >
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Assignee" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Assignees</SelectItem>
+                    {annotators.map((a) => (
+                      <SelectItem key={a.id} value={a.name}>
+                        {a.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </Card>
 
-                        <Button variant="outline" onClick={() => toast.info('Import functionality coming soon!')}>
-                            <FileUp className="w-4 h-4 mr-2" />
-                            Import
-                        </Button>
-
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline">
-                                    <Download className="w-4 h-4 mr-2" />
-                                    Export
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => exportProjectCSV()}>
-                                    <FileText className="w-4 h-4 mr-2" />
-                                    Export as CSV
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => exportProjectJSON()}>
-                                    <FileText className="w-4 h-4 mr-2" />
-                                    Export as JSON
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="icon">
-                                    <MoreVertical className="w-4 h-4" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => setActiveTab('settings')}>
-                                    <Edit className="w-4 h-4 mr-2" />
-                                    Edit Project
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={handleDeleteProject} className="text-red-600">
-                                    <Trash2 className="w-4 h-4 mr-2" />
-                                    Delete Project
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+            {/* Task Management + Chat Panel Layout (70/30) */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Left: Task Table (70%) */}
+              <div className="lg:col-span-2">
+                <Card className="p-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <h3 className="text-xl font-semibold">Tasks</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Showing {filteredTasks.length} of {project.tasks.length}{" "}
+                        tasks
+                      </p>
                     </div>
                 </div>
 

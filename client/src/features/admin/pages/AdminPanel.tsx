@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "../../../components/ui/button";
 import { Card } from "../../../components/ui/card";
 import {
@@ -28,7 +28,7 @@ import {
   DialogDescription,
 } from "../../../components/ui/dialog";
 import { Label } from "../../../components/ui/label";
-import { UserNav } from "../../../components/common/UserNav";
+
 import { motion } from "framer-motion";
 import { authApi } from "../../../services/auth.api";
 import { toast } from "sonner";
@@ -41,8 +41,6 @@ import {
   Users,
   Database,
   Activity,
-  Settings,
-  FileText,
   Plus,
   Star,
   Trash2,
@@ -50,10 +48,8 @@ import {
   ArrowUp,
   ArrowDown,
   Eye,
-  Sparkles,
-  LayoutDashboard,
-  Bell,
 } from "lucide-react";
+import { useLocation } from "react-router-dom";
 
 interface User {
   id: string;
@@ -64,21 +60,48 @@ interface User {
   reputation_score: number;
 }
 
-interface AdminPanelProps {}
+interface ApiUserResponse {
+  id: string;
+  fullName: string | null;
+  email: string;
+  role: string;
+  isActive?: boolean;
+  reputationScore?: number;
+  avatarUrl?: string | null;
+}
 
 interface ConfirmationState {
   type: "role" | "status" | "delete" | null;
   userId: string | null;
-  newValue?: any;
+  newValue?: string | boolean;
   title: string;
   description: string;
 }
 
-export function AdminPanel({}: AdminPanelProps) {
+export function AdminPanel() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("dashboard");
+
+  // Determine active tab based on URL path or default to dashboard
+  const location = useLocation();
+
+  const getActiveTabFromPath = useCallback(() => {
+    const path = location.pathname;
+    if (path.includes("/admin/users")) return "users";
+    if (path.includes("/admin/settings")) return "settings";
+    if (path.includes("/admin/logs")) return "logs";
+    if (path.includes("/admin/ai-chat")) return "ai-chat";
+    if (path.includes("/admin/notifications")) return "notifications";
+    return "dashboard";
+  }, [location.pathname]);
+
+  const [activeTab, setActiveTab] = useState(getActiveTabFromPath());
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
+
+  // Sync state with URL if needed
+  useEffect(() => {
+    setActiveTab(getActiveTabFromPath());
+  }, [getActiveTabFromPath]);
 
   // Confirmation Mock
   const [confirmation, setConfirmation] = useState<ConfirmationState>({
@@ -101,15 +124,26 @@ export function AdminPanel({}: AdminPanelProps) {
     try {
       setLoading(true);
       const data = await authApi.getAllUsers();
+
       // Transform API data to component interface
-      const transformedUsers: User[] = data.map((u: any) => ({
-        id: u.id,
-        name: u.fullName || "Unknown",
-        email: u.email,
-        role: (u.role?.toUpperCase() || "ANNOTATOR") as any,
-        is_active: u.isActive,
-        reputation_score: u.reputationScore || 0,
-      }));
+      // We map and then filter out any null/undefined entries if the API returns mixed data
+      const transformedUsers: User[] = (data || [])
+        .map((u: ApiUserResponse | undefined) => {
+          if (!u) return null;
+          return {
+            id: u.id,
+            name: u.fullName || "Unknown",
+            email: u.email,
+            role: (u.role?.toUpperCase() || "ANNOTATOR") as
+              | "ADMIN"
+              | "MANAGER"
+              | "REVIEWER"
+              | "ANNOTATOR",
+            is_active: u.isActive ?? false,
+            reputation_score: u.reputationScore || 0,
+          };
+        })
+        .filter((u): u is User => u !== null);
       setUsers(transformedUsers);
     } catch (error) {
       console.error("Failed to fetch users", error);
@@ -148,9 +182,12 @@ export function AdminPanel({}: AdminPanelProps) {
       setNewPhone("");
       setNewRole("ANNOTATOR");
       fetchUsers();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to create user", error);
-      toast.error(error.response?.data?.error || "Failed to create user");
+      const errorMessage =
+        (error as { response?: { data?: { error?: string } } })?.response?.data
+          ?.error || "Failed to create user";
+      toast.error(errorMessage);
     }
   };
 
@@ -195,29 +232,35 @@ export function AdminPanel({}: AdminPanelProps) {
 
     try {
       if (type === "status") {
+        const isActive = newValue as boolean;
         // Optimistic update
         setUsers(
           users.map((user) =>
-            user.id === userId ? { ...user, is_active: newValue } : user,
+            user.id === userId ? { ...user, is_active: isActive } : user,
           ),
         );
-        await authApi.updateUser(userId, { isActive: newValue });
+        await authApi.updateUser(userId, { isActive: isActive });
         toast.success(`User status updated`);
       } else if (type === "role") {
+        const newRole = newValue as
+          | "ADMIN"
+          | "MANAGER"
+          | "REVIEWER"
+          | "ANNOTATOR";
         // Optimistic update
         setUsers(
           users.map((user) =>
-            user.id === userId ? { ...user, role: newValue } : user,
+            user.id === userId ? { ...user, role: newRole } : user,
           ),
         );
-        await authApi.updateUser(userId, { role: newValue });
+        await authApi.updateUser(userId, { role: newRole });
         toast.success(`User role updated`);
       } else if (type === "delete") {
         setUsers(users.filter((u) => u.id !== userId));
         await authApi.deleteUser(userId);
         toast.success("User deleted successfully");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(`Failed to ${type} user`, error);
       toast.error(`Failed to update user`);
       fetchUsers(); // Revert on error
@@ -303,105 +346,10 @@ export function AdminPanel({}: AdminPanelProps) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
-      className="min-h-screen bg-gray-50"
+      className=""
     >
-      {/* Sidebar */}
-      <motion.div
-        initial={{ x: -100, opacity: 0 }}
-        animate={{ x: 0, opacity: 1 }}
-        transition={{ duration: 0.6 }}
-        className="fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-200 flex flex-col"
-      >
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-center gap-2">
-            <img
-              src="/src/assets/android-chrome-192x192.png"
-              alt="VLabel Logo"
-              className="w-8 h-8 rounded-lg"
-            />
-            <h1 className="text-xl font-semibold">VLabel</h1>
-          </div>
-          <p className="text-xs text-muted-foreground mt-1">Admin Panel</p>
-        </div>
-
-        <nav className="flex-1 p-4">
-          <button
-            onClick={() => setActiveTab("dashboard")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-              activeTab === "dashboard"
-                ? "bg-blue-50 text-blue-700"
-                : "text-gray-700 hover:bg-gray-50"
-            }`}
-          >
-            <LayoutDashboard className="w-5 h-5" />
-            <span className="font-medium">Dashboard</span>
-          </button>
-          <button
-            onClick={() => setActiveTab("users")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors mt-1 ${
-              activeTab === "users"
-                ? "bg-blue-50 text-blue-700"
-                : "text-gray-700 hover:bg-gray-50"
-            }`}
-          >
-            <Users className="w-5 h-5" />
-            <span className="font-medium">Users</span>
-          </button>
-          <button
-            onClick={() => setActiveTab("settings")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors mt-1 ${
-              activeTab === "settings"
-                ? "bg-blue-50 text-blue-700"
-                : "text-gray-700 hover:bg-gray-50"
-            }`}
-          >
-            <Settings className="w-5 h-5" />
-            <span className="font-medium">Settings</span>
-          </button>
-          <button
-            onClick={() => setActiveTab("logs")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors mt-1 ${
-              activeTab === "logs"
-                ? "bg-blue-50 text-blue-700"
-                : "text-gray-700 hover:bg-gray-50"
-            }`}
-          >
-            <FileText className="w-5 h-5" />
-            <span className="font-medium">Logs</span>
-          </button>
-          <button
-            onClick={() => setActiveTab("ai-chat")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors mt-1 ${
-              activeTab === "ai-chat"
-                ? "bg-blue-50 text-blue-700"
-                : "text-gray-700 hover:bg-gray-50"
-            }`}
-          >
-            <Sparkles className="w-5 h-5" />
-            <span className="font-medium">AI Chat</span>
-          </button>
-          <button
-            onClick={() => setActiveTab("notifications")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors mt-1 ${
-              activeTab === "notifications"
-                ? "bg-blue-50 text-blue-700"
-                : "text-gray-700 hover:bg-gray-50"
-            }`}
-          >
-            <Bell className="w-5 h-5" />
-            <span className="font-medium">Notifications</span>
-          </button>
-        </nav>
-
-        <div className="p-4 border-t border-gray-200"></div>
-      </motion.div>
-
-      {/* Main Content */}
-      <div className="ml-64 p-8">
-        <div className="flex justify-end mb-4">
-          <UserNav />
-        </div>
-
+      {/* Main Content - No more Sidebar here */}
+      <div className="p-2 md:p-4">
         {activeTab === "users" && (
           <>
             {/* Stats Cards */}
@@ -409,7 +357,7 @@ export function AdminPanel({}: AdminPanelProps) {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              className="grid grid-cols-3 gap-6 mb-8"
+              className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8"
             >
               {[
                 {
@@ -537,7 +485,13 @@ export function AdminPanel({}: AdminPanelProps) {
                           <Label>Role</Label>
                           <Select
                             value={newRole}
-                            onValueChange={(val: any) => setNewRole(val)}
+                            onValueChange={(
+                              val:
+                                | "ADMIN"
+                                | "MANAGER"
+                                | "REVIEWER"
+                                | "ANNOTATOR",
+                            ) => setNewRole(val)}
                           >
                             <SelectTrigger>
                               <SelectValue placeholder="Select role" />
