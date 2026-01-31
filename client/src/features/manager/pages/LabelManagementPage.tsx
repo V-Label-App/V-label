@@ -244,7 +244,7 @@ function LabelDragOverlay({ label }: { label: Label }) {
 
 export function LabelManagementPage() {
   const navigate = useNavigate();
-  const { isImpersonating, user } = useAuth();
+  const { user } = useAuth();
   const [view, setView] = useState<"labels" | "categories">("labels");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -289,7 +289,7 @@ export function LabelManagementPage() {
     title: string;
     message: string;
     onConfirm: () => void;
-  }>({ open: false, title: "", message: "", onConfirm: () => {} });
+  }>({ open: false, title: "", message: "", onConfirm: () => { } });
 
   // Import dialog state
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
@@ -971,26 +971,7 @@ export function LabelManagementPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 animate-in fade-in slide-in-from-bottom-5 duration-700">
-      {/* Header */}
-      {!isImpersonating && (
-        <div className="bg-white border-b border-gray-200">
-          <div className="max-w-7xl mx-auto px-8 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <img
-                src="/src/assets/android-chrome-192x192.png"
-                alt="VLabel Logo"
-                className="w-8 h-8 rounded-lg"
-              />
-              <div>
-                <h1 className="text-xl font-semibold">VLabel</h1>
-                <p className="text-xs text-muted-foreground">
-                  Label Management
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       <div className="max-w-7xl mx-auto px-8 py-8">
         {/* Page Header with Back Button */}
@@ -1308,105 +1289,105 @@ export function LabelManagementPage() {
                       {/* Uncategorized Labels */}
                       {(labelsByCategory["uncategorized"]?.length > 0 ||
                         categories.length === 0) && (
-                        <Collapsible
-                          open={expandedCategories.has("uncategorized")}
-                          onOpenChange={() => toggleCategory("uncategorized")}
-                        >
-                          <Card className="overflow-hidden" id="uncategorized">
-                            {/* Uncategorized Header */}
-                            <CollapsibleTrigger asChild>
-                              <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b cursor-pointer hover:bg-gray-100 transition-colors">
-                                <div className="flex items-center gap-2">
-                                  <ChevronRight
-                                    className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${expandedCategories.has("uncategorized") ? "rotate-90" : ""}`}
-                                  />
-                                  <span className="font-medium text-gray-600">
-                                    Uncategorized
-                                  </span>
-                                  <Badge variant="secondary" className="ml-1">
-                                    {labelsByCategory["uncategorized"]
-                                      ?.length || 0}
-                                  </Badge>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  {(labelsByCategory["uncategorized"]?.length ||
-                                    0) > 0 && (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="text-sm text-blue-600 hover:text-blue-700 h-auto py-1"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        selectAllInCategory("uncategorized");
-                                      }}
-                                    >
-                                      {isAllSelectedInCategory("uncategorized")
-                                        ? "Deselect All"
-                                        : "Select All"}
-                                    </Button>
-                                  )}
-                                </div>
-                              </div>
-                            </CollapsibleTrigger>
-
-                            {/* Uncategorized Labels Grid */}
-                            <CollapsibleContent className="data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up overflow-hidden">
-                              <div
-                                className="p-4"
-                                data-category-id="uncategorized"
-                              >
-                                <SortableContext
-                                  items={(
-                                    labelsByCategory["uncategorized"] || []
-                                  ).map((l) => l.id)}
-                                  strategy={verticalListSortingStrategy}
-                                >
-                                  <div className="grid grid-cols-2 gap-3">
-                                    {(
-                                      labelsByCategory["uncategorized"] || []
-                                    ).map((label) => (
-                                      <DraggableLabelItem
-                                        key={label.id}
-                                        label={label}
-                                        isSelected={selectedLabelIds.includes(
-                                          label.id,
-                                        )}
-                                        categories={categories}
-                                        onToggleSelect={() =>
-                                          toggleLabelSelection(label.id)
-                                        }
-                                        onEdit={() => openEditLabel(label)}
-                                        onDelete={() =>
-                                          handleDeleteLabel(label.id)
-                                        }
-                                        onDuplicate={() =>
-                                          handleDuplicateLabel(label)
-                                        }
-                                        onMoveToCategory={(catId) =>
-                                          handleMoveToCategory(label.id, catId)
-                                        }
-                                      />
-                                    ))}
-
-                                    {/* Add Label Button */}
-                                    <button
-                                      onClick={() =>
-                                        openCreateLabelInCategory(
-                                          "uncategorized",
-                                        )
-                                      }
-                                      className="flex items-center justify-center gap-2 p-3 rounded-lg border-2 border-dashed border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-                                    >
-                                      <Plus className="w-4 h-4" />
-                                      <span>Add Label</span>
-                                    </button>
+                          <Collapsible
+                            open={expandedCategories.has("uncategorized")}
+                            onOpenChange={() => toggleCategory("uncategorized")}
+                          >
+                            <Card className="overflow-hidden" id="uncategorized">
+                              {/* Uncategorized Header */}
+                              <CollapsibleTrigger asChild>
+                                <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b cursor-pointer hover:bg-gray-100 transition-colors">
+                                  <div className="flex items-center gap-2">
+                                    <ChevronRight
+                                      className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${expandedCategories.has("uncategorized") ? "rotate-90" : ""}`}
+                                    />
+                                    <span className="font-medium text-gray-600">
+                                      Uncategorized
+                                    </span>
+                                    <Badge variant="secondary" className="ml-1">
+                                      {labelsByCategory["uncategorized"]
+                                        ?.length || 0}
+                                    </Badge>
                                   </div>
-                                </SortableContext>
-                              </div>
-                            </CollapsibleContent>
-                          </Card>
-                        </Collapsible>
-                      )}
+                                  <div className="flex items-center gap-2">
+                                    {(labelsByCategory["uncategorized"]?.length ||
+                                      0) > 0 && (
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="text-sm text-blue-600 hover:text-blue-700 h-auto py-1"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            selectAllInCategory("uncategorized");
+                                          }}
+                                        >
+                                          {isAllSelectedInCategory("uncategorized")
+                                            ? "Deselect All"
+                                            : "Select All"}
+                                        </Button>
+                                      )}
+                                  </div>
+                                </div>
+                              </CollapsibleTrigger>
+
+                              {/* Uncategorized Labels Grid */}
+                              <CollapsibleContent className="data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up overflow-hidden">
+                                <div
+                                  className="p-4"
+                                  data-category-id="uncategorized"
+                                >
+                                  <SortableContext
+                                    items={(
+                                      labelsByCategory["uncategorized"] || []
+                                    ).map((l) => l.id)}
+                                    strategy={verticalListSortingStrategy}
+                                  >
+                                    <div className="grid grid-cols-2 gap-3">
+                                      {(
+                                        labelsByCategory["uncategorized"] || []
+                                      ).map((label) => (
+                                        <DraggableLabelItem
+                                          key={label.id}
+                                          label={label}
+                                          isSelected={selectedLabelIds.includes(
+                                            label.id,
+                                          )}
+                                          categories={categories}
+                                          onToggleSelect={() =>
+                                            toggleLabelSelection(label.id)
+                                          }
+                                          onEdit={() => openEditLabel(label)}
+                                          onDelete={() =>
+                                            handleDeleteLabel(label.id)
+                                          }
+                                          onDuplicate={() =>
+                                            handleDuplicateLabel(label)
+                                          }
+                                          onMoveToCategory={(catId) =>
+                                            handleMoveToCategory(label.id, catId)
+                                          }
+                                        />
+                                      ))}
+
+                                      {/* Add Label Button */}
+                                      <button
+                                        onClick={() =>
+                                          openCreateLabelInCategory(
+                                            "uncategorized",
+                                          )
+                                        }
+                                        className="flex items-center justify-center gap-2 p-3 rounded-lg border-2 border-dashed border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                                      >
+                                        <Plus className="w-4 h-4" />
+                                        <span>Add Label</span>
+                                      </button>
+                                    </div>
+                                  </SortableContext>
+                                </div>
+                              </CollapsibleContent>
+                            </Card>
+                          </Collapsible>
+                        )}
                     </div>
 
                     {/* Drag Overlay */}

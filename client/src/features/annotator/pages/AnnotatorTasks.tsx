@@ -203,13 +203,12 @@ export function AnnotatorTasks({ onOpenWorkspace }: AnnotatorTasksProps) {
 
               <div className="flex items-center gap-4 text-sm mb-3">
                 <div
-                  className={`flex items-center gap-1 ${
-                    overdueDeadline
+                  className={`flex items-center gap-1 ${overdueDeadline
                       ? "text-red-600 font-medium"
                       : urgentDeadline
                         ? "text-orange-600 font-medium"
                         : "text-muted-foreground"
-                  }`}
+                    }`}
                 >
                   <Calendar className="w-4 h-4" />
                   <span>
@@ -264,37 +263,7 @@ export function AnnotatorTasks({ onOpenWorkspace }: AnnotatorTasksProps) {
       transition={{ duration: 0.5 }}
       className="min-h-screen bg-gray-50"
     >
-      {/* Header with Profile */}
-      <motion.div
-        initial={{ y: -20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.6 }}
-        className="bg-white border-b border-gray-200"
-      >
-        <div className="max-w-7xl mx-auto px-8 py-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <img
-                src="/src/assets/android-chrome-192x192.png"
-                alt="VLabel Logo"
-                className="w-10 h-10 rounded-lg"
-              />
-              <div>
-                <h1 className="text-2xl font-semibold">VLabel</h1>
-                <p className="text-sm text-muted-foreground">
-                  Annotator Workspace
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              {/* <Button variant="ghost" size="icon" className="relative">
-                <Bell className="w-5 h-5" />
-                <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full" />
-              </Button> */}
-            </div>
-          </div>
-        </div>
-      </motion.div>
+
 
       <div className="max-w-7xl mx-auto px-8 py-8">
         <motion.div

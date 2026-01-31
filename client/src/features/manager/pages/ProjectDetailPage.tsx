@@ -45,10 +45,11 @@ import {
     Shield,
     Eye,
     Pen,
+    CheckCircle2,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
-import { UserNav } from '../../../components/common/UserNav';
+
 import { useAuth } from '../../../context/AuthContext';
 import { ChatPanel } from '../../../components/chat/ChatPanel';
 import { projectApi } from '../../../services/project.api';
@@ -60,7 +61,7 @@ import { ProjectStatus } from '../../../types/project.types';
 export function ProjectDetailPage() {
     const { projectId } = useParams();
     const navigate = useNavigate();
-    const { isImpersonating } = useAuth();
+    const { } = useAuth();
 
     // Data State
     const [project, setProject] = useState<Project | null>(null);
@@ -79,7 +80,7 @@ export function ProjectDetailPage() {
 
     // Search & Filter State
     const [taskSearchQuery, setTaskSearchQuery] = useState('');
-    const [taskFilterStatus,] = useState<string>('all');
+    const [taskFilterStatus, setTaskFilterStatus] = useState<string>('all');
     const [taskFilterAssignee, setTaskFilterAssignee] = useState<string>('all');
 
     // Edit Project State - Pre-fill when opening
@@ -407,75 +408,66 @@ export function ProjectDetailPage() {
         setRoleToUpdate(member.projectRole || 'ANNOTATOR');
         setIsEditRoleOpen(true);
     };
-
     return (
         <div className="min-h-screen bg-gray-50 animate-in fade-in slide-in-from-bottom-5 duration-700">
-            {/* Header */}
-            {!isImpersonating && (
-                <div className="bg-white border-b border-gray-200">
-                    <div className="max-w-7xl mx-auto px-8 py-4 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <img
-                                src="/src/assets/android-chrome-192x192.png"
-                                alt="VLabel Logo"
-                                className="w-8 h-8 rounded-lg"
-                            />
-                            <div>
-                                <h1 className="text-xl font-semibold">VLabel</h1>
-                                <p className="text-xs text-muted-foreground">Manager Dashboard</p>
-                            </div>
-                        </div>
-                        <UserNav />
-                    </div>
-                </div>
 
-                <Select
-                  value={taskFilterStatus}
-                  onValueChange={setTaskFilterStatus}
-                >
-                  <SelectTrigger className="w-[150px]">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="assigned">Assigned</SelectItem>
-                    <SelectItem value="submitted">Submitted</SelectItem>
-                    <SelectItem value="approved">Approved</SelectItem>
-                  </SelectContent>
-                </Select>
 
-                <Select
-                  value={taskFilterAssignee}
-                  onValueChange={setTaskFilterAssignee}
-                >
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Assignee" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Assignees</SelectItem>
-                    {annotators.map((a) => (
-                      <SelectItem key={a.id} value={a.name}>
-                        {a.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </Card>
+            <div className="max-w-7xl mx-auto px-8 py-8">
+                {/* Back Button & Actions */}
+                <div className="flex items-center justify-between mb-6">
+                    <Button variant="ghost" onClick={() => navigate('/manager/projects')}>
+                        <ArrowLeft className="w-4 h-4 mr-2" />
+                        Back to Projects
+                    </Button>
 
-            {/* Task Management + Chat Panel Layout (70/30) */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Left: Task Table (70%) */}
-              <div className="lg:col-span-2">
-                <Card className="p-6">
-                  <div className="flex items-center justify-between mb-6">
-                    <div>
-                      <h3 className="text-xl font-semibold">Tasks</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Showing {filteredTasks.length} of {project.tasks.length}{" "}
-                        tasks
-                      </p>
+                    <div className="flex gap-2">
+                        <Button variant="outline" onClick={() => setIsAddImagesOpen(true)}>
+                            <Upload className="w-4 h-4 mr-2" />
+                            Add Images
+                        </Button>
+
+                        <Button variant="outline" onClick={() => toast.info('Import functionality coming soon!')}>
+                            <FileUp className="w-4 h-4 mr-2" />
+                            Import
+                        </Button>
+
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline">
+                                    <Download className="w-4 h-4 mr-2" />
+                                    Export
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={exportProjectCSV}>
+                                    <FileText className="w-4 h-4 mr-2" />
+                                    Export as CSV
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={exportProjectJSON}>
+                                    <FileText className="w-4 h-4 mr-2" />
+                                    Export as JSON
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="icon">
+                                    <MoreVertical className="w-4 h-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => setActiveTab('settings')}>
+                                    <Edit className="w-4 h-4 mr-2" />
+                                    Edit Project
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={handleDeleteProject} className="text-red-600">
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    Delete Project
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </div>
                 </div>
 
@@ -530,7 +522,7 @@ export function ProjectDetailPage() {
                                 <p className="text-xl font-semibold">{project._count?.members || 0}</p>
                             </div>
                         </div>
-                        {/* More stats can be added here */}
+
                         <div className="flex items-center gap-3 p-3 bg-yellow-50 rounded-lg">
                             <div className="w-10 h-10 bg-yellow-200 rounded-lg flex items-center justify-center">
                                 <AlertCircle className="w-5 h-5 text-yellow-600" />
@@ -540,11 +532,27 @@ export function ProjectDetailPage() {
                                 <p className="text-xl font-semibold">{project._count?.tasks || 0}</p>
                             </div>
                         </div>
+
+                        <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
+                            <div className="w-10 h-10 bg-green-200 rounded-lg flex items-center justify-center">
+                                <CheckCircle2 className="w-5 h-5 text-green-600" />
+                            </div>
+                            <div>
+                                <p className="text-xs text-muted-foreground">Approved</p>
+                                <p className="text-xl font-semibold">
+                                    {tasks.filter((t: any) => t.status === "approved").length}
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 </Card>
 
                 {/* Tabs: Tasks & Analytics */}
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+                <Tabs
+                    value={activeTab}
+                    onValueChange={setActiveTab}
+                    className="space-y-6"
+                >
                     <TabsList>
                         <TabsTrigger value="tasks">Task Management</TabsTrigger>
                         <TabsTrigger value="members">Members</TabsTrigger>
@@ -565,13 +573,29 @@ export function ProjectDetailPage() {
                                     <div className="relative">
                                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                                         <Input
-                                            placeholder="Search tasks..."
+                                            placeholder="Search tasks by name or ID..."
                                             value={taskSearchQuery}
                                             onChange={(e) => setTaskSearchQuery(e.target.value)}
                                             className="pl-9"
                                         />
                                     </div>
                                 </div>
+                                <Select
+                                    value={taskFilterStatus}
+                                    onValueChange={setTaskFilterStatus}
+                                >
+                                    <SelectTrigger className="w-[150px]">
+                                        <SelectValue placeholder="Status" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Status</SelectItem>
+                                        <SelectItem value="pending">Pending</SelectItem>
+                                        <SelectItem value="assigned">Assigned</SelectItem>
+                                        <SelectItem value="submitted">Submitted</SelectItem>
+                                        <SelectItem value="approved">Approved</SelectItem>
+                                    </SelectContent>
+                                </Select>
+
                                 <Select value={taskFilterAssignee} onValueChange={setTaskFilterAssignee}>
                                     <SelectTrigger className="w-[180px]">
                                         <SelectValue placeholder="Assignee" />
@@ -815,7 +839,6 @@ export function ProjectDetailPage() {
                         </Card>
                     </TabsContent>
                 </Tabs>
-
                 {/* Edit Role Dialog */}
                 <Dialog open={isEditRoleOpen} onOpenChange={setIsEditRoleOpen}>
                     <DialogContent className="sm:max-w-md">

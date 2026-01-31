@@ -4,6 +4,13 @@ import { notificationApi } from '../services/notification.api';
 import type { Notification } from '../services/notification.api';
 import { toast } from 'sonner';
 
+interface SystemEventData {
+  notification?: Notification;
+  label?: { name: string };
+  enabled?: boolean;
+  [key: string]: unknown;
+}
+
 interface SystemEvent {
   type: string;
   timestamp: Date;

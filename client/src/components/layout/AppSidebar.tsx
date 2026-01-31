@@ -25,17 +25,23 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   return (
     <Sidebar collapsible="icon" {...props}>
-      <SidebarHeader className="p-4 border-b border-sidebar-border/50 bg-gradient-to-br from-blue-50/50 to-transparent">
-        <div className="flex items-center gap-3 group-data-[collapsible=icon]:justify-center transition-all duration-300">
-          <div className="flex aspect-square size-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 text-sidebar-primary-foreground shadow-lg shadow-blue-500/20">
-            <span className="text-xl font-bold text-white">V</span>
-          </div>
-          <div className="flex flex-col text-left leading-tight group-data-[collapsible=icon]:hidden transition-all duration-300">
-            <span className="font-bold text-base tracking-tight text-foreground/90">
-              V-Label
-            </span>
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              {user?.role} Workspace
+      <SidebarHeader className="p-4 border-b border-sidebar-border/50">
+        <div className="flex items-center gap-3 group-data-[collapsible=icon]:justify-center">
+          <img
+            src="/src/assets/android-chrome-192x192.png"
+            alt="VLabel Logo"
+            className="w-10 h-10 rounded-lg"
+          />
+          <div className="flex flex-col text-left leading-none group-data-[collapsible=icon]:hidden">
+            <span className="font-semibold text-lg">VLabel</span>
+            <span className="text-sm text-muted-foreground">
+              {user?.role === "ADMIN"
+                ? "Admin Dashboard"
+                : user?.role === "MANAGER"
+                  ? "Manager Dashboard"
+                  : user?.role === "REVIEWER"
+                    ? "Reviewer Workspace"
+                    : "Annotator Workspace"}
             </span>
           </div>
         </div>
@@ -46,7 +52,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           {navItems.map((item) => {
             const isActive =
               location.pathname === item.url ||
-              location.pathname.startsWith(item.url + "/");
+              (location.pathname.startsWith(item.url + "/") && item.url !== "/admin");
             return (
               <SidebarMenuItem key={item.title}>
                 <SidebarMenuButton
@@ -55,10 +61,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   tooltip={item.title}
                   className={`
                     h-10 transition-all duration-200 rounded-lg group
-                    ${
-                      isActive
-                        ? "bg-blue-50 text-blue-700 font-medium shadow-sm ring-1 ring-blue-100"
-                        : "text-muted-foreground hover:bg-gray-100/80 hover:text-foreground"
+                    ${isActive
+                      ? "bg-blue-50 text-blue-700 font-medium shadow-sm ring-1 ring-blue-100"
+                      : "text-muted-foreground hover:bg-gray-100/80 hover:text-foreground"
                     }
                   `}
                 >
