@@ -8,6 +8,7 @@ import { Shield, Users, CheckCircle, Pencil, Eye, EyeOff, AlertCircle, Sparkles,
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../../context/AuthContext';
 import { logger } from '../../../utils/logger';
+import logoUrl from '../../../assets/android-chrome-192x192.png';
 
 import { TypewriterText } from '../../../components/ui/typewriter-effect';
 import { GoogleLoginButton } from '../../../components/GoogleLoginButton';
@@ -229,9 +230,9 @@ export const LoginPage = () => {
                     {/* Mobile Logo */}
                     <div className="lg:hidden flex items-center gap-3 mb-8">
                         <img
-                            src="/src/assets/android-chrome-192x192.png"
+                            src={logoUrl}
                             alt="VLabel Logo"
-                            className="w-10 h-10 rounded-lg"
+                            className="w-12 h-12 rounded-lg"
                         />
                         <h1 className="text-2xl font-semibold">VLabel</h1>
                     </div>

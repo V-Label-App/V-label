@@ -13,6 +13,7 @@ import { Avatar, AvatarFallback } from "../../../components/ui/avatar";
 import { Badge } from "../../../components/ui/badge";
 import { Clock, Star, Sparkles, Tag } from "lucide-react";
 import { formatDistanceToNow, parseISO } from "date-fns";
+import logoUrl from "../../../assets/android-chrome-192x192.png";
 
 interface QueueTask {
   id: string;
@@ -121,7 +122,7 @@ export function ReviewerQueue({ onOpenWorkspace }: ReviewerQueueProps) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <img
-                src="/src/assets/android-chrome-192x192.png"
+                src={logoUrl}
                 alt="VLabel Logo"
                 className="w-8 h-8 rounded-lg"
               />

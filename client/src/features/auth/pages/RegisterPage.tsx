@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { authApi } from '../../../services/auth.api';
 import { TypewriterText } from '../../../components/ui/typewriter-effect';
 import { GoogleLoginButton } from '../../../components/GoogleLoginButton';
+import logoUrl from '../../../assets/android-chrome-192x192.png';
 
 export const RegisterPage = () => {
     const navigate = useNavigate();
@@ -182,7 +183,7 @@ export const RegisterPage = () => {
                     {/* Mobile Logo */}
                     <div className="lg:hidden flex items-center gap-3 mb-8">
                         <img
-                            src="/src/assets/android-chrome-192x192.png"
+                            src={logoUrl}
                             alt="VLabel Logo"
                             className="w-10 h-10 rounded-lg"
                         />

@@ -3,7 +3,10 @@ import { Link } from 'react-router-dom';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
-import { Mail, ArrowLeft, AlertCircle, CheckCircle2, Sparkles } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
+import { Alert, AlertDescription } from '../../../components/ui/alert';
+import { Loader2, Mail, ArrowLeft, AlertCircle, CheckCircle2, Sparkles } from 'lucide-react';
+import logoUrl from '../../../assets/android-chrome-192x192.png';
 import { motion, AnimatePresence } from 'framer-motion';
 import { authApi } from '../../../services/auth.api';
 import { logger } from '../../../utils/logger';
@@ -51,7 +54,7 @@ export const ForgotPasswordPage = () => {
                         className="bg-white p-3 rounded-2xl shadow-xl mb-4 border border-slate-100"
                     >
                         <img
-                            src="/src/assets/android-chrome-192x192.png"
+                            src={logoUrl}
                             alt="VLabel Logo"
                             className="w-12 h-12 rounded-lg"
                         />
