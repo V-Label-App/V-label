@@ -12,9 +12,25 @@ import {
   BreadcrumbSeparator,
 } from "../ui/breadcrumb";
 import { UserNav } from "../common/UserNav";
+import { ChatWidget } from "../../features/chat-widget/components/ChatWidget";
+import { useEffect } from "react";
 
 
 export default function DashboardLayout() {
+  // Show keyboard shortcut hint on first visit
+  useEffect(() => {
+    const hasSeenHint = localStorage.getItem('chat-shortcut-hint-seen');
+    if (!hasSeenHint) {
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const shortcut = isMac ? 'Control + Space' : 'Alt + Space';
+
+      setTimeout(() => {
+        console.log(`💡 Tip: Press ${shortcut} to toggle AI Assistant anywhere!`);
+        localStorage.setItem('chat-shortcut-hint-seen', 'true');
+      }, 2000);
+    }
+  }, []);
+
   return (
     <SidebarProvider>
       <AppSidebar />
@@ -43,6 +59,9 @@ export default function DashboardLayout() {
           <Outlet />
         </main>
       </SidebarInset>
+
+      {/* Floating Chat Widget - Controlled by keyboard shortcut in useChatWidget hook */}
+      <ChatWidget variant="floating" />
     </SidebarProvider>
   );
 }

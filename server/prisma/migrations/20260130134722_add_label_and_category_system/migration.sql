@@ -8,7 +8,7 @@
 
 */
 -- CreateEnum
-CREATE TYPE "LabelRequestStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED');
+-- Type "LabelRequestStatus" already created in 20260128162432
 
 -- AlterEnum
 -- This migration adds more than one value to an enum.
@@ -18,10 +18,7 @@ CREATE TYPE "LabelRequestStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED');
 -- the enum.
 
 
-ALTER TYPE "NotificationType" ADD VALUE 'LABEL_REQUESTED';
-ALTER TYPE "NotificationType" ADD VALUE 'LABEL_REQUEST_APPROVED';
-ALTER TYPE "NotificationType" ADD VALUE 'LABEL_REQUEST_REJECTED';
-ALTER TYPE "NotificationType" ADD VALUE 'LABEL_CREATED';
+-- NotificationType values already added in 20260128162432
 
 -- DropForeignKey
 ALTER TABLE "annotation_consensus" DROP CONSTRAINT "annotation_consensus_task_id_fkey";
@@ -152,71 +149,34 @@ CREATE TABLE "project_categories" (
 );
 
 -- CreateTable
-CREATE TABLE "label_categories" (
-    "id" UUID NOT NULL,
-    "name" VARCHAR(100) NOT NULL,
-    "description" TEXT,
-    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "label_categories_pkey" PRIMARY KEY ("id")
-);
+-- Table "label_categories" already created in 20260128162432
 
 -- CreateTable
-CREATE TABLE "labels" (
-    "id" UUID NOT NULL,
-    "name" VARCHAR(100) NOT NULL,
-    "color" VARCHAR(7) NOT NULL,
-    "is_global" BOOLEAN NOT NULL DEFAULT false,
-    "category_id" UUID,
-    "created_by" UUID NOT NULL,
-    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "labels_pkey" PRIMARY KEY ("id")
-);
+-- Table "labels" already created in 20260128162432
 
 -- CreateTable
-CREATE TABLE "project_labels" (
-    "id" UUID NOT NULL,
-    "project_id" UUID NOT NULL,
-    "label_id" UUID NOT NULL,
-    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "project_labels_pkey" PRIMARY KEY ("id")
-);
+-- Table "project_labels" already created in 20260128162432
 
 -- CreateTable
-CREATE TABLE "label_requests" (
-    "id" UUID NOT NULL,
-    "project_id" UUID NOT NULL,
-    "requested_by" UUID NOT NULL,
-    "label_name" VARCHAR(100) NOT NULL,
-    "suggested_color" VARCHAR(7),
-    "reason" TEXT,
-    "status" "LabelRequestStatus" NOT NULL DEFAULT 'PENDING',
-    "reviewed_by" UUID,
-    "reviewed_at" TIMESTAMP(3),
-    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "label_requests_pkey" PRIMARY KEY ("id")
-);
+-- Table "label_requests" already created in 20260128162432
 
 -- CreateIndex
 CREATE UNIQUE INDEX "project_categories_name_key" ON "project_categories"("name");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "label_categories_name_key" ON "label_categories"("name");
+-- Index "label_categories_name_key" already created
 
 -- CreateIndex
-CREATE INDEX "labels_is_global_idx" ON "labels"("is_global");
+-- Index "labels_is_global_idx" already created
 
 -- CreateIndex
-CREATE UNIQUE INDEX "labels_name_category_id_key" ON "labels"("name", "category_id");
+-- Index "labels_name_category_id_key" already created
 
 -- CreateIndex
-CREATE UNIQUE INDEX "project_labels_project_id_label_id_key" ON "project_labels"("project_id", "label_id");
+-- Index "project_labels_project_id_label_id_key" already created
 
 -- CreateIndex
-CREATE INDEX "label_requests_project_id_status_idx" ON "label_requests"("project_id", "status");
+-- Index "label_requests_project_id_status_idx" already created
 
 -- AddForeignKey
 ALTER TABLE "projects" ADD CONSTRAINT "projects_category_id_fkey" FOREIGN KEY ("category_id") REFERENCES "project_categories"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -279,22 +239,22 @@ ALTER TABLE "task_reassignments" ADD CONSTRAINT "task_reassignments_new_annotato
 ALTER TABLE "task_reassignments" ADD CONSTRAINT "task_reassignments_reassigned_by_fkey" FOREIGN KEY ("reassigned_by") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "labels" ADD CONSTRAINT "labels_category_id_fkey" FOREIGN KEY ("category_id") REFERENCES "label_categories"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+-- Foreign Key "labels_category_id_fkey" already created
 
 -- AddForeignKey
-ALTER TABLE "labels" ADD CONSTRAINT "labels_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+-- Foreign Key "labels_created_by_fkey" already created
 
 -- AddForeignKey
-ALTER TABLE "project_labels" ADD CONSTRAINT "project_labels_project_id_fkey" FOREIGN KEY ("project_id") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+-- Foreign Key "project_labels_project_id_fkey" already created
 
 -- AddForeignKey
-ALTER TABLE "project_labels" ADD CONSTRAINT "project_labels_label_id_fkey" FOREIGN KEY ("label_id") REFERENCES "labels"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+-- Foreign Key "project_labels_label_id_fkey" already created
 
 -- AddForeignKey
-ALTER TABLE "label_requests" ADD CONSTRAINT "label_requests_project_id_fkey" FOREIGN KEY ("project_id") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+-- Foreign Key "label_requests_project_id_fkey" already created
 
 -- AddForeignKey
-ALTER TABLE "label_requests" ADD CONSTRAINT "label_requests_requested_by_fkey" FOREIGN KEY ("requested_by") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+-- Foreign Key "label_requests_requested_by_fkey" already created
 
 -- AddForeignKey
-ALTER TABLE "label_requests" ADD CONSTRAINT "label_requests_reviewed_by_fkey" FOREIGN KEY ("reviewed_by") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+-- Foreign Key "label_requests_reviewed_by_fkey" already created

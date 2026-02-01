@@ -459,12 +459,36 @@ export function AdminChatSettingsPage() {
                                     </Tooltip>
                                 </CardTitle>
                                 <CardDescription>
-                                    Turn the AI chat assistant on or off for all users.
+                                    Turn the chat widget on or off for all users.
                                 </CardDescription>
                             </div>
                             <Switch
                                 checked={config.enabled}
                                 onCheckedChange={(checked) => setConfig({ ...config, enabled: checked })}
+                            />
+                        </CardHeader>
+                    </Card>
+
+                    {/* Full Page Mode Toggle */}
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <div className="space-y-1">
+                                <CardTitle className="flex items-center gap-2">
+                                    Enable Full Page Mode
+                                    <Tooltip>
+                                        <TooltipTrigger><Info className="w-4 h-4 text-gray-400" /></TooltipTrigger>
+                                        <TooltipContent>
+                                            Show a dedicated Chat page in sidebar navigation. ADMIN always has access regardless of this setting.
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </CardTitle>
+                                <CardDescription>
+                                    Add a "Chat" tab to sidebar for all user roles.
+                                </CardDescription>
+                            </div>
+                            <Switch
+                                checked={config.fullPageModeEnabled}
+                                onCheckedChange={(checked) => setConfig({ ...config, fullPageModeEnabled: checked })}
                             />
                         </CardHeader>
                     </Card>

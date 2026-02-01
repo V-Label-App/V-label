@@ -15,10 +15,11 @@ export interface ChatFunctionDefinition {
 
 export interface ChatWidgetConfig {
     enabled: boolean;
+    fullPageModeEnabled: boolean; // Toggle full-page chat mode in sidebar
     modelName: string;
     systemPrompt: string;
     knowledgeBase?: string; // Documentation content for AI context
-    
+
     // Per-role custom prompts
     rolePrompts?: {
         MANAGER?: string;
@@ -26,7 +27,7 @@ export interface ChatWidgetConfig {
         REVIEWER?: string;
         ADMIN?: string;
     };
-    
+
     temperature: number;
     ui: {
         themeColor: string;
@@ -42,7 +43,7 @@ export interface ChatWidgetConfig {
 
 export const chatSettingsApi = {
     getConfig: async (): Promise<ChatWidgetConfig> => {
-        const response = await apiClient.get<ChatWidgetConfig>('/admin/config/chat');
+        const response = await apiClient.get<ChatWidgetConfig>('/config/chat'); // Public endpoint
         return response.data;
     },
 

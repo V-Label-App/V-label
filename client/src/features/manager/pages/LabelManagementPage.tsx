@@ -34,7 +34,6 @@ import {
   AlertTriangle,
   Search,
   MoreHorizontal,
-  ArrowLeft,
   ChevronRight,
   Upload,
   Download,

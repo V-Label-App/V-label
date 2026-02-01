@@ -431,7 +431,7 @@ export class ProjectService {
             const { NotificationType } = await import('@prisma/client');
 
             // Use SYSTEM or create a specific type if needed. Using SYSTEM for now or check if we can reuse
-            const notifType = NotificationType.SYSTEM_USER_ROLE_CHANGE || NotificationType.SYSTEM;
+            const notifType = NotificationType.SYSTEM_USER_ROLE_CHANGE;
 
             await sendNotification(io, {
                 userId,

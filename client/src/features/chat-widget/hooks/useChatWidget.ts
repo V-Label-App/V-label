@@ -76,6 +76,32 @@ export function useChatWidget() {
 
   const toggleOpen = () => setIsOpen(!isOpen);
 
+  // Global keyboard shortcut listener
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Detect platform
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+
+      // Check for shortcut combination
+      const isShortcut = isMac
+        ? event.ctrlKey && event.code === 'Space'  // Mac: Control + Space
+        : event.altKey && event.code === 'Space';   // Windows: Alt + Space
+
+      if (isShortcut) {
+        event.preventDefault();
+        setIsOpen((prev) => !prev);
+      }
+
+      // Also support ESC to close
+      if (event.key === 'Escape' && isOpen) {
+        setIsOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen]);
+
   const handleSendMessage = async (e?: React.FormEvent, content?: string) => {
     e?.preventDefault();
 

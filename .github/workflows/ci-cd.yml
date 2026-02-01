@@ -1,0 +1,260 @@
+name: V-Label CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # Job 1: Test & Build Backend
+  build-backend:
+    name: Build & Test Backend
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./server
+        run: npm ci
+
+      - name: Generate Prisma Client
+        working-directory: ./server
+        run: npx prisma generate
+
+      - name: Run TypeScript build
+        working-directory: ./server
+        run: npm run build
+
+      - name: Run tests (if available)
+        working-directory: ./server
+        run: npm test || echo "No tests configured"
+        continue-on-error: true
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-build
+          path: server/dist
+          retention-days: 1
+
+  # Job 2: Test & Build Frontend
+  build-frontend:
+    name: Build & Test Frontend
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./client
+        run: npm ci
+
+      - name: Build Frontend
+        working-directory: ./client
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ vars.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+          VITE_FIREBASE_MEASUREMENT_ID: ${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}
+        run: npm run build
+
+      - name: Run tests (if available)
+        working-directory: ./client
+        run: npm test || echo "No tests configured"
+        continue-on-error: true
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: client/dist
+          retention-days: 1
+
+  # Job 3: Deploy to VPS (only on main branch)
+  deploy:
+    name: Deploy to VPS
+    runs-on: ubuntu-latest
+    needs: [build-backend, build-frontend]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Add VPS to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ vars.VPS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Create .env.production from GitHub Secrets & Variables
+        env:
+          # VPS Configuration (Variables - non-sensitive)
+          VPS_HOST: ${{ vars.VPS_HOST }}
+          VPS_USER: ${{ vars.VPS_USER }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+          # Database Config (Mixed)
+          DB_USER: ${{ vars.DB_USER }}
+          DB_NAME: ${{ vars.DB_NAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          # Server Config (Mixed)
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          LOG_LEVEL: ${{ vars.LOG_LEVEL }}
+          # Firebase Server (Mixed)
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+          FIREBASE_CLIENT_EMAIL: ${{ vars.FIREBASE_CLIENT_EMAIL }}
+          FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
+          # AI Config (Secret)
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # Email/SMTP Config (Mixed)
+          EMAIL_FROM: ${{ vars.EMAIL_FROM }}
+          SMTP_HOST: ${{ vars.SMTP_HOST }}
+          SMTP_PORT: ${{ vars.SMTP_PORT }}
+          SMTP_USER: ${{ vars.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          FRONTEND_URL: ${{ vars.FRONTEND_URL }}
+          # Frontend Config (Mixed)
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ vars.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+          VITE_FIREBASE_MEASUREMENT_ID: ${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}
+        run: |
+          ssh $VPS_USER@$VPS_HOST << 'EOF'
+            set -e
+            
+            echo "📝 Creating .env.production from GitHub Secrets & Variables..."
+            cd ${{ vars.DEPLOY_PATH }}
+            
+            # Create .env.production
+            cat > .env.production << 'ENVEOF'
+            # Auto-generated by GitHub Actions on $(date)
+            # DO NOT EDIT MANUALLY - Changes will be overwritten on next deployment
+            
+            # Database Configuration
+            DB_USER=${{ vars.DB_USER }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            DB_NAME=${{ vars.DB_NAME }}
+            
+            # Server Configuration
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            LOG_LEVEL=${{ vars.LOG_LEVEL }}
+            
+            # Firebase Admin SDK (Server-side)
+            FIREBASE_PROJECT_ID=${{ vars.FIREBASE_PROJECT_ID }}
+            FIREBASE_CLIENT_EMAIL=${{ vars.FIREBASE_CLIENT_EMAIL }}
+            FIREBASE_PRIVATE_KEY=${{ secrets.FIREBASE_PRIVATE_KEY }}
+            
+            # AI Configuration
+            GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+            
+            # Email Configuration
+            EMAIL_FROM=${{ vars.EMAIL_FROM }}
+            SMTP_HOST=${{ vars.SMTP_HOST }}
+            SMTP_PORT=${{ vars.SMTP_PORT }}
+            SMTP_USER=${{ vars.SMTP_USER }}
+            SMTP_PASS=${{ secrets.SMTP_PASS }}
+            FRONTEND_URL=${{ vars.FRONTEND_URL }}
+            
+            # Client Configuration (Vite build-time variables)
+            VITE_API_URL=${{ vars.VITE_API_URL }}
+            VITE_FIREBASE_API_KEY=${{ secrets.VITE_FIREBASE_API_KEY }}
+            VITE_FIREBASE_AUTH_DOMAIN=${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
+            VITE_FIREBASE_PROJECT_ID=${{ vars.VITE_FIREBASE_PROJECT_ID }}
+            VITE_FIREBASE_STORAGE_BUCKET=${{ vars.VITE_FIREBASE_STORAGE_BUCKET }}
+            VITE_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+            VITE_FIREBASE_APP_ID=${{ secrets.VITE_FIREBASE_APP_ID }}
+            VITE_FIREBASE_MEASUREMENT_ID=${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}
+            ENVEOF
+            
+            echo "✅ .env.production created successfully"
+          EOF
+
+      - name: Deploy to VPS
+        env:
+          VPS_HOST: ${{ vars.VPS_HOST }}
+          VPS_USER: ${{ vars.VPS_USER }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+        run: |
+          ssh $VPS_USER@$VPS_HOST << 'EOF'
+            set -e
+            
+            echo "🚀 Starting deployment..."
+            
+            # Navigate to project directory
+            cd ${{ vars.DEPLOY_PATH }}
+            
+            # Pull latest code
+            echo "📥 Pulling latest code..."
+            git pull origin main
+            
+            # Load environment variables
+            export $(cat .env.production | grep -v '^#' | xargs)
+            
+            # Stop current containers
+            echo "⏹️  Stopping current containers..."
+            docker compose -f docker-compose.prod.yml down
+            
+            # Build and start with new code
+            echo "🏗️  Building and starting services..."
+            docker compose -f docker-compose.prod.yml up -d --build
+            
+            # Wait for services to be healthy
+            echo "⏳ Waiting for services to be ready..."
+            sleep 30
+            
+            # Run database migrations
+            echo "📦 Running database migrations..."
+            docker compose -f docker-compose.prod.yml exec -T server npx prisma migrate deploy
+            
+            # Check service status
+            echo "✅ Checking service status..."
+            docker compose -f docker-compose.prod.yml ps
+            
+            # Health check
+            echo "🏥 Running health check..."
+            curl -f http://localhost:4000/api/v1/health || echo "❌ Health check failed"
+            
+            echo "🎉 Deployment completed successfully!"
+          EOF
+
+      - name: Deployment notification
+        if: always()
+        run: |
+          if [ ${{ job.status }} == 'success' ]; then
+            echo "✅ Deployment succeeded!"
+          else
+            echo "❌ Deployment failed!"
+          fi

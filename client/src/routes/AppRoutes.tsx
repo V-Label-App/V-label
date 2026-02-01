@@ -16,6 +16,7 @@ import { ProjectDetailPage } from "../features/manager/pages/ProjectDetailPage";
 import { LabelManagementPage } from "../features/manager/pages/LabelManagementPage";
 import { AnnotatorTasks } from "../features/annotator/pages/AnnotatorTasks";
 import { ReviewerQueue } from "../features/reviewer/pages/ReviewerQueue";
+import { ChatPage } from "../features/chat-widget/pages/ChatPage";
 
 // Other pages
 import DashboardPage from "../pages/DashboardPage";
@@ -74,6 +75,15 @@ export const AppRoutes = () => {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/admin/chat"
+          element={
+            <ProtectedRoute allowedRoles={["ADMIN"]}>
+              <ChatPage />
+            </ProtectedRoute>
+          }
+        />
+
 
         {/* Manager Routes */}
         <Route
@@ -104,6 +114,15 @@ export const AppRoutes = () => {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/manager/chat"
+          element={
+            <ProtectedRoute allowedRoles={["MANAGER"]}>
+              <ChatPage />
+            </ProtectedRoute>
+          }
+        />
+
 
         {/* Annotator Routes (Task List) */}
         <Route
@@ -118,6 +137,15 @@ export const AppRoutes = () => {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/annotator/chat"
+          element={
+            <ProtectedRoute allowedRoles={["ANNOTATOR"]}>
+              <ChatPage />
+            </ProtectedRoute>
+          }
+        />
+
 
         {/* Reviewer Routes */}
         <Route
@@ -132,6 +160,15 @@ export const AppRoutes = () => {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/reviewer/chat"
+          element={
+            <ProtectedRoute allowedRoles={["REVIEWER"]}>
+              <ChatPage />
+            </ProtectedRoute>
+          }
+        />
+
 
         {/* Shared Routes */}
         <Route

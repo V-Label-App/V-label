@@ -10,6 +10,8 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "../../components/ui/sidebar";
+import { chatSettingsApi } from "../../services/chatSettings.api";
+import { useState, useEffect, useMemo } from "react";
 
 import { Link, useLocation } from "react-router-dom";
 // import { UserNav } from "../common/UserNav";
@@ -17,11 +19,49 @@ import { Link, useLocation } from "react-router-dom";
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user } = useAuth();
   const location = useLocation();
+  const [chatConfig, setChatConfig] = useState<any>(null);
+
+  useEffect(() => {
+    // Fetch chat config to determine if full page mode is enabled
+    const loadConfig = () => {
+      chatSettingsApi.getConfig()
+        .then(config => setChatConfig(config))
+        .catch(err => console.error('[AppSidebar] Failed to load chat config:', err));
+    };
+
+    loadConfig();
+
+    // Listen for config updates from Admin Panel
+    const channel = new BroadcastChannel('chat_widget_channel');
+    channel.onmessage = (event) => {
+      if (event.data.type === 'config_updated') {
+        console.log('[AppSidebar] Config updated, reloading...');
+        loadConfig();
+      }
+    };
+
+    return () => {
+      channel.close();
+    };
+  }, []);
 
   // Fallback to empty array if user role is not found or not mapped
-  const navItems = user?.role
+  const baseNavItems = user?.role
     ? ROLE_NAVIGATION[user.role as keyof typeof ROLE_NAVIGATION] || []
     : [];
+
+  // Filter Chat tab based on config (except for ADMIN)
+  const navItems = useMemo(() => {
+    if (!user?.role) return [];
+    if (user.role === 'ADMIN') return baseNavItems; // ADMIN always sees all tabs
+
+    // For other roles, filter out Chat if fullPageModeEnabled is false
+    if (!chatConfig?.fullPageModeEnabled) {
+      return baseNavItems.filter(item => item.title !== 'Chat');
+    }
+
+    return baseNavItems;
+  }, [baseNavItems, chatConfig, user?.role]);
 
   return (
     <Sidebar collapsible="icon" {...props}>
