@@ -120,11 +120,17 @@ jobs:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          DB_USER: ${{ vars.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ vars.DB_NAME }}
         run: |
           echo "Checking Secrets..."
           if [ -z "$VPS_HOST" ]; then echo "❌ Error: VPS_HOST secret is missing or empty"; exit 1; fi
           if [ -z "$VPS_USER" ]; then echo "❌ Error: VPS_USER secret is missing or empty"; exit 1; fi
           if [ -z "$DEPLOY_PATH" ]; then echo "❌ Error: DEPLOY_PATH secret is missing or empty"; exit 1; fi
+          if [ -z "$DB_USER" ]; then echo "❌ Error: DB_USER variable is missing or empty"; exit 1; fi
+          if [ -z "$DB_PASSWORD" ]; then echo "❌ Error: DB_PASSWORD secret is missing or empty. Postgres will crash without it!"; exit 1; fi
+          if [ -z "$DB_NAME" ]; then echo "❌ Error: DB_NAME variable is missing or empty"; exit 1; fi
           echo "✅ All required secrets accept values."
 
       - name: Create .env.production from GitHub Secrets & Variables
@@ -271,3 +277,11 @@ jobs:
           else
             echo "❌ Deployment failed!"
           fi
+
+      - name: Debug Deployment Failure
+        if: failure()
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          ssh $VPS_USER@$VPS_HOST "docker logs vlabel-postgres" || true
