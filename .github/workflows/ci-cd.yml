@@ -97,6 +97,7 @@ jobs:
   # Job 3: Deploy to VPS (only on main branch)
   deploy:
     name: Deploy to VPS
+    environment: production
     runs-on: ubuntu-latest
     needs: [build-backend, build-frontend]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
