@@ -193,7 +193,7 @@ jobs:
             # Firebase Admin SDK (Server-side)
             FIREBASE_PROJECT_ID="${{ vars.FIREBASE_PROJECT_ID }}"
             FIREBASE_CLIENT_EMAIL="${{ vars.FIREBASE_CLIENT_EMAIL }}"
-            FIREBASE_PRIVATE_KEY="${{ secrets.FIREBASE_PRIVATE_KEY }}"
+            FIREBASE_PRIVATE_KEY='${{ secrets.FIREBASE_PRIVATE_KEY }}'
             
             # AI Configuration
             GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}"
