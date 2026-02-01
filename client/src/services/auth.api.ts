@@ -14,7 +14,8 @@ export const apiClient = axios.create({
 // Add request interceptor to attach token
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('accessToken')
+    // Check both localStorage and sessionStorage for token
+    const token = localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken')
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
@@ -33,14 +34,14 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401) {
       console.warn('Unauthorized - Clearing session')
       localStorage.removeItem('accessToken')
-      
+
       // Prevent redirect loop on public pages
       const publicPaths = ['/login', '/register', '/forgot-password', '/reset-password']
       const currentPath = window.location.pathname
       const isPublicPath = publicPaths.some(path => currentPath.startsWith(path))
 
       if (!isPublicPath) {
-         window.location.href = '/login'
+        window.location.href = '/login'
       }
     }
     console.error('❌ API Error:', error.config?.url, error.response?.data || error.message)
@@ -140,10 +141,10 @@ export const authApi = {
    * Get single user (Admin only)
    */
   getUserById: async (id: string): Promise<AuthResponse['user']> => {
-     // We are reusing the User interface from jwt.utils or defining a compatible one
-     // The backend returns the user object directly
-     const response = await apiClient.get<AuthResponse['user']>(`/users/${id}`)
-     return response.data
+    // We are reusing the User interface from jwt.utils or defining a compatible one
+    // The backend returns the user object directly
+    const response = await apiClient.get<AuthResponse['user']>(`/users/${id}`)
+    return response.data
   },
 
   /**
