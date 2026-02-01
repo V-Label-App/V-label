@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+
+# Disallow private/auth pages from being indexed
+Disallow: /admin
+Disallow: /manager
+Disallow: /annotator
+Disallow: /reviewer
+
+# Sitemap location
+Sitemap: https://vlabel.cloud/sitemap.xml
