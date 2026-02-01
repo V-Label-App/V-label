@@ -227,9 +227,9 @@ jobs:
             # Navigate to project directory
             cd ${{ secrets.DEPLOY_PATH }}
             
-            # Pull latest code
+            # Pull latest code using GITHUB_TOKEN
             echo "📥 Pulling latest code..."
-            git pull origin main
+            git pull https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git main
             
             # Load environment variables
             export $(cat .env.production | grep -v '^#' | xargs)
