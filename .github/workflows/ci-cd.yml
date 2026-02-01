@@ -232,7 +232,9 @@ jobs:
             git pull https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git main
             
             # Load environment variables
-            export $(cat .env.production | grep -v '^#' | xargs)
+            set -a
+            source .env.production
+            set +a
             
             # Stop current containers
             echo "⏹️  Stopping current containers..."
