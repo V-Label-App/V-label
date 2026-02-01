@@ -253,7 +253,7 @@ jobs:
             
             # Wait for services to be healthy
             echo "⏳ Waiting for services to be ready..."
-            sleep 30
+            sleep 60
             
             # Run database migrations
             echo "📦 Running database migrations..."
@@ -285,4 +285,8 @@ jobs:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
+          echo "🔍 Database Logs:"
           ssh $VPS_USER@$VPS_HOST "docker logs vlabel-postgres" || true
+          echo "----------------------------------------"
+          echo "🔍 Server Logs:"
+          ssh $VPS_USER@$VPS_HOST "docker logs vlabel-server" || true
