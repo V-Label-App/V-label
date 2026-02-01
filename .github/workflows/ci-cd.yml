@@ -253,7 +253,7 @@ jobs:
             
             # Wait for services to be healthy
             echo "⏳ Waiting for services to be ready..."
-            sleep 60
+            sleep 15
             
             # Run database migrations
             echo "📦 Running database migrations..."
