@@ -1,9 +1,19 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '../../../components/ui/button';
 import { Card } from '../../../components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../../components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../../components/ui/dialog';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "../../../components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
 import { Label } from '../../../components/ui/label';
 import { Input } from '../../../components/ui/input';
@@ -12,360 +22,395 @@ import { Progress } from '../../../components/ui/progress';
 import { Badge } from '../../../components/ui/badge';
 import { Calendar } from '../../../components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '../../../components/ui/popover';
-import { Checkbox } from '../../../components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '../../../components/ui/dropdown-menu';
-import { RadioGroup, RadioGroupItem } from '../../../components/ui/radio-group';
+import { Avatar, AvatarFallback, AvatarImage } from '../../../components/ui/avatar';
+import { ScrollArea } from '../../../components/ui/scroll-area';
 import {
     FolderOpen,
     Calendar as CalendarIcon,
     Users,
-    CheckCircle2,
     Clock,
     AlertCircle,
-    Star,
     ArrowLeft,
     Upload,
-    X,
     Edit,
     Download,
     MoreVertical,
     Trash2,
     FileText,
-    TrendingUp,
-    PieChart as PieChartIcon,
-    BarChart3,
     FileUp,
     Search,
-    Plus,
+    Loader2,
+    Shield,
+    Eye,
+    Pen,
+    CheckCircle2,
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { LineChart, Line, BarChart, Bar, PieChart as RechartsPie, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { toast } from 'sonner';
-import { UserNav } from '../../../components/common/UserNav';
+
 import { useAuth } from '../../../context/AuthContext';
-import { CompactImageSummary } from '../../../components/CompactImageSummary';
-import { ManageImagesDialog } from '../../../components/ManageImagesDialog';
-import type { LegacyLabel as LabelType, LegacyLabelCategory as LabelCategory } from '../../../types/label.types';
-import { LabelSelector } from '../../../components/LabelSelector';
 import { ChatPanel } from '../../../components/chat/ChatPanel';
-import { getProjectById, updateProject, deleteProject, annotators, initialLabels as mockLabels, initialCategories as mockCategories } from '../data/projects.mock';
-import type { Project, Task } from '../data/projects.mock';
+import { projectApi } from '../../../services/project.api';
+import { projectLabelApi, labelApi, type Label as ApiLabel } from '../../../services/label.api';
+import { LabelSelector } from '../../../components/LabelSelector';
+import type { Project } from '../../../types/project.types';
+import { ProjectStatus } from '../../../types/project.types';
 
 export function ProjectDetailPage() {
     const { projectId } = useParams();
     const navigate = useNavigate();
-    const { isImpersonating } = useAuth();
-    const [project, setProject] = useState<Project | undefined>();
-    const [activeTab, setActiveTab] = useState('tasks');
-    const [labels] = useState<LabelType[]>(mockLabels);
-    const [_categories] = useState<LabelCategory[]>(mockCategories);
+    const { } = useAuth();
 
-    // Load Project
-    useEffect(() => {
-        if (projectId) {
-            const found = getProjectById(projectId);
-            if (found) {
-                setProject(found);
-            } else {
-                toast.error('Project not found');
-                navigate('/manager/projects');
-            }
-        }
-    }, [projectId, navigate]);
+    // Data State
+    const [project, setProject] = useState<Project | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [activeTab, setActiveTab] = useState('tasks');
+
+    // Label State
+    const [selectedLabelIds, setSelectedLabelIds] = useState<string[]>([]);
+    const [allAvailableLabels, setAllAvailableLabels] = useState<ApiLabel[]>([]);
+
+    // Placeholder for tasks since API doesn't return them yet
+    const [tasks, setTasks] = useState<any[]>([]);
 
     // Dialog States
-    const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
     const [isAddImagesOpen, setIsAddImagesOpen] = useState(false);
-    const [isManageAddImagesOpen, setIsManageAddImagesOpen] = useState(false);
 
     // Search & Filter State
     const [taskSearchQuery, setTaskSearchQuery] = useState('');
     const [taskFilterStatus, setTaskFilterStatus] = useState<string>('all');
     const [taskFilterAssignee, setTaskFilterAssignee] = useState<string>('all');
 
-    // Edit Project State
+    // Edit Project State - Pre-fill when opening
     const [editName, setEditName] = useState('');
     const [editDescription, setEditDescription] = useState('');
     const [editDeadline, setEditDeadline] = useState<Date>();
-    const [editAnnotators, setEditAnnotators] = useState<string[]>([]);
-    const [editLabelIds, setEditLabelIds] = useState<string[]>([]);
 
-    // Add Images State
-    const [newImages, setNewImages] = useState<File[]>([]);
-    const [addImagesAnnotators, setAddImagesAnnotators] = useState<string[]>([]);
-    const [addImagesMethod, setAddImagesMethod] = useState<'later' | 'auto' | 'manual'>('later');
-    const [assignmentGroups, setAssignmentGroups] = useState<{ id: string; annotatorId: string; imageIndices: number[] }[]>([]);
+    // Member Management State
+    const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
+    const [memberSearchQuery, setMemberSearchQuery] = useState('');
+    const [potentialMembers, setPotentialMembers] = useState<any[]>([]);
+    const [selectedMembers, setSelectedMembers] = useState<any[]>([]); // Multi-select
+    const [selectedRole, setSelectedRole] = useState('ANNOTATOR');
+    const [isSearchingMembers, setIsSearchingMembers] = useState(false);
+    const [isAddingMembers, setIsAddingMembers] = useState(false);
 
-    // Batch Assign State
-    const [selectedAnnotator, setSelectedAnnotator] = useState<string>('');
-    const [selectedDate, setSelectedDate] = useState<Date>();
+    // ... (keep Edit Role State)
 
-    // Populate form when switching to Settings tab
-    useEffect(() => {
-        if (activeTab === 'settings' && project) {
-            setEditName(project.name);
-            setEditDescription(project.description);
-            setEditDeadline(new Date(project.deadline));
-            setEditAnnotators(project.assignedTo.map(name => annotators.find(a => a.name === name)?.id || '').filter(Boolean));
-            setEditLabelIds(project.labelIds || []);
+    // ... (keep Handlers)
+
+    const handleSearchUsers = async (query: string) => {
+        if (!project) return;
+        setMemberSearchQuery(query);
+
+        setIsSearchingMembers(true);
+        try {
+            // Debounce could be added here, but for now direct call
+            const users = await projectApi.searchPotentialMembers(project.id, query);
+            setPotentialMembers(users);
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setIsSearchingMembers(false);
         }
-    }, [activeTab, project]);
+    };
 
-    // Filtered Tasks
-    const filteredTasks = useMemo(() => {
-        if (!project) return [];
 
-        return project.tasks.filter(task => {
-            const matchesSearch = task.imageName.toLowerCase().includes(taskSearchQuery.toLowerCase()) ||
-                task.id.toLowerCase().includes(taskSearchQuery.toLowerCase());
-
-            const matchesStatus = taskFilterStatus === 'all' || task.status === taskFilterStatus;
-            const matchesAssignee = taskFilterAssignee === 'all' || task.assignee === taskFilterAssignee;
-
-            return matchesSearch && matchesStatus && matchesAssignee;
+    const handleToggleMemberSelection = (user: any) => {
+        setSelectedMembers(prev => {
+            const exists = prev.find(m => m.id === user.id);
+            if (exists) {
+                return prev.filter(m => m.id !== user.id);
+            } else {
+                return [...prev, user];
+            }
         });
-    }, [project, taskSearchQuery, taskFilterStatus, taskFilterAssignee]);
+    };
 
-    if (!project) return null; // Loading or redirecting
+    const handleAddMembers = async () => {
+        if (!project || selectedMembers.length === 0) return;
 
-    const selectedTasks = project.tasks.filter(t => t.selected);
-    const projectProgress = project.tasks.length > 0
-        ? (project.tasks.filter(t => t.status === 'approved').length / project.tasks.length) * 100
+        setIsAddingMembers(true);
+        try {
+            // Process in parallel for speed, though sequentially might be safer for rate limits.
+            // Parallel is fine for < 100 usually.
+            const promises = selectedMembers.map(user =>
+                projectApi.addMember(project.id, user.id, selectedRole)
+            );
+
+            await Promise.all(promises);
+
+            toast.success(`Successfully added ${selectedMembers.length} members to the project`);
+
+            setIsAddMemberOpen(false);
+            setSelectedMembers([]);
+            setMemberSearchQuery('');
+            setPotentialMembers([]);
+
+            // Refresh project
+            const updated = await projectApi.getById(project.id);
+            setProject(updated);
+        } catch (error: any) {
+            console.error(error);
+            toast.error('Failed to add some members. Please try again.');
+        } finally {
+            setIsAddingMembers(false);
+        }
+    };
+
+    // ...
+
+
+
+    // Edit Role State
+    const [isEditRoleOpen, setIsEditRoleOpen] = useState(false);
+    const [memberToEdit, setMemberToEdit] = useState<any>(null);
+    const [roleToUpdate, setRoleToUpdate] = useState('');
+
+    // Remove Member State
+    const [isRemoveMemberOpen, setIsRemoveMemberOpen] = useState(false);
+    const [memberToRemove, setMemberToRemove] = useState<any>(null);
+
+    // Load Project
+    useEffect(() => {
+        if (projectId) {
+            setIsLoading(true);
+            projectApi.getById(projectId)
+                .then(data => {
+                    setProject(data);
+                    // Tasks are currently not returned by API, so we default to empty
+                    setTasks([]);
+                })
+                .catch(err => {
+                    console.error(err);
+                    toast.error('Project not found or error loading');
+                    navigate('/manager/projects');
+                })
+                .finally(() => setIsLoading(false));
+
+            // Load Project Labels
+            projectLabelApi.getProjectLabels(projectId)
+                .then(labels => {
+                    setSelectedLabelIds(labels.map(pl => pl.labelId));
+                })
+                .catch(err => {
+                    console.error('Failed to load project labels', err);
+                });
+
+            // Load Global/Available Labels for mapping config
+            labelApi.getAll()
+                .then(labels => setAllAvailableLabels(labels))
+                .catch(err => console.error('Failed to load all labels', err));
+        }
+    }, [projectId, navigate]);
+
+    useEffect(() => {
+        if (project) {
+            setEditName(project.name);
+            setEditDescription(project.description || '');
+            if (project.deadline) setEditDeadline(new Date(project.deadline));
+        }
+    }, [project, activeTab]);
+
+    // Trigger initial search when Add Member dialog opens
+    useEffect(() => {
+        if (isAddMemberOpen) {
+            handleSearchUsers('');
+        } else {
+            // Cleanup when closed
+            setMemberSearchQuery('');
+            setPotentialMembers([]);
+            setSelectedMembers([]);
+        }
+    }, [isAddMemberOpen]);
+
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+            </div>
+        );
+    }
+
+    if (!project) return null;
+
+    // Derived State
+    const projectMembers = project.members || [];
+    const annotators = projectMembers
+        .filter((m: any) => m.projectRole === 'ANNOTATOR' || m.projectRole === 'REVIEWER') // Simplified
+        .map((m: any) => ({
+            id: m.userId,
+            name: m.user?.fullName || m.user?.email || 'Unknown',
+            email: m.user?.email
+        }));
+
+    const filteredTasks = tasks.filter(task => { // using local tasks state
+        const matchesSearch = task.imageName?.toLowerCase().includes(taskSearchQuery.toLowerCase()) ||
+            task.id?.toLowerCase().includes(taskSearchQuery.toLowerCase());
+
+        const matchesStatus = taskFilterStatus === 'all' || task.status === taskFilterStatus;
+        const matchesAssignee = taskFilterAssignee === 'all' || task.assignee === taskFilterAssignee;
+
+        return matchesSearch && matchesStatus && matchesAssignee;
+    });
+
+    const projectProgress = project._count?.tasks && project._count.tasks > 0
+        ? 0 // Placeholder
         : 0;
 
     // Handlers
-    const handleEditProject = () => {
-        if (!project || !editName || !editDescription || !editDeadline) return;
+    const handleEditProject = async () => {
+        if (!project || !editName || !editDeadline) return;
 
-        if (editLabelIds.length === 0) {
-            toast.error('Please select at least one label');
-            return;
+        try {
+            // Construct labelConfig from selected labels
+            // We want to map selected IDs -> full label objects
+            const selectedLabels = allAvailableLabels.filter(l => selectedLabelIds.includes(l.id));
+
+            // Format for labelConfig (assuming simple list of label objects for now)
+            // If there's existing config, we might want to preserve other settings (like annotationType)
+            // But user said "label_config represents which labels that project currently has", so we sync.
+            // We'll try to preserve the 'meta' config if it exists.
+            const metaConfig = project.labelConfig?.find((l: any) => l.type === 'meta');
+            const newLabelConfig = [
+                ...(metaConfig ? [metaConfig] : []),
+                ...selectedLabels.map(l => ({
+                    id: l.id,
+                    name: l.name,
+                    color: l.color
+                }))
+            ];
+
+            await Promise.all([
+                projectApi.update(project.id, {
+                    name: editName,
+                    description: editDescription,
+                    deadline: editDeadline.toISOString(),
+                    labelConfig: newLabelConfig
+                }),
+                // Update labels relation
+                projectLabelApi.updateProjectLabels(project.id, selectedLabelIds)
+            ]);
+
+            // Refresh project data to be sure
+            const updated = await projectApi.getById(project.id);
+            setProject(updated);
+            toast.success('Project updated successfully!');
+        } catch (error) {
+            console.error(error);
+            toast.error('Failed to update project');
         }
-
-        const updatedProject: Project = {
-            ...project,
-            name: editName,
-            description: editDescription,
-            deadline: format(editDeadline, 'yyyy-MM-dd'),
-            assignedTo: editAnnotators.map(id => annotators.find(a => a.id === id)?.name || '').filter(Boolean),
-            labelIds: editLabelIds,
-        };
-
-        updateProject(updatedProject);
-        setProject(updatedProject);
-        toast.success('Project updated successfully!');
     };
 
-    const handleDeleteProject = () => {
+    const handleDeleteProject = async () => {
         if (!project) return;
         if (confirm(`Are you sure you want to delete "${project.name}"? This action cannot be undone.`)) {
-            deleteProject(project.id);
-            navigate('/manager/projects');
-            toast.success('Project deleted successfully!');
+            try {
+                await projectApi.delete(project.id);
+                navigate('/manager/projects');
+                toast.success('Project deleted successfully!');
+            } catch (error) {
+                toast.error('Failed to delete project');
+            }
         }
     };
 
-    const handleAddImagesToProject = () => {
-        if (!project || newImages.length === 0) {
-            toast.error('Please upload at least one image');
-            return;
-        }
-
-        if (addImagesMethod === 'auto' && addImagesAnnotators.length === 0) {
-            toast.error('Please select at least one annotator');
-            return;
-        }
-
-        if (addImagesMethod === 'auto' && addImagesAnnotators.length > newImages.length) {
-            toast.error(`Cannot select more annotators (${addImagesAnnotators.length}) than images (${newImages.length})`);
-            return;
-        }
-
-        let newTasks: Task[] = [];
-
-        if (addImagesMethod === 'later') {
-            newTasks = newImages.map((file, index) => ({
-                id: `T-${Date.now()}-${index}`,
-                imageUrl: URL.createObjectURL(file),
-                imageName: file.name,
-                status: 'pending' as const,
-                assignee: null,
-                deadline: null,
-            }));
-        } else if (addImagesMethod === 'auto') {
-            newTasks = newImages.map((file, index) => {
-                const assignedAnnotatorId = addImagesAnnotators[index];
-                const assignedAnnotator = annotators.find(a => a.id === assignedAnnotatorId);
-
-                return {
-                    id: `T-${Date.now()}-${index}`,
-                    imageUrl: URL.createObjectURL(file),
-                    imageName: file.name,
-                    status: assignedAnnotator ? 'assigned' as const : 'pending' as const,
-                    assignee: assignedAnnotator?.name || null,
-                    deadline: assignedAnnotator ? project.deadline : null,
-                };
-            });
-        } else if (addImagesMethod === 'manual') {
-            newTasks = newImages.map((file, index) => {
-                const group = assignmentGroups.find(g => g.imageIndices.includes(index));
-                const assignedAnnotator = group ? annotators.find(a => a.id === group.annotatorId) : null;
-
-                return {
-                    id: `T-${Date.now()}-${index}`,
-                    imageUrl: URL.createObjectURL(file),
-                    imageName: file.name,
-                    status: assignedAnnotator ? 'assigned' as const : 'pending' as const,
-                    assignee: assignedAnnotator?.name || null,
-                    deadline: assignedAnnotator ? project.deadline : null,
-                };
-            });
-        }
-
-        const updatedProject = {
-            ...project,
-            tasks: [...project.tasks, ...newTasks],
-            totalImages: project.totalImages + newImages.length,
-        };
-
-        updateProject(updatedProject);
-        setProject(updatedProject);
-        setNewImages([]);
-        setAddImagesAnnotators([]);
-        setAssignmentGroups([]);
-        setAddImagesMethod('later');
-        setIsAddImagesOpen(false);
-
-        toast.success(`Added ${newImages.length} images!`);
-    };
-
-    const toggleTaskSelection = (taskId: string) => {
-        if (!project) return;
-        const updatedTasks = project.tasks.map(task =>
-            task.id === taskId ? { ...task, selected: !task.selected } : task
-        );
-        const updatedProject = { ...project, tasks: updatedTasks };
-        updateProject(updatedProject);
-        setProject(updatedProject);
-    };
-
-    const handleIndividualAssign = (taskId: string) => {
-        if (!project) return;
-        const updatedTasks = project.tasks.map(task => ({
-            ...task,
-            selected: task.id === taskId
-        }));
-        const updatedProject = { ...project, tasks: updatedTasks };
-        updateProject(updatedProject);
-        setProject(updatedProject);
-        setIsAssignModalOpen(true);
-    };
-
-    const handleBatchAssign = () => {
-        if (!selectedAnnotator || !selectedDate || !project) return;
-        const selectedAnnotatorName = annotators.find(a => a.id === selectedAnnotator)?.name;
-        const updatedTasks = project.tasks.map(task =>
-            task.selected
-                ? { ...task, status: 'assigned' as const, assignee: selectedAnnotatorName || null, deadline: format(selectedDate, 'yyyy-MM-dd'), selected: false }
-                : task
-        );
-
-        const updatedProject = { ...project, tasks: updatedTasks };
-        updateProject(updatedProject);
-        setProject(updatedProject);
-        setIsAssignModalOpen(false);
-        setSelectedAnnotator('');
-        setSelectedDate(undefined);
-        toast.success('Tasks assigned successfully!');
-    };
-
-    const exportProjectCSV = () => {
-        // Implement export logic here (omitted for brevity, assume similar to original)
-        toast.success('CSV export started');
-    };
-
-    const exportProjectJSON = () => {
-        // Implement export logic here (omitted for brevity, assume similar to original)
-        toast.success('JSON export started');
-    };
-
-    const getStatusBadge = (status: string) => {
-        const styles = {
-            pending: 'bg-gray-100 text-gray-700',
-            assigned: 'bg-blue-100 text-blue-700',
-            submitted: 'bg-yellow-100 text-yellow-700',
-            approved: 'bg-green-100 text-green-700',
-        };
-        return styles[status as keyof typeof styles];
-    };
-
-    const isOverdue = (deadline: string | null) => {
+    const isOverdue = (deadline?: string) => {
         if (!deadline) return false;
         return new Date(deadline) < new Date();
     };
 
-    const getAnnotationTypeLabel = (type: string) => {
+    const getAnnotationTypeLabel = (project: Project) => {
+        const meta = project.labelConfig?.find((l: any) => l.type === 'meta');
+        const type = meta?.annotationType || 'bounding-box';
         const labels = {
             'bounding-box': 'Bounding Box',
             'polygon': 'Polygon',
             'segmentation': 'Segmentation',
         };
-        return labels[type as keyof typeof labels];
+        return labels[type as keyof typeof labels] || type;
     };
 
-    // Analytics Data Helper
-    const getAnalyticsData = (project: Project) => {
-        const statusData = [
-            { name: 'Pending', value: project.tasks.filter(t => t.status === 'pending').length, color: '#9ca3af' },
-            { name: 'Assigned', value: project.tasks.filter(t => t.status === 'assigned').length, color: '#3b82f6' },
-            { name: 'Submitted', value: project.tasks.filter(t => t.status === 'submitted').length, color: '#eab308' },
-            { name: 'Approved', value: project.tasks.filter(t => t.status === 'approved').length, color: '#22c55e' },
-        ].filter(item => item.value > 0);
+    // Analytics Mock Data (Until we have real stats)
+    // const statusData = [ ... ]; // removed unused
+    // const annotatorData: any[] = [];
+    // const progressData: any[] = [];
 
-        const annotatorStats: { [key: string]: number } = {};
-        project.tasks.forEach(task => {
-            if (task.assignee) annotatorStats[task.assignee] = (annotatorStats[task.assignee] || 0) + 1;
-        });
-
-        const annotatorData = Object.entries(annotatorStats).map(([name, count]) => ({
-            name: name.split(' ')[0],
-            tasks: count,
-        }));
-
-        const progressData = [
-            { date: 'Week 1', progress: 15 },
-            { date: 'Week 2', progress: 32 },
-            { date: 'Week 3', progress: 58 },
-            { date: 'Week 4', progress: project.tasks.length > 0 ? Math.round((project.tasks.filter(t => t.status === 'approved').length / project.tasks.length) * 100) : 0 },
-        ];
-
-        return { statusData, annotatorData, progressData };
+    const exportProjectCSV = () => {
+        toast.success('CSV export coming soon');
     };
 
-    const { statusData, annotatorData, progressData } = getAnalyticsData(project);
+    const exportProjectJSON = () => {
+        toast.success('JSON export coming soon');
+    };
 
+    // Member Management Handlers
+
+
+
+
+    const handleUpdateRole = async () => {
+        if (!memberToEdit || !project) return;
+
+        try {
+            await projectApi.updateMemberRole(project.id, memberToEdit.userId, roleToUpdate);
+            toast.success('Member role updated successfully');
+
+            // Update local state
+            setProject(prev => {
+                if (!prev) return null;
+                const updatedMembers = (prev.members || []).map((m: any) =>
+                    m.userId === memberToEdit.userId ? { ...m, projectRole: roleToUpdate } : m
+                );
+                return { ...prev, members: updatedMembers };
+            });
+
+            setIsEditRoleOpen(false);
+        } catch (error) {
+            console.error(error);
+            toast.error('Failed to update member role');
+        }
+    };
+
+    const confirmRemoveMember = (member: any) => {
+        setMemberToRemove(member);
+        setIsRemoveMemberOpen(true);
+    };
+
+    const handleRemoveMember = async () => {
+        if (!memberToRemove || !project) return;
+
+        try {
+            await projectApi.removeMember(project.id, memberToRemove.userId);
+            toast.success('Member removed successfully');
+
+            // Update local state
+            setProject(prev => {
+                if (!prev) return null;
+                return {
+                    ...prev,
+                    members: (prev.members || []).filter((m: any) => m.userId !== memberToRemove.userId)
+                };
+            });
+
+            setIsRemoveMemberOpen(false);
+        } catch (error) {
+            console.error(error);
+            toast.error('Failed to remove member');
+        }
+    };
+
+    const openEditRoleDialog = (member: any) => {
+        setMemberToEdit(member);
+        setRoleToUpdate(member.projectRole || 'ANNOTATOR');
+        setIsEditRoleOpen(true);
+    };
     return (
         <div className="min-h-screen bg-gray-50 animate-in fade-in slide-in-from-bottom-5 duration-700">
-            {/* Header */}
-            {!isImpersonating && (
-                <div className="bg-white border-b border-gray-200">
-                    <div className="max-w-7xl mx-auto px-8 py-4 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <img
-                                src="/src/assets/android-chrome-192x192.png"
-                                alt="VLabel Logo"
-                                className="w-8 h-8 rounded-lg"
-                            />
-                            <div>
-                                <h1 className="text-xl font-semibold">VLabel</h1>
-                                <p className="text-xs text-muted-foreground">Manager Dashboard</p>
-                            </div>
-                        </div>
-                        <UserNav />
-                    </div>
-                </div>
-            )}
+
 
             <div className="max-w-7xl mx-auto px-8 py-8">
                 {/* Back Button & Actions */}
@@ -394,11 +439,11 @@ export function ProjectDetailPage() {
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => exportProjectCSV()}>
+                                <DropdownMenuItem onClick={exportProjectCSV}>
                                     <FileText className="w-4 h-4 mr-2" />
                                     Export as CSV
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => exportProjectJSON()}>
+                                <DropdownMenuItem onClick={exportProjectJSON}>
                                     <FileText className="w-4 h-4 mr-2" />
                                     Export as JSON
                                 </DropdownMenuItem>
@@ -434,31 +479,13 @@ export function ProjectDetailPage() {
                                 <FolderOpen className="w-6 h-6 text-blue-600" />
                                 <h2 className="text-2xl font-semibold">{project.name}</h2>
                                 <Badge variant="outline">
-                                    {getAnnotationTypeLabel(project.annotationType)}
+                                    {getAnnotationTypeLabel(project)}
+                                </Badge>
+                                <Badge className={project.status === ProjectStatus.ACTIVE ? 'bg-green-100 text-green-700' : 'bg-gray-100'}>
+                                    {project.status}
                                 </Badge>
                             </div>
                             <p className="text-muted-foreground mb-4">{project.description}</p>
-
-                            {/* Project Labels */}
-                            {project.labelIds && project.labelIds.length > 0 && (
-                                <div className="mb-4">
-                                    <p className="text-sm text-muted-foreground mb-2">Labels:</p>
-                                    <div className="flex flex-wrap gap-2">
-                                        {project.labelIds.map(labelId => {
-                                            const label = labels.find(l => l.id === labelId);
-                                            if (!label) return null;
-                                            return (
-                                                <Badge
-                                                    key={labelId}
-                                                    style={{ backgroundColor: label.color, color: 'white' }}
-                                                >
-                                                    {label.name}
-                                                </Badge>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            )}
 
                             <div className="space-y-2">
                                 <div className="flex items-center justify-between text-sm">
@@ -471,7 +498,7 @@ export function ProjectDetailPage() {
 
                         <Badge variant="outline" className={`ml-6 ${isOverdue(project.deadline) ? 'border-red-200 bg-red-50 text-red-700' : 'border-blue-200 bg-blue-50 text-blue-700'}`}>
                             <CalendarIcon className="w-3 h-3 mr-1" />
-                            Deadline: {format(new Date(project.deadline), 'MMM dd, yyyy')}
+                            Deadline: {project.deadline ? format(new Date(project.deadline), 'MMM dd, yyyy') : 'No Deadline'}
                         </Badge>
                     </div>
 
@@ -481,8 +508,8 @@ export function ProjectDetailPage() {
                                 <Clock className="w-5 h-5 text-gray-600" />
                             </div>
                             <div>
-                                <p className="text-xs text-muted-foreground">Pending</p>
-                                <p className="text-xl font-semibold">{project.tasks.filter(t => t.status === 'pending').length}</p>
+                                <p className="text-xs text-muted-foreground">Total images</p>
+                                <p className="text-xl font-semibold">{project._count?.images || 0}</p>
                             </div>
                         </div>
 
@@ -491,8 +518,8 @@ export function ProjectDetailPage() {
                                 <Users className="w-5 h-5 text-blue-600" />
                             </div>
                             <div>
-                                <p className="text-xs text-muted-foreground">Assigned</p>
-                                <p className="text-xl font-semibold">{project.tasks.filter(t => t.status === 'assigned').length}</p>
+                                <p className="text-xs text-muted-foreground">Members</p>
+                                <p className="text-xl font-semibold">{project._count?.members || 0}</p>
                             </div>
                         </div>
 
@@ -501,8 +528,8 @@ export function ProjectDetailPage() {
                                 <AlertCircle className="w-5 h-5 text-yellow-600" />
                             </div>
                             <div>
-                                <p className="text-xs text-muted-foreground">Submitted</p>
-                                <p className="text-xl font-semibold">{project.tasks.filter(t => t.status === 'submitted').length}</p>
+                                <p className="text-xs text-muted-foreground">Tasks</p>
+                                <p className="text-xl font-semibold">{project._count?.tasks || 0}</p>
                             </div>
                         </div>
 
@@ -512,21 +539,33 @@ export function ProjectDetailPage() {
                             </div>
                             <div>
                                 <p className="text-xs text-muted-foreground">Approved</p>
-                                <p className="text-xl font-semibold">{project.tasks.filter(t => t.status === 'approved').length}</p>
+                                <p className="text-xl font-semibold">
+                                    {tasks.filter((t: any) => t.status === "approved").length}
+                                </p>
                             </div>
                         </div>
                     </div>
                 </Card>
 
                 {/* Tabs: Tasks & Analytics */}
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+                <Tabs
+                    value={activeTab}
+                    onValueChange={setActiveTab}
+                    className="space-y-6"
+                >
                     <TabsList>
                         <TabsTrigger value="tasks">Task Management</TabsTrigger>
-                        <TabsTrigger value="analytics">Analytics</TabsTrigger>
+                        <TabsTrigger value="members">Members</TabsTrigger>
                         <TabsTrigger value="settings">Settings</TabsTrigger>
+                        <TabsTrigger value="analytics">Analytics</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="tasks" className="space-y-6">
+                        {/* Warning about missing tasks */}
+                        <div className="p-4 bg-yellow-50 text-yellow-800 rounded-md border border-yellow-200">
+                            <strong>Note:</strong> Task management API is currently under development. Task list might be empty.
+                        </div>
+
                         {/* Search & Filter for Tasks */}
                         <Card className="p-4">
                             <div className="flex flex-wrap gap-4">
@@ -541,8 +580,10 @@ export function ProjectDetailPage() {
                                         />
                                     </div>
                                 </div>
-
-                                <Select value={taskFilterStatus} onValueChange={setTaskFilterStatus}>
+                                <Select
+                                    value={taskFilterStatus}
+                                    onValueChange={setTaskFilterStatus}
+                                >
                                     <SelectTrigger className="w-[150px]">
                                         <SelectValue placeholder="Status" />
                                     </SelectTrigger>
@@ -561,7 +602,7 @@ export function ProjectDetailPage() {
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="all">All Assignees</SelectItem>
-                                        {annotators.map(a => (
+                                        {annotators.map((a: any) => (
                                             <SelectItem key={a.id} value={a.name}>{a.name}</SelectItem>
                                         ))}
                                     </SelectContent>
@@ -569,115 +610,38 @@ export function ProjectDetailPage() {
                             </div>
                         </Card>
 
-                        {/* Task Management + Chat Panel Layout (70/30) */}
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                            {/* Left: Task Table (70%) */}
                             <div className="lg:col-span-2">
                                 <Card className="p-6">
                                     <div className="flex items-center justify-between mb-6">
                                         <div>
                                             <h3 className="text-xl font-semibold">Tasks</h3>
                                             <p className="text-sm text-muted-foreground">
-                                                Showing {filteredTasks.length} of {project.tasks.length} tasks
+                                                Showing {filteredTasks.length} tasks
                                             </p>
                                         </div>
-                                        <Button
-                                            className="bg-blue-500 hover:bg-blue-600"
-                                            disabled={selectedTasks.length === 0}
-                                            onClick={() => setIsAssignModalOpen(true)}
-                                        >
-                                            <Users className="w-4 h-4 mr-2" />
-                                            Assign Tasks {selectedTasks.length > 0 && `(${selectedTasks.length})`}
-                                        </Button>
                                     </div>
 
                                     <div className="border border-gray-200 rounded-lg overflow-hidden">
                                         <Table>
                                             <TableHeader>
                                                 <TableRow className="bg-gray-50">
-                                                    <TableHead className="w-[50px]"></TableHead>
-                                                    <TableHead className="w-[80px]">Preview</TableHead>
-                                                    <TableHead>Image Name</TableHead>
-                                                    <TableHead>Task ID</TableHead>
+                                                    <TableHead>Preview</TableHead>
+                                                    <TableHead>Name</TableHead>
                                                     <TableHead>Status</TableHead>
-                                                    <TableHead>Assignee</TableHead>
-                                                    <TableHead>Deadline</TableHead>
-                                                    <TableHead className="w-[50px]"></TableHead>
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
                                                 {filteredTasks.length === 0 ? (
                                                     <TableRow>
-                                                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                                                            No tasks found matching your filters
+                                                        <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                                                            No tasks found
                                                         </TableCell>
                                                     </TableRow>
                                                 ) : (
-                                                    filteredTasks.map((task) => (
-                                                        <TableRow key={task.id}>
-                                                            <TableCell>
-                                                                <Checkbox
-                                                                    checked={task.selected || false}
-                                                                    onCheckedChange={() => toggleTaskSelection(task.id)}
-                                                                    disabled={task.status !== 'pending'}
-                                                                />
-                                                            </TableCell>
-                                                            <TableCell>
-                                                                {task.imageUrl ? (
-                                                                    <img
-                                                                        src={task.imageUrl}
-                                                                        alt={task.imageName}
-                                                                        className="w-12 h-12 object-cover rounded"
-                                                                    />
-                                                                ) : (
-                                                                    <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-purple-100 rounded flex items-center justify-center text-xl">
-                                                                        🖼️
-                                                                    </div>
-                                                                )}
-                                                            </TableCell>
-                                                            <TableCell className="font-medium text-sm">{task.imageName}</TableCell>
-                                                            <TableCell className="text-sm text-muted-foreground">{task.id}</TableCell>
-                                                            <TableCell>
-                                                                <Badge className={getStatusBadge(task.status)}>
-                                                                    {task.status.charAt(0).toUpperCase() + task.status.slice(1)}
-                                                                </Badge>
-                                                            </TableCell>
-                                                            <TableCell className="text-muted-foreground">
-                                                                {task.assignee || '—'}
-                                                            </TableCell>
-                                                            <TableCell>
-                                                                {task.deadline ? (
-                                                                    <span className={isOverdue(task.deadline) ? 'text-red-600 font-medium' : ''}>
-                                                                        {isOverdue(task.deadline) && '⚠️ '}
-                                                                        {format(new Date(task.deadline), 'MMM dd, yyyy')}
-                                                                    </span>
-                                                                ) : (
-                                                                    <span className="text-muted-foreground">—</span>
-                                                                )}
-                                                            </TableCell>
-                                                            <TableCell>
-                                                                <DropdownMenu>
-                                                                    <DropdownMenuTrigger asChild>
-                                                                        <Button variant="ghost" className="h-8 w-8 p-0">
-                                                                            <MoreVertical className="w-4 h-4" />
-                                                                        </Button>
-                                                                    </DropdownMenuTrigger>
-                                                                    <DropdownMenuContent align="end">
-                                                                        <DropdownMenuItem
-                                                                            onClick={() => handleIndividualAssign(task.id)}
-                                                                            disabled={task.status !== 'pending'}
-                                                                        >
-                                                                            <Users className="w-4 h-4 mr-2" />
-                                                                            Assign Task
-                                                                        </DropdownMenuItem>
-                                                                        <DropdownMenuItem className="text-red-600">
-                                                                            <Trash2 className="w-4 h-4 mr-2" />
-                                                                            Delete Task
-                                                                        </DropdownMenuItem>
-                                                                    </DropdownMenuContent>
-                                                                </DropdownMenu>
-                                                            </TableCell>
-                                                        </TableRow>
+                                                    // Map tasks here when available
+                                                    filteredTasks.map((_, i) => (
+                                                        <TableRow key={i}><TableCell>Task</TableCell></TableRow>
                                                     ))
                                                 )}
                                             </TableBody>
@@ -686,7 +650,6 @@ export function ProjectDetailPage() {
                                 </Card>
                             </div>
 
-                            {/* Right: Chat Panel (30%) */}
                             <div className="lg:col-span-1">
                                 <ChatPanel
                                     projectId={project.id}
@@ -696,96 +659,122 @@ export function ProjectDetailPage() {
                         </div>
                     </TabsContent>
 
-                    <TabsContent value="analytics" className="space-y-6">
-                        {/* Analytics Charts */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            {/* Progress Over Time */}
-                            <Card className="p-6">
-                                <div className="flex items-center gap-2 mb-4">
-                                    <TrendingUp className="w-5 h-5 text-blue-600" />
-                                    <h3 className="text-lg font-semibold">Progress Over Time</h3>
-                                </div>
-                                <ResponsiveContainer width="100%" height={250}>
-                                    <LineChart data={progressData}>
-                                        <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis dataKey="date" />
-                                        <YAxis />
-                                        <Tooltip />
-                                        <Line type="monotone" dataKey="progress" stroke="#3b82f6" strokeWidth={2} />
-                                    </LineChart>
-                                </ResponsiveContainer>
-                            </Card>
-
-                            {/* Status Distribution */}
-                            <Card className="p-6">
-                                <div className="flex items-center gap-2 mb-4">
-                                    <PieChartIcon className="w-5 h-5 text-blue-600" />
-                                    <h3 className="text-lg font-semibold">Status Distribution</h3>
-                                </div>
-                                <ResponsiveContainer width="100%" height={250}>
-                                    <RechartsPie>
-                                        <Pie
-                                            data={statusData}
-                                            cx="50%"
-                                            cy="50%"
-                                            labelLine={false}
-                                            label={(entry) => `${entry.name}: ${entry.value}`}
-                                            outerRadius={80}
-                                            fill="#8884d8"
-                                            dataKey="value"
-                                        >
-                                            {statusData.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={entry.color} />
-                                            ))}
-                                        </Pie>
-                                        <Tooltip />
-                                    </RechartsPie>
-                                </ResponsiveContainer>
-                            </Card>
-
-                            {/* Annotator Workload */}
-                            <Card className="p-6 lg:col-span-2">
-                                <div className="flex items-center gap-2 mb-4">
-                                    <BarChart3 className="w-5 h-5 text-blue-600" />
-                                    <h3 className="text-lg font-semibold">Annotator Workload</h3>
-                                </div>
-                                <ResponsiveContainer width="100%" height={250}>
-                                    <BarChart data={annotatorData}>
-                                        <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis dataKey="name" />
-                                        <YAxis />
-                                        <Tooltip />
-                                        <Legend />
-                                        <Bar dataKey="tasks" fill="#3b82f6" name="Assigned Tasks" />
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </Card>
+                    <TabsContent value="members" className="space-y-6">
+                        <div className="flex items-center justify-between mb-2">
+                            <div>
+                                <h3 className="text-2xl font-bold tracking-tight">Team Members</h3>
+                                <p className="text-muted-foreground">
+                                    Manage access and roles for this project.
+                                </p>
+                            </div>
+                            <Button onClick={() => setIsAddMemberOpen(true)}>
+                                <Users className="w-4 h-4 mr-2" />
+                                Add Member
+                            </Button>
                         </div>
 
-                        {/* Summary Stats */}
-                        <Card className="p-6">
-                            <h3 className="text-lg font-semibold mb-4">Project Summary</h3>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                                <div>
-                                    <p className="text-sm text-muted-foreground mb-1">Total Tasks</p>
-                                    <p className="text-2xl font-semibold">{project.tasks.length}</p>
-                                </div>
-                                <div>
-                                    <p className="text-sm text-muted-foreground mb-1">Completion Rate</p>
-                                    <p className="text-2xl font-semibold">{Math.round(projectProgress)}%</p>
-                                </div>
-                                <div>
-                                    <p className="text-sm text-muted-foreground mb-1">Team Members</p>
-                                    <p className="text-2xl font-semibold">{project.assignedTo.length}</p>
-                                </div>
-                                <div>
-                                    <p className="text-sm text-muted-foreground mb-1">Days Remaining</p>
-                                    <p className="text-2xl font-semibold">
-                                        {Math.max(0, Math.ceil((new Date(project.deadline).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)))}
-                                    </p>
-                                </div>
-                            </div>
-                        </Card>
+                        {[
+                            {
+                                title: 'Project Managers',
+                                icon: Shield,
+                                color: 'text-violet-600',
+                                bgColor: 'bg-violet-100',
+                                role: 'MANAGER',
+                                description: 'Has full access to project settings and members.'
+                            },
+                            {
+                                title: 'Reviewers',
+                                icon: Eye,
+                                color: 'text-blue-600',
+                                bgColor: 'bg-blue-100',
+                                role: 'REVIEWER',
+                                description: 'Can review and approve annotations.'
+                            },
+                            {
+                                title: 'Annotators',
+                                icon: Pen,
+                                color: 'text-emerald-600',
+                                bgColor: 'bg-emerald-100',
+                                role: 'ANNOTATOR',
+                                description: 'Can label tasks assigned to them.'
+                            }
+                        ].map((group) => {
+                            const groupMembers = projectMembers.filter((m: any) => m.projectRole === group.role);
+                            return (
+                                <Card key={group.role} className="p-6">
+                                    <div className="flex items-center gap-3 mb-6">
+                                        <div className={`p-2 rounded-lg ${group.bgColor}`}>
+                                            <group.icon className={`w-5 h-5 ${group.color}`} />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-lg font-semibold flex items-center gap-2">
+                                                {group.title}
+                                                <Badge variant="secondary" className="ml-2 font-normal">
+                                                    {groupMembers.length}
+                                                </Badge>
+                                            </h4>
+                                            <p className="text-sm text-muted-foreground">{group.description}</p>
+                                        </div>
+                                    </div>
+
+                                    {groupMembers.length === 0 ? (
+                                        <div className="text-center py-8 text-muted-foreground bg-gray-50 rounded-lg border border-dashed">
+                                            No {group.title.toLowerCase()} assigned.
+                                        </div>
+                                    ) : (
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>User</TableHead>
+                                                    <TableHead>Joined</TableHead>
+                                                    <TableHead className="text-right">Actions</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {groupMembers.map((member: any) => (
+                                                    <TableRow key={member.id}>
+                                                        <TableCell className="flex items-center gap-3">
+                                                            <Avatar className="w-8 h-8">
+                                                                <AvatarImage src={member.user?.avatarUrl} />
+                                                                <AvatarFallback>{member.user?.fullName?.[0] || member.user?.email?.[0]}</AvatarFallback>
+                                                            </Avatar>
+                                                            <div>
+                                                                <p className="font-medium">{member.user?.fullName || 'Unknown'}</p>
+                                                                <p className="text-xs text-muted-foreground">{member.user?.email}</p>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell className="text-muted-foreground text-sm">
+                                                            {format(new Date(member.joinedAt), 'MMM dd, yyyy')}
+                                                        </TableCell>
+                                                        <TableCell className="text-right">
+                                                            <div className="flex items-center justify-end gap-2">
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-8 w-8 p-0"
+                                                                    onClick={() => openEditRoleDialog(member)}
+                                                                >
+                                                                    <Edit className="h-4 w-4 text-muted-foreground" />
+                                                                    <span className="sr-only">Edit Role</span>
+                                                                </Button>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                                                    onClick={() => confirmRemoveMember(member)}
+                                                                >
+                                                                    Remove
+                                                                </Button>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    )}
+                                </Card>
+                            );
+                        })}
                     </TabsContent>
 
                     <TabsContent value="settings">
@@ -793,28 +782,17 @@ export function ProjectDetailPage() {
                             <div className="space-y-6">
                                 <div>
                                     <h3 className="text-lg font-semibold">Project Settings</h3>
-                                    <p className="text-sm text-muted-foreground">Update project details and configuration</p>
                                 </div>
-
                                 <div className="space-y-2">
-                                    <Label>Project Name *</Label>
-                                    <Input
-                                        value={editName}
-                                        onChange={(e) => setEditName(e.target.value)}
-                                    />
+                                    <Label>Project Name</Label>
+                                    <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
                                 </div>
-
                                 <div className="space-y-2">
-                                    <Label>Description *</Label>
-                                    <Textarea
-                                        value={editDescription}
-                                        onChange={(e) => setEditDescription(e.target.value)}
-                                        rows={3}
-                                    />
+                                    <Label>Description</Label>
+                                    <Textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} />
                                 </div>
-
                                 <div className="space-y-2">
-                                    <Label>Deadline *</Label>
+                                    <Label>Project Deadline</Label>
                                     <Popover>
                                         <PopoverTrigger asChild>
                                             <Button variant="outline" className="w-full justify-start text-left">
@@ -832,444 +810,226 @@ export function ProjectDetailPage() {
                                         </PopoverContent>
                                     </Popover>
                                 </div>
+                            </div>
 
-                                <div className="space-y-2">
-                                    <LabelSelector
-                                        selectedLabelIds={editLabelIds}
-                                        onSelectionChange={setEditLabelIds}
-                                    />
-                                </div>
+                            <div className="pt-6 border-t border-gray-200 mt-6">
+                                <h3 className="text-lg font-semibold mb-4">Label Management</h3>
+                                <p className="text-sm text-muted-foreground mb-4">
+                                    Select the labels that annotators can use in this project.
+                                </p>
+                                <LabelSelector
+                                    projectId={project.id}
+                                    selectedLabelIds={selectedLabelIds}
+                                    onSelectionChange={setSelectedLabelIds}
+                                    allowCreateLabel={true}
+                                />
+                            </div>
 
-                                <div className="space-y-2">
-                                    <Label>Team Members</Label>
-                                    <div className="border rounded-lg p-4 space-y-2 max-h-48 overflow-y-auto">
-                                        {annotators.map((annotator) => (
-                                            <div key={annotator.id} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded">
-                                                <div className="flex items-center gap-3">
-                                                    <Checkbox
-                                                        checked={editAnnotators.includes(annotator.id)}
-                                                        onCheckedChange={() => {
-                                                            setEditAnnotators(prev =>
-                                                                prev.includes(annotator.id)
-                                                                    ? prev.filter(id => id !== annotator.id)
-                                                                    : [...prev, annotator.id]
-                                                            );
-                                                        }}
-                                                    />
-                                                    <span className="font-medium">{annotator.name}</span>
-                                                </div>
-                                                <div className="flex items-center gap-1">
-                                                    <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
-                                                    <span className="text-sm font-medium">{annotator.reputation}%</span>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                <div className="flex justify-end pt-4">
-                                    <Button
-                                        className="bg-blue-500 hover:bg-blue-600"
-                                        onClick={handleEditProject}
-                                        disabled={!editName || !editDescription || !editDeadline}
-                                    >
-                                        Save Changes
-                                    </Button>
-                                </div>
+                            <div className="pt-6 border-t border-gray-200 mt-6 flex justify-end">
+                                <Button onClick={handleEditProject} className="bg-blue-600 text-white">
+                                    Save Changes
+                                </Button>
                             </div>
                         </Card>
                     </TabsContent>
+
+                    <TabsContent value="analytics" className="space-y-6">
+                        <Card className="p-12 text-center text-muted-foreground">
+                            Analytics will be available once tasks are populated.
+                        </Card>
+                    </TabsContent>
                 </Tabs>
-            </div>
-
-            {/* Add Images Dialog */}
-            <Dialog open={isAddImagesOpen} onOpenChange={setIsAddImagesOpen}>
-                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                        <DialogTitle>Add Images to Project</DialogTitle>
-                        <DialogDescription>Upload new images and assign to annotators</DialogDescription>
-                    </DialogHeader>
-
-                    <div className="space-y-6 pt-4">
-                        <div className="space-y-2">
-                            <Label>Upload Images *</Label>
-                            {newImages.length === 0 ? (
-                                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
-                                    <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                                    <p className="text-sm text-muted-foreground mb-2">
-                                        Drag & drop images or click to browse
-                                    </p>
-                                    <input
-                                        type="file"
-                                        multiple
-                                        accept="image/*"
-                                        onChange={(e) => {
-                                            const files = Array.from(e.target.files || []);
-                                            setNewImages(prev => [...prev, ...files]);
-                                        }}
-                                        className="hidden"
-                                        id="add-images-upload"
-                                    />
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => document.getElementById('add-images-upload')?.click()}
-                                    >
-                                        Select Images
-                                    </Button>
-                                </div>
-                            ) : newImages.length <= 10 ? (
-                                <div className="mt-4">
-                                    <p className="text-sm font-medium mb-2">{newImages.length} image{newImages.length !== 1 ? 's' : ''} selected</p>
-                                    <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto">
-                                        {newImages.map((file, index) => (
-                                            <div key={index} className="relative group">
-                                                <img
-                                                    src={URL.createObjectURL(file)}
-                                                    alt={file.name}
-                                                    className="w-full h-20 object-cover rounded border"
-                                                />
-                                                <button
-                                                    onClick={() => setNewImages(prev => prev.filter((_, i) => i !== index))}
-                                                    className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-                                                >
-                                                    <X className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            ) : (
-                                <CompactImageSummary
-                                    images={newImages}
-                                    onManage={() => setIsManageAddImagesOpen(true)}
-                                    onClear={() => setNewImages([])}
-                                />
-                            )}
+                {/* Edit Role Dialog */}
+                <Dialog open={isEditRoleOpen} onOpenChange={setIsEditRoleOpen}>
+                    <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                            <DialogTitle>Edit Member Role</DialogTitle>
+                            <DialogDescription>
+                                Change the role for {memberToEdit?.user?.fullName}.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="py-4">
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="role" className="text-right">
+                                    Role
+                                </Label>
+                                <Select value={roleToUpdate} onValueChange={setRoleToUpdate}>
+                                    <SelectTrigger className="col-span-3">
+                                        <SelectValue placeholder="Select a role" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="ANNOTATOR">Annotator</SelectItem>
+                                        <SelectItem value="REVIEWER">Reviewer</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
+                        <DialogFooter>
+                            <Button variant="outline" onClick={() => setIsEditRoleOpen(false)}>Cancel</Button>
+                            <Button onClick={handleUpdateRole}>Save Changes</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
 
-                        {/* Assignment Method */}
-                        <div className="space-y-3">
-                            <Label>Assignment Method *</Label>
-                            <RadioGroup value={addImagesMethod} onValueChange={(v: any) => setAddImagesMethod(v)}>
-                                <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50">
-                                    <RadioGroupItem value="later" id="add-later" />
-                                    <Label htmlFor="add-later" className="flex-1 cursor-pointer">
-                                        <div className="font-medium">Assign Later</div>
-                                        <div className="text-sm text-muted-foreground">Add images as pending tasks. Assign manually later.</div>
-                                    </Label>
-                                </div>
+                {/* Remove Member Alert Dialog */}
+                <AlertDialog open={isRemoveMemberOpen} onOpenChange={setIsRemoveMemberOpen}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                This will remove {memberToRemove?.user?.fullName} from the project. They will no longer have access to tasks and data.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={handleRemoveMember}>
+                                Remove Member
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
 
-                                <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50">
-                                    <RadioGroupItem value="auto" id="add-auto" />
-                                    <Label htmlFor="add-auto" className="flex-1 cursor-pointer">
-                                        <div className="font-medium">Auto-assign (1-to-1)</div>
-                                        <div className="text-sm text-muted-foreground">Each image assigned to exactly one annotator.</div>
-                                    </Label>
-                                </div>
-
-                                <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50">
-                                    <RadioGroupItem value="manual" id="add-manual" />
-                                    <Label htmlFor="add-manual" className="flex-1 cursor-pointer">
-                                        <div className="font-medium">Manual Assignment</div>
-                                        <div className="text-sm text-muted-foreground">Create groups to assign specific images to annotators.</div>
-                                    </Label>
-                                </div>
-                            </RadioGroup>
+                <Dialog open={isAddImagesOpen} onOpenChange={setIsAddImagesOpen}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Add Images</DialogTitle>
+                            <DialogDescription>
+                                Upload functionality is coming soon.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="flex justify-end">
+                            <Button onClick={() => setIsAddImagesOpen(false)}>Close</Button>
                         </div>
+                    </DialogContent>
+                </Dialog>
 
-                        {/* Annotator Selection (only for auto method) */}
-                        {addImagesMethod === 'auto' && (
+                {/* Add Member Dialog */}
+                <Dialog open={isAddMemberOpen} onOpenChange={(open) => {
+                    setIsAddMemberOpen(open);
+                    if (open) {
+                        handleSearchUsers('');
+                    } else {
+                        // Reset state on close
+                        setMemberSearchQuery('');
+                        setPotentialMembers([]);
+                        setSelectedMembers([]);
+                    }
+                }}>
+                    <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                            <DialogTitle>Add Members to Project</DialogTitle>
+                            <DialogDescription>
+                                Search and select multiple users to invite.
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        <div className="space-y-4 py-4">
                             <div className="space-y-2">
-                                <Label>Select Annotators (1 image per annotator)</Label>
-                                <div className="border rounded-lg p-4 space-y-2 max-h-48 overflow-y-auto">
-                                    {annotators.map((annotator) => {
-                                        const isDisabled = addImagesAnnotators.length >= newImages.length &&
-                                            !addImagesAnnotators.includes(annotator.id);
+                                <Label>Search User</Label>
+                                <Input
+                                    placeholder="Search by name or email..."
+                                    value={memberSearchQuery}
+                                    onChange={(e) => handleSearchUsers(e.target.value)}
+                                />
 
-                                        return (
-                                            <div key={annotator.id} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded">
-                                                <div className="flex items-center gap-3">
-                                                    <Checkbox
-                                                        checked={addImagesAnnotators.includes(annotator.id)}
-                                                        onCheckedChange={() => {
-                                                            setAddImagesAnnotators(prev =>
-                                                                prev.includes(annotator.id)
-                                                                    ? prev.filter(id => id !== annotator.id)
-                                                                    : [...prev, annotator.id]
-                                                            );
-                                                        }}
-                                                        disabled={isDisabled}
-                                                    />
-                                                    <span className={`font-medium ${isDisabled ? 'text-muted-foreground' : ''}`}>
-                                                        {annotator.name}
-                                                    </span>
-                                                </div>
-                                                <div className="flex items-center gap-1">
-                                                    <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
-                                                    <span className="text-sm font-medium">{annotator.reputation}%</span>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-
-                                {newImages.length > 0 && (
-                                    <div className="text-sm mt-2">
-                                        {addImagesAnnotators.length === 0 && (
-                                            <p className="text-muted-foreground">Select up to {newImages.length} annotators (1 image per annotator)</p>
-                                        )}
-                                        {addImagesAnnotators.length > 0 && addImagesAnnotators.length < newImages.length && (
-                                            <p className="text-blue-600">
-                                                ✓ {addImagesAnnotators.length} image{addImagesAnnotators.length !== 1 ? 's' : ''} will be assigned, {newImages.length - addImagesAnnotators.length} will remain pending
-                                            </p>
-                                        )}
-                                        {addImagesAnnotators.length === newImages.length && (
-                                            <p className="text-green-600">
-                                                ✓ Perfect! All {newImages.length} images will be assigned (1 per annotator)
-                                            </p>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {/* Manual Assignment UI */}
-                        {addImagesMethod === 'manual' && (
-                            <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
-                                <div className="flex items-center justify-between">
-                                    <Label>Assignment Groups</Label>
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => setAssignmentGroups(prev => [
-                                            ...prev,
-                                            { id: `grp-${Date.now()}`, annotatorId: '', imageIndices: [] }
-                                        ])}
-                                    >
-                                        <Plus className="w-3 h-3 mr-1" /> Add Group
-                                    </Button>
-                                </div>
-
-                                {assignmentGroups.length === 0 ? (
-                                    <div className="border border-dashed rounded-lg p-6 text-center text-muted-foreground bg-gray-50">
-                                        <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                                        <p>No assignment groups yet. Create a group to start assigning images manually.</p>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
-                                        {assignmentGroups.map((group, groupIndex) => (
-                                            <div key={group.id} className="border rounded-lg p-3 space-y-3 bg-white">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="flex-1">
-                                                        <Select
-                                                            value={group.annotatorId}
-                                                            onValueChange={(value) => {
-                                                                setAssignmentGroups(prev => prev.map((g, i) =>
-                                                                    i === groupIndex ? { ...g, annotatorId: value } : g
-                                                                ));
-                                                            }}
-                                                        >
-                                                            <SelectTrigger className="h-8">
-                                                                <SelectValue placeholder="Select Annotator" />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                {annotators.map(a => (
-                                                                    <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                                                                ))}
-                                                            </SelectContent>
-                                                        </Select>
-                                                    </div>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
-                                                        onClick={() => setAssignmentGroups(prev => prev.filter((_, i) => i !== groupIndex))}
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </Button>
-                                                </div>
-
-                                                <div className="space-y-1">
-                                                    <p className="text-xs text-muted-foreground">Select images for this group:</p>
-                                                    <div className="grid grid-cols-4 gap-2">
-                                                        {newImages.map((file, imgIndex) => {
-                                                            const isAssignedToThis = group.imageIndices.includes(imgIndex);
-                                                            const isAssignedToOther = assignmentGroups.some((g, i) => i !== groupIndex && g.imageIndices.includes(imgIndex));
-
-                                                            return (
-                                                                <div
-                                                                    key={imgIndex}
-                                                                    className={`
-                                    relative aspect-square rounded border cursor-pointer overflow-hidden group
-                                    ${isAssignedToThis ? 'ring-2 ring-blue-500 border-transparent' : ''}
-                                    ${isAssignedToOther ? 'opacity-40 cursor-not-allowed' : 'hover:border-blue-300'}
-                                  `}
-                                                                    onClick={() => {
-                                                                        if (isAssignedToOther) return;
-                                                                        setAssignmentGroups(prev => prev.map((g, i) => {
-                                                                            if (i !== groupIndex) return g;
-                                                                            const newIndices = g.imageIndices.includes(imgIndex)
-                                                                                ? g.imageIndices.filter(idx => idx !== imgIndex)
-                                                                                : [...g.imageIndices, imgIndex];
-                                                                            return { ...g, imageIndices: newIndices };
-                                                                        }));
-                                                                    }}
-                                                                >
-                                                                    <img src={URL.createObjectURL(file)} alt="preview" className="w-full h-full object-cover" />
-                                                                    {isAssignedToThis && (
-                                                                        <div className="absolute inset-0 bg-blue-500/20 flex items-center justify-center">
-                                                                            <CheckCircle2 className="w-6 h-6 text-blue-600 fill-white" />
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                </div>
-                                                <div className="text-xs text-right text-muted-foreground">
-                                                    {group.imageIndices.length} images selected
-                                                </div>
-                                            </div>
+                                {/* Selected Members Summary */}
+                                {selectedMembers.length > 0 && (
+                                    <div className="flex flex-wrap gap-2 mb-2 p-2 bg-blue-50 rounded-md border border-blue-100 max-h-[100px] overflow-y-auto">
+                                        {selectedMembers.map(user => (
+                                            <Badge key={user.id} variant="secondary" className="bg-white hover:bg-white text-blue-700 border-blue-200 pl-2 pr-1 py-1 flex items-center gap-1">
+                                                {user.fullName || user.email}
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-4 w-4 p-0 ml-1 rounded-full hover:bg-red-100 hover:text-red-600"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleToggleMemberSelection(user);
+                                                    }}
+                                                >
+                                                    <span className="sr-only">Remove</span>
+                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                                                </Button>
+                                            </Badge>
                                         ))}
                                     </div>
                                 )}
 
-                                {newImages.length > 0 && (
-                                    <div className="text-sm pt-2 border-t">
-                                        {(() => {
-                                            const totalAssigned = assignmentGroups.reduce((acc, g) => acc + g.imageIndices.length, 0);
-                                            const pending = newImages.length - totalAssigned;
-                                            return (
-                                                <div className="flex justify-between items-center font-medium">
-                                                    <span className="text-blue-600">{totalAssigned} assigned</span>
-                                                    <span className="text-gray-500">{pending} pending</span>
+                                {/* Potential Members List */}
+                                <Card className="max-h-[200px] overflow-auto mt-2 border-gray-200 shadow-sm">
+                                    <ScrollArea className="h-full">
+                                        <div className="p-1 space-y-1">
+                                            {isSearchingMembers && <div className="p-2 text-center text-xs text-muted-foreground">Searching...</div>}
+
+                                            {!isSearchingMembers && potentialMembers.length === 0 && (
+                                                <div className="p-2 text-center text-xs text-muted-foreground">
+                                                    {memberSearchQuery.trim() === ''
+                                                        ? "No other users available to add."
+                                                        : "No users found matching your search."}
                                                 </div>
-                                            );
-                                        })()}
-                                    </div>
+                                            )}
+
+                                            {potentialMembers.map(user => {
+                                                const isSelected = selectedMembers.some(m => m.id === user.id);
+                                                return (
+                                                    <div
+                                                        key={user.id}
+                                                        className={`
+                                                                        flex items-center gap-3 p-2 rounded-md cursor-pointer transition-colors
+                                                                        ${isSelected ? 'bg-blue-50 border border-blue-200' : 'hover:bg-gray-100'}
+                                                                    `}
+                                                        onClick={() => handleToggleMemberSelection(user)}
+                                                    >
+                                                        <div className={`w-4 h-4 rounded border flex items-center justify-center ${isSelected ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}>
+                                                            {isSelected && <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3 text-white"><polyline points="20 6 9 17 4 12" /></svg>}
+                                                        </div>
+                                                        <Avatar className="w-8 h-8">
+                                                            <AvatarImage src={user.avatarUrl} />
+                                                            <AvatarFallback>{user.fullName?.[0] || user.email?.[0]}</AvatarFallback>
+                                                        </Avatar>
+                                                        <div className="flex-1 overflow-hidden">
+                                                            <p className="text-sm font-medium truncate">{user.fullName}</p>
+                                                            <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </ScrollArea>
+                                </Card>
+                            </div>
+
+                            <div className="space-y-2 animate-in fade-in zoom-in-95 duration-200">
+                                <Label>Role for Selected Members</Label>
+                                <Select value={selectedRole} onValueChange={setSelectedRole}>
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="ANNOTATOR">Annotator</SelectItem>
+                                        <SelectItem value="REVIEWER">Reviewer</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-2">
+                            <Button variant="ghost" onClick={() => setIsAddMemberOpen(false)}>Cancel</Button>
+                            <Button onClick={handleAddMembers} disabled={selectedMembers.length === 0 || isAddingMembers}>
+                                {isAddingMembers ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                        Adding...
+                                    </>
+                                ) : (
+                                    <>Add {selectedMembers.length > 0 ? `${selectedMembers.length} Members` : 'Members'}</>
                                 )}
-                            </div>
-                        )}
-
-                        <div className="flex gap-3 pt-4">
-                            <Button
-                                variant="outline"
-                                className="flex-1"
-                                onClick={() => {
-                                    setIsAddImagesOpen(false);
-                                    setNewImages([]);
-                                    setAddImagesAnnotators([]);
-                                    setAssignmentGroups([]);
-                                    setAddImagesMethod('later');
-                                }}
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                className="flex-1 bg-blue-500 hover:bg-blue-600"
-                                onClick={handleAddImagesToProject}
-                                disabled={newImages.length === 0}
-                            >
-                                Add Images
                             </Button>
                         </div>
-                    </div>
-                </DialogContent>
-            </Dialog>
-
-            {/* Manage Images Dialog for Add Images */}
-            {isManageAddImagesOpen && (
-                <ManageImagesDialog
-                    images={newImages}
-                    onRemove={(indexes) => {
-                        setNewImages(prev => prev.filter((_, i) => !indexes.includes(i)));
-                    }}
-                    onClose={() => setIsManageAddImagesOpen(false)}
-                />
-            )}
-
-            {/* Batch Assign Modal */}
-            <Dialog open={isAssignModalOpen} onOpenChange={setIsAssignModalOpen}>
-                <DialogContent className="max-w-md">
-                    <DialogHeader>
-                        <DialogTitle>Batch Assign Tasks</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-6 pt-4">
-                        <div>
-                            <p className="text-sm text-muted-foreground mb-3">
-                                Assigning {selectedTasks.length} task{selectedTasks.length !== 1 ? 's' : ''}
-                            </p>
-                            <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
-                                {selectedTasks.map(task => (
-                                    <Badge key={task.id} variant="outline">{task.imageName}</Badge>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label>Select Annotator</Label>
-                            <Select value={selectedAnnotator} onValueChange={setSelectedAnnotator}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Choose an annotator" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {annotators.map((annotator) => (
-                                        <SelectItem key={annotator.id} value={annotator.id}>
-                                            <div className="flex items-center gap-2">
-                                                <span>{annotator.name}</span>
-                                                <span className="text-xs text-muted-foreground">—</span>
-                                                <div className="flex items-center gap-1">
-                                                    <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
-                                                    <span className="text-xs font-medium">{annotator.reputation}%</span>
-                                                </div>
-                                            </div>
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label>Set Deadline</Label>
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button variant="outline" className="w-full justify-start text-left">
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {selectedDate ? format(selectedDate, 'PPP') : 'Pick a date'}
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                    <Calendar
-                                        mode="single"
-                                        selected={selectedDate}
-                                        onSelect={setSelectedDate}
-                                        disabled={(date) => date < new Date()}
-                                    />
-                                </PopoverContent>
-                            </Popover>
-                        </div>
-
-                        <div className="flex gap-3 pt-2">
-                            <Button
-                                variant="outline"
-                                className="flex-1"
-                                onClick={() => setIsAssignModalOpen(false)}
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                className="flex-1 bg-blue-500 hover:bg-blue-600"
-                                onClick={handleBatchAssign}
-                                disabled={!selectedAnnotator || !selectedDate}
-                            >
-                                Assign Tasks
-                            </Button>
-                        </div>
-                    </div>
-                </DialogContent>
-            </Dialog>
+                    </DialogContent>
+                </Dialog>
+            </div>
         </div>
     );
 }
+

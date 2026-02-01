@@ -1,12 +1,18 @@
-import { useState } from 'react';
-import { Button } from '../../../components/ui/button';
-import { Card } from '../../../components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
-import { Avatar, AvatarFallback } from '../../../components/ui/avatar';
-import { Badge } from '../../../components/ui/badge';
-import { Clock, Star, Sparkles, Tag } from 'lucide-react';
-import { formatDistanceToNow, parseISO } from 'date-fns';
-import { UserNav } from '../../../components/common/UserNav';
+import { useState } from "react";
+import { Button } from "../../../components/ui/button";
+import { Card } from "../../../components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../../../components/ui/table";
+import { Avatar, AvatarFallback } from "../../../components/ui/avatar";
+import { Badge } from "../../../components/ui/badge";
+import { Clock, Star, Sparkles, Tag } from "lucide-react";
+import { formatDistanceToNow, parseISO } from "date-fns";
 
 interface QueueTask {
   id: string;
@@ -18,7 +24,7 @@ interface QueueTask {
   };
   submittedAt: string;
   isAiGenerated: boolean;
-  priority: 'high' | 'normal';
+  priority: "high" | "normal";
   projectId: string;
   projectName: string;
   labelIds: string[];
@@ -31,80 +37,80 @@ interface Label {
 }
 
 interface ReviewerQueueProps {
-  onOpenWorkspace: (taskId: string, mode: 'review') => void;
+  onOpenWorkspace: (taskId: string, mode: "review") => void;
 }
 
 export function ReviewerQueue({ onOpenWorkspace }: ReviewerQueueProps) {
   const [queueTasks] = useState<QueueTask[]>([
     {
-      id: 'T-003',
-      thumbnail: '🖼️',
-      title: 'Medical Scan - Lung CT',
-      annotator: { name: 'Lisa Chen', initials: 'LC' },
-      submittedAt: '2026-01-14T10:30:00',
+      id: "T-003",
+      thumbnail: "🖼️",
+      title: "Medical Scan - Lung CT",
+      annotator: { name: "Lisa Chen", initials: "LC" },
+      submittedAt: "2026-01-14T10:30:00",
       isAiGenerated: false,
-      priority: 'high',
-      projectId: 'P-001',
-      projectName: 'Lung Cancer Study',
-      labelIds: ['L-001', 'L-002'],
+      priority: "high",
+      projectId: "P-001",
+      projectName: "Lung Cancer Study",
+      labelIds: ["L-001", "L-002"],
     },
     {
-      id: 'T-015',
-      thumbnail: '🖼️',
-      title: 'Medical Scan - Cardiac MRI',
-      annotator: { name: 'Nguyen Van A', initials: 'NV' },
-      submittedAt: '2026-01-14T09:15:00',
+      id: "T-015",
+      thumbnail: "🖼️",
+      title: "Medical Scan - Cardiac MRI",
+      annotator: { name: "Nguyen Van A", initials: "NV" },
+      submittedAt: "2026-01-14T09:15:00",
       isAiGenerated: true,
-      priority: 'normal',
-      projectId: 'P-002',
-      projectName: 'Heart Disease Research',
-      labelIds: ['L-003'],
+      priority: "normal",
+      projectId: "P-002",
+      projectName: "Heart Disease Research",
+      labelIds: ["L-003"],
     },
     {
-      id: 'T-021',
-      thumbnail: '🖼️',
-      title: 'Medical Scan - Brain CT',
-      annotator: { name: 'David Kim', initials: 'DK' },
-      submittedAt: '2026-01-14T08:45:00',
+      id: "T-021",
+      thumbnail: "🖼️",
+      title: "Medical Scan - Brain CT",
+      annotator: { name: "David Kim", initials: "DK" },
+      submittedAt: "2026-01-14T08:45:00",
       isAiGenerated: false,
-      priority: 'normal',
-      projectId: 'P-003',
-      projectName: 'Neurological Disorders',
-      labelIds: ['L-004'],
+      priority: "normal",
+      projectId: "P-003",
+      projectName: "Neurological Disorders",
+      labelIds: ["L-004"],
     },
     {
-      id: 'T-018',
-      thumbnail: '🖼️',
-      title: 'Medical Scan - Abdominal Ultrasound',
-      annotator: { name: 'Lisa Chen', initials: 'LC' },
-      submittedAt: '2026-01-14T07:20:00',
+      id: "T-018",
+      thumbnail: "🖼️",
+      title: "Medical Scan - Abdominal Ultrasound",
+      annotator: { name: "Lisa Chen", initials: "LC" },
+      submittedAt: "2026-01-14T07:20:00",
       isAiGenerated: true,
-      priority: 'high',
-      projectId: 'P-004',
-      projectName: 'Gastrointestinal Conditions',
-      labelIds: ['L-005'],
+      priority: "high",
+      projectId: "P-004",
+      projectName: "Gastrointestinal Conditions",
+      labelIds: ["L-005"],
     },
     {
-      id: 'T-012',
-      thumbnail: '🖼️',
-      title: 'Medical Scan - Chest X-Ray',
-      annotator: { name: 'Nguyen Van A', initials: 'NV' },
-      submittedAt: '2026-01-13T16:30:00',
+      id: "T-012",
+      thumbnail: "🖼️",
+      title: "Medical Scan - Chest X-Ray",
+      annotator: { name: "Nguyen Van A", initials: "NV" },
+      submittedAt: "2026-01-13T16:30:00",
       isAiGenerated: false,
-      priority: 'normal',
-      projectId: 'P-005',
-      projectName: 'Respiratory Health',
-      labelIds: ['L-006'],
+      priority: "normal",
+      projectId: "P-005",
+      projectName: "Respiratory Health",
+      labelIds: ["L-006"],
     },
   ]);
 
   const [labels] = useState<Label[]>([
-    { id: 'L-001', name: 'Tumor', color: 'red' },
-    { id: 'L-002', name: 'Nodule', color: 'orange' },
-    { id: 'L-003', name: 'Heart Valve', color: 'blue' },
-    { id: 'L-004', name: 'Brain Lesion', color: 'purple' },
-    { id: 'L-005', name: 'Liver Mass', color: 'green' },
-    { id: 'L-006', name: 'Pleural Effusion', color: 'pink' },
+    { id: "L-001", name: "Tumor", color: "red" },
+    { id: "L-002", name: "Nodule", color: "orange" },
+    { id: "L-003", name: "Heart Valve", color: "blue" },
+    { id: "L-004", name: "Brain Lesion", color: "purple" },
+    { id: "L-005", name: "Liver Mass", color: "green" },
+    { id: "L-006", name: "Pleural Effusion", color: "pink" },
   ]);
 
   return (
@@ -121,10 +127,17 @@ export function ReviewerQueue({ onOpenWorkspace }: ReviewerQueueProps) {
               />
               <div>
                 <h1 className="text-xl font-semibold">VLabel</h1>
-                <p className="text-xs text-muted-foreground">Quality Assurance Dashboard</p>
+                <p className="text-xs text-muted-foreground">
+                  Quality Assurance Dashboard
+                </p>
               </div>
             </div>
-            <UserNav />
+            <div className="flex items-center gap-4">
+              {/* <Button variant="ghost" size="icon" className="relative">
+                <Bell className="w-5 h-5" />
+                <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full" />
+              </Button> */}
+            </div>
           </div>
         </div>
       </div>
@@ -135,7 +148,9 @@ export function ReviewerQueue({ onOpenWorkspace }: ReviewerQueueProps) {
           <Card className="p-6">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Pending Review</p>
+                <p className="text-sm text-muted-foreground mb-1">
+                  Pending Review
+                </p>
                 <h3 className="text-3xl font-semibold">{queueTasks.length}</h3>
               </div>
               <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -147,7 +162,9 @@ export function ReviewerQueue({ onOpenWorkspace }: ReviewerQueueProps) {
           <Card className="p-6">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Reviewed Today</p>
+                <p className="text-sm text-muted-foreground mb-1">
+                  Reviewed Today
+                </p>
                 <h3 className="text-3xl font-semibold">12</h3>
               </div>
               <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
@@ -159,7 +176,9 @@ export function ReviewerQueue({ onOpenWorkspace }: ReviewerQueueProps) {
           <Card className="p-6">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Approval Rate</p>
+                <p className="text-sm text-muted-foreground mb-1">
+                  Approval Rate
+                </p>
                 <h3 className="text-3xl font-semibold">87%</h3>
               </div>
               <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
@@ -171,7 +190,9 @@ export function ReviewerQueue({ onOpenWorkspace }: ReviewerQueueProps) {
           <Card className="p-6">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Avg. Review Time</p>
+                <p className="text-sm text-muted-foreground mb-1">
+                  Avg. Review Time
+                </p>
                 <h3 className="text-3xl font-semibold">4.2m</h3>
               </div>
               <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
@@ -185,7 +206,9 @@ export function ReviewerQueue({ onOpenWorkspace }: ReviewerQueueProps) {
         <Card className="p-6">
           <div className="mb-6">
             <h2 className="text-2xl font-semibold mb-1">Review Queue</h2>
-            <p className="text-sm text-muted-foreground">Tasks awaiting quality assurance review</p>
+            <p className="text-sm text-muted-foreground">
+              Tasks awaiting quality assurance review
+            </p>
           </div>
 
           <div className="border border-gray-200 rounded-lg overflow-hidden">
@@ -211,7 +234,9 @@ export function ReviewerQueue({ onOpenWorkspace }: ReviewerQueueProps) {
                     <TableCell>
                       <div>
                         <p className="font-medium mb-1">{task.id}</p>
-                        <p className="text-sm text-muted-foreground">{task.title}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {task.title}
+                        </p>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -226,8 +251,11 @@ export function ReviewerQueue({ onOpenWorkspace }: ReviewerQueueProps) {
                           <div className="flex items-center gap-1 mt-0.5">
                             <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
                             <span className="text-xs text-muted-foreground">
-                              {task.annotator.name.includes('Nguyen') ? '98%' :
-                                task.annotator.name.includes('Lisa') ? '92%' : '85%'}
+                              {task.annotator.name.includes("Nguyen")
+                                ? "98%"
+                                : task.annotator.name.includes("Lisa")
+                                  ? "92%"
+                                  : "85%"}
                             </span>
                           </div>
                         </div>
@@ -237,20 +265,28 @@ export function ReviewerQueue({ onOpenWorkspace }: ReviewerQueueProps) {
                       <div className="flex items-center gap-1 text-muted-foreground">
                         <Clock className="w-4 h-4" />
                         <span className="text-sm">
-                          {formatDistanceToNow(parseISO(task.submittedAt), { addSuffix: true })}
+                          {formatDistanceToNow(parseISO(task.submittedAt), {
+                            addSuffix: true,
+                          })}
                         </span>
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-2">
                         {task.isAiGenerated && (
-                          <Badge variant="outline" className="w-fit bg-purple-50 text-purple-700 border-purple-300">
+                          <Badge
+                            variant="outline"
+                            className="w-fit bg-purple-50 text-purple-700 border-purple-300"
+                          >
                             <Sparkles className="w-3 h-3 mr-1" />
                             AI Generated
                           </Badge>
                         )}
-                        {task.priority === 'high' && (
-                          <Badge variant="outline" className="w-fit bg-red-50 text-red-700 border-red-300">
+                        {task.priority === "high" && (
+                          <Badge
+                            variant="outline"
+                            className="w-fit bg-red-50 text-red-700 border-red-300"
+                          >
                             High Priority
                           </Badge>
                         )}
@@ -275,7 +311,7 @@ export function ReviewerQueue({ onOpenWorkspace }: ReviewerQueueProps) {
                     <TableCell className="text-right">
                       <Button
                         className="bg-blue-600 hover:bg-blue-700"
-                        onClick={() => onOpenWorkspace(task.id, 'review')}
+                        onClick={() => onOpenWorkspace(task.id, "review")}
                       >
                         Review Now
                       </Button>

@@ -30,7 +30,7 @@ export function initializeSocketServer(httpServer: HttpServer) {
     const userId = socket.data.userId || 'Default';
     const userRole = socket.data.userRole || 'UNKNOWN';
     const userName = socket.data.userName;
-    logger.info('WEBSOCKET', `User connected: ${userId} | Role: ${userRole} | AI Widget: ${userRole}-specific prompt`);
+    logger.info('WEBSOCKET', `User connected: ${userId} | Role: ${userRole} | Load prompt for: ${userRole}`);
 
     // Join user's personal room for direct notifications
     socket.join(`user:${userId}`);

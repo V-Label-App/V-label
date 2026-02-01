@@ -11,7 +11,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../../components/ui/utils';
 
 export interface ChatWidgetProps {
-    variant?: 'floating' | 'embedded';
+    variant?: 'floating' | 'embedded' | 'fullpage';
     className?: string;
     style?: React.CSSProperties;
 }
@@ -74,7 +74,7 @@ export function ChatWidget({ variant = 'floating', className, style }: ChatWidge
 
     const isLeft = config.ui.position === 'left';
     const themeColor = config.ui.themeColor || '#0ea5e9';
-    const isEmbedded = variant === 'embedded';
+    const isEmbedded = variant === 'embedded' || variant === 'fullpage';
 
     // If embedded, always open. If floating, use isOpen state.
     // const showWidget = isEmbedded || isOpen;
@@ -126,6 +126,183 @@ export function ChatWidget({ variant = 'floating', className, style }: ChatWidge
         }
         return { cleanContent, dynamicReplies };
     };
+
+    // Fullpage variant: Full-screen professional layout
+    if (variant === 'fullpage') {
+        return (
+            <Card
+                className={cn("w-full h-full shadow-lg flex flex-col border border-border/50 rounded-xl overflow-hidden bg-gradient-to-br from-white to-gray-50/30", className)}
+                style={style}
+            >
+                {/* Messages - Wider container for fullpage */}
+                <div
+                    ref={chatContainerRef}
+                    className="flex-1 overflow-y-auto px-8 py-6 space-y-8 bg-gradient-to-b from-slate-50/30 to-white scroll-smooth"
+                >
+                    {messages.length === 0 && (
+                        <div className="flex flex-col items-center justify-center h-full text-gray-400 space-y-3">
+                            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-2xl">
+                                <Bot className="w-12 h-12 text-blue-600" />
+                            </div>
+                            <p className="text-base font-medium text-gray-600">How can I assist you today?</p>
+                            <p className="text-sm text-gray-400">Ask me anything about your projects or tasks</p>
+                        </div>
+                    )}
+                    {messages.map((msg, idx) => {
+                        const { cleanContent, dynamicReplies } = msg.role === 'model' ? parseContent(msg.parts) : { cleanContent: msg.parts, dynamicReplies: [] };
+                        const isLastMessage = idx === messages.length - 1;
+
+                        return (
+                            <div
+                                key={idx}
+                                className={cn(
+                                    "flex flex-col gap-2 max-w-4xl mx-auto", // Centered, wider max-width
+                                    msg.role === 'user' ? "ml-auto items-end" : "items-start"
+                                )}
+                            >
+                                <div className={cn("flex gap-4 w-full", msg.role === 'user' ? "flex-row-reverse" : "")}>
+                                    <div className={cn(
+                                        "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-md border-2 border-white",
+                                        msg.role === 'user' ? "bg-gradient-to-br from-blue-500 to-blue-600" : "bg-gradient-to-br from-blue-50 to-indigo-50"
+                                    )}>
+                                        {msg.role === 'user'
+                                            ? <User className="w-5 h-5 text-white" />
+                                            : <Bot className="w-5 h-5 text-blue-600" />
+                                        }
+                                    </div>
+                                    <div className={cn(
+                                        "p-4 px-5 rounded-2xl text-[15px] shadow-md leading-relaxed flex-1",
+                                        msg.role === 'user'
+                                            ? "bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-tr-md"
+                                            : "bg-white text-gray-800 border border-gray-100 rounded-tl-md"
+                                    )}>
+                                        {msg.role === 'model' ? (
+                                            <div className="prose prose-base dark:prose-invert max-w-none prose-p:leading-7">
+                                                <AIMessageRenderer
+                                                    response={parseAIResponse(cleanContent)}
+                                                    onAction={(action, data) => {
+                                                        const message = data
+                                                            ? `Execute ${action} with: ${JSON.stringify(data)}`
+                                                            : action;
+                                                        handleSendMessage(undefined, message);
+                                                    }}
+                                                />
+                                            </div>
+                                        ) : (
+                                            <p className="whitespace-pre-wrap">{cleanContent}</p>
+                                        )}
+                                        {msg.timestamp && (
+                                            <p className={cn(
+                                                "text-[11px] mt-2 text-right opacity-70",
+                                                msg.role === 'user' ? "text-blue-100" : "text-gray-400"
+                                            )}>
+                                                {formatTime(msg.timestamp)}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Dynamic Quick Replies */}
+                                {isLastMessage && msg.role === 'model' && dynamicReplies.length > 0 && (
+                                    <div className="grid grid-cols-2 gap-3 mt-3 px-1 pl-14 w-full max-w-4xl animate-in fade-in slide-in-from-bottom-2 duration-500">
+                                        <p className="text-sm text-gray-500 mb-1 ml-1 col-span-2">Suggested:</p>
+                                        {dynamicReplies.map((reply: string, rIdx: number) => (
+                                            <button
+                                                key={rIdx}
+                                                onClick={() => handleSendMessage(undefined, reply)}
+                                                className={cn(
+                                                    "text-left p-3 px-5 rounded-xl text-sm transition-all shadow-sm border border-blue-100/70 hover:shadow-lg hover:border-blue-300 bg-white text-gray-700 hover:text-blue-600 active:scale-[0.98]",
+                                                    "flex items-center justify-between group"
+                                                )}
+                                            >
+                                                <span className="font-medium">{reply}</span>
+                                                <Send className="w-4 h-4 opacity-0 group-hover:opacity-50 transition-opacity" />
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+
+                    {/* Quick Replies */}
+                    {config.ui.quickReplies && Array.isArray(config.ui.quickReplies) && config.ui.quickReplies.length > 0 && !messages.some(m => m.role === 'user') && (
+                        <div className="grid grid-cols-2 gap-3 mt-6 max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-2 duration-500">
+                            <p className="text-sm text-center text-gray-500 mb-2 col-span-2 font-medium">Quick suggestions to get started</p>
+                            {config.ui.quickReplies.map((reply, idx) => (
+                                <button
+                                    key={idx}
+                                    onClick={() => handleSendMessage(undefined, reply)}
+                                    className={cn(
+                                        "text-left p-4 px-5 rounded-xl text-sm transition-all shadow-sm border border-blue-100/70 hover:shadow-lg hover:border-blue-300 bg-white text-gray-700 hover:text-blue-600 active:scale-[0.98]",
+                                        "flex items-center justify-between group"
+                                    )}
+                                >
+                                    <span className="font-medium">{reply}</span>
+                                    <Send className="w-4 h-4 opacity-0 group-hover:opacity-50 transition-opacity" />
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
+                    {isTyping && (
+                        <div className="flex gap-4 max-w-4xl mx-auto">
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border-2 border-white bg-gradient-to-br from-blue-50 to-indigo-50 shadow-md overflow-hidden">
+                                {config.ui.iconType === 'custom' && config.ui.customIconUrl ? (
+                                    <img
+                                        src={config.ui.customIconUrl}
+                                        alt="Bot"
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    <Bot className="w-5 h-5 text-blue-600" />
+                                )}
+                            </div>
+                            <div className="bg-white border border-gray-200 text-gray-800 p-5 rounded-2xl rounded-tl-md shadow-md flex items-center gap-2 h-[54px]">
+                                <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                                <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                                <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"></span>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Enhanced Input for Fullpage */}
+                <div className="px-8 py-5 bg-white border-t border-gray-100">
+                    <div className="max-w-4xl mx-auto">
+                        <form
+                            onSubmit={handleSendMessage}
+                            className="flex items-center gap-3 relative"
+                        >
+                            <Input
+                                value={inputValue}
+                                onChange={(e) => setInputValue(e.target.value)}
+                                placeholder="Type your message here..."
+                                className="h-14 pl-5 pr-16 rounded-2xl border-gray-200 bg-gray-50 focus:bg-white transition-colors focus-visible:ring-2 focus-visible:ring-offset-0 focus-visible:border-blue-500 text-[15px]"
+                                disabled={isTyping}
+                                ref={inputRef}
+                            />
+                            <Button
+                                type="submit"
+                                size="icon"
+                                disabled={!inputValue.trim() || isTyping}
+                                style={{ backgroundColor: inputValue.trim() ? themeColor : undefined }}
+                                className={cn(
+                                    "absolute right-2 w-10 h-10 rounded-xl transition-all duration-200 shadow-md",
+                                    !inputValue.trim() && "bg-gray-200 text-gray-400 hover:bg-gray-300"
+                                )}
+                            >
+                                <Send className="w-5 h-5" />
+                            </Button>
+                        </form>
+                        <div className="text-center mt-3">
+                            <p className="text-[11px] text-muted-foreground">AI can make mistakes. Please verify important information.</p>
+                        </div>
+                    </div>
+                </div>
+            </Card>
+        );
+    }
 
     if (isEmbedded) {
         return (

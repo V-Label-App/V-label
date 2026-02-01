@@ -1,6 +1,7 @@
 {
   "name": "v-label-app",
   "version": "1.0.0",
+  "packageManager": "npm@11.7.0",
   "description": "Enterprise-ready Data Labeling Platform for Machine Learning.",
   "main": "index.js",
   "directories": {

@@ -75,6 +75,11 @@ export class NotificationTemplateService {
         title: 'New Label Created',
         message: 'A new label "{labelName}" has been created in category "{categoryName}" by {creatorName}.',
         variables: ['labelName', 'labelColor', 'categoryName', 'creatorName', 'isGlobal']
+      },
+      PROJECT_INVITATION: {
+        title: 'Project Invitation',
+        message: 'You have been added to project "{projectName}" as {role}.',
+        variables: ['projectName', 'role', 'invitedBy']
       }
     };
 
@@ -114,16 +119,15 @@ export class NotificationTemplateService {
 
   /**
    * Render template with variables
+   * Returns null if template is disabled
    */
-  static async render(type: NotificationType, variables: TemplateVariables): Promise<{ title: string; message: string }> {
+  static async render(type: NotificationType, variables: TemplateVariables): Promise<{ title: string; message: string } | null> {
     const template = await this.getTemplate(type);
 
     if (!template || !template.isActive) {
-      // Fallback or empty if disabled
-      return { 
-        title: (variables.title as string) || type, 
-        message: (variables.message as string) || '' 
-      };
+      // Return null to indicate template is disabled
+      console.log(`[NotificationTemplate] Template ${type} is disabled, skipping notification`);
+      return null;
     }
 
     let title = template.titleTemplate;
@@ -138,7 +142,7 @@ export class NotificationTemplateService {
 
     return { title, message };
   }
-  
+
   /**
    * Get all templates
    */

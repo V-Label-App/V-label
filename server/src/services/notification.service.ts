@@ -198,6 +198,11 @@ export class NotificationService {
       }
     );
 
+    // If template is disabled, skip notification
+    if (!rendered) {
+      return { count: 0 };
+    }
+
     // 2. Broadcast to all online users
     broadcastService.broadcastToAll(
       SystemEventType.ANNOUNCEMENT,
@@ -244,6 +249,11 @@ export class NotificationService {
         message,
       }
     );
+
+    // If template is disabled, skip notification
+    if (!rendered) {
+      return { count: 0 };
+    }
 
     // 2. Broadcast to targeted online users
     if (options?.targetRoles && options.targetRoles.length > 0) {
@@ -356,6 +366,11 @@ export class NotificationService {
         isGlobal: data.isGlobal ? 'Yes' : 'No',
       }
     );
+
+    // If template is disabled, skip notification
+    if (!rendered) {
+      return { count: 0 };
+    }
 
     // 2. Broadcast to all online users
     broadcastService.broadcastToAll(

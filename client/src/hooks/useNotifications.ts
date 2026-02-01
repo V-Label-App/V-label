@@ -2,11 +2,19 @@ import { useState, useEffect } from 'react';
 import { socketService } from '../services/socket.service';
 import { notificationApi } from '../services/notification.api';
 import type { Notification } from '../services/notification.api';
+import { toast } from 'sonner';
+
+interface SystemEventData {
+  notification?: Notification;
+  label?: { name: string };
+  enabled?: boolean;
+  [key: string]: unknown;
+}
 
 interface SystemEvent {
   type: string;
   timestamp: Date;
-  data: any;
+  data: SystemEventData;
   triggeredBy?: string;
 }
 
@@ -20,9 +28,14 @@ export function useNotifications() {
       const data = await notificationApi.getNotifications();
       setNotifications(data.notifications || []);
       setUnreadCount(data.unreadCount || 0);
-      console.log('[Notifications] Loaded from DB:', data.notifications?.length, 'unread:', data.unreadCount);
+      console.log(
+        "[Notifications] Loaded from DB:",
+        data.notifications?.length,
+        "unread:",
+        data.unreadCount,
+      );
     } catch (error) {
-      console.error('[Notifications] Failed to load from DB:', error);
+      console.error("[Notifications] Failed to load from DB:", error);
     }
   };
 
@@ -42,53 +55,83 @@ export function useNotifications() {
       if (!socket) {
         attempts++;
         if (attempts < maxAttempts) {
-          console.log(`[Notifications] Socket not ready yet, retrying... (${attempts}/${maxAttempts})`);
+          console.log(
+            `[Notifications] Socket not ready yet, retrying... (${attempts}/${maxAttempts})`,
+          );
           timeoutId = setTimeout(setupSocket, 200);
           return null;
         } else {
-          console.warn('[Notifications] Socket not initialized after', maxAttempts, 'attempts');
+          console.warn(
+            "[Notifications] Socket not initialized after",
+            maxAttempts,
+            "attempts",
+          );
           return null;
         }
       }
 
       // Guard: If listeners already registered (StrictMode double-mount), skip
       if (listenersRegistered) {
-        console.log('[Notifications] Listeners already registered, skipping duplicate setup');
+        console.log(
+          "[Notifications] Listeners already registered, skipping duplicate setup",
+        );
         return null;
       }
 
-      console.log('[Notifications] Socket ready, setting up event listeners. Connected:', socket.connected);
+      console.log(
+        "[Notifications] Socket ready, setting up event listeners. Connected:",
+        socket.connected,
+      );
       listenersRegistered = true;
 
+      const handleProjectInvitation = (data: any) => {
+        // data: { projectId, projectName, role, invitedBy }
+        console.log('[Notifications] Received project invitation:', data);
+
+        toast.message('New Project Invitation', {
+          description: `You have been added to "${data.projectName}" as ${data.role}`,
+          action: {
+            label: 'View',
+            onClick: () => window.location.href = `/manager/projects/${data.projectId}`
+          },
+          duration: 5000,
+        });
+
+        // We now receive 'notification:new' separately for the list update
+      };
+
       const handleNewNotification = (notification: Notification) => {
-        console.log('[Notifications] New notification received:', notification);
+        console.log("[Notifications] New notification received:", notification);
         setNotifications((prev) => [notification, ...prev]);
         setUnreadCount((prev) => prev + 1);
       };
 
       const handleSystemEvent = (event: SystemEvent) => {
-        console.log('[Notifications] System event received:', event);
+        console.log("[Notifications] System event received:", event);
 
         switch (event.type) {
-          case 'system:chat:config:updated':
-            console.log('[Notifications] Handling chat config update:', event.data);
+          case "system:chat:config:updated": {
+            console.log(
+              "[Notifications] Handling chat config update:",
+              event.data,
+            );
 
             let title, message;
             if (event.data.notification) {
               title = event.data.notification.title;
               message = event.data.notification.message;
             } else {
-              title = 'AI Chat Widget Updated';
+              title = "AI Chat Widget Updated";
               message = event.data.enabled
-                ? 'AI Chat Widget has been enabled by Admin'
-                : 'AI Chat Widget has been disabled by Admin';
+                ? "AI Chat Widget has been enabled by Admin"
+                : "AI Chat Widget has been disabled by Admin";
             }
 
             const notification: Notification = {
               id: `temp-${Date.now()}`,
-              type: 'SYSTEM_CHAT_CONFIG',
-              title,
-              message,
+              type: "SYSTEM_CHAT_CONFIG",
+              title: title || "System Update",
+              message: message || "Configuration updated",
               isRead: false,
               createdAt: new Date().toISOString(),
               metadata: event.data,
@@ -97,26 +140,36 @@ export function useNotifications() {
             setNotifications((prev) => [notification, ...prev]);
             setUnreadCount((prev) => prev + 1);
             break;
+          }
 
-          case 'system:announcement':
-            console.log('[Notifications] Handling system announcement:', event.data);
+          case "system:announcement": {
+            console.log(
+              "[Notifications] Handling system announcement:",
+              event.data,
+            );
 
-            const announcement: Notification = {
-              id: `temp-${Date.now()}`,
-              type: 'SYSTEM_ANNOUNCEMENT',
-              title: event.data.notification.title,
-              message: event.data.notification.message,
-              isRead: false,
-              createdAt: new Date().toISOString(),
-              metadata: event.data,
-            };
+            if (event.data.notification) {
+              const announcement: Notification = {
+                id: `temp-${Date.now()}`,
+                type: "SYSTEM_ANNOUNCEMENT",
+                title: event.data.notification.title,
+                message: event.data.notification.message,
+                isRead: false,
+                createdAt: new Date().toISOString(),
+                metadata: event.data,
+              };
 
-            setNotifications((prev) => [announcement, ...prev]);
-            setUnreadCount((prev) => prev + 1);
+              setNotifications((prev) => [announcement, ...prev]);
+              setUnreadCount((prev) => prev + 1);
+            }
             break;
+          }
 
-          case 'notification:created':
-            console.log('[Notifications] Handling notification created:', event.data);
+          case "notification:created": {
+            console.log(
+              "[Notifications] Handling notification created:",
+              event.data,
+            );
 
             if (event.data.notification) {
               const newNotification: Notification = {
@@ -125,7 +178,8 @@ export function useNotifications() {
                 title: event.data.notification.title,
                 message: event.data.notification.message,
                 isRead: event.data.notification.isRead || false,
-                createdAt: event.data.notification.createdAt || new Date().toISOString(),
+                createdAt:
+                  event.data.notification.createdAt || new Date().toISOString(),
                 metadata: event.data.notification.metadata,
               };
 
@@ -133,15 +187,24 @@ export function useNotifications() {
               setUnreadCount((prev) => prev + 1);
             }
             break;
+          }
 
-          case 'label:created':
-            console.log('[Notifications] Handling label created:', event.data);
+          case "label:created": {
+            // console.log('[Notifications] Handling label created:', event.data);
+
+            // Validation: Ensure we have either a pre-formatted notification OR valid label data
+            // This prevents duplicate "undefined" notifications if the event is emitted without payload
+            if (!event.data.notification && !event.data.label?.name) {
+              break;
+            }
 
             const labelNotification: Notification = {
               id: `temp-${Date.now()}`,
-              type: 'LABEL_CREATED',
-              title: event.data.notification?.title || 'New Label Created',
-              message: event.data.notification?.message || `A new label "${event.data.label?.name}" has been created.`,
+              type: "LABEL_CREATED",
+              title: event.data.notification?.title || "New Label Created",
+              message:
+                event.data.notification?.message ||
+                `A new label "${event.data.label?.name}" has been created.`,
               isRead: false,
               createdAt: new Date().toISOString(),
               metadata: event.data.label,
@@ -150,35 +213,43 @@ export function useNotifications() {
             setNotifications((prev) => [labelNotification, ...prev]);
             setUnreadCount((prev) => prev + 1);
             break;
+          }
 
-          case 'task:assigned':
-          case 'task:submitted':
-          case 'user:role:changed':
+          case "task:assigned":
+          case "task:submitted":
+          case "user:role:changed":
             break;
 
           default:
-            console.log('[Notifications] Unhandled system event type:', event.type);
+            console.log(
+              "[Notifications] Unhandled system event type:",
+              event.type,
+            );
         }
       };
 
       // Setup listeners immediately
       socket.on('notification:new', handleNewNotification);
       socket.on('system:event', handleSystemEvent);
+      socket.on('project:invitation', handleProjectInvitation);
       console.log('[Notifications] Event listeners registered');
 
       // Handle reconnection
       const handleReconnect = () => {
-        console.log('[Notifications] Socket reconnected, reloading notifications');
+        console.log(
+          "[Notifications] Socket reconnected, reloading notifications",
+        );
         loadNotificationsFromDB();
       };
 
-      socket.on('connect', handleReconnect);
+      socket.on("connect", handleReconnect);
 
       // Return cleanup function
       return () => {
         console.log('[Notifications] Cleaning up event listeners');
         socket.off('notification:new', handleNewNotification);
         socket.off('system:event', handleSystemEvent);
+        socket.off('project:invitation', handleProjectInvitation);
         socket.off('connect', handleReconnect);
       };
     };
@@ -201,11 +272,11 @@ export function useNotifications() {
     try {
       await notificationApi.markAsRead(notificationId);
       setNotifications((prev) =>
-        prev.map((n) => (n.id === notificationId ? { ...n, isRead: true } : n))
+        prev.map((n) => (n.id === notificationId ? { ...n, isRead: true } : n)),
       );
       setUnreadCount((prev) => Math.max(0, prev - 1));
     } catch (error) {
-      console.error('[Notifications] Failed to mark as read:', error);
+      console.error("[Notifications] Failed to mark as read:", error);
     }
   };
 

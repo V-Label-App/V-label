@@ -18,6 +18,9 @@ import adminRoutes from './routes/admin.routes.js'
 import aiRoutes from './routes/ai.routes.js'
 import labelRoutes from './routes/label.routes.js'
 import projectLabelRoutes from './routes/project-label.routes.js'
+import projectCategoryRoutes from './routes/project-category.routes.js'
+import projectRoutes from './routes/project.routes.js'
+import configRoutes from './routes/config.routes.js'
 import { initializeSocketServer } from './websocket/socket.server.js'
 import { EmailTemplateService } from './services/email/template.service.js'
 import { NotificationTemplateService } from './services/notification.template.service.js'
@@ -57,8 +60,11 @@ app.use('/api/v1/notifications', notificationRoutes)
 app.use('/api/v1/chat', chatRoutes)
 app.use('/api/v1/admin', adminRoutes)
 app.use('/api/v1/ai', aiRoutes)
+app.use('/api/v1/config', configRoutes) // Public config endpoints
 app.use('/api/v1/labels', labelRoutes)
+app.use('/api/v1/projects', projectRoutes)
 app.use('/api/v1/projects/:projectId/labels', projectLabelRoutes)
+app.use('/api/v1/project-categories', projectCategoryRoutes)
 
 // 404 Catch-all
 app.use((req, res, next) => {

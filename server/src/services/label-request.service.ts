@@ -179,6 +179,11 @@ export class LabelRequestService {
       }
     );
 
+    // If template is disabled, skip notification
+    if (!rendered) {
+      return { request: updatedRequest, label };
+    }
+
     // Notify the requester and broadcast via WebSocket
     const notification = await NotificationService.createNotification({
       userId: request.requestedBy,
@@ -255,6 +260,11 @@ export class LabelRequestService {
         reason: reason ? ` Reason: ${reason}` : '',
       }
     );
+
+    // If template is disabled, skip notification
+    if (!rendered) {
+      return updatedRequest;
+    }
 
     // Notify the requester and broadcast via WebSocket
     const notification = await NotificationService.createNotification({
@@ -339,6 +349,11 @@ export class LabelRequestService {
         requestId: request.id,
       }
     );
+
+    // If template is disabled, skip notification
+    if (!rendered) {
+      return;
+    }
 
     // Create notifications and broadcast via WebSocket
     for (const managerId of managerIds) {

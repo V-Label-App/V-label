@@ -19,10 +19,11 @@ export const SYSTEM_CONFIG_KEYS = {
 
 export interface ChatWidgetConfig {
   enabled: boolean;
+  fullPageModeEnabled: boolean; // Toggle full-page chat mode in sidebar
   modelName: string;
   systemPrompt: string;
   knowledgeBase?: string; // Documentation/FAQ content to enhance AI context
-  
+
   // Per-role custom prompts (optional, overrides defaults from rolePrompts.ts)
   rolePrompts?: {
     MANAGER?: string;
@@ -30,7 +31,7 @@ export interface ChatWidgetConfig {
     REVIEWER?: string;
     ADMIN?: string;
   };
-  
+
   temperature: number;
   ui: {
     themeColor: string;
@@ -50,6 +51,7 @@ export interface AuditLogConfig {
 
 const DEFAULT_CHAT_CONFIG: ChatWidgetConfig = {
   enabled: false,
+  fullPageModeEnabled: true, // Enabled by default
   modelName: 'gemini-1.5-pro', // Fallback defaults
   systemPrompt: '', // Empty by default, so role-based prompts are used
   temperature: 0.7,
@@ -86,9 +88,10 @@ export class SystemConfigService {
     // Here we trust the parsed JSON but fill missing keys if needed. 
     // Simply spreading works well if we assume structural integrity, but for robustness:
     const saved = config.value as Partial<ChatWidgetConfig>;
-    
+
     return {
       enabled: saved.enabled ?? DEFAULT_CHAT_CONFIG.enabled,
+      fullPageModeEnabled: saved.fullPageModeEnabled ?? DEFAULT_CHAT_CONFIG.fullPageModeEnabled,
       modelName: saved.modelName || DEFAULT_CHAT_CONFIG.modelName,
       systemPrompt: saved.systemPrompt ?? DEFAULT_CHAT_CONFIG.systemPrompt,
       knowledgeBase: saved.knowledgeBase || '', // Return from DB or empty string
@@ -108,7 +111,7 @@ export class SystemConfigService {
   static async updateChatConfig(newConfig: Partial<ChatWidgetConfig>, adminId?: string) {
     // First get existing to merge
     const current = await this.getChatConfig();
-    
+
     const updated = {
       ...current,
       ...newConfig,
@@ -222,7 +225,7 @@ export class SystemConfigService {
    */
   static async cleanUpOldLogs(adminId?: string) {
     const config = await this.getAuditLogConfig();
-    
+
     // 0 means keep forever
     if (config.retentionDays <= 0) {
       return 0;

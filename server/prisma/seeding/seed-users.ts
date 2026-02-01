@@ -1,5 +1,5 @@
 import { PrismaClient, UserRole } from '@prisma/client'
-import { hashPassword } from '../src/utils/password.utils.js'
+import { hashPassword } from '../../src/utils/password.utils.js'
 
 const prisma = new PrismaClient()
 
@@ -19,6 +19,12 @@ async function main() {
       password: '123',
       role: UserRole.MANAGER,
       fullName: 'Manager User',
+    },
+    {
+      email: 'manager2@vlabel.com',
+      password: '123',
+      role: UserRole.MANAGER,
+      fullName: 'Manager User 2',
     },
     {
       email: 'reviewer@vlabel.com',

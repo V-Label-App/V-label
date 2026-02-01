@@ -48,7 +48,7 @@ export class AdminController {
             const { NotificationType } = await import('@prisma/client');
 
             const valueObj = updated.value as { enabled: boolean; modelName: string } | null;
-            const { title, message } = await NotificationTemplateService.render(
+            const rendered = await NotificationTemplateService.render(
                 NotificationType.SYSTEM_CHAT_CONFIG,
                 {
                     status: valueObj?.enabled ? 'enabled' : 'disabled',
@@ -61,6 +61,20 @@ export class AdminController {
             const { broadcastService } = await import('../websocket/events/broadcast.service.js');
             const { SystemEventType } = await import('../websocket/events/types.js');
 
+            // If template is disabled, just broadcast config without notification
+            if (!rendered) {
+                broadcastService.broadcastToAll(
+                    SystemEventType.CHAT_CONFIG_UPDATED,
+                    {
+                        enabled: valueObj?.enabled ?? false,
+                        modelName: valueObj?.modelName ?? 'gemini-pro',
+                        adminId,
+                    },
+                    adminId
+                );
+                return res.json(updated.value);
+            }
+
             broadcastService.broadcastToAll(
                 SystemEventType.CHAT_CONFIG_UPDATED,
                 {
@@ -68,8 +82,8 @@ export class AdminController {
                     modelName: valueObj?.modelName ?? 'gemini-pro',
                     adminId,
                     notification: {
-                        title,
-                        message
+                        title: rendered.title,
+                        message: rendered.message
                     }
                 },
                 adminId
@@ -78,8 +92,8 @@ export class AdminController {
             // Save notification to database for offline users
             await NotificationService.createNotificationForAllUsers({
                 type: NotificationType.SYSTEM_CHAT_CONFIG,
-                title,
-                message,
+                title: rendered.title,
+                message: rendered.message,
                 metadata: {
                     eventType: 'chat_config_updated',
                     enabled: valueObj?.enabled ?? false,
