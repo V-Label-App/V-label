@@ -113,14 +113,14 @@ jobs:
       - name: Add VPS to known hosts
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -H ${{ vars.VPS_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
 
       - name: Create .env.production from GitHub Secrets & Variables
         env:
-          # VPS Configuration (Variables - non-sensitive)
-          VPS_HOST: ${{ vars.VPS_HOST }}
-          VPS_USER: ${{ vars.VPS_USER }}
-          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+          # VPS Configuration (Secrets - sensitive/config)
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
           # Database Config (Mixed)
           DB_USER: ${{ vars.DB_USER }}
           DB_NAME: ${{ vars.DB_NAME }}
@@ -155,7 +155,7 @@ jobs:
             set -e
             
             echo "📝 Creating .env.production from GitHub Secrets & Variables..."
-            cd ${{ vars.DEPLOY_PATH }}
+            cd ${{ secrets.DEPLOY_PATH }}
             
             # Create .env.production
             cat > .env.production << 'ENVEOF'
@@ -203,9 +203,9 @@ jobs:
 
       - name: Deploy to VPS
         env:
-          VPS_HOST: ${{ vars.VPS_HOST }}
-          VPS_USER: ${{ vars.VPS_USER }}
-          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
         run: |
           ssh $VPS_USER@$VPS_HOST << 'EOF'
             set -e
@@ -213,7 +213,7 @@ jobs:
             echo "🚀 Starting deployment..."
             
             # Navigate to project directory
-            cd ${{ vars.DEPLOY_PATH }}
+            cd ${{ secrets.DEPLOY_PATH }}
             
             # Pull latest code
             echo "📥 Pulling latest code..."
