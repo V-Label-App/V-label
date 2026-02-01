@@ -115,6 +115,18 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
 
+      - name: Debug Secrets
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          echo "Checking Secrets..."
+          if [ -z "$VPS_HOST" ]; then echo "❌ Error: VPS_HOST secret is missing or empty"; exit 1; fi
+          if [ -z "$VPS_USER" ]; then echo "❌ Error: VPS_USER secret is missing or empty"; exit 1; fi
+          if [ -z "$DEPLOY_PATH" ]; then echo "❌ Error: DEPLOY_PATH secret is missing or empty"; exit 1; fi
+          echo "✅ All required secrets accept values."
+
       - name: Create .env.production from GitHub Secrets & Variables
         env:
           # VPS Configuration (Secrets - sensitive/config)
