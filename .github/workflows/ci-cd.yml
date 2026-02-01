@@ -182,39 +182,39 @@ jobs:
             # DO NOT EDIT MANUALLY - Changes will be overwritten on next deployment
             
             # Database Configuration
-            DB_USER=${{ vars.DB_USER }}
-            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-            DB_NAME=${{ vars.DB_NAME }}
+            DB_USER="${{ vars.DB_USER }}"
+            DB_PASSWORD="${{ secrets.DB_PASSWORD }}"
+            DB_NAME="${{ vars.DB_NAME }}"
             
             # Server Configuration
-            JWT_SECRET=${{ secrets.JWT_SECRET }}
-            LOG_LEVEL=${{ vars.LOG_LEVEL }}
+            JWT_SECRET="${{ secrets.JWT_SECRET }}"
+            LOG_LEVEL="${{ vars.LOG_LEVEL }}"
             
             # Firebase Admin SDK (Server-side)
-            FIREBASE_PROJECT_ID=${{ vars.FIREBASE_PROJECT_ID }}
-            FIREBASE_CLIENT_EMAIL=${{ vars.FIREBASE_CLIENT_EMAIL }}
-            FIREBASE_PRIVATE_KEY=${{ secrets.FIREBASE_PRIVATE_KEY }}
+            FIREBASE_PROJECT_ID="${{ vars.FIREBASE_PROJECT_ID }}"
+            FIREBASE_CLIENT_EMAIL="${{ vars.FIREBASE_CLIENT_EMAIL }}"
+            FIREBASE_PRIVATE_KEY="${{ secrets.FIREBASE_PRIVATE_KEY }}"
             
             # AI Configuration
-            GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+            GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}"
             
             # Email Configuration
-            EMAIL_FROM=${{ vars.EMAIL_FROM }}
-            SMTP_HOST=${{ vars.SMTP_HOST }}
-            SMTP_PORT=${{ vars.SMTP_PORT }}
-            SMTP_USER=${{ vars.SMTP_USER }}
-            SMTP_PASS=${{ secrets.SMTP_PASS }}
-            FRONTEND_URL=${{ vars.FRONTEND_URL }}
+            EMAIL_FROM="${{ vars.EMAIL_FROM }}"
+            SMTP_HOST="${{ vars.SMTP_HOST }}"
+            SMTP_PORT="${{ vars.SMTP_PORT }}"
+            SMTP_USER="${{ vars.SMTP_USER }}"
+            SMTP_PASS="${{ secrets.SMTP_PASS }}"
+            FRONTEND_URL="${{ vars.FRONTEND_URL }}"
             
             # Client Configuration (Vite build-time variables)
-            VITE_API_URL=${{ vars.VITE_API_URL }}
-            VITE_FIREBASE_API_KEY=${{ secrets.VITE_FIREBASE_API_KEY }}
-            VITE_FIREBASE_AUTH_DOMAIN=${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
-            VITE_FIREBASE_PROJECT_ID=${{ vars.VITE_FIREBASE_PROJECT_ID }}
-            VITE_FIREBASE_STORAGE_BUCKET=${{ vars.VITE_FIREBASE_STORAGE_BUCKET }}
-            VITE_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
-            VITE_FIREBASE_APP_ID=${{ secrets.VITE_FIREBASE_APP_ID }}
-            VITE_FIREBASE_MEASUREMENT_ID=${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}
+            VITE_API_URL="${{ vars.VITE_API_URL }}"
+            VITE_FIREBASE_API_KEY="${{ secrets.VITE_FIREBASE_API_KEY }}"
+            VITE_FIREBASE_AUTH_DOMAIN="${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}"
+            VITE_FIREBASE_PROJECT_ID="${{ vars.VITE_FIREBASE_PROJECT_ID }}"
+            VITE_FIREBASE_STORAGE_BUCKET="${{ vars.VITE_FIREBASE_STORAGE_BUCKET }}"
+            VITE_FIREBASE_MESSAGING_SENDER_ID="${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}"
+            VITE_FIREBASE_APP_ID="${{ secrets.VITE_FIREBASE_APP_ID }}"
+            VITE_FIREBASE_MEASUREMENT_ID="${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}"
           ENVEOF
             
             echo "✅ .env.production created successfully"
