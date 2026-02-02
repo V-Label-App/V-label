@@ -2,6 +2,8 @@ import { Request, Response } from 'express'
 import { prisma } from '../utils/database.js'
 import logger from '../utils/logger.js'
 import { hashPassword } from '../utils/password.utils.js'
+import { userCreateSchema, userUpdateSchema, formatZodError } from '../utils/validation.js'
+import { z } from 'zod'
 export class UserController {
   /**
    * GET /api/v1/users/me
@@ -131,11 +133,7 @@ export class UserController {
    */
   static async createUser(req: Request, res: Response) {
     try {
-      const { email, password, fullName, role, phoneNumber } = req.body
-
-      if (!email || !password || !fullName) {
-        return res.status(400).json({ error: 'Missing required fields' })
-      }
+      const { email, password, fullName, role, phoneNumber } = userCreateSchema.parse(req.body)
 
       // Check if user exists
       const existingUser = await prisma.user.findUnique({
@@ -143,7 +141,7 @@ export class UserController {
       })
 
       if (existingUser) {
-        return res.status(400).json({ error: 'User already exists' })
+        return res.status(409).json({ error: 'User already exists' })
       }
 
       const hashedPassword = await hashPassword(password)
@@ -153,7 +151,7 @@ export class UserController {
           email,
           passwordHash: hashedPassword,
           fullName,
-          phoneNumber,
+          phoneNumber: phoneNumber || null,
           role: role || 'ANNOTATOR',
           isActive: true,
         },
@@ -171,6 +169,12 @@ export class UserController {
       logger.info('USER', `Admin created user: ${newUser.email}`)
       return res.status(201).json(newUser)
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        const validationErrors = formatZodError(error)
+        logger.warn('USER', 'Create user validation failed', { errors: validationErrors })
+        return res.status(400).json({ error: 'Validation failed', details: validationErrors })
+      }
+
       console.error('Create user error:', error)
       return res.status(500).json({ error: 'Internal server error' })
     }
@@ -183,15 +187,15 @@ export class UserController {
   static async updateUser(req: Request, res: Response) {
     try {
       const { id } = req.params as { id: string }
-      const { fullName, role, isActive, phoneNumber } = req.body
+      const { fullName, role, isActive, phoneNumber } = userUpdateSchema.parse(req.body)
 
       const updatedUser = await prisma.user.update({
         where: { id },
         data: {
-          fullName,
-          role,
-          isActive,
-          phoneNumber,
+          ...(fullName !== undefined && { fullName }),
+          ...(role !== undefined && { role }),
+          ...(isActive !== undefined && { isActive }),
+          ...(phoneNumber !== undefined && { phoneNumber: phoneNumber || null }),
         },
         select: {
           id: true,
@@ -199,6 +203,7 @@ export class UserController {
           fullName: true,
           role: true,
           isActive: true,
+          phoneNumber: true,
           createdAt: true,
         },
       })
@@ -206,6 +211,11 @@ export class UserController {
       logger.info('USER', `Admin updated user: ${id}`)
       return res.json(updatedUser)
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        const validationErrors = formatZodError(error)
+        logger.warn('USER', 'Update user validation failed', { errors: validationErrors })
+        return res.status(400).json({ error: 'Validation failed', details: validationErrors })
+      }
       console.error('Update user error:', error)
       return res.status(500).json({ error: 'Internal server error' })
     }
@@ -239,7 +249,27 @@ export class UserController {
         return res.status(404).json({ error: 'User not found' })
       }
 
-      return res.json(user)
+      let extraStats = {}
+
+      if (user.role === 'MANAGER') {
+        const projectsManaged = await prisma.projectMember.count({
+          where: {
+            userId: user.id,
+            projectRole: 'MANAGER',
+          },
+        })
+        extraStats = { projectsManaged }
+      } else if (user.role === 'REVIEWER') {
+        const tasksReviewed = await prisma.taskAssignment.count({
+          where: {
+            reviewerId: user.id,
+            status: { in: ['APPROVED', 'REJECTED'] },
+          },
+        })
+        extraStats = { tasksReviewed }
+      }
+
+      return res.json({ ...user, ...extraStats })
     } catch (error) {
       console.error('Get user error:', error)
       return res.status(500).json({ error: 'Internal server error' })

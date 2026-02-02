@@ -24,6 +24,8 @@ interface UserDetail {
     createdAt: string;
     avatarUrl?: string;
     phoneNumber?: string;
+    projectsManaged?: number;
+    tasksReviewed?: number;
 }
 
 export function AdminUserDetailPage() {
@@ -126,13 +128,15 @@ export function AdminUserDetailPage() {
                     </div>
 
                     <div className="flex gap-3">
-                        <Button
-                            className="bg-orange-600 hover:bg-orange-700 text-white"
-                            onClick={() => setIsPasswordDialogOpen(true)}
-                        >
-                            <Eye className="w-4 h-4 mr-2" />
-                            View As {user.role}
-                        </Button>
+                        {user.role !== 'ADMIN' && (
+                            <Button
+                                className="bg-orange-600 hover:bg-orange-700 text-white"
+                                onClick={() => setIsPasswordDialogOpen(true)}
+                            >
+                                <Eye className="w-4 h-4 mr-2" />
+                                View As {user.fullName}
+                            </Button>
+                        )}
                         {/* Add more actions like Edit or Delete here later */}
                     </div>
                 </div>
@@ -175,14 +179,48 @@ export function AdminUserDetailPage() {
                             Platform Statistics
                         </h3>
                         <div className="space-y-4">
-                            <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                                <span className="text-gray-500">Reputation Score</span>
-                                <span className="font-medium text-yellow-600">{user.reputationScore}%</span>
-                            </div>
-                            <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                                <span className="text-gray-500">Tasks Completed</span>
-                                <span className="font-medium">{user.totalTasksDone}</span>
-                            </div>
+                            {/* Annotator Stats */}
+                            {user.role === 'ANNOTATOR' && (
+                                <>
+                                    <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                                        <span className="text-gray-500">Reputation Score</span>
+                                        <span className="font-medium text-yellow-600">{user.reputationScore}%</span>
+                                    </div>
+                                    <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                                        <span className="text-gray-500">Tasks Completed</span>
+                                        <span className="font-medium">{user.totalTasksDone}</span>
+                                    </div>
+                                </>
+                            )}
+
+                            {/* Manager Stats */}
+                            {user.role === 'MANAGER' && (
+                                <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                                    <span className="text-gray-500">Projects Managed</span>
+                                    <span className="font-medium">{user.projectsManaged ?? 0}</span>
+                                </div>
+                            )}
+
+                            {/* Reviewer Stats */}
+                            {user.role === 'REVIEWER' && (
+                                <>
+                                    <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                                        <span className="text-gray-500">Reputation Score</span>
+                                        <span className="font-medium text-yellow-600">{user.reputationScore}%</span>
+                                    </div>
+                                    <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                                        <span className="text-gray-500">Tasks Reviewed</span>
+                                        <span className="font-medium">{user.tasksReviewed ?? 0}</span>
+                                    </div>
+                                </>
+                            )}
+
+                            {/* Admin Stats */}
+                            {user.role === 'ADMIN' && (
+                                <div className="text-sm text-gray-500 italic py-2">
+                                    System Administrator - Full Access
+                                </div>
+                            )}
                         </div>
                     </Card>
                 </div>

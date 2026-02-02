@@ -37,6 +37,21 @@ export interface ProjectMember {
     };
 }
 
+export interface AssignmentRule {
+    id: string;
+    projectId: string;
+    isAutoAssignEnabled: boolean;
+    assignmentStrategy: string;
+    autoAssignReviewer: boolean;
+    reviewerDelayHours: number;
+    maxTasksPerAnnotator: number;
+    maxTasksPerReviewer: number;
+    minAnnotatorReputation: number;
+    minReviewerReputation: number;
+    maxRejectionsBeforeReassign: number;
+    autoReassignOnSkip: boolean;
+}
+
 export interface Project {
     id: string;
     name: string;
@@ -48,6 +63,7 @@ export interface Project {
     categoryId?: string;
     createdAt: string;
     updatedAt: string;
+    assignmentRule?: AssignmentRule;
 
     // Relations (Optional, depending on query)
     members?: ProjectMember[];
@@ -85,6 +101,7 @@ export interface UpdateProjectRequest {
     status?: ProjectStatus;
     labelConfig?: any[];
     enableAiAssistance?: boolean;
+    assignmentRule?: Partial<Omit<AssignmentRule, 'id' | 'projectId'>>;
 }
 
 export interface ProjectListResponse {
