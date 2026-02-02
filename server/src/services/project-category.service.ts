@@ -12,6 +12,12 @@ export class ProjectCategoryService {
           _count: {
             select: { projects: true },
           },
+          projects: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
         },
         orderBy: { name: 'asc' },
       })

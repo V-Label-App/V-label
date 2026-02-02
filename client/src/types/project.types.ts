@@ -52,6 +52,11 @@ export interface Project {
     // Relations (Optional, depending on query)
     members?: ProjectMember[];
     projectLabels?: ProjectLabel[];
+    category?: {
+        id: string;
+        name: string;
+        description?: string;
+    };
     _count?: {
         tasks: number;
         members: number;

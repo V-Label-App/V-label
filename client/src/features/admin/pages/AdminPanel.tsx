@@ -37,6 +37,7 @@ import { AdminChatSettingsPage } from "./AdminChatSettingsPage";
 import { AdminDashboardPage } from "./AdminDashboardPage";
 import { AdminEmailSettingsPage } from "./AdminEmailSettingsPage";
 import { AdminNotificationSettingsPage } from "./AdminNotificationSettingsPage";
+import { AdminProjectCategoriesPage } from "./AdminProjectCategoriesPage";
 import {
   Users,
   Database,
@@ -88,6 +89,7 @@ export function AdminPanel() {
   const getActiveTabFromPath = useCallback(() => {
     const path = location.pathname;
     if (path.includes("/admin/users")) return "users";
+    if (path.includes("/admin/categories")) return "categories";
     if (path.includes("/admin/settings")) return "settings";
     if (path.includes("/admin/logs")) return "logs";
     if (path.includes("/admin/ai-chat")) return "ai-chat";
@@ -324,10 +326,10 @@ export function AdminPanel() {
   const getInitials = (name: string) => {
     return name
       ? name
-          .split(" ")
-          .map((n) => n[0])
-          .join("")
-          .toUpperCase()
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase()
       : "??";
   };
 
@@ -743,6 +745,8 @@ export function AdminPanel() {
         {activeTab === "ai-chat" && <AdminChatSettingsPage />}
 
         {activeTab === "notifications" && <AdminNotificationSettingsPage />}
+
+        {activeTab === "categories" && <AdminProjectCategoriesPage />}
       </div>
 
       <Dialog
