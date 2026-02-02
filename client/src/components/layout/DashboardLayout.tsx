@@ -3,14 +3,7 @@ import { AppSidebar } from "./AppSidebar";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "../ui/sidebar";
 import { Separator } from "../ui/separator";
 
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "../ui/breadcrumb";
+// Breadcrumb imports removed as they are unused
 import { UserNav } from "../common/UserNav";
 import { ChatWidget } from "../../features/chat-widget/components/ChatWidget";
 import { useEffect } from "react";
