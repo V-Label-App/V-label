@@ -11,6 +11,7 @@ import {
   BarChart,
   CheckSquare,
   MessageSquare,
+  Layers,
 } from "lucide-react";
 
 import type { LucideIcon } from "lucide-react";
@@ -30,6 +31,7 @@ export const ROLE_NAVIGATION: RoleNavigation = {
   ADMIN: [
     { title: "Dashboard", url: "/admin", icon: LayoutDashboard },
     { title: "Users", url: "/admin/users", icon: Users },
+    { title: "Project Categories", url: "/admin/categories", icon: Layers },
     { title: "AI Chat Setting", url: "/admin/ai-chat", icon: Sparkles },
     { title: "Chat", url: "/admin/chat", icon: MessageSquare }, // Always visible for ADMIN
     { title: "Logs", url: "/admin/logs", icon: FileText },
