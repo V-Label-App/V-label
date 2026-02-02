@@ -3,20 +3,17 @@ import { AppSidebar } from "./AppSidebar";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "../ui/sidebar";
 import { Separator } from "../ui/separator";
 
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "../ui/breadcrumb";
+// Breadcrumb imports removed as they are unused
 import { UserNav } from "../common/UserNav";
 import { ChatWidget } from "../../features/chat-widget/components/ChatWidget";
 import { useEffect } from "react";
 
 
+import { useAuth } from "../../context/AuthContext";
+
 export default function DashboardLayout() {
+  const { isImpersonating } = useAuth();
+
   // Show keyboard shortcut hint on first visit
   useEffect(() => {
     const hasSeenHint = localStorage.getItem('chat-shortcut-hint-seen');
@@ -39,20 +36,20 @@ export default function DashboardLayout() {
           <div className="flex items-center gap-2">
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="mr-2 h-4" />
-            <Breadcrumb>
+            {/* <Breadcrumb>
               <BreadcrumbList>
                 <BreadcrumbItem className="hidden md:block">
-                  <BreadcrumbLink href="/dashboard">Dashboard</BreadcrumbLink>
+                  <BreadcrumbLink href="/">Dashboard</BreadcrumbLink>
                 </BreadcrumbItem>
                 <BreadcrumbSeparator className="hidden md:block" />
                 <BreadcrumbItem>
                   <BreadcrumbPage>Current Page</BreadcrumbPage>
                 </BreadcrumbItem>
               </BreadcrumbList>
-            </Breadcrumb>
+            </Breadcrumb> */}
           </div>
           <div className="ml-auto flex items-center gap-2">
-            <UserNav />
+            {!isImpersonating && <UserNav />}
           </div>
         </header>
         <main className="flex-1 p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-4rem)]">

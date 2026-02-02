@@ -249,7 +249,27 @@ export class UserController {
         return res.status(404).json({ error: 'User not found' })
       }
 
-      return res.json(user)
+      let extraStats = {}
+
+      if (user.role === 'MANAGER') {
+        const projectsManaged = await prisma.projectMember.count({
+          where: {
+            userId: user.id,
+            projectRole: 'MANAGER',
+          },
+        })
+        extraStats = { projectsManaged }
+      } else if (user.role === 'REVIEWER') {
+        const tasksReviewed = await prisma.taskAssignment.count({
+          where: {
+            reviewerId: user.id,
+            status: { in: ['APPROVED', 'REJECTED'] },
+          },
+        })
+        extraStats = { tasksReviewed }
+      }
+
+      return res.json({ ...user, ...extraStats })
     } catch (error) {
       console.error('Get user error:', error)
       return res.status(500).json({ error: 'Internal server error' })

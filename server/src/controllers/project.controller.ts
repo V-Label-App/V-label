@@ -14,8 +14,23 @@ const createProjectSchema = z.object({
     enableAiAssistance: z.boolean().optional(),
 })
 
+// Assignment Rule Schema
+const assignmentRuleSchema = z.object({
+    isAutoAssignEnabled: z.boolean().optional(),
+    assignmentStrategy: z.string().optional(),
+    autoAssignReviewer: z.boolean().optional(),
+    reviewerDelayHours: z.number().int().min(0).optional(),
+    maxTasksPerAnnotator: z.number().int().min(1).optional(),
+    maxTasksPerReviewer: z.number().int().min(1).optional(),
+    minAnnotatorReputation: z.number().min(0).max(100).optional(),
+    minReviewerReputation: z.number().min(0).max(100).optional(),
+    maxRejectionsBeforeReassign: z.number().int().min(1).optional(),
+    autoReassignOnSkip: z.boolean().optional(),
+})
+
 const updateProjectSchema = createProjectSchema.partial().extend({
     status: z.nativeEnum(ProjectStatus).optional(),
+    assignmentRule: assignmentRuleSchema.optional(),
 })
 
 const addMemberSchema = z.object({
@@ -134,6 +149,7 @@ export class ProjectController {
                 ...(validatedData.labelConfig !== undefined && { labelConfig: validatedData.labelConfig }),
                 ...(validatedData.enableAiAssistance !== undefined && { enableAiAssistance: validatedData.enableAiAssistance }),
                 ...(validatedData.status !== undefined && { status: validatedData.status }),
+                ...(validatedData.assignmentRule && { assignmentRule: validatedData.assignmentRule }),
             })
 
             logger.info('API', `Project updated: ${id}`, { actorId: (req as any).user?.sub || (req as any).user?.id })
