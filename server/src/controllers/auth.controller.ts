@@ -3,20 +3,16 @@ import { AuthService } from '../services/auth.service.js'
 import { z } from 'zod'
 import { UserRole } from '@prisma/client'
 
-// Validation schemas
+import { registerSchema, formatZodError } from '../utils/validation.js'
+
+// Validation schemas (Login stays simple for now, or can be upgraded too)
 const loginSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(3),
+  password: z.string().min(1, 'Password is required'), // Login just needs requirement, complexity check is for registration/change
 })
 
 const devLoginSchema = z.object({
   role: z.nativeEnum(UserRole),
-})
-
-const registerSchema = z.object({
-  email: z.string().email('Invalid email format'),
-  password: z.string().min(3, 'Password must be at least 3 characters'),
-  fullName: z.string().optional(),
 })
 
 
@@ -51,9 +47,10 @@ export class AuthController {
       })
     } catch (error) {
       if (error instanceof z.ZodError) {
+        const validationErrors = formatZodError(error)
         return res.status(400).json({
           error: 'Validation failed',
-          details: (error as any).errors,
+          details: validationErrors,
         })
       }
 
@@ -150,9 +147,10 @@ export class AuthController {
       })
     } catch (error) {
       if (error instanceof z.ZodError) {
+        const validationErrors = formatZodError(error)
         return res.status(400).json({
           error: 'Validation failed',
-          details: (error as any).errors,
+          details: validationErrors,
         })
       }
 
@@ -213,8 +211,8 @@ export class AuthController {
       const adminId = user?.sub || user?.id
 
       if (!userId || typeof userId !== 'string') {
-          return res.status(400).json({ error: 'Target userId is required' })
-      } 
+        return res.status(400).json({ error: 'Target userId is required' })
+      }
 
       if (!adminId) {
         return res.status(401).json({ error: 'Unauthorized - Invalid Token Payload' })
@@ -245,8 +243,8 @@ export class AuthController {
         user: result.user,
       })
     } catch (error) {
-       console.error('[AUTH] Impersonation error:', error)
-       return res.status(500).json({ error: 'Internal server error' })
+      console.error('[AUTH] Impersonation error:', error)
+      return res.status(500).json({ error: 'Internal server error' })
     }
   }
 
