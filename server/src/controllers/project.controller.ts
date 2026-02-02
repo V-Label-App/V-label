@@ -81,6 +81,9 @@ export class ProjectController {
 
     /**
      * GET /api/v1/projects
+     * Logic:
+     * - ADMIN: view all
+     * - MANAGER / ANNOTATOR: view only projects they are member of
      */
     static async getAll(req: Request, res: Response) {
         try {
@@ -90,9 +93,15 @@ export class ProjectController {
             const categoryId = req.query.categoryId as string | undefined
             const status = req.query.status as ProjectStatus | undefined
 
+            const user = (req as any).user
+            // If ADMIN -> view all (userId = undefined)
+            // If others -> only view joined projects (userId = user.id)
+            const userIdFilter = user.role === 'ADMIN' ? undefined : user.id
+
             const result = await ProjectService.getAll({
                 page,
                 limit,
+                userId: userIdFilter,
                 ...(search !== undefined && { search }),
                 ...(categoryId !== undefined && { categoryId }),
                 ...(status !== undefined && { status }),
@@ -107,14 +116,27 @@ export class ProjectController {
 
     /**
      * GET /api/v1/projects/:id
+     * Logic:
+     * - ADMIN: view details
+     * - MANAGER / ANNOTATOR: view details only if member
      */
     static async getById(req: Request, res: Response) {
         try {
             const { id } = req.params as { id: string }
+            const user = (req as any).user
+
             const project = await ProjectService.getById(id)
 
             if (!project) {
                 return res.status(404).json({ error: 'Project not found' })
+            }
+
+            // Security Check: If not ADMIN, must be a member
+            if (user.role !== 'ADMIN') {
+                const isMember = project.members.some((m: any) => m.userId === user.id)
+                if (!isMember) {
+                    return res.status(403).json({ error: 'Forbidden: You are not a member of this project' })
+                }
             }
 
             return res.json(project)
