@@ -680,11 +680,11 @@ model Label {
   isGlobal    Boolean   @default(false) @map("is_global")
 
   categoryId  String?   @map("category_id") @db.Uuid
-  createdBy   String    @map("created_by") @db.Uuid
+  createdBy   String?   @map("created_by") @db.Uuid
   createdAt   DateTime  @default(now()) @map("created_at")
 
   category    LabelCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  creator     User           @relation("LabelCreator", fields: [createdBy], references: [id])
+  creator     User?          @relation("LabelCreator", fields: [createdBy], references: [id], onDelete: SetNull)
 
   projectLabels ProjectLabel[]
 
