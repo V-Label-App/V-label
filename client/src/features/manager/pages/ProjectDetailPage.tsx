@@ -54,14 +54,16 @@ import { useAuth } from '../../../context/AuthContext';
 import { ChatPanel } from '../../../components/chat/ChatPanel';
 import { projectApi } from '../../../services/project.api';
 import { projectLabelApi, labelApi, type Label as ApiLabel } from '../../../services/label.api';
+import { projectCategoryApi, type ProjectCategory } from '../../../services/project-category.api';
 import { LabelSelector } from '../../../components/LabelSelector';
-import type { Project } from '../../../types/project.types';
+import type { Project, AssignmentRule } from '../../../types/project.types';
 import { ProjectStatus } from '../../../types/project.types';
+import { Switch } from '../../../components/ui/switch';
 
 export function ProjectDetailPage() {
     const { projectId } = useParams();
     const navigate = useNavigate();
-    const { } = useAuth();
+    const { user } = useAuth();
 
     // Data State
     const [project, setProject] = useState<Project | null>(null);
@@ -84,9 +86,29 @@ export function ProjectDetailPage() {
     const [taskFilterAssignee, setTaskFilterAssignee] = useState<string>('all');
 
     // Edit Project State - Pre-fill when opening
+    // Edit Project State - Pre-fill when opening
     const [editName, setEditName] = useState('');
     const [editDescription, setEditDescription] = useState('');
     const [editDeadline, setEditDeadline] = useState<Date>();
+    const [editStatus, setEditStatus] = useState<ProjectStatus>(ProjectStatus.ACTIVE);
+    const [editCategoryId, setEditCategoryId] = useState<string>('');
+    const [editEnableAi, setEditEnableAi] = useState(false);
+
+    // Assignment Rule State
+    const [editAssignmentRule, setEditAssignmentRule] = useState<Partial<AssignmentRule>>({
+        isAutoAssignEnabled: false,
+        assignmentStrategy: 'ROUND_ROBIN',
+        autoAssignReviewer: true,
+        reviewerDelayHours: 0,
+        maxTasksPerAnnotator: 10,
+        maxTasksPerReviewer: 20,
+        minAnnotatorReputation: 0,
+        minReviewerReputation: 70,
+        maxRejectionsBeforeReassign: 3,
+        autoReassignOnSkip: true
+    });
+
+    const [categories, setCategories] = useState<ProjectCategory[]>([]);
 
     // Member Management State
     const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
@@ -211,8 +233,22 @@ export function ProjectDetailPage() {
             setEditName(project.name);
             setEditDescription(project.description || '');
             if (project.deadline) setEditDeadline(new Date(project.deadline));
+            setEditStatus(project.status as ProjectStatus);
+            setEditCategoryId(project.categoryId || '');
+            setEditEnableAi(project.enableAiAssistance);
+
+            if (project.assignmentRule) {
+                setEditAssignmentRule(project.assignmentRule);
+            }
         }
     }, [project, activeTab]);
+
+    // Load available categories
+    useEffect(() => {
+        projectCategoryApi.getAll()
+            .then(cats => setCategories(cats))
+            .catch(err => console.error('Failed to load categories', err));
+    }, []);
 
     // Trigger initial search when Add Member dialog opens
     useEffect(() => {
@@ -289,7 +325,11 @@ export function ProjectDetailPage() {
                     name: editName,
                     description: editDescription,
                     deadline: editDeadline.toISOString(),
-                    labelConfig: newLabelConfig
+                    labelConfig: newLabelConfig,
+                    status: editStatus,
+                    categoryId: editCategoryId === 'none' ? '' : editCategoryId,
+                    enableAiAssistance: editEnableAi,
+                    assignmentRule: editAssignmentRule
                 }),
                 // Update labels relation
                 projectLabelApi.updateProjectLabels(project.id, selectedLabelIds)
@@ -433,7 +473,11 @@ export function ProjectDetailPage() {
 
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button variant="outline">
+                                <Button
+                                    variant="outline"
+                                    disabled={project.status !== ProjectStatus.COMPLETED}
+                                    title={project.status !== ProjectStatus.COMPLETED ? "Project must be COMPLETED to export" : "Export Project Data"}
+                                >
                                     <Download className="w-4 h-4 mr-2" />
                                     Export
                                 </Button>
@@ -654,6 +698,7 @@ export function ProjectDetailPage() {
                                 <ChatPanel
                                     projectId={project.id}
                                     projectName={project.name}
+                                    isManager={project.members?.find(m => m.user?.id === user?.id)?.projectRole === 'MANAGER'}
                                 />
                             </div>
                         </div>
@@ -778,59 +823,220 @@ export function ProjectDetailPage() {
                     </TabsContent>
 
                     <TabsContent value="settings">
-                        <Card className="p-6">
-                            <div className="space-y-6">
-                                <div>
-                                    <h3 className="text-lg font-semibold">Project Settings</h3>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Project Name</Label>
-                                    <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Description</Label>
-                                    <Textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Project Deadline</Label>
-                                    <Popover>
-                                        <PopoverTrigger asChild>
-                                            <Button variant="outline" className="w-full justify-start text-left">
-                                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                                {editDeadline ? format(editDeadline, 'PPP') : 'Pick a date'}
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0" align="start">
-                                            <Calendar
-                                                mode="single"
-                                                selected={editDeadline}
-                                                onSelect={setEditDeadline}
-                                                disabled={(date) => date < new Date()}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {/* Left Column: Navigation for Settings (Optional simple vertical layout now) */}
+
+                            {/* Main Settings Area */}
+                            <div className="md:col-span-3 space-y-6">
+
+                                {/* 1. General Settings */}
+                                <Card className="p-6">
+                                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                                        <FolderOpen className="w-5 h-5 text-blue-600" />
+                                        General Settings
+                                    </h3>
+                                    <div className="space-y-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <Label>Project Name</Label>
+                                                <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>Status</Label>
+                                                <Select value={editStatus} onValueChange={(val: ProjectStatus) => setEditStatus(val)}>
+                                                    <SelectTrigger>
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {Object.values(ProjectStatus).map(s => (
+                                                            <SelectItem key={s} value={s}>{s}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <Label>Description</Label>
+                                            <Textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} />
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <Label>Category</Label>
+                                                <Select value={editCategoryId} onValueChange={setEditCategoryId}>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Select Category" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="none">None</SelectItem>
+                                                        {categories.map(cat => (
+                                                            <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>Deadline</Label>
+                                                <Popover>
+                                                    <PopoverTrigger asChild>
+                                                        <Button variant="outline" className="w-full justify-start text-left">
+                                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                                            {editDeadline ? format(editDeadline, 'PPP') : 'Pick a date'}
+                                                        </Button>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent className="w-auto p-0" align="start">
+                                                        <Calendar
+                                                            mode="single"
+                                                            selected={editDeadline}
+                                                            onSelect={setEditDeadline}
+                                                            disabled={(date) => date < new Date()}
+                                                        />
+                                                    </PopoverContent>
+                                                </Popover>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100">
+                                            <div className="space-y-0.5">
+                                                <Label className="text-base">AI Assistance</Label>
+                                                <p className="text-sm text-muted-foreground">
+                                                    Allow annotators to use AI models for pre-labeling.
+                                                </p>
+                                            </div>
+                                            <Switch
+                                                checked={editEnableAi}
+                                                onCheckedChange={setEditEnableAi}
                                             />
-                                        </PopoverContent>
-                                    </Popover>
+                                        </div>
+                                    </div>
+                                </Card>
+
+                                {/* 2. Assignment Rules */}
+                                <Card className="p-6">
+                                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                                        <Users className="w-5 h-5 text-purple-600" />
+                                        Assignment Rules
+                                    </h3>
+                                    <p className="text-sm text-muted-foreground mb-6">
+                                        Configure how tasks are distributed and reviewed.
+                                    </p>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="space-y-4">
+                                            <h4 className="font-medium text-sm text-gray-900 border-b pb-2">Assignment Strategy</h4>
+
+                                            <div className="flex items-center justify-between">
+                                                <Label>Auto-Assign Tasks</Label>
+                                                <Switch
+                                                    checked={editAssignmentRule.isAutoAssignEnabled}
+                                                    onCheckedChange={(c) => setEditAssignmentRule(p => ({ ...p, isAutoAssignEnabled: c }))}
+                                                />
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <Label>Strategy</Label>
+                                                <Select
+                                                    value={editAssignmentRule.assignmentStrategy}
+                                                    onValueChange={(v) => setEditAssignmentRule(p => ({ ...p, assignmentStrategy: v }))}
+                                                    disabled={!editAssignmentRule.isAutoAssignEnabled}
+                                                >
+                                                    <SelectTrigger>
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="ROUND_ROBIN">Round Robin</SelectItem>
+                                                        <SelectItem value="LEAST_BUSY">Least Busy</SelectItem>
+                                                        <SelectItem value="RANDOM">Random</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+
+                                            <div className="flex items-center justify-between pt-2">
+                                                <div className="space-y-0.5">
+                                                    <Label>Auto-Assign Reviewer</Label>
+                                                    <p className="text-xs text-muted-foreground">Assign reviewer when task is submitted</p>
+                                                </div>
+                                                <Switch
+                                                    checked={editAssignmentRule.autoAssignReviewer}
+                                                    onCheckedChange={(c) => setEditAssignmentRule(p => ({ ...p, autoAssignReviewer: c }))}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            <h4 className="font-medium text-sm text-gray-900 border-b pb-2">Workload Limits</h4>
+
+                                            <div className="space-y-2">
+                                                <Label>Max Tasks per Annotator</Label>
+                                                <Input
+                                                    type="number"
+                                                    value={editAssignmentRule.maxTasksPerAnnotator}
+                                                    onChange={(e) => setEditAssignmentRule(p => ({ ...p, maxTasksPerAnnotator: parseInt(e.target.value) || 0 }))}
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>Max Review Queue Size</Label>
+                                                <Input
+                                                    type="number"
+                                                    value={editAssignmentRule.maxTasksPerReviewer}
+                                                    onChange={(e) => setEditAssignmentRule(p => ({ ...p, maxTasksPerReviewer: parseInt(e.target.value) || 0 }))}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-4 md:col-span-2">
+                                            <h4 className="font-medium text-sm text-gray-900 border-b pb-2">Quality Control</h4>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                <div className="space-y-2">
+                                                    <Label>Max Rejections Before Reassign</Label>
+                                                    <Input
+                                                        type="number"
+                                                        value={editAssignmentRule.maxRejectionsBeforeReassign}
+                                                        onChange={(e) => setEditAssignmentRule(p => ({ ...p, maxRejectionsBeforeReassign: parseInt(e.target.value) || 0 }))}
+                                                    />
+                                                </div>
+                                                <div className="flex items-center justify-between">
+                                                    <div className="space-y-0.5">
+                                                        <Label>Auto-Reassign on Skip</Label>
+                                                        <p className="text-xs text-muted-foreground">Automatically assign to another user if skipped</p>
+                                                    </div>
+                                                    <Switch
+                                                        checked={editAssignmentRule.autoReassignOnSkip}
+                                                        onCheckedChange={(c) => setEditAssignmentRule(p => ({ ...p, autoReassignOnSkip: c }))}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </Card>
+
+                                {/* 3. Label Settings */}
+                                <Card className="p-6">
+                                    <h3 className="text-lg font-semibold mb-4">Label Management</h3>
+                                    <p className="text-sm text-muted-foreground mb-4">
+                                        Select the labels that annotators can use in this project.
+                                    </p>
+                                    <LabelSelector
+                                        projectId={project.id}
+                                        selectedLabelIds={selectedLabelIds}
+                                        onSelectionChange={setSelectedLabelIds}
+                                        allowCreateLabel={true}
+                                    />
+                                </Card>
+
+                                {/* Save Button */}
+                                <div className="flex justify-end gap-3 sticky bottom-6 z-10">
+                                    <div className="bg-white/80 backdrop-blur-sm p-2 rounded-lg shadow-lg border border-gray-100 flex gap-2">
+                                        <Button variant="outline" onClick={() => setActiveTab('tasks')}>Cancel</Button>
+                                        <Button onClick={handleEditProject} className="bg-blue-600 hover:bg-blue-700 text-white shadow-md">
+                                            <CheckCircle2 className="w-4 h-4 mr-2" />
+                                            Save All Settings
+                                        </Button>
+                                    </div>
                                 </div>
                             </div>
-
-                            <div className="pt-6 border-t border-gray-200 mt-6">
-                                <h3 className="text-lg font-semibold mb-4">Label Management</h3>
-                                <p className="text-sm text-muted-foreground mb-4">
-                                    Select the labels that annotators can use in this project.
-                                </p>
-                                <LabelSelector
-                                    projectId={project.id}
-                                    selectedLabelIds={selectedLabelIds}
-                                    onSelectionChange={setSelectedLabelIds}
-                                    allowCreateLabel={true}
-                                />
-                            </div>
-
-                            <div className="pt-6 border-t border-gray-200 mt-6 flex justify-end">
-                                <Button onClick={handleEditProject} className="bg-blue-600 text-white">
-                                    Save Changes
-                                </Button>
-                            </div>
-                        </Card>
+                        </div>
                     </TabsContent>
 
                     <TabsContent value="analytics" className="space-y-6">

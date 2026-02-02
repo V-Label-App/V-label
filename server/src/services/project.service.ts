@@ -117,6 +117,7 @@ export class ProjectService {
                 where: { id },
                 include: {
                     category: true,
+                    assignmentRule: true, // Include Assignment Rules
                     members: {
                         include: {
                             user: {
@@ -156,6 +157,18 @@ export class ProjectService {
             labelConfig?: any
             enableAiAssistance?: boolean
             status?: ProjectStatus
+            assignmentRule?: {
+                isAutoAssignEnabled?: boolean | undefined
+                assignmentStrategy?: string | undefined
+                autoAssignReviewer?: boolean | undefined
+                reviewerDelayHours?: number | undefined
+                maxTasksPerAnnotator?: number | undefined
+                maxTasksPerReviewer?: number | undefined
+                minAnnotatorReputation?: number | undefined
+                minReviewerReputation?: number | undefined
+                maxRejectionsBeforeReassign?: number | undefined
+                autoReassignOnSkip?: boolean | undefined
+            }
         },
     ) {
         try {
@@ -198,7 +211,20 @@ export class ProjectService {
                     ...(data.labelConfig && { labelConfig: data.labelConfig }),
                     ...(data.enableAiAssistance !== undefined && { enableAiAssistance: data.enableAiAssistance }),
                     ...(data.status && { status: data.status }),
+
+                    // Handle Assignment Rules Upsert
+                    ...(data.assignmentRule && {
+                        assignmentRule: {
+                            upsert: {
+                                create: data.assignmentRule,
+                                update: data.assignmentRule
+                            }
+                        }
+                    })
                 },
+                include: {
+                    assignmentRule: true // Return the updated rules
+                }
             })
 
             return project
