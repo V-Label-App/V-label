@@ -8,27 +8,27 @@ import * as XLSX from 'xlsx';
 // =========================================================
 
 export interface LabelImportRow {
-  category_name: string;
-  category_description: string;
-  label_name: string;
-  label_color: string;
-  is_global: string;
+    category_name: string;
+    category_description: string;
+    label_name: string;
+    label_color: string;
+    is_global: string;
 }
 
 export interface LabelImportResult {
-  success: boolean;
-  categoriesCreated: number;
-  labelsCreated: number;
-  labelsSkipped: number;
-  errors: string[];
+    success: boolean;
+    categoriesCreated: number;
+    labelsCreated: number;
+    labelsSkipped: number;
+    errors: string[];
 }
 
 export interface LabelExportRow {
-  category_name: string;
-  category_description: string;
-  label_name: string;
-  label_color: string;
-  is_global: string;
+    category_name: string;
+    category_description: string;
+    label_name: string;
+    label_color: string;
+    is_global: string;
 }
 
 // =========================================================
@@ -222,7 +222,7 @@ export class LabelService {
             labelColor: label.color,
             isGlobal: label.isGlobal,
             creatorId: data.createdBy,
-            creatorName: label.creator.fullName || label.creator.email,
+            creatorName: label.creator?.fullName || label.creator?.email || 'Unknown',
             ...(label.category?.name && { categoryName: label.category.name }),
         });
 
