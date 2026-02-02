@@ -34,23 +34,22 @@ export function ProjectListPage() {
   const navigate = useNavigate();
   const { } = useAuth();
 
-  // Data State
+  // State
   const [projects, setProjects] = useState<Project[]>([]);
-  const [categories, setCategories] = useState<ProjectCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
-
-  // Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<ProjectStatus | 'ALL'>('ALL');
-  const [filterAnnotationType, setFilterAnnotationType] = useState<string>('all');
 
-  // Create Project Form State
+  // Create Project State
+  const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
   const [projectName, setProjectName] = useState('');
   const [projectDescription, setProjectDescription] = useState('');
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
-  const [annotationType, setAnnotationType] = useState<'bounding-box' | 'polygon' | 'segmentation'>('bounding-box');
   const [projectDeadline, setProjectDeadline] = useState<Date>();
+
+  // Project Category State
+  const [categories, setCategories] = useState<ProjectCategory[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('none');
+  const [filterCategory, setFilterCategory] = useState<string>('ALL');
 
 
   // Fetch Categories
@@ -68,11 +67,14 @@ export function ProjectListPage() {
   const fetchProjects = async () => {
     setIsLoading(true);
     try {
-      const response = await projectApi.getAll({
+      const queryPayload: any = {
         search: searchQuery || undefined,
-        status: filterStatus === 'ALL' ? undefined : filterStatus
-      });
-      setProjects(response.data);
+        status: filterStatus === 'ALL' ? undefined : filterStatus,
+      };
+
+      const customResponse = await projectApi.getAll(queryPayload);
+      const data = customResponse.data || [];
+      setProjects(data as Project[]);
     } catch (error) {
       console.error('Failed to fetch projects', error);
       toast.error('Failed to load projects');
@@ -104,11 +106,12 @@ export function ProjectListPage() {
       await projectApi.create({
         name: projectName,
         description: projectDescription,
-        categoryId: selectedCategoryId || undefined,
+        // If "none", send undefined. If valid ID, send ID.
+        categoryId: selectedCategoryId === "none" ? undefined : selectedCategoryId,
         deadline: projectDeadline.toISOString(),
         enableAiAssistance: false,
-        // store annotationType in labelConfig for now as metadata
-        labelConfig: [{ type: 'meta', annotationType }]
+        // Default to bounding-box as UI is removed
+        labelConfig: [{ type: 'meta', annotationType: 'bounding-box' }]
       });
 
       toast.success('Project created successfully!');
@@ -117,15 +120,15 @@ export function ProjectListPage() {
       // Reset form
       setProjectName('');
       setProjectDescription('');
-      setSelectedCategoryId('');
-      setAnnotationType('bounding-box');
+      setSelectedCategoryId('none'); // Reset to "none"
       setProjectDeadline(undefined);
 
       // Refresh list
       fetchProjects();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Create project failed', error);
-      toast.error('Failed to create project');
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to create project';
+      toast.error(errorMessage);
     }
   };
 
@@ -138,12 +141,9 @@ export function ProjectListPage() {
 
     const matchesStatus = filterStatus === 'ALL' || project.status === filterStatus;
 
-    // Check annotation type from labelConfig
-    const meta = project.labelConfig?.find((l: any) => l.type === 'meta');
-    const type = meta?.annotationType || 'bounding-box';
-    const matchesType = filterAnnotationType === 'all' || type === filterAnnotationType;
+    const matchesCategory = filterCategory === 'ALL' || project.categoryId === filterCategory;
 
-    return matchesSearch && matchesStatus && matchesType;
+    return matchesSearch && matchesStatus && matchesCategory;
   });
 
   return (
@@ -194,30 +194,30 @@ export function ProjectListPage() {
               </div>
             </div>
 
+            <Select value={filterCategory} onValueChange={setFilterCategory}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Categories</SelectItem>
+                {categories.map((cat) => (
+                  <SelectItem key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
             <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as ProjectStatus | 'ALL')}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="not-started">Not Started</SelectItem>
-                <SelectItem value="in-progress">In Progress</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select
-              value={filterAnnotationType}
-              onValueChange={setFilterAnnotationType}
-            >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Annotation type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="bounding-box">Bounding Box</SelectItem>
-                <SelectItem value="polygon">Polygon</SelectItem>
-                <SelectItem value="segmentation">Segmentation</SelectItem>
+                <SelectItem value="ALL">All Status</SelectItem>
+                <SelectItem value={ProjectStatus.ACTIVE}>Active</SelectItem>
+                <SelectItem value={ProjectStatus.PAUSED}>Paused</SelectItem>
+                <SelectItem value={ProjectStatus.COMPLETED}>Completed</SelectItem>
+                <SelectItem value={ProjectStatus.ARCHIVED}>Archived</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -256,9 +256,14 @@ export function ProjectListPage() {
                       </div>
                       <div>
                         <h3 className="font-semibold">{project.name}</h3>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-muted-foreground mb-1">
                           {project.id}
                         </p>
+                        {project.category && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
+                            {project.category.name}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -340,7 +345,7 @@ export function ProjectListPage() {
                     <SelectValue placeholder="Select a category (optional)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No Category</SelectItem>
+                    <SelectItem value="none">No Category</SelectItem>
                     {categories.map((cat) => (
                       <SelectItem key={cat.id} value={cat.id}>
                         {cat.name}
@@ -350,21 +355,7 @@ export function ProjectListPage() {
                 </Select>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Annotation Type *</Label>
-                  <Select value={annotationType} onValueChange={(v: any) => setAnnotationType(v)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="bounding-box">Bounding Box</SelectItem>
-                      <SelectItem value="polygon">Polygon</SelectItem>
-                      <SelectItem value="segmentation">Segmentation</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
+              <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-2">
                   <Label>Project Deadline *</Label>
                   <Popover>
@@ -395,6 +386,7 @@ export function ProjectListPage() {
                   setIsCreateProjectOpen(false);
                   setProjectName('');
                   setProjectDescription('');
+                  setSelectedCategoryId('none');
                   setProjectDeadline(undefined);
                 }}
               >

@@ -6,6 +6,13 @@ export interface ProjectCategory {
     description?: string | null;
     createdAt: string;
     updatedAt: string;
+    _count?: {
+        projects: number;
+    };
+    projects?: {
+        id: string;
+        name: string;
+    }[];
 }
 
 export interface CreateProjectCategoryRequest {

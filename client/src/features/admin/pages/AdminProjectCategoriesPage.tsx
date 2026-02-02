@@ -3,6 +3,11 @@ import { motion } from "framer-motion";
 import { Button } from "../../../components/ui/button";
 import { Card } from "../../../components/ui/card";
 import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "../../../components/ui/popover";
+import {
     Dialog,
     DialogContent,
     DialogHeader,
@@ -12,16 +17,30 @@ import {
 import { Label } from "../../../components/ui/label";
 import { Input } from "../../../components/ui/input";
 import { Textarea } from "../../../components/ui/textarea";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "../../../components/ui/table";
 import { projectCategoryApi } from "../../../services/project-category.api";
 import type { ProjectCategory } from "../../../services/project-category.api";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2 } from "lucide-react";
+import { DeleteCategoryDialog } from "../../../components/admin/DeleteCategoryDialog";
 
 export function AdminProjectCategoriesPage() {
     const [categories, setCategories] = useState<ProjectCategory[]>([]);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingCategory, setEditingCategory] =
         useState<ProjectCategory | null>(null);
+
+    // Delete dialog state
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [categoryToDelete, setCategoryToDelete] = useState<ProjectCategory | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     // Form state
     const [name, setName] = useState("");
@@ -90,20 +109,27 @@ export function AdminProjectCategoriesPage() {
         }
     };
 
-    const handleDelete = async (category: ProjectCategory) => {
-        if (!confirm(`Are you sure you want to delete "${category.name}"?`)) {
-            return;
-        }
+    const openDeleteDialog = (category: ProjectCategory) => {
+        setCategoryToDelete(category);
+        setDeleteDialogOpen(true);
+    };
 
+    const handleConfirmDelete = async () => {
+        if (!categoryToDelete) return;
+
+        setIsDeleting(true);
         try {
-            await projectCategoryApi.delete(category.id);
+            await projectCategoryApi.delete(categoryToDelete.id);
             toast.success("Category deleted successfully");
+            setDeleteDialogOpen(false);
             fetchCategories();
         } catch (error: any) {
             console.error("Failed to delete category", error);
             const errorMessage =
                 error?.response?.data?.error || "Failed to delete category";
             toast.error(errorMessage);
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -131,50 +157,97 @@ export function AdminProjectCategoriesPage() {
                 </Button>
             </div>
 
-            {/* Categories Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {categories.map((category) => (
-                    <Card key={category.id} className="p-6 hover:shadow-lg transition-shadow">
-                        <div className="flex items-start justify-between mb-3">
-                            <div className="flex-1">
-                                <h3 className="font-semibold text-lg">{category.name}</h3>
-                                <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+            {/* Categories Table */}
+            <Card>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead className="w-[300px]">Name</TableHead>
+                            <TableHead>Description</TableHead>
+                            <TableHead className="w-[100px] text-center">Projects</TableHead>
+                            <TableHead className="w-[150px] text-right">Actions</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {categories.map((category) => (
+                            <TableRow key={category.id}>
+                                <TableCell className="font-medium">
+                                    <div className="flex items-center">
+                                        {category.name}
+                                    </div>
+                                </TableCell>
+                                <TableCell className="text-muted-foreground">
                                     {category.description || "No description"}
-                                </p>
-                            </div>
-                        </div>
+                                </TableCell>
 
-                        <div className="flex gap-2 mt-4 pt-4 border-t">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="flex-1"
-                                onClick={() => openEditDialog(category)}
-                            >
-                                <Pencil className="w-3 h-3 mr-1" />
-                                Edit
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                                onClick={() => handleDelete(category)}
-                            >
-                                <Trash2 className="w-3 h-3 mr-1" />
-                                Delete
-                            </Button>
-                        </div>
-                    </Card>
-                ))}
+                                <TableCell className="text-center">
+                                    {category._count?.projects && category._count.projects > 0 ? (
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                                <button className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 hover:bg-blue-200 cursor-pointer transition-colors">
+                                                    {category._count.projects}
+                                                </button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-64 p-3">
+                                                <div className="space-y-2">
+                                                    <h4 className="font-medium text-sm border-b pb-2 mb-2">Linked Projects</h4>
+                                                    <div className="max-h-[200px] overflow-y-auto space-y-1">
+                                                        {category.projects?.map((proj) => (
+                                                            <div key={proj.id} className="text-sm py-1 px-2 hover:bg-slate-50 rounded truncate" title={proj.name}>
+                                                                {proj.name}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </PopoverContent>
+                                        </Popover>
+                                    ) : (
+                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                            0
+                                        </span>
+                                    )}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                    <div className="flex justify-end gap-2">
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() => openEditDialog(category)}
+                                        >
+                                            <Pencil className="w-4 h-4" />
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                                            onClick={() => openDeleteDialog(category)}
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                    </div>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                        {categories.length === 0 && (
+                            <TableRow>
+                                <TableCell colSpan={4} className="text-center py-12 text-muted-foreground">
+                                    No categories yet. Create one to get started.
+                                </TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                </Table>
+            </Card>
 
-                {categories.length === 0 && (
-                    <Card className="p-12 col-span-full text-center">
-                        <p className="text-muted-foreground">
-                            No categories yet. Create one to get started.
-                        </p>
-                    </Card>
-                )}
-            </div>
+            {/* Delete Confirmation Dialog */}
+            <DeleteCategoryDialog
+                open={deleteDialogOpen}
+                onOpenChange={setDeleteDialogOpen}
+                category={categoryToDelete}
+                onConfirm={handleConfirmDelete}
+                isDeleting={isDeleting}
+            />
+
 
             {/* Create/Edit Dialog */}
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
