@@ -12,7 +12,7 @@ import {
   CheckSquare,
   MessageSquare,
   Layers,
-  Image,
+  Image as ImageIcon,
 } from "lucide-react";
 
 import type { LucideIcon } from "lucide-react";
@@ -33,7 +33,7 @@ export const ROLE_NAVIGATION: RoleNavigation = {
     { title: "Dashboard", url: "/admin", icon: LayoutDashboard },
     { title: "Users", url: "/admin/users", icon: Users },
     { title: "Project Categories", url: "/admin/categories", icon: Layers },
-    { title: "Media", url: "/admin/media", icon: Image },
+    { title: "Media", url: "/admin/media", icon: ImageIcon },
     { title: "AI Chat Setting", url: "/admin/ai-chat", icon: Sparkles },
     { title: "Chat", url: "/admin/chat", icon: MessageSquare }, // Always visible for ADMIN
     { title: "Logs", url: "/admin/logs", icon: FileText },

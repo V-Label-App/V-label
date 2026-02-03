@@ -10,11 +10,10 @@ import {
 } from "../../../components/ui/dialog";
 import { Button } from "../../../components/ui/button";
 import { Progress } from "../../../components/ui/progress";
-import { Upload, X, FileImage, AlertCircle } from 'lucide-react';
+import { Upload, X, FileImage } from 'lucide-react';
 import { toast } from 'sonner';
 import { projectApi } from '../../../services/project.api';
 import { ScrollArea } from '../../../components/ui/scroll-area';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select";
 import { datasetApi, type Dataset } from '../../../services/dataset.api';
 import { useEffect } from 'react';
