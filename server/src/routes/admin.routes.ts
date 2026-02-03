@@ -38,4 +38,8 @@ router.get('/email/logs', authMiddleware, requireRole(['ADMIN']), AdminControlle
 router.delete('/email/logs', authMiddleware, requireRole(['ADMIN']), AdminController.clearEmailLogs);
 router.delete('/email/logs/:id', authMiddleware, requireRole(['ADMIN']), AdminController.deleteEmailLog);
 
+// Cloudinary Usage
+router.get('/cloudinary-usage', authMiddleware, requireRole(['ADMIN']), AdminController.getCloudinaryUsage);
+router.get('/cloudinary-resources', authMiddleware, requireRole(['ADMIN']), AdminController.getCloudinaryResources);
+
 export default router;

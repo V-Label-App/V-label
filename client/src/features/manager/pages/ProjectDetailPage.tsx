@@ -1,4 +1,7 @@
 import { useState, useEffect } from 'react';
+import { DatasetList } from '../components/DatasetList';
+import { UploadImageDialog } from '../components/UploadImageDialog';
+import { DatasetCreateDialog } from '../components/DatasetCreateDialog';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '../../../components/ui/button';
 import { Card } from '../../../components/ui/card';
@@ -59,6 +62,14 @@ import { LabelSelector } from '../../../components/LabelSelector';
 import type { Project, AssignmentRule } from '../../../types/project.types';
 import { ProjectStatus } from '../../../types/project.types';
 import { Switch } from '../../../components/ui/switch';
+import { Checkbox } from '../../../components/ui/checkbox';
+import {
+    ChevronLeft,
+    ChevronRight,
+    ChevronsLeft,
+    ChevronsRight,
+} from 'lucide-react';
+
 
 export function ProjectDetailPage() {
     const { projectId } = useParams();
@@ -76,6 +87,10 @@ export function ProjectDetailPage() {
 
     // Placeholder for tasks since API doesn't return them yet
     const [tasks, setTasks] = useState<any[]>([]);
+    const [isTasksLoading, setIsTasksLoading] = useState(false);
+    const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
+    const [currentPage, setCurrentPage] = useState(1);
+    const ITEMS_PER_PAGE = 5;
 
     // Dialog States
     const [isAddImagesOpen, setIsAddImagesOpen] = useState(false);
@@ -243,6 +258,27 @@ export function ProjectDetailPage() {
         }
     }, [project, activeTab]);
 
+    // Fetch images as tasks when tab is active
+    useEffect(() => {
+        if (project && activeTab === 'tasks') {
+            setIsTasksLoading(true);
+            projectApi.getImages(project.id, { page: 1, limit: 100 })
+                .then(res => {
+                    const mappedTasks = res.data.map((img: any) => ({
+                        id: img.id,
+                        imageName: img.originalFilename,
+                        imageUrl: img.storageUrl,
+                        status: 'pending',
+                        assignee: 'Unassigned',
+                        uploadedAt: img.uploadedAt
+                    }));
+                    setTasks(mappedTasks);
+                })
+                .catch(console.error)
+                .finally(() => setIsTasksLoading(false));
+        }
+    }, [project, activeTab]);
+
     // Load available categories
     useEffect(() => {
         projectCategoryApi.getAll()
@@ -262,6 +298,10 @@ export function ProjectDetailPage() {
         }
     }, [isAddMemberOpen]);
 
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [taskSearchQuery, taskFilterStatus, taskFilterAssignee]);
 
     if (isLoading) {
         return (
@@ -292,6 +332,14 @@ export function ProjectDetailPage() {
 
         return matchesSearch && matchesStatus && matchesAssignee;
     });
+
+    const totalPages = Math.max(1, Math.ceil(filteredTasks.length / ITEMS_PER_PAGE));
+    const currentTableData = filteredTasks.slice(
+        (currentPage - 1) * ITEMS_PER_PAGE,
+        currentPage * ITEMS_PER_PAGE
+    );
+
+
 
     const projectProgress = project._count?.tasks && project._count.tasks > 0
         ? 0 // Placeholder
@@ -448,6 +496,22 @@ export function ProjectDetailPage() {
         setRoleToUpdate(member.projectRole || 'ANNOTATOR');
         setIsEditRoleOpen(true);
     };
+
+    const handleSelectAll = (checked: boolean) => {
+        if (checked) {
+            setSelectedTasks(filteredTasks.map(t => t.id));
+        } else {
+            setSelectedTasks([]);
+        }
+    };
+
+    const handleSelectTask = (taskId: string, checked: boolean) => {
+        if (checked) {
+            setSelectedTasks(prev => [...prev, taskId]);
+        } else {
+            setSelectedTasks(prev => prev.filter(id => id !== taskId));
+        }
+    };
     return (
         <div className="min-h-screen bg-gray-50 animate-in fade-in slide-in-from-bottom-5 duration-700">
 
@@ -599,6 +663,7 @@ export function ProjectDetailPage() {
                 >
                     <TabsList>
                         <TabsTrigger value="tasks">Task Management</TabsTrigger>
+                        <TabsTrigger value="datasets">Datasets</TabsTrigger>
                         <TabsTrigger value="members">Members</TabsTrigger>
                         <TabsTrigger value="settings">Settings</TabsTrigger>
                         <TabsTrigger value="analytics">Analytics</TabsTrigger>
@@ -606,8 +671,9 @@ export function ProjectDetailPage() {
 
                     <TabsContent value="tasks" className="space-y-6">
                         {/* Warning about missing tasks */}
-                        <div className="p-4 bg-yellow-50 text-yellow-800 rounded-md border border-yellow-200">
-                            <strong>Note:</strong> Task management API is currently under development. Task list might be empty.
+                        {/* Warning about missing tasks */}
+                        <div className="p-4 bg-blue-50 text-blue-800 rounded-md border border-blue-200">
+                            <strong>Note:</strong> Showing project images as tasks. Assignment functionality coming soon.
                         </div>
 
                         {/* Search & Filter for Tasks */}
@@ -670,26 +736,113 @@ export function ProjectDetailPage() {
                                         <Table>
                                             <TableHeader>
                                                 <TableRow className="bg-gray-50">
+                                                    <TableHead className="w-[50px]">
+                                                        <Checkbox
+                                                            checked={filteredTasks.length > 0 && selectedTasks.length === filteredTasks.length}
+                                                            onCheckedChange={(checked) => handleSelectAll(!!checked)}
+                                                        />
+                                                    </TableHead>
                                                     <TableHead>Preview</TableHead>
                                                     <TableHead>Name</TableHead>
                                                     <TableHead>Status</TableHead>
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
-                                                {filteredTasks.length === 0 ? (
+                                                {isTasksLoading ? (
+                                                    <TableRow>
+                                                        <TableCell colSpan={3} className="text-center py-8">
+                                                            <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" />
+                                                            <p className="text-sm text-muted-foreground mt-2">Loading tasks...</p>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ) : filteredTasks.length === 0 ? (
                                                     <TableRow>
                                                         <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
                                                             No tasks found
                                                         </TableCell>
                                                     </TableRow>
                                                 ) : (
-                                                    // Map tasks here when available
-                                                    filteredTasks.map((_, i) => (
-                                                        <TableRow key={i}><TableCell>Task</TableCell></TableRow>
+                                                    currentTableData.map((task, i) => (
+                                                        <TableRow key={task.id || i}>
+                                                            <TableCell>
+                                                                <Checkbox
+                                                                    checked={selectedTasks.includes(task.id)}
+                                                                    onCheckedChange={(checked) => handleSelectTask(task.id, !!checked)}
+                                                                />
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <div className="w-16 h-16 rounded overflow-hidden bg-gray-100 border relative group">
+                                                                    <img
+                                                                        src={task.imageUrl}
+                                                                        alt={task.imageName}
+                                                                        className="w-full h-full object-cover"
+                                                                        loading="lazy"
+                                                                    />
+                                                                    <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-10 transition-opacity" />
+                                                                </div>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <div className="font-medium text-sm">{task.imageName}</div>
+                                                                <div className="text-xs text-muted-foreground font-mono mt-1">
+                                                                    ID: {task.id.slice(0, 8)}...
+                                                                </div>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Badge variant="secondary" className="font-normal capitalize">
+                                                                    {task.status}
+                                                                </Badge>
+                                                                {task.assignee !== 'Unassigned' && (
+                                                                    <div className="text-xs text-muted-foreground mt-1">
+                                                                        Assigned to: {task.assignee}
+                                                                    </div>
+                                                                )}
+                                                            </TableCell>
+                                                        </TableRow>
                                                     ))
                                                 )}
                                             </TableBody>
                                         </Table>
+                                    </div>
+
+                                    {/* Pagination Controls */}
+                                    <div className="flex items-center justify-between mt-4">
+                                        <div className="text-sm text-muted-foreground">
+                                            Page {currentPage} of {totalPages}
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                onClick={() => setCurrentPage(1)}
+                                                disabled={currentPage === 1}
+                                            >
+                                                <ChevronsLeft className="w-4 h-4" />
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                                disabled={currentPage === 1}
+                                            >
+                                                <ChevronLeft className="w-4 h-4" />
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                                disabled={currentPage === totalPages}
+                                            >
+                                                <ChevronRight className="w-4 h-4" />
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                onClick={() => setCurrentPage(totalPages)}
+                                                disabled={currentPage === totalPages}
+                                            >
+                                                <ChevronsRight className="w-4 h-4" />
+                                            </Button>
+                                        </div>
                                     </div>
                                 </Card>
                             </div>
@@ -702,6 +855,10 @@ export function ProjectDetailPage() {
                                 />
                             </div>
                         </div>
+                    </TabsContent>
+
+                    <TabsContent value="datasets">
+                        <DatasetList projectId={project.id} />
                     </TabsContent>
 
                     <TabsContent value="members" className="space-y-6">
@@ -1234,8 +1391,25 @@ export function ProjectDetailPage() {
                         </div>
                     </DialogContent>
                 </Dialog>
+                {/* Dialogs */}
+                <DatasetCreateDialog
+                    projectId={project.id}
+                    open={false}
+                    onOpenChange={() => { }}
+                    onSuccess={() => { }}
+                />
+
+                <UploadImageDialog
+                    projectId={project.id}
+                    open={isAddImagesOpen}
+                    onOpenChange={setIsAddImagesOpen}
+                    onSuccess={() => {
+                        // Maybe refresh project stats or dataset list?
+                        // For now, simple toast
+                        toast.success("Project updated");
+                    }}
+                />
             </div>
         </div>
     );
 }
-

@@ -86,5 +86,52 @@ export const projectApi = {
     updateMemberRole: async (projectId: string, userId: string, role: string) => {
         const response = await apiClient.patch(`${BASE_URL}/${projectId}/members/${userId}`, { role });
         return response.data;
+    },
+    /**
+     * Upload an image to the project (and optional dataset)
+     */
+    uploadImage: async (projectId: string, file: File, datasetId?: string) => {
+        const formData = new FormData();
+        formData.append('image', file);
+        if (datasetId) {
+            formData.append('datasetId', datasetId);
+        }
+
+        const response = await apiClient.post(`${BASE_URL}/${projectId}/images`, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+        return response.data;
+    },
+
+    /**
+     * Get images for a project
+     */
+    getImages: async (projectId: string, params?: {
+        page?: number;
+        limit?: number;
+        datasetId?: string | 'null'
+    }) => {
+        const response = await apiClient.get<any>(`${BASE_URL}/${projectId}/images`, { params });
+        return response.data;
+    },
+
+    /**
+     * Delete an image from the project
+     */
+    deleteImage: async (projectId: string, imageId: string) => {
+        const response = await apiClient.delete(`${BASE_URL}/${projectId}/images/${imageId}`);
+        return response.data;
+    },
+
+    /**
+     * Bulk delete images
+     */
+    deleteImages: async (projectId: string, imageIds: string[]) => {
+        const response = await apiClient.delete(`${BASE_URL}/${projectId}/images/batch`, {
+            data: { imageIds }
+        });
+        return response.data;
     }
 };

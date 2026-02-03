@@ -37,6 +37,11 @@ export interface DashboardStats {
     completionRate: number;
     qualityScore: number;
   };
+  cloudinary: {
+    storage: { usage: number; limit: number; usagePercent: number };
+    credits: { usage: number; limit: number; usagePercent: number };
+    bandwidth: { usage: number; limit: number; usagePercent: number };
+  } | null;
 }
 
 export class AdminDashboardService {
@@ -242,6 +247,32 @@ export class AdminDashboardService {
     // Storage calculation - Get real disk usage from VPS
     const diskUsage = this.getDiskUsage();
 
+    // Fetch Cloudinary Usage
+    let cloudinaryUsage: any = null;
+    try {
+      const { ImageService } = await import('./image.service.js');
+      const usageData = await ImageService.getUsage();
+      cloudinaryUsage = {
+        storage: {
+          usage: usageData.storage.usage,
+          limit: usageData.storage.limit,
+          usagePercent: usageData.storage.used_percent
+        },
+        credits: {
+          usage: usageData.credits.usage,
+          limit: usageData.credits.limit,
+          usagePercent: usageData.credits.used_percent
+        },
+        bandwidth: {
+          usage: usageData.bandwidth.usage,
+          limit: usageData.bandwidth.limit,
+          usagePercent: usageData.bandwidth.used_percent
+        }
+      };
+    } catch (e) {
+      console.warn('Failed to fetch Cloudinary usage', e);
+    }
+
     return {
       totalUsers,
       userGrowth,
@@ -267,6 +298,7 @@ export class AdminDashboardService {
         total: diskUsage.total,
         percentage: diskUsage.percentage,
       },
+      cloudinary: cloudinaryUsage,
       topAnnotators: formattedTopAnnotators,
       performance: {
         avgAnnotationTime: 45, // TODO: Calculate from actual timing data if available
