@@ -90,12 +90,17 @@ export class ProjectController {
             const categoryId = req.query.categoryId as string | undefined
             const status = req.query.status as ProjectStatus | undefined
 
+            const user = (req as any).user
+            // ADMIN sees all. Others see only their projects.
+            const userId = user.role === 'ADMIN' ? undefined : (user.sub || user.id)
+
             const result = await ProjectService.getAll({
                 page,
                 limit,
                 ...(search !== undefined && { search }),
                 ...(categoryId !== undefined && { categoryId }),
                 ...(status !== undefined && { status }),
+                ...(userId !== undefined && { userId }),
             })
 
             return res.json(result)
@@ -111,9 +116,15 @@ export class ProjectController {
     static async getById(req: Request, res: Response) {
         try {
             const { id } = req.params as { id: string }
-            const project = await ProjectService.getById(id)
+            const user = (req as any).user
+            const userId = user.role === 'ADMIN' ? undefined : (user.sub || user.id)
+
+            // Pass userId to Service. If Service takes userId, it enforces membership check.
+            const project = await ProjectService.getById(id, userId)
 
             if (!project) {
+                // Determine if it really doesn't exist or just forbidden
+                // Actually Service.getById returns null if not found (or filtered out)
                 return res.status(404).json({ error: 'Project not found' })
             }
 
@@ -175,12 +186,25 @@ export class ProjectController {
     static async delete(req: Request, res: Response) {
         try {
             const { id } = req.params as { id: string }
+            const user = (req as any).user
+            const userId = user.sub || user.id
+            const userRole = user.role
 
-            await ProjectService.delete(id)
+            await ProjectService.delete(id, userId, userRole)
 
-            logger.info('API', `Project soft-deleted: ${id}`, { actorId: (req as any).user?.sub || (req as any).user?.id })
+            logger.info('API', `Project soft-deleted: ${id}`, { actorId: userId })
             return res.json({ message: 'Project archived successfully' })
         } catch (error) {
+            const message = error instanceof Error ? error.message : 'Unknown error'
+            if (message.includes('Unauthorized')) {
+                return res.status(403).json({ error: message })
+            }
+            if (message.includes('Cannot delete project')) {
+                return res.status(409).json({ error: message }) // Conflict
+            }
+            if (message.includes('Project not found')) {
+                return res.status(404).json({ error: 'Project not found' })
+            }
             logger.error('API', 'Delete project failed', { error })
             return res.status(500).json({ error: 'Internal server error' })
         }

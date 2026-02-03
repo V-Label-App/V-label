@@ -69,9 +69,8 @@ export class ProjectService {
                     search ? { name: { contains: search, mode: 'insensitive' } } : {},
                     // Filter by category
                     categoryId ? { categoryId } : {},
-                    // Filter by status (default to not ARCHIVED if not specified, or whatever logic)
-                    // Usually we don't show ARCHIVED unless asked
-                    status ? { status } : { status: { not: ProjectStatus.ARCHIVED } },
+                    // Filter by status (default to ALL if not specified)
+                    status ? { status } : {},
                     // Filter by membership
                     userId ? { members: { some: { userId } } } : {},
                 ],
@@ -110,11 +109,19 @@ export class ProjectService {
 
     /**
      * Get project by ID
+     * Optional: Pass userId to check if they are a member
      */
-    static async getById(id: string) {
+    static async getById(id: string, userId?: string) {
         try {
-            const project = await prisma.project.findUnique({
-                where: { id },
+            const where: Prisma.ProjectWhereInput = { id }
+            if (userId) {
+                where.members = { some: { userId } }
+            }
+
+            // check if userId is provided, usage is strictly for access control -> switch to findFirst
+            // If just ID, findUnique is faster/cleaner, but findFirst works for both.
+            const project = await prisma.project.findFirst({
+                where,
                 include: {
                     category: true,
                     assignmentRule: true, // Include Assignment Rules
@@ -135,6 +142,7 @@ export class ProjectService {
                     },
                 },
             })
+
 
             return project
         } catch (error) {
@@ -236,15 +244,49 @@ export class ProjectService {
 
     /**
      * Delete project (Soft Delete)
+     * Authorization: Creator or Admin only
+     * Validation: Cannot delete if tasks are IN_PROGRESS
      */
-    static async delete(id: string) {
+    static async delete(id: string, userId: string, userRole: string) {
         try {
-            // Soft delete: status = ARCHIVED
+            // 1. Fetch project to check permissions (MANAGER role) and tasks status
+            const project = await prisma.project.findUnique({
+                where: { id },
+                include: {
+                    members: {
+                        where: { userId }, // Only fetch membership for the requesting user
+                        select: { projectRole: true },
+                    },
+                    _count: {
+                        select: {
+                            tasks: {
+                                where: { status: 'IN_PROGRESS' }, // Check for processing tasks
+                            },
+                        },
+                    },
+                },
+            })
+
+            if (!project) throw new Error('Project not found')
+
+            // 2. Authorization Check
+            // Allow if user is ADMIN or a MANAGER of this project
+            const isManager = project.members.length > 0 && project.members[0]?.projectRole === ProjectRole.MANAGER
+            const isAdmin = userRole === 'ADMIN'
+
+            if (!isManager && !isAdmin) {
+                throw new Error('Unauthorized: Only Project Manager or Admin can delete project')
+            }
+
+            // 3. Validation Check (Active Tasks)
+            if (project._count.tasks > 0) {
+                throw new Error('Cannot delete project with tasks in progress')
+            }
+
+            // 4. Soft delete
             return await prisma.project.update({
                 where: { id },
-                data: {
-                    status: ProjectStatus.ARCHIVED,
-                },
+                data: { status: ProjectStatus.ARCHIVED },
             })
         } catch (error) {
             logger.error('SERVICE', 'Error deleting project', { id, error })
