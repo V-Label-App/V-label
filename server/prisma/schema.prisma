@@ -21,6 +21,7 @@ model User {
   
   fullName       String?      @map("full_name") @db.VarChar(255)
   avatarUrl      String?      @map("avatar_url") @db.VarChar(512)
+  avatarPublicId String?      @map("avatar_public_id") @db.VarChar(255)
   phoneNumber    String?      @map("phone_number") @db.VarChar(20)
   
   role           UserRole     @default(ANNOTATOR)
@@ -443,6 +444,7 @@ model Image {
   originalFilename String   @map("original_filename") @db.VarChar(255)
   storageUrl       String   @map("storage_url") @db.Text
   storagePath      String?  @map("storage_path") @db.Text
+  publicId         String?  @map("public_id") @db.VarChar(255)
 
   // CRITICAL: Dimensions for normalization
   width            Int

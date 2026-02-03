@@ -17,6 +17,7 @@ import { Label } from "../../../components/ui/label"
 import { useState } from "react"
 import { toast } from "sonner"
 import api from "../../../api/axiosClient"
+import { authApi } from "../../../services/auth.api"
 
 
 
@@ -161,13 +162,44 @@ export default function ProfilePage() {
                                     <AvatarFallback>{initials}</AvatarFallback>
                                 </Avatar>
                                 <div className="flex flex-col items-center">
-                                    <Button variant="outline" size="sm" disabled className="gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="gap-2"
+                                        onClick={() => document.getElementById('avatar-upload')?.click()}
+                                        disabled={isSaving}
+                                    >
                                         <Upload className="h-3 w-3" />
                                         Change Avatar
                                     </Button>
-                                    <span className="text-[10px] text-muted-foreground mt-1 bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full">
-                                        Coming Soon
-                                    </span>
+                                    <input
+                                        type="file"
+                                        id="avatar-upload"
+                                        className="hidden"
+                                        accept="image/*"
+                                        onChange={async (e) => {
+                                            const file = e.target.files?.[0]
+                                            if (!file) return
+
+                                            if (file.size > 5 * 1024 * 1024) {
+                                                toast.error("Image size must be less than 5MB")
+                                                return
+                                            }
+
+                                            try {
+                                                setIsSaving(true)
+                                                // Optimistic update could go here
+                                                await authApi.uploadAvatar(file)
+                                                await refreshUserProfile()
+                                                toast.success("Avatar updated successfully")
+                                            } catch (error) {
+                                                toast.error("Failed to upload avatar")
+                                                console.error(error)
+                                            } finally {
+                                                setIsSaving(false)
+                                            }
+                                        }}
+                                    />
                                 </div>
                             </div>
 

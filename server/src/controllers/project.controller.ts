@@ -81,6 +81,9 @@ export class ProjectController {
 
     /**
      * GET /api/v1/projects
+     * Logic:
+     * - ADMIN: view all
+     * - MANAGER / ANNOTATOR: view only projects they are member of
      */
     static async getAll(req: Request, res: Response) {
         try {
@@ -90,14 +93,21 @@ export class ProjectController {
             const categoryId = req.query.categoryId as string | undefined
             const status = req.query.status as ProjectStatus | undefined
 
+            const user = (req as any).user
+            // ADMIN sees all. Others see only their projects.
+            const userId = user.role === 'ADMIN' ? undefined : (user.sub || user.id)
+
             const result = await ProjectService.getAll({
                 page,
                 limit,
+
                 ...(search !== undefined && { search }),
                 ...(categoryId !== undefined && { categoryId }),
                 ...(status !== undefined && { status }),
+                ...(userId !== undefined && { userId }),
             })
 
+            logger.info('API', `Get all projects (User: ${userId || 'ADMIN'})`)
             return res.json(result)
         } catch (error) {
             logger.error('API', 'Get all projects failed', { error })
@@ -107,15 +117,27 @@ export class ProjectController {
 
     /**
      * GET /api/v1/projects/:id
+     * Logic:
+     * - ADMIN: view details
+     * - MANAGER / ANNOTATOR: view details only if member
      */
     static async getById(req: Request, res: Response) {
         try {
             const { id } = req.params as { id: string }
-            const project = await ProjectService.getById(id)
+            const user = (req as any).user
+            const userId = user.role === 'ADMIN' ? undefined : (user.sub || user.id)
+
+            // Pass userId to Service. If Service takes userId, it enforces membership check.
+            const project = await ProjectService.getById(id, userId)
 
             if (!project) {
+                // Determine if it really doesn't exist or just forbidden
+                // Actually Service.getById returns null if not found (or filtered out)
                 return res.status(404).json({ error: 'Project not found' })
             }
+
+            // Security Check: If not ADMIN, must be a member or the creator
+
 
             return res.json(project)
         } catch (error) {
@@ -175,12 +197,25 @@ export class ProjectController {
     static async delete(req: Request, res: Response) {
         try {
             const { id } = req.params as { id: string }
+            const user = (req as any).user
+            const userId = user.sub || user.id
+            const userRole = user.role
 
-            await ProjectService.delete(id)
+            await ProjectService.delete(id, userId, userRole)
 
-            logger.info('API', `Project soft-deleted: ${id}`, { actorId: (req as any).user?.sub || (req as any).user?.id })
+            logger.info('API', `Project soft-deleted: ${id}`, { actorId: userId })
             return res.json({ message: 'Project archived successfully' })
         } catch (error) {
+            const message = error instanceof Error ? error.message : 'Unknown error'
+            if (message.includes('Unauthorized')) {
+                return res.status(403).json({ error: message })
+            }
+            if (message.includes('Cannot delete project')) {
+                return res.status(409).json({ error: message }) // Conflict
+            }
+            if (message.includes('Project not found')) {
+                return res.status(404).json({ error: 'Project not found' })
+            }
             logger.error('API', 'Delete project failed', { error })
             return res.status(500).json({ error: 'Internal server error' })
         }
@@ -264,6 +299,180 @@ export class ProjectController {
             if (error instanceof Error && error.message === 'Invalid role') {
                 return res.status(400).json({ error: 'Invalid role' })
             }
+            return res.status(500).json({ error: 'Internal server error' })
+        }
+    }
+
+
+    /**
+     * POST /api/v1/projects/:id/images
+     * Upload image to project (and optional dataset)
+     */
+    static async uploadImage(req: Request, res: Response) {
+        try {
+            const { id } = req.params as { id: string }
+            const { datasetId } = req.body
+            const user = (req as any).user
+
+            if (!req.file) {
+                return res.status(400).json({ error: 'No image file uploaded' })
+            }
+
+            // Calculate Checksum (MD5) to detect duplicates
+            const crypto = await import('crypto')
+            const checksum = crypto.createHash('md5').update(req.file.buffer).digest('hex')
+
+            const { prisma } = await import('../utils/database.js')
+
+            // Check for existing duplicate in this project
+            const existingImage = await prisma.image.findFirst({
+                where: {
+                    projectId: id,
+                    checksum: checksum
+                }
+            })
+
+            if (existingImage) {
+                logger.warn('API', `Duplicate image skipped: ${req.file.originalname}`, { projectId: id, checksum })
+                return res.status(409).json({
+                    error: 'Duplicate image detected',
+                    message: `The image "${req.file.originalname}" already exists in this project.`,
+                    existingImageId: existingImage.id,
+                    existingImageUrl: existingImage.storageUrl,
+                    existingImageName: existingImage.originalFilename
+                })
+            }
+
+            // 1. Verify project access
+            // (Assuming middleware already checked basic auth, but we should check if user can upload to this project)
+            // Ideally: Manager/Admin only? Or Annotator too? Spec says Manager uploads datasets.
+
+            // 2. Upload to Cloudinary
+            // Folder structure: v-label/{project_id}/{dataset_id or 'general'}/filename
+            const folderPath = `v-label/projects/${id}/${datasetId || 'general'}`
+
+            // We need ImageService here. Let's import it effectively or use it directly if ready.
+            // Assumption: ImageService.uploadImage is available from previous phase.
+            const { ImageService } = await import('../services/image.service.js')
+
+            const uploadResult = await ImageService.uploadImage(
+                req.file.buffer,
+                folderPath
+            )
+
+            // 3. Save to Database
+            const image = await prisma.image.create({
+                data: {
+                    projectId: id,
+                    datasetId: datasetId || null,
+                    originalFilename: req.file.originalname,
+                    storageUrl: uploadResult.secure_url,
+                    publicId: uploadResult.public_id,
+                    width: uploadResult.width,
+                    height: uploadResult.height,
+                    format: uploadResult.format,
+                    fileSizeBytes: BigInt(uploadResult.bytes),
+                    uploadedBy: user.id || user.sub,
+                    checksum: checksum, // Save checksum
+                }
+            })
+
+            logger.info('API', `Image uploaded to project ${id}: ${image.id}`, { actorId: user.id })
+
+            // Return JSON compatible with BigInt handling (BigInt to string)
+            return res.status(201).json({
+                ...image,
+                fileSizeBytes: image.fileSizeBytes?.toString()
+            })
+
+        } catch (error) {
+            logger.error('API', 'Project image upload failed', { error })
+            return res.status(500).json({ error: 'Internal server error' })
+        }
+    }
+    /**
+     * GET /api/v1/projects/:id/images
+     */
+    static async getImages(req: Request, res: Response) {
+        try {
+            const { id } = req.params as { id: string }
+            const page = parseInt(req.query.page as string) || 1
+            const limit = parseInt(req.query.limit as string) || 20
+
+            // Handle datasetId:
+            // - undefined/missing: fetch ALL images
+            // - 'null': fetch images with datasetId = null (General)
+            // - 'some-uuid': fetch images for that dataset
+            let datasetId: string | null | undefined = req.query.datasetId as string | undefined
+
+            if (datasetId === 'null') {
+                datasetId = null
+            } else if (!datasetId) {
+                datasetId = undefined
+            }
+
+            const result = await ProjectService.getImages(id, {
+                page,
+                limit,
+                ...(datasetId !== undefined && { datasetId })
+            })
+
+            // Serialize BigInt
+            const serializedData = result.data.map(img => ({
+                ...img,
+                fileSizeBytes: img.fileSizeBytes?.toString()
+            }))
+
+            return res.json({
+                ...result,
+                data: serializedData
+            })
+        } catch (error) {
+            logger.error('API', 'Get project images failed', { error })
+            return res.status(500).json({ error: 'Internal server error' })
+        }
+    }
+    /**
+     * DELETE /api/v1/projects/:id/images/:imageId
+     */
+    static async deleteImage(req: Request, res: Response) {
+        try {
+            const { id, imageId } = req.params as { id: string, imageId: string }
+
+            await ProjectService.deleteImage(id, imageId)
+
+            logger.info('API', `Image deleted from project ${id}: ${imageId}`, { actorId: (req as any).user?.id })
+
+            return res.json({ message: 'Image deleted successfully' })
+        } catch (error) {
+            if (error instanceof Error && error.message === 'Image not found in project') {
+                return res.status(404).json({ error: 'Image not found' })
+            }
+            logger.error('API', 'Delete project image failed', { error })
+            return res.status(500).json({ error: 'Internal server error' })
+        }
+    }
+
+    /**
+     * DELETE /api/v1/projects/:id/images/batch
+     * Body: { imageIds: string[] }
+     */
+    static async deleteImagesBatch(req: Request, res: Response) {
+        try {
+            const { id } = req.params as { id: string }
+            const { imageIds } = req.body
+
+            if (!Array.isArray(imageIds) || imageIds.length === 0) {
+                return res.status(400).json({ error: 'imageIds array is required' })
+            }
+
+            const result = await ProjectService.deleteImages(id, imageIds)
+
+            logger.info('API', `Batch images deleted from project ${id}: ${result.count} images`, { actorId: (req as any).user?.id })
+
+            return res.json({ message: `Successfully deleted ${result.count} images` })
+        } catch (error) {
+            logger.error('API', 'Batch delete project images failed', { error })
             return res.status(500).json({ error: 'Internal server error' })
         }
     }

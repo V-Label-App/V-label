@@ -38,6 +38,7 @@ import { AdminDashboardPage } from "./AdminDashboardPage";
 import { AdminEmailSettingsPage } from "./AdminEmailSettingsPage";
 import { AdminNotificationSettingsPage } from "./AdminNotificationSettingsPage";
 import { AdminProjectCategoriesPage } from "./AdminProjectCategoriesPage";
+import { AdminCloudinaryManagerPage } from "./AdminCloudinaryManagerPage";
 import {
   Users,
   Database,
@@ -94,6 +95,7 @@ export function AdminPanel() {
     if (path.includes("/admin/logs")) return "logs";
     if (path.includes("/admin/ai-chat")) return "ai-chat";
     if (path.includes("/admin/notifications")) return "notifications";
+    if (path.includes("/admin/media")) return "media";
     return "dashboard";
   }, [location.pathname]);
 
@@ -751,6 +753,8 @@ export function AdminPanel() {
         {activeTab === "notifications" && <AdminNotificationSettingsPage />}
 
         {activeTab === "categories" && <AdminProjectCategoriesPage />}
+
+        {activeTab === "media" && <AdminCloudinaryManagerPage />}
       </div>
 
       <Dialog

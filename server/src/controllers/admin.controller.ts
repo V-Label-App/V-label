@@ -318,4 +318,35 @@ export class AdminController {
             return res.status(500).json({ error: 'Failed to broadcast announcement' });
         }
     }
+    /**
+     * Get Cloudinary Usage Stats
+     */
+    static async getCloudinaryUsage(req: Request, res: Response) {
+        try {
+            const { ImageService } = await import('../services/image.service.js');
+            const usage = await ImageService.getUsage();
+            return res.json(usage);
+        } catch (error) {
+            console.error('[Admin] Get Cloudinary usage error:', error);
+            return res.status(500).json({ error: 'Failed to fetch Cloudinary usage' });
+        }
+    }
+
+    /**
+     * Get Cloudinary Resources (Images)
+     */
+    static async getCloudinaryResources(req: Request, res: Response) {
+        try {
+            const { cursor, maxResults, folder } = req.query;
+            const limit = maxResults ? parseInt(maxResults as string) : 20;
+
+            const { ImageService } = await import('../services/image.service.js');
+            const data = await ImageService.getImages(cursor as string, limit, folder as string);
+
+            return res.json(data);
+        } catch (error) {
+            console.error('[Admin] Get Cloudinary resources error:', error);
+            return res.status(500).json({ error: 'Failed to fetch Cloudinary resources' });
+        }
+    }
 }
