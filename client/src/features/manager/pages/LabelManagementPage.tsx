@@ -2161,10 +2161,10 @@ Animals,Living creatures,Dog,#F59E0B,false`}
                   const assignedLabelIds = projectLabels[project.id] || [];
                   const selectedLabels =
                     selectedLabelsPerProject[project.id] || assignedLabelIds;
-                  const hasChanges =
-                    JSON.stringify(selectedLabels.sort()) !==
-                    JSON.stringify(assignedLabelIds.sort());
-                  const isAssigning = assigningProject === project.id;
+                  // const hasChanges =
+                  //   JSON.stringify(selectedLabels.sort()) !==
+                  //   JSON.stringify(assignedLabelIds.sort());
+                  // const isAssigning = assigningProject === project.id;
 
                   return (
                     <Card key={project.id} className="overflow-hidden">

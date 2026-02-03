@@ -474,10 +474,10 @@ export function ProjectDetailPage() {
     }
   };
 
-  const isOverdue = (deadline?: string) => {
-    if (!deadline) return false;
-    return new Date(deadline) < new Date();
-  };
+  // const isOverdue = (deadline?: string) => {
+  //   if (!deadline) return false;
+  //   return new Date(deadline) < new Date();
+  // };
 
   const getDaysRemaining = (deadline?: string) => {
     if (!deadline) return null;
