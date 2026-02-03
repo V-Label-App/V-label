@@ -81,6 +81,9 @@ export class ProjectController {
 
     /**
      * GET /api/v1/projects
+     * Logic:
+     * - ADMIN: view all
+     * - MANAGER / ANNOTATOR: view only projects they are member of
      */
     static async getAll(req: Request, res: Response) {
         try {
@@ -97,6 +100,7 @@ export class ProjectController {
             const result = await ProjectService.getAll({
                 page,
                 limit,
+                userId: userIdFilter,
                 ...(search !== undefined && { search }),
                 ...(categoryId !== undefined && { categoryId }),
                 ...(status !== undefined && { status }),
@@ -113,6 +117,9 @@ export class ProjectController {
 
     /**
      * GET /api/v1/projects/:id
+     * Logic:
+     * - ADMIN: view details
+     * - MANAGER / ANNOTATOR: view details only if member
      */
     static async getById(req: Request, res: Response) {
         try {
@@ -127,6 +134,14 @@ export class ProjectController {
                 // Determine if it really doesn't exist or just forbidden
                 // Actually Service.getById returns null if not found (or filtered out)
                 return res.status(404).json({ error: 'Project not found' })
+            }
+
+            // Security Check: If not ADMIN, must be a member
+            if (user.role !== 'ADMIN') {
+                const isMember = project.members.some((m: any) => m.userId === user.id)
+                if (!isMember) {
+                    return res.status(403).json({ error: 'Forbidden: You are not a member of this project' })
+                }
             }
 
             return res.json(project)
