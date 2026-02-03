@@ -160,6 +160,10 @@ jobs:
           SMTP_USER: ${{ vars.SMTP_USER }}
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
           FRONTEND_URL: ${{ vars.FRONTEND_URL }}
+          # Cloudinary Config (Mixed)
+          CLOUDINARY_CLOUD_NAME: ${{ vars.CLOUDINARY_CLOUD_NAME }}
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
           # Frontend Config (Mixed)
           VITE_API_URL: ${{ vars.VITE_API_URL }}
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
@@ -205,6 +209,11 @@ jobs:
             SMTP_USER="${{ vars.SMTP_USER }}"
             SMTP_PASS="${{ secrets.SMTP_PASS }}"
             FRONTEND_URL="${{ vars.FRONTEND_URL }}"
+            
+            # Cloudinary Configuration
+            CLOUDINARY_CLOUD_NAME="${{ vars.CLOUDINARY_CLOUD_NAME }}"
+            CLOUDINARY_API_KEY="${{ secrets.CLOUDINARY_API_KEY }}"
+            CLOUDINARY_API_SECRET="${{ secrets.CLOUDINARY_API_SECRET }}"
             
             # Client Configuration (Vite build-time variables)
             VITE_API_URL="${{ vars.VITE_API_URL }}"
