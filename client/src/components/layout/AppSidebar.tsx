@@ -4,6 +4,9 @@ import logoUrl from "../../assets/android-chrome-192x192.png";
 import {
   Sidebar,
   SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
   // SidebarFooter,
   SidebarHeader,
   SidebarMenu,
@@ -64,6 +67,21 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     return baseNavItems;
   }, [baseNavItems, chatConfig, user?.role]);
 
+  // Group items
+  const groupedNavItems = useMemo(() => {
+    const groups: { name: string; items: typeof navItems }[] = [];
+    navItems.forEach((item) => {
+      const groupName = item.group || "General";
+      let group = groups.find((g) => g.name === groupName);
+      if (!group) {
+        group = { name: groupName, items: [] };
+        groups.push(group);
+      }
+      group.items.push(item);
+    });
+    return groups;
+  }, [navItems]);
+
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader className="p-4 border-b border-sidebar-border/50">
@@ -89,39 +107,51 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
 
       <SidebarContent className="px-3 py-4">
-        <SidebarMenu className="gap-1.5">
-          {navItems.map((item) => {
-            const isActive =
-              location.pathname === item.url ||
-              (location.pathname.startsWith(item.url + "/") && item.url !== "/admin");
-            return (
-              <SidebarMenuItem key={item.title}>
-                <SidebarMenuButton
-                  asChild
-                  isActive={isActive}
-                  tooltip={item.title}
-                  className={`
-                    h-10 transition-all duration-200 rounded-lg group
-                    ${isActive
-                      ? "bg-blue-50 text-blue-700 font-medium shadow-sm ring-1 ring-blue-100"
-                      : "text-muted-foreground hover:bg-gray-100/80 hover:text-foreground"
-                    }
-                  `}
-                >
-                  <Link to={item.url} className="flex items-center gap-3">
-                    <item.icon
-                      className={`
-                        w-5 h-5 transition-colors
-                        ${isActive ? "text-blue-600" : "text-muted-foreground group-hover:text-foreground"}
-                      `}
-                    />
-                    <span>{item.title}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            );
-          })}
-        </SidebarMenu>
+        {groupedNavItems.map((group) => (
+          <SidebarGroup key={group.name} className="p-0 mb-2 last:mb-0">
+            {/* Render label for groups other than General, or if we want to be explicit */}
+            {group.name && group.name !== "General" && (
+              <SidebarGroupLabel className="mb-1 px-2 text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider">
+                {group.name}
+              </SidebarGroupLabel>
+            )}
+            <SidebarGroupContent>
+              <SidebarMenu className="gap-1">
+                {group.items.map((item) => {
+                  const isActive =
+                    location.pathname === item.url ||
+                    (location.pathname.startsWith(item.url + "/") && item.url !== "/admin");
+                  return (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={isActive}
+                        tooltip={item.title}
+                        className={`
+                          h-9 transition-all duration-200 rounded-md group
+                          ${isActive
+                            ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-none"
+                            : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                          }
+                        `}
+                      >
+                        <Link to={item.url} className="flex items-center gap-3">
+                          <item.icon
+                            className={`
+                              w-4 h-4 transition-colors
+                              ${isActive ? "text-sidebar-accent-foreground" : "text-sidebar-foreground/70 group-hover:text-sidebar-foreground"}
+                            `}
+                          />
+                          <span>{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
 
       {/* Sidebar Footer removed to match old code structure (Profile in Header) */}

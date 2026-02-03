@@ -123,6 +123,8 @@ export function AdminPanel() {
   const [newRole, setNewRole] = useState<
     "ADMIN" | "MANAGER" | "REVIEWER" | "ANNOTATOR"
   >("ANNOTATOR");
+  const [emailError, setEmailError] = useState("");
+  const [phoneError, setPhoneError] = useState("");
 
   const fetchUsers = async () => {
     try {
@@ -147,7 +149,7 @@ export function AdminPanel() {
             reputation_score: u.reputationScore || 0,
           };
         })
-        .filter((u): u is User => u !== null);
+        .filter((u): u is User => u !== null && u.role !== "ADMIN");
       setUsers(transformedUsers);
     } catch (error) {
       console.error("Failed to fetch users", error);
@@ -163,9 +165,53 @@ export function AdminPanel() {
     }
   }, [activeTab]);
 
+  const validateEmail = (email: string) => {
+    if (!email) {
+      setEmailError("");
+      return false;
+    }
+    // Only allow Gmail addresses
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
+    if (!emailRegex.test(email)) {
+      setEmailError(
+        "Please enter a valid email address (e.g., user@gmail.com)",
+      );
+      return false;
+    }
+    setEmailError("");
+    return true;
+  };
+
+  const validatePhone = (phone: string) => {
+    if (!phone) {
+      setPhoneError("Phone number is required");
+      return false;
+    }
+    // Allow Vietnamese phone format: starts with 0, 10-11 digits
+    const phoneRegex = /^0\d{9,10}$/;
+    if (!phoneRegex.test(phone.replace(/[\s-]/g, ""))) {
+      setPhoneError(
+        "Please enter a valid phone number (10-11 digits, starting with 0)",
+      );
+      return false;
+    }
+    setPhoneError("");
+    return true;
+  };
+
   const handleCreateUser = async () => {
-    if (!newName || !newEmail || !newPassword) {
-      toast.error("Please fill in all fields");
+    if (!newName || !newEmail || !newPassword || !newPhone) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    // Validate email
+    if (!validateEmail(newEmail)) {
+      return;
+    }
+
+    // Validate phone
+    if (!validatePhone(newPhone)) {
       return;
     }
 
@@ -185,6 +231,8 @@ export function AdminPanel() {
       setNewPassword("");
       setNewPhone("");
       setNewRole("ANNOTATOR");
+      setEmailError("");
+      setPhoneError("");
       fetchUsers();
     } catch (error: unknown) {
       console.error("Failed to create user", error);
@@ -328,10 +376,10 @@ export function AdminPanel() {
   const getInitials = (name: string) => {
     return name
       ? name
-        .split(" ")
-        .map((n) => n[0])
-        .join("")
-        .toUpperCase()
+          .split(" ")
+          .map((n) => n[0])
+          .join("")
+          .toUpperCase()
       : "??";
   };
 
@@ -459,11 +507,29 @@ export function AdminPanel() {
                           <Label>Email</Label>
                           <input
                             type="email"
-                            className="w-full px-4 py-2 rounded-md border border-gray-300"
-                            placeholder="john@company.com"
+                            className={`w-full px-4 py-2 rounded-md border ${
+                              emailError
+                                ? "border-red-500 focus:ring-red-500 focus:border-red-500"
+                                : "border-gray-300"
+                            }`}
+                            placeholder="user@gmail.com"
                             value={newEmail}
-                            onChange={(e) => setNewEmail(e.target.value)}
+                            onChange={(e) => {
+                              setNewEmail(e.target.value);
+                              // If there's already an error, validate immediately
+                              if (emailError && e.target.value) {
+                                validateEmail(e.target.value);
+                              } else if (!e.target.value) {
+                                setEmailError("");
+                              }
+                            }}
                           />
+                          {emailError && (
+                            <p className="text-sm text-red-600 flex items-center gap-1">
+                              <span>⚠</span>
+                              {emailError}
+                            </p>
+                          )}
                         </div>
                         <div className="space-y-2">
                           <Label>Password</Label>
@@ -476,14 +542,32 @@ export function AdminPanel() {
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label>Phone Number (Optional)</Label>
+                          <Label>Phone Number</Label>
                           <input
                             type="tel"
-                            className="w-full px-4 py-2 rounded-md border border-gray-300"
-                            placeholder="+84 123 456 789"
+                            className={`w-full px-4 py-2 rounded-md border ${
+                              phoneError
+                                ? "border-red-500 focus:ring-red-500 focus:border-red-500"
+                                : "border-gray-300"
+                            }`}
+                            placeholder="0123456789"
                             value={newPhone}
-                            onChange={(e) => setNewPhone(e.target.value)}
+                            onChange={(e) => {
+                              setNewPhone(e.target.value);
+                              // If there's already an error, validate immediately
+                              if (phoneError && e.target.value) {
+                                validatePhone(e.target.value);
+                              } else if (!e.target.value) {
+                                setPhoneError("");
+                              }
+                            }}
                           />
+                          {phoneError && (
+                            <p className="text-sm text-red-600 flex items-center gap-1">
+                              <span>⚠</span>
+                              {phoneError}
+                            </p>
+                          )}
                         </div>
                         <div className="space-y-2">
                           <Label>Role</Label>
@@ -501,7 +585,6 @@ export function AdminPanel() {
                               <SelectValue placeholder="Select role" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="ADMIN">Admin</SelectItem>
                               <SelectItem value="MANAGER">Manager</SelectItem>
                               <SelectItem value="REVIEWER">Reviewer</SelectItem>
                               <SelectItem value="ANNOTATOR">
@@ -658,12 +741,12 @@ export function AdminPanel() {
                                     value as User["role"],
                                   )
                                 }
+                                disabled={user.role === "ADMIN"}
                               >
                                 <SelectTrigger className="w-[140px]">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="ADMIN">Admin</SelectItem>
                                   <SelectItem value="MANAGER">
                                     Manager
                                   </SelectItem>
