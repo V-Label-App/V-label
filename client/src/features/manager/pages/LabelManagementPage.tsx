@@ -28,6 +28,7 @@ import {
   Tag,
   Edit2,
   FolderOpen,
+  FolderKanban,
   Loader2,
   Globe,
   Lock,
@@ -70,6 +71,7 @@ import {
   type LabelCategory,
   type LabelImportResult,
 } from "../../../services/label.api";
+import apiClient from "../../../api/axiosClient";
 import { Alert, AlertDescription } from "../../../components/ui/alert";
 import { useAuth } from "../../../context/AuthContext";
 import {
@@ -145,10 +147,11 @@ function DraggableLabelItem({
     <div
       ref={setNodeRef}
       style={style}
-      className={`group flex items-center gap-2 p-3 rounded-lg border transition-all ${isSelected
-        ? 'bg-blue-50 border-blue-200'
-        : 'bg-white border-gray-200 hover:border-gray-300'
-        } ${isDragging ? 'shadow-lg z-50' : ''}`}
+      className={`group flex items-center gap-2 p-3 rounded-lg border transition-all ${
+        isSelected
+          ? "bg-blue-50 border-blue-200"
+          : "bg-white border-gray-200 hover:border-gray-300"
+      } ${isDragging ? "shadow-lg z-50" : ""}`}
     >
       <button
         {...attributes}
@@ -270,8 +273,8 @@ export function LabelManagementPage() {
   const [categoryColor, setCategoryColor] = useState("#3B82F6"); // Default blue
 
   // Filter state
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterGlobal, setFilterGlobal] = useState<string>('global'); // Default to global only to avoid clutter
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterGlobal, setFilterGlobal] = useState<string>("global"); // Default to global only to avoid clutter
 
   // Expand/Collapse state
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
@@ -288,7 +291,7 @@ export function LabelManagementPage() {
     title: string;
     message: string;
     onConfirm: () => void;
-  }>({ open: false, title: "", message: "", onConfirm: () => { } });
+  }>({ open: false, title: "", message: "", onConfirm: () => {} });
 
   // Import dialog state
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
@@ -300,6 +303,23 @@ export function LabelManagementPage() {
     null,
   );
   const [isExporting, setIsExporting] = useState(false);
+
+  // Projects dialog state
+  const [isProjectsDialogOpen, setIsProjectsDialogOpen] = useState(false);
+  const [projects, setProjects] = useState<
+    Array<{ id: string; name: string; description?: string }>
+  >([]);
+  const [projectLabels, setProjectLabels] = useState<Record<string, string[]>>(
+    {},
+  );
+  const [isLoadingProjects, setIsLoadingProjects] = useState(false);
+  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(
+    new Set(),
+  );
+  const [assigningProject, setAssigningProject] = useState<string | null>(null);
+  const [selectedLabelsPerProject, setSelectedLabelsPerProject] = useState<
+    Record<string, string[]>
+  >({});
 
   // Drag and drop state
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -864,6 +884,127 @@ export function LabelManagementPage() {
     setIsImportDialogOpen(false);
   };
 
+  // Projects Dialog Functions
+  const openProjectsDialog = async () => {
+    await fetchProjectsWithLabels();
+    setIsProjectsDialogOpen(true);
+  };
+
+  const fetchProjectsWithLabels = async () => {
+    setIsLoadingProjects(true);
+    try {
+      const response = await apiClient.get("/projects");
+      const projectsData = Array.isArray(response.data?.data)
+        ? response.data.data
+        : [];
+      setProjects(projectsData);
+
+      const labelsMap: Record<string, string[]> = {};
+      await Promise.all(
+        projectsData.map(async (project: { id: string }) => {
+          try {
+            const labelsResponse = await apiClient.get(
+              `/projects/${project.id}/labels`,
+            );
+            const labelsData = Array.isArray(labelsResponse.data?.data)
+              ? labelsResponse.data.data
+              : Array.isArray(labelsResponse.data)
+                ? labelsResponse.data
+                : [];
+
+            labelsMap[project.id] = labelsData.map(
+              (l: { labelId: string }) => l.labelId,
+            );
+          } catch (error) {
+            labelsMap[project.id] = [];
+          }
+        }),
+      );
+      setProjectLabels(labelsMap);
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { error?: string } } };
+      toast.error(err.response?.data?.error || "Failed to load projects");
+    } finally {
+      setIsLoadingProjects(false);
+    }
+  };
+
+  const toggleProject = (projectId: string) => {
+    const newExpanded = new Set(expandedProjects);
+    if (newExpanded.has(projectId)) {
+      newExpanded.delete(projectId);
+    } else {
+      newExpanded.add(projectId);
+      const currentAssignments = projectLabels[projectId] || [];
+      setSelectedLabelsPerProject((prev) => ({
+        ...prev,
+        [projectId]: currentAssignments,
+      }));
+    }
+    setExpandedProjects(newExpanded);
+  };
+
+  const handleToggleLabelSelection = (projectId: string, labelId: string) => {
+    setSelectedLabelsPerProject((prev) => {
+      const currentSelected = prev[projectId] || [];
+      const isSelected = currentSelected.includes(labelId);
+      if (isSelected) {
+        return {
+          ...prev,
+          [projectId]: currentSelected.filter((id) => id !== labelId),
+        };
+      } else {
+        return {
+          ...prev,
+          [projectId]: [...currentSelected, labelId],
+        };
+      }
+    });
+  };
+
+  const handleAssignLabelsToProject = async (projectId: string) => {
+    const selectedLabels = selectedLabelsPerProject[projectId] || [];
+    const currentLabels = projectLabels[projectId] || [];
+    const labelsToAdd = selectedLabels.filter(
+      (id) => !currentLabels.includes(id),
+    );
+    const labelsToRemove = currentLabels.filter(
+      (id) => !selectedLabels.includes(id),
+    );
+
+    if (labelsToAdd.length === 0 && labelsToRemove.length === 0) {
+      toast.info("No changes to save");
+      return;
+    }
+
+    setAssigningProject(projectId);
+    try {
+      for (const labelId of labelsToRemove) {
+        await apiClient.delete(`/projects/${projectId}/labels/${labelId}`);
+      }
+      for (const labelId of labelsToAdd) {
+        await apiClient.post(`/projects/${projectId}/labels`, { labelId });
+      }
+      const newLabels = selectedLabels;
+      setProjectLabels((prev) => ({ ...prev, [projectId]: newLabels }));
+      setSelectedLabelsPerProject((prev) => ({
+        ...prev,
+        [projectId]: newLabels,
+      }));
+      toast.success(
+        `Updated ${labelsToAdd.length + labelsToRemove.length} label assignment(s)`,
+      );
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { error?: string } } };
+      toast.error(
+        err.response?.data?.error || "Failed to update label assignments",
+      );
+      await fetchProjectsWithLabels();
+    } finally {
+      setAssigningProject(null);
+    }
+  };
+
   // Drag and drop handlers
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
@@ -970,8 +1111,6 @@ export function LabelManagementPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 animate-in fade-in slide-in-from-bottom-5 duration-700">
-
-
       <div className="max-w-7xl mx-auto px-8 py-8">
         {/* Page Header with Back Button */}
         <div className="mb-6">
@@ -980,8 +1119,7 @@ export function LabelManagementPage() {
             size="sm"
             className="mb-4 -ml-2 text-muted-foreground"
             onClick={() => navigate("/manager/projects")}
-          >
-          </Button>
+          ></Button>
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-3xl font-semibold mb-2">Label Management</h2>
@@ -1105,6 +1243,10 @@ export function LabelManagementPage() {
                     >
                       <Upload className="w-4 h-4 mr-2" />
                       Import
+                    </Button>
+                    <Button variant="outline" onClick={openProjectsDialog}>
+                      <FolderKanban className="w-4 h-4 mr-2" />
+                      Projects
                     </Button>
                     {/* New Label button removed */}
                     <Button
@@ -1286,105 +1428,105 @@ export function LabelManagementPage() {
                       {/* Uncategorized Labels */}
                       {(labelsByCategory["uncategorized"]?.length > 0 ||
                         categories.length === 0) && (
-                          <Collapsible
-                            open={expandedCategories.has("uncategorized")}
-                            onOpenChange={() => toggleCategory("uncategorized")}
-                          >
-                            <Card className="overflow-hidden" id="uncategorized">
-                              {/* Uncategorized Header */}
-                              <CollapsibleTrigger asChild>
-                                <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b cursor-pointer hover:bg-gray-100 transition-colors">
-                                  <div className="flex items-center gap-2">
-                                    <ChevronRight
-                                      className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${expandedCategories.has("uncategorized") ? "rotate-90" : ""}`}
-                                    />
-                                    <span className="font-medium text-gray-600">
-                                      Uncategorized
-                                    </span>
-                                    <Badge variant="secondary" className="ml-1">
-                                      {labelsByCategory["uncategorized"]
-                                        ?.length || 0}
-                                    </Badge>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    {(labelsByCategory["uncategorized"]?.length ||
-                                      0) > 0 && (
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="text-sm text-blue-600 hover:text-blue-700 h-auto py-1"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            selectAllInCategory("uncategorized");
-                                          }}
-                                        >
-                                          {isAllSelectedInCategory("uncategorized")
-                                            ? "Deselect All"
-                                            : "Select All"}
-                                        </Button>
-                                      )}
-                                  </div>
+                        <Collapsible
+                          open={expandedCategories.has("uncategorized")}
+                          onOpenChange={() => toggleCategory("uncategorized")}
+                        >
+                          <Card className="overflow-hidden" id="uncategorized">
+                            {/* Uncategorized Header */}
+                            <CollapsibleTrigger asChild>
+                              <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b cursor-pointer hover:bg-gray-100 transition-colors">
+                                <div className="flex items-center gap-2">
+                                  <ChevronRight
+                                    className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${expandedCategories.has("uncategorized") ? "rotate-90" : ""}`}
+                                  />
+                                  <span className="font-medium text-gray-600">
+                                    Uncategorized
+                                  </span>
+                                  <Badge variant="secondary" className="ml-1">
+                                    {labelsByCategory["uncategorized"]
+                                      ?.length || 0}
+                                  </Badge>
                                 </div>
-                              </CollapsibleTrigger>
+                                <div className="flex items-center gap-2">
+                                  {(labelsByCategory["uncategorized"]?.length ||
+                                    0) > 0 && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="text-sm text-blue-600 hover:text-blue-700 h-auto py-1"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        selectAllInCategory("uncategorized");
+                                      }}
+                                    >
+                                      {isAllSelectedInCategory("uncategorized")
+                                        ? "Deselect All"
+                                        : "Select All"}
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            </CollapsibleTrigger>
 
-                              {/* Uncategorized Labels Grid */}
-                              <CollapsibleContent className="data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up overflow-hidden">
-                                <div
-                                  className="p-4"
-                                  data-category-id="uncategorized"
+                            {/* Uncategorized Labels Grid */}
+                            <CollapsibleContent className="data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up overflow-hidden">
+                              <div
+                                className="p-4"
+                                data-category-id="uncategorized"
+                              >
+                                <SortableContext
+                                  items={(
+                                    labelsByCategory["uncategorized"] || []
+                                  ).map((l) => l.id)}
+                                  strategy={verticalListSortingStrategy}
                                 >
-                                  <SortableContext
-                                    items={(
+                                  <div className="grid grid-cols-2 gap-3">
+                                    {(
                                       labelsByCategory["uncategorized"] || []
-                                    ).map((l) => l.id)}
-                                    strategy={verticalListSortingStrategy}
-                                  >
-                                    <div className="grid grid-cols-2 gap-3">
-                                      {(
-                                        labelsByCategory["uncategorized"] || []
-                                      ).map((label) => (
-                                        <DraggableLabelItem
-                                          key={label.id}
-                                          label={label}
-                                          isSelected={selectedLabelIds.includes(
-                                            label.id,
-                                          )}
-                                          categories={categories}
-                                          onToggleSelect={() =>
-                                            toggleLabelSelection(label.id)
-                                          }
-                                          onEdit={() => openEditLabel(label)}
-                                          onDelete={() =>
-                                            handleDeleteLabel(label.id)
-                                          }
-                                          onDuplicate={() =>
-                                            handleDuplicateLabel(label)
-                                          }
-                                          onMoveToCategory={(catId) =>
-                                            handleMoveToCategory(label.id, catId)
-                                          }
-                                        />
-                                      ))}
-
-                                      {/* Add Label Button */}
-                                      <button
-                                        onClick={() =>
-                                          openCreateLabelInCategory(
-                                            "uncategorized",
-                                          )
+                                    ).map((label) => (
+                                      <DraggableLabelItem
+                                        key={label.id}
+                                        label={label}
+                                        isSelected={selectedLabelIds.includes(
+                                          label.id,
+                                        )}
+                                        categories={categories}
+                                        onToggleSelect={() =>
+                                          toggleLabelSelection(label.id)
                                         }
-                                        className="flex items-center justify-center gap-2 p-3 rounded-lg border-2 border-dashed border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-                                      >
-                                        <Plus className="w-4 h-4" />
-                                        <span>Add Label</span>
-                                      </button>
-                                    </div>
-                                  </SortableContext>
-                                </div>
-                              </CollapsibleContent>
-                            </Card>
-                          </Collapsible>
-                        )}
+                                        onEdit={() => openEditLabel(label)}
+                                        onDelete={() =>
+                                          handleDeleteLabel(label.id)
+                                        }
+                                        onDuplicate={() =>
+                                          handleDuplicateLabel(label)
+                                        }
+                                        onMoveToCategory={(catId) =>
+                                          handleMoveToCategory(label.id, catId)
+                                        }
+                                      />
+                                    ))}
+
+                                    {/* Add Label Button */}
+                                    <button
+                                      onClick={() =>
+                                        openCreateLabelInCategory(
+                                          "uncategorized",
+                                        )
+                                      }
+                                      className="flex items-center justify-center gap-2 p-3 rounded-lg border-2 border-dashed border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                                    >
+                                      <Plus className="w-4 h-4" />
+                                      <span>Add Label</span>
+                                    </button>
+                                  </div>
+                                </SortableContext>
+                              </div>
+                            </CollapsibleContent>
+                          </Card>
+                        </Collapsible>
+                      )}
                     </div>
 
                     {/* Drag Overlay */}
@@ -1979,6 +2121,366 @@ Animals,Living creatures,Dog,#F59E0B,false`}
                 Import Labels
               </Button>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Projects Dialog */}
+      <Dialog
+        open={isProjectsDialogOpen}
+        onOpenChange={(open) => {
+          setIsProjectsDialogOpen(open);
+          if (!open) {
+            setExpandedProjects(new Set());
+            setSelectedLabelsPerProject({});
+          }
+        }}
+      >
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Assign Labels to Projects</DialogTitle>
+            <DialogDescription>
+              Select which labels are available for each project
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto">
+            {isLoadingProjects ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+              </div>
+            ) : projects.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <FolderKanban className="w-12 h-12 mx-auto mb-4 opacity-30" />
+                <p>No projects found</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {projects.map((project) => {
+                  const isExpanded = expandedProjects.has(project.id);
+                  const assignedLabelIds = projectLabels[project.id] || [];
+                  const selectedLabels =
+                    selectedLabelsPerProject[project.id] || assignedLabelIds;
+                  const hasChanges =
+                    JSON.stringify(selectedLabels.sort()) !==
+                    JSON.stringify(assignedLabelIds.sort());
+                  const isAssigning = assigningProject === project.id;
+
+                  return (
+                    <Card key={project.id} className="overflow-hidden">
+                      <div
+                        className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50"
+                        onClick={() => toggleProject(project.id)}
+                      >
+                        <div className="flex items-center gap-3">
+                          <ChevronRight
+                            className={`w-4 h-4 transition-transform ${isExpanded ? "rotate-90" : ""}`}
+                          />
+                          <FolderKanban className="w-5 h-5 text-blue-600" />
+                          <div>
+                            <div className="font-semibold">{project.name}</div>
+                            {project.description && (
+                              <div className="text-sm text-muted-foreground">
+                                {project.description}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <Badge variant="secondary">
+                          {assignedLabelIds.length} labels
+                        </Badge>
+                      </div>
+
+                      {isExpanded && (
+                        <div className="border-t p-4 bg-gray-50">
+                          <div className="space-y-4">
+                            {categories.map((category) => {
+                              const categoryLabels =
+                                labelsByCategory[category.id] || [];
+                              if (categoryLabels.length === 0) return null;
+
+                              return (
+                                <div key={category.id}>
+                                  <h4 className="font-medium text-sm mb-2">
+                                    {category.name}
+                                  </h4>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    {categoryLabels.map((label) => {
+                                      const isAssigned =
+                                        assignedLabelIds.includes(label.id);
+                                      const isSelected =
+                                        selectedLabels.includes(label.id);
+
+                                      return (
+                                        <div
+                                          key={label.id}
+                                          className={`flex items-center gap-2 p-2 rounded transition-all ${
+                                            isAssigned
+                                              ? "bg-green-50 border-2 border-green-300 cursor-default"
+                                              : "hover:bg-gray-50 border-2 border-transparent"
+                                          }`}
+                                          title={
+                                            isAssigned
+                                              ? "Already assigned to this project"
+                                              : "Click to select"
+                                          }
+                                        >
+                                          {isAssigned ? (
+                                            <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                                          ) : (
+                                            <Checkbox
+                                              checked={isSelected}
+                                              onCheckedChange={() =>
+                                                handleToggleLabelSelection(
+                                                  project.id,
+                                                  label.id,
+                                                )
+                                              }
+                                            />
+                                          )}
+                                          <div
+                                            className="w-3 h-3 rounded-full flex-shrink-0"
+                                            style={{
+                                              backgroundColor: label.color,
+                                            }}
+                                          />
+                                          <span
+                                            className={`text-sm truncate flex-1 font-medium ${
+                                              isAssigned
+                                                ? "text-green-700"
+                                                : "text-gray-700"
+                                            }`}
+                                          >
+                                            {label.name}
+                                          </span>
+                                          {isAssigned && (
+                                            <span className="text-xs text-green-600 font-medium">
+                                              Assigned
+                                            </span>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              );
+                            })}
+
+                            {labelsByCategory["uncategorized"]?.length > 0 && (
+                              <div>
+                                <h4 className="font-medium text-sm mb-2">
+                                  Uncategorized
+                                </h4>
+                                <div className="grid grid-cols-2 gap-2">
+                                  {labelsByCategory["uncategorized"].map(
+                                    (label) => {
+                                      const isAssigned =
+                                        assignedLabelIds.includes(label.id);
+                                      const isSelected =
+                                        selectedLabels.includes(label.id);
+
+                                      return (
+                                        <div
+                                          key={label.id}
+                                          className={`flex items-center gap-2 p-2 rounded transition-all ${
+                                            isAssigned
+                                              ? "bg-green-50 border-2 border-green-300 cursor-default"
+                                              : "hover:bg-gray-50 border-2 border-transparent"
+                                          }`}
+                                          title={
+                                            isAssigned
+                                              ? "Already assigned to this project"
+                                              : "Click to select"
+                                          }
+                                        >
+                                          {isAssigned ? (
+                                            <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                                          ) : (
+                                            <Checkbox
+                                              checked={isSelected}
+                                              onCheckedChange={() =>
+                                                handleToggleLabelSelection(
+                                                  project.id,
+                                                  label.id,
+                                                )
+                                              }
+                                            />
+                                          )}
+                                          <div
+                                            className="w-3 h-3 rounded-full flex-shrink-0"
+                                            style={{
+                                              backgroundColor: label.color,
+                                            }}
+                                          />
+                                          <span
+                                            className={`text-sm truncate flex-1 font-medium ${
+                                              isAssigned
+                                                ? "text-green-700"
+                                                : "text-gray-700"
+                                            }`}
+                                          >
+                                            {label.name}
+                                          </span>
+                                          {isAssigned && (
+                                            <span className="text-xs text-green-600 font-medium">
+                                              Assigned
+                                            </span>
+                                          )}
+                                        </div>
+                                      );
+                                    },
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="border-t pt-4 mt-4">
+            <div className="flex justify-between items-center">
+              {(() => {
+                const hasChanges = projects.some((project) => {
+                  const selectedLabels =
+                    selectedLabelsPerProject[project.id] ||
+                    projectLabels[project.id] ||
+                    [];
+                  const currentLabels = projectLabels[project.id] || [];
+                  return (
+                    JSON.stringify(selectedLabels.sort()) !==
+                    JSON.stringify(currentLabels.sort())
+                  );
+                });
+
+                if (hasChanges) {
+                  const changedCount = projects.filter((project) => {
+                    const selectedLabels =
+                      selectedLabelsPerProject[project.id] ||
+                      projectLabels[project.id] ||
+                      [];
+                    const currentLabels = projectLabels[project.id] || [];
+                    return (
+                      JSON.stringify(selectedLabels.sort()) !==
+                      JSON.stringify(currentLabels.sort())
+                    );
+                  }).length;
+
+                  return (
+                    <>
+                      <div className="text-sm text-muted-foreground">
+                        {changedCount} project(s) with unsaved changes
+                      </div>
+                      <div className="flex gap-3">
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            // Reset all selections to current state
+                            const resetSelections: Record<string, string[]> =
+                              {};
+                            projects.forEach((project) => {
+                              resetSelections[project.id] =
+                                projectLabels[project.id] || [];
+                            });
+                            setSelectedLabelsPerProject(resetSelections);
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={async () => {
+                            const projectsWithChanges = projects.filter(
+                              (project) => {
+                                const selectedLabels =
+                                  selectedLabelsPerProject[project.id] ||
+                                  projectLabels[project.id] ||
+                                  [];
+                                const currentLabels =
+                                  projectLabels[project.id] || [];
+                                return (
+                                  JSON.stringify(selectedLabels.sort()) !==
+                                  JSON.stringify(currentLabels.sort())
+                                );
+                              },
+                            );
+
+                            if (projectsWithChanges.length === 0) {
+                              toast.info("No changes to save");
+                              return;
+                            }
+
+                            setAssigningProject("bulk");
+                            let successCount = 0;
+                            let failCount = 0;
+
+                            for (const project of projectsWithChanges) {
+                              try {
+                                await handleAssignLabelsToProject(project.id);
+                                successCount++;
+                              } catch (error) {
+                                failCount++;
+                                console.error(
+                                  "Failed to assign labels to project",
+                                  project.id,
+                                  error,
+                                );
+                              }
+                            }
+
+                            setAssigningProject(null);
+
+                            if (successCount > 0 && failCount === 0) {
+                              toast.success(
+                                `Updated ${successCount} project(s) successfully`,
+                              );
+                            } else if (successCount > 0 && failCount > 0) {
+                              toast.warning(
+                                `Updated ${successCount} project(s), ${failCount} failed`,
+                              );
+                            } else {
+                              toast.error("Failed to update projects");
+                            }
+                          }}
+                          disabled={assigningProject !== null}
+                        >
+                          {assigningProject === "bulk" ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Assigning...
+                            </>
+                          ) : (
+                            "Assign"
+                          )}
+                        </Button>
+                      </div>
+                    </>
+                  );
+                } else {
+                  return (
+                    <>
+                      <div className="text-sm text-muted-foreground">
+                        Select labels for projects to assign
+                      </div>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setIsProjectsDialogOpen(false);
+                          setExpandedProjects(new Set());
+                          setSelectedLabelsPerProject({});
+                        }}
+                      >
+                        Close
+                      </Button>
+                    </>
+                  );
+                }
+              })()}
+            </div>
           </div>
         </DialogContent>
       </Dialog>
