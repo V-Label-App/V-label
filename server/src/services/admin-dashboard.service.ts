@@ -1,98 +1,110 @@
-import { prisma } from '../utils/database.js';
-import { execSync } from 'child_process';
+import { prisma } from '../utils/database.js'
+import { execSync } from 'child_process'
 
 export interface DashboardStats {
-  totalUsers: number;
-  userGrowth: number;
+  totalUsers: number
+  userGrowth: number
   usersByRole: {
-    admin: number;
-    manager: number;
-    reviewer: number;
-    annotator: number;
-  };
+    admin: number
+    manager: number
+    reviewer: number
+    annotator: number
+  }
   projects: {
-    active: number;
-    completed: number;
-    total: number;
-  };
+    active: number
+    completed: number
+    total: number
+  }
   annotations: {
-    today: number;
-    thisWeek: number;
-    thisMonth: number;
-    total: number;
-  };
+    today: number
+    thisWeek: number
+    thisMonth: number
+    total: number
+  }
+  labels: {
+    thisMonth: number
+    total: number
+  }
   storage: {
-    used: number;
-    total: number;
-    percentage: number;
-  };
+    used: number
+    total: number
+    percentage: number
+  }
   topAnnotators: {
-    id: string;
-    name: string;
-    count: number;
-    quality: number;
-  }[];
+    id: string
+    name: string
+    count: number
+    quality: number
+  }[]
   performance: {
-    avgAnnotationTime: number;
-    completionRate: number;
-    qualityScore: number;
-  };
+    avgAnnotationTime: number
+    completionRate: number
+    qualityScore: number
+  }
   cloudinary: {
-    storage: { usage: number; limit: number; usagePercent: number };
-    credits: { usage: number; limit: number; usagePercent: number };
-    bandwidth: { usage: number; limit: number; usagePercent: number };
-  } | null;
+    storage: { usage: number; limit: number; usagePercent: number }
+    credits: { usage: number; limit: number; usagePercent: number }
+    bandwidth: { usage: number; limit: number; usagePercent: number }
+  } | null
 }
 
 export class AdminDashboardService {
   /**
    * Get real disk usage from VPS (Linux)
    */
-  private static getDiskUsage(): { used: number; total: number; percentage: number } {
+  private static getDiskUsage(): {
+    used: number
+    total: number
+    percentage: number
+  } {
     try {
       // Run df command to get disk usage in GB for root partition
-      const output = execSync('df -BG /').toString();
-      const lines = output.trim().split('\n');
+      const output = execSync('df -BG /').toString()
+      const lines = output.trim().split('\n')
 
       if (lines.length < 2) {
-        throw new Error('Invalid df output');
+        throw new Error('Invalid df output')
       }
 
       // Parse the second line (actual data)
       // Example: /dev/sda1      100G   42G   58G  42% /
-      const data = lines[1]!.split(/\s+/);
+      const data = lines[1]!.split(/\s+/)
 
       if (data.length < 5) {
-        throw new Error('Invalid df data format');
+        throw new Error('Invalid df data format')
       }
 
-      const total = parseInt(data[1]?.replace('G', '') || '100');
-      const used = parseInt(data[2]?.replace('G', '') || '10');
-      const percentage = parseInt(data[4]?.replace('%', '') || '10');
+      const total = parseInt(data[1]?.replace('G', '') || '100')
+      const used = parseInt(data[2]?.replace('G', '') || '10')
+      const percentage = parseInt(data[4]?.replace('%', '') || '10')
 
-      return { used, total, percentage };
+      return { used, total, percentage }
     } catch (error) {
-      console.error('Failed to get disk usage, using fallback:', error);
+      console.error('Failed to get disk usage, using fallback:', error)
       // Fallback to estimate if command fails
-      const totalTasks = 0; // Will be calculated in getStats if needed
+      const totalTasks = 0 // Will be calculated in getStats if needed
       return {
         used: 10,
         total: 100,
-        percentage: 10
-      };
+        percentage: 10,
+      }
     }
   }
   /**
    * Get all dashboard statistics
    */
   static async getStats(): Promise<DashboardStats> {
-    const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - now.getDay());
-    startOfWeek.setHours(0, 0, 0, 0);
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const now = new Date()
+    const startOfDay = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    )
+    const startOfWeek = new Date(now)
+    startOfWeek.setDate(now.getDate() - now.getDay())
+    startOfWeek.setHours(0, 0, 0, 0)
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
 
     // Parallel queries for better performance
     const [
@@ -104,6 +116,8 @@ export class AdminDashboardService {
       annotationsThisWeek,
       annotationsThisMonth,
       totalAnnotations,
+      labelsThisMonth,
+      totalLabels,
       topAnnotators,
       approvedCount,
       totalSubmitted,
@@ -165,6 +179,16 @@ export class AdminDashboardService {
         },
       }),
 
+      // Labels created this month
+      prisma.label.count({
+        where: {
+          createdAt: { gte: startOfMonth },
+        },
+      }),
+
+      // Total labels
+      prisma.label.count(),
+
       // Top annotators (by totalTasksDone)
       prisma.user.findMany({
         where: {
@@ -197,15 +221,15 @@ export class AdminDashboardService {
         _avg: { reviewScore: true },
         where: { reviewScore: { not: null } },
       }),
-    ]);
+    ])
 
     // Calculate user growth
     const usersThisMonth = await prisma.user.count({
       where: {
         createdAt: { gte: startOfMonth },
       },
-    });
-    const userGrowth = usersThisMonth - usersLastMonth;
+    })
+    const userGrowth = usersThisMonth - usersLastMonth
 
     // Transform users by role
     const roleMap: Record<string, number> = {
@@ -213,64 +237,74 @@ export class AdminDashboardService {
       MANAGER: 0,
       REVIEWER: 0,
       ANNOTATOR: 0,
-    };
+    }
     usersByRole.forEach((item) => {
-      roleMap[item.role] = item._count;
-    });
+      roleMap[item.role] = item._count
+    })
 
     // Transform project stats
-    const projectMap: Record<string, number> = {};
+    const projectMap: Record<string, number> = {}
     projectStats.forEach((item) => {
-      projectMap[item.status] = item._count;
-    });
+      projectMap[item.status] = item._count
+    })
 
-    const activeProjects = (projectMap['ACTIVE'] || 0) + (projectMap['DRAFT'] || 0) + (projectMap['PAUSED'] || 0);
-    const completedProjects = (projectMap['COMPLETED'] || 0) + (projectMap['ARCHIVED'] || 0);
+    const activeProjects =
+      (projectMap['ACTIVE'] || 0) +
+      (projectMap['DRAFT'] || 0) +
+      (projectMap['PAUSED'] || 0)
+    const completedProjects =
+      (projectMap['COMPLETED'] || 0) + (projectMap['ARCHIVED'] || 0)
 
     // Format top annotators
-    const formattedTopAnnotators: { id: string; name: string; count: number; quality: number }[] = topAnnotators.map((user) => ({
+    const formattedTopAnnotators: {
+      id: string
+      name: string
+      count: number
+      quality: number
+    }[] = topAnnotators.map((user) => ({
       id: user.id,
       name: user.fullName || user.email.split('@')[0] || 'Unknown',
       count: user.totalTasksDone,
       quality: Math.min(100, Math.max(0, user.reputationScore)), // Clamp to 0-100
-    }));
+    }))
 
     // Calculate performance metrics
-    const completionRate = totalSubmitted > 0
-      ? Math.round((approvedCount / totalSubmitted) * 1000) / 10
-      : 0;
+    const completionRate =
+      totalSubmitted > 0
+        ? Math.round((approvedCount / totalSubmitted) * 1000) / 10
+        : 0
 
     const qualityScore = avgReviewScore._avg.reviewScore
       ? Math.round(avgReviewScore._avg.reviewScore * 10) / 10
-      : 0;
+      : 0
 
     // Storage calculation - Get real disk usage from VPS
-    const diskUsage = this.getDiskUsage();
+    const diskUsage = this.getDiskUsage()
 
     // Fetch Cloudinary Usage
-    let cloudinaryUsage: any = null;
+    let cloudinaryUsage: any = null
     try {
-      const { ImageService } = await import('./image.service.js');
-      const usageData = await ImageService.getUsage();
+      const { ImageService } = await import('./image.service.js')
+      const usageData = await ImageService.getUsage()
       cloudinaryUsage = {
         storage: {
           usage: usageData.storage.usage,
           limit: usageData.storage.limit,
-          usagePercent: usageData.storage.used_percent
+          usagePercent: usageData.storage.used_percent,
         },
         credits: {
           usage: usageData.credits.usage,
           limit: usageData.credits.limit,
-          usagePercent: usageData.credits.used_percent
+          usagePercent: usageData.credits.used_percent,
         },
         bandwidth: {
           usage: usageData.bandwidth.usage,
           limit: usageData.bandwidth.limit,
-          usagePercent: usageData.bandwidth.used_percent
-        }
-      };
+          usagePercent: usageData.bandwidth.used_percent,
+        },
+      }
     } catch (e) {
-      console.warn('Failed to fetch Cloudinary usage', e);
+      console.warn('Failed to fetch Cloudinary usage', e)
     }
 
     return {
@@ -293,6 +327,10 @@ export class AdminDashboardService {
         thisMonth: annotationsThisMonth,
         total: totalAnnotations,
       },
+      labels: {
+        thisMonth: labelsThisMonth,
+        total: totalLabels,
+      },
       storage: {
         used: diskUsage.used,
         total: diskUsage.total,
@@ -305,6 +343,6 @@ export class AdminDashboardService {
         completionRate,
         qualityScore,
       },
-    };
+    }
   }
 }
