@@ -39,6 +39,11 @@ interface DashboardStats {
         completionRate: number;
         qualityScore: number;
     };
+    cloudinary: {
+        storage: { usage: number; limit: number; usagePercent: number };
+        credits: { usage: number; limit: number; usagePercent: number };
+        bandwidth: { usage: number; limit: number; usagePercent: number };
+    } | null;
 }
 
 export function AdminDashboardPage() {
@@ -163,6 +168,42 @@ export function AdminDashboardPage() {
                         </div>
                     </CardContent>
                 </Card>
+
+                {/* Cloudinary Usage */}
+                {stats.cloudinary && (
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Cloudinary Storage</CardTitle>
+                            <HardDrive className="h-4 w-4 text-orange-500" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{((stats.cloudinary.storage?.usage || 0) / 1024 / 1024).toFixed(2)} MB</div>
+                            <div className="mt-2 text-xs text-muted-foreground">
+                                <div className="flex justify-between mb-1">
+                                    <span>Storage</span>
+                                    <span>{(stats.cloudinary.storage?.usagePercent || 0).toFixed(1)}%</span>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-1.5 mb-2">
+                                    <div
+                                        className="bg-orange-500 h-1.5 rounded-full"
+                                        style={{ width: `${stats.cloudinary.storage?.usagePercent || 0}%` }}
+                                    />
+                                </div>
+
+                                <div className="flex justify-between mb-1">
+                                    <span>Credits</span>
+                                    <span>{(stats.cloudinary.credits?.usagePercent || 0).toFixed(1)}%</span>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                    <div
+                                        className="bg-blue-500 h-1.5 rounded-full"
+                                        style={{ width: `${stats.cloudinary.credits?.usagePercent || 0}%` }}
+                                    />
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
             </div>
 
             {/* Users by Role */}

@@ -4,7 +4,69 @@ import logger from '../utils/logger.js'
 import { hashPassword } from '../utils/password.utils.js'
 import { userCreateSchema, userUpdateSchema, formatZodError } from '../utils/validation.js'
 import { z } from 'zod'
+import { ImageService } from '../services/image.service.js'
+
 export class UserController {
+  /**
+   * POST /api/v1/users/me/avatar
+   * Upload user avatar
+   */
+  static async uploadAvatar(req: Request, res: Response) {
+    try {
+      const userPayload = req.user as any
+      const userId = userPayload?.id || userPayload?.sub
+
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' })
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ error: 'No image file uploaded' })
+      }
+
+      // 1. Get current user to check for existing avatar
+      const currentUser = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { avatarPublicId: true }
+      })
+
+      // 2. Upload new avatar to Cloudinary
+      const uploadResult = await ImageService.uploadImage(
+        req.file.buffer,
+        `v-label/avatars/${userId}` // Organized folder structure
+      )
+
+      // 3. Update User record
+      const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: {
+          avatarUrl: uploadResult.secure_url,
+          avatarPublicId: uploadResult.public_id
+        },
+        select: {
+          id: true,
+          email: true,
+          fullName: true,
+          avatarUrl: true,
+          role: true
+        }
+      })
+
+      // 4. Cleanup old avatar if exists (Asynchronous)
+      if (currentUser?.avatarPublicId) {
+        ImageService.deleteImage(currentUser.avatarPublicId).catch(err =>
+          logger.error('USER', 'Failed to delete old avatar', err)
+        )
+      }
+
+      logger.info('USER', `User uploaded avatar: ${userId}`)
+      return res.json(updatedUser)
+    } catch (error) {
+      console.error('Upload avatar error:', error)
+      return res.status(500).json({ error: 'Internal server error' })
+    }
+  }
+
   /**
    * GET /api/v1/users/me
    * Get current user profile
@@ -249,7 +311,27 @@ export class UserController {
         return res.status(404).json({ error: 'User not found' })
       }
 
-      return res.json(user)
+      let extraStats = {}
+
+      if (user.role === 'MANAGER') {
+        const projectsManaged = await prisma.projectMember.count({
+          where: {
+            userId: user.id,
+            projectRole: 'MANAGER',
+          },
+        })
+        extraStats = { projectsManaged }
+      } else if (user.role === 'REVIEWER') {
+        const tasksReviewed = await prisma.taskAssignment.count({
+          where: {
+            reviewerId: user.id,
+            status: { in: ['APPROVED', 'REJECTED'] },
+          },
+        })
+        extraStats = { tasksReviewed }
+      }
+
+      return res.json({ ...user, ...extraStats })
     } catch (error) {
       console.error('Get user error:', error)
       return res.status(500).json({ error: 'Internal server error' })

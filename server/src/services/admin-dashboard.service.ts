@@ -1,4 +1,5 @@
 import { prisma } from '../utils/database.js';
+import { execSync } from 'child_process';
 
 export interface DashboardStats {
   totalUsers: number;
@@ -36,9 +37,51 @@ export interface DashboardStats {
     completionRate: number;
     qualityScore: number;
   };
+  cloudinary: {
+    storage: { usage: number; limit: number; usagePercent: number };
+    credits: { usage: number; limit: number; usagePercent: number };
+    bandwidth: { usage: number; limit: number; usagePercent: number };
+  } | null;
 }
 
 export class AdminDashboardService {
+  /**
+   * Get real disk usage from VPS (Linux)
+   */
+  private static getDiskUsage(): { used: number; total: number; percentage: number } {
+    try {
+      // Run df command to get disk usage in GB for root partition
+      const output = execSync('df -BG /').toString();
+      const lines = output.trim().split('\n');
+
+      if (lines.length < 2) {
+        throw new Error('Invalid df output');
+      }
+
+      // Parse the second line (actual data)
+      // Example: /dev/sda1      100G   42G   58G  42% /
+      const data = lines[1]!.split(/\s+/);
+
+      if (data.length < 5) {
+        throw new Error('Invalid df data format');
+      }
+
+      const total = parseInt(data[1]?.replace('G', '') || '100');
+      const used = parseInt(data[2]?.replace('G', '') || '10');
+      const percentage = parseInt(data[4]?.replace('%', '') || '10');
+
+      return { used, total, percentage };
+    } catch (error) {
+      console.error('Failed to get disk usage, using fallback:', error);
+      // Fallback to estimate if command fails
+      const totalTasks = 0; // Will be calculated in getStats if needed
+      return {
+        used: 10,
+        total: 100,
+        percentage: 10
+      };
+    }
+  }
   /**
    * Get all dashboard statistics
    */
@@ -201,11 +244,34 @@ export class AdminDashboardService {
       ? Math.round(avgReviewScore._avg.reviewScore * 10) / 10
       : 0;
 
-    // Storage calculation (estimate based on tasks with images)
-    // This is a rough estimate - in production, you'd track actual file sizes
-    const totalTasks = await prisma.task.count();
-    const estimatedStorageGB = Math.round((totalTasks * 2) / 100) / 10; // ~2MB per image average
-    const maxStorageGB = 100;
+    // Storage calculation - Get real disk usage from VPS
+    const diskUsage = this.getDiskUsage();
+
+    // Fetch Cloudinary Usage
+    let cloudinaryUsage: any = null;
+    try {
+      const { ImageService } = await import('./image.service.js');
+      const usageData = await ImageService.getUsage();
+      cloudinaryUsage = {
+        storage: {
+          usage: usageData.storage.usage,
+          limit: usageData.storage.limit,
+          usagePercent: usageData.storage.used_percent
+        },
+        credits: {
+          usage: usageData.credits.usage,
+          limit: usageData.credits.limit,
+          usagePercent: usageData.credits.used_percent
+        },
+        bandwidth: {
+          usage: usageData.bandwidth.usage,
+          limit: usageData.bandwidth.limit,
+          usagePercent: usageData.bandwidth.used_percent
+        }
+      };
+    } catch (e) {
+      console.warn('Failed to fetch Cloudinary usage', e);
+    }
 
     return {
       totalUsers,
@@ -228,10 +294,11 @@ export class AdminDashboardService {
         total: totalAnnotations,
       },
       storage: {
-        used: estimatedStorageGB,
-        total: maxStorageGB,
-        percentage: Math.round((estimatedStorageGB / maxStorageGB) * 100 * 10) / 10,
+        used: diskUsage.used,
+        total: diskUsage.total,
+        percentage: diskUsage.percentage,
       },
+      cloudinary: cloudinaryUsage,
       topAnnotators: formattedTopAnnotators,
       performance: {
         avgAnnotationTime: 45, // TODO: Calculate from actual timing data if available

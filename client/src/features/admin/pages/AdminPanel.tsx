@@ -38,6 +38,7 @@ import { AdminDashboardPage } from "./AdminDashboardPage";
 import { AdminEmailSettingsPage } from "./AdminEmailSettingsPage";
 import { AdminNotificationSettingsPage } from "./AdminNotificationSettingsPage";
 import { AdminProjectCategoriesPage } from "./AdminProjectCategoriesPage";
+import { AdminCloudinaryManagerPage } from "./AdminCloudinaryManagerPage";
 import {
   Users,
   Database,
@@ -94,6 +95,7 @@ export function AdminPanel() {
     if (path.includes("/admin/logs")) return "logs";
     if (path.includes("/admin/ai-chat")) return "ai-chat";
     if (path.includes("/admin/notifications")) return "notifications";
+    if (path.includes("/admin/media")) return "media";
     return "dashboard";
   }, [location.pathname]);
 
@@ -419,18 +421,18 @@ export function AdminPanel() {
                 },
                 {
                   icon: Activity,
-                  label: "Active Projects",
-                  value: 24,
-                  trend: "↑ 8% from last month",
+                  label: "Active Users",
+                  value: users.filter(u => u.is_active).length,
+                  trend: `${Math.round((users.filter(u => u.is_active).length / (users.length || 1)) * 100)}% active rate`,
                   color: "purple",
                 },
                 {
                   icon: Database,
-                  label: "Storage Used",
-                  value: "342 GB",
-                  trend: "68% of 500 GB",
+                  label: "User Roles",
+                  value: `${users.filter(u => u.role === 'ANNOTATOR').length} Annotators`,
+                  trend: `Mg: ${users.filter(u => u.role === 'MANAGER').length} | Rev: ${users.filter(u => u.role === 'REVIEWER').length} | Adm: ${users.filter(u => u.role === 'ADMIN').length}`,
                   color: "green",
-                  isMuted: true,
+                  isMuted: false,
                 },
               ].map((stat, index) => (
                 <motion.div
@@ -773,12 +775,16 @@ export function AdminPanel() {
                               </div>
                             </TableCell>
                             <TableCell>
-                              <div className="flex items-center gap-1">
-                                <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                                <span className="font-medium">
-                                  {user.reputation_score}%
-                                </span>
-                              </div>
+                              {user.role === 'ANNOTATOR' ? (
+                                <div className="flex items-center gap-1">
+                                  <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                                  <span className="font-medium">
+                                    {user.reputation_score}%
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground text-xs">-</span>
+                              )}
                             </TableCell>
                             <TableCell className="text-right">
                               <div className="flex items-center justify-end gap-2">
@@ -830,6 +836,8 @@ export function AdminPanel() {
         {activeTab === "notifications" && <AdminNotificationSettingsPage />}
 
         {activeTab === "categories" && <AdminProjectCategoriesPage />}
+
+        {activeTab === "media" && <AdminCloudinaryManagerPage />}
       </div>
 
       <Dialog

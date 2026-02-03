@@ -69,9 +69,8 @@ export class ProjectService {
                     search ? { name: { contains: search, mode: 'insensitive' } } : {},
                     // Filter by category
                     categoryId ? { categoryId } : {},
-                    // Filter by status (default to not ARCHIVED if not specified, or whatever logic)
-                    // Usually we don't show ARCHIVED unless asked
-                    status ? { status } : { status: { not: ProjectStatus.ARCHIVED } },
+                    // Filter by status (default to ALL if not specified)
+                    status ? { status } : {},
                     // Filter by membership
                     userId ? { members: { some: { userId } } } : {},
                 ],
@@ -110,13 +109,22 @@ export class ProjectService {
 
     /**
      * Get project by ID
+     * Optional: Pass userId to check if they are a member
      */
-    static async getById(id: string) {
+    static async getById(id: string, userId?: string) {
         try {
-            const project = await prisma.project.findUnique({
-                where: { id },
+            const where: Prisma.ProjectWhereInput = { id }
+            if (userId) {
+                where.members = { some: { userId } }
+            }
+
+            // check if userId is provided, usage is strictly for access control -> switch to findFirst
+            // If just ID, findUnique is faster/cleaner, but findFirst works for both.
+            const project = await prisma.project.findFirst({
+                where,
                 include: {
                     category: true,
+                    assignmentRule: true, // Include Assignment Rules
                     members: {
                         include: {
                             user: {
@@ -134,6 +142,7 @@ export class ProjectService {
                     },
                 },
             })
+
 
             return project
         } catch (error) {
@@ -156,6 +165,18 @@ export class ProjectService {
             labelConfig?: any
             enableAiAssistance?: boolean
             status?: ProjectStatus
+            assignmentRule?: {
+                isAutoAssignEnabled?: boolean | undefined
+                assignmentStrategy?: string | undefined
+                autoAssignReviewer?: boolean | undefined
+                reviewerDelayHours?: number | undefined
+                maxTasksPerAnnotator?: number | undefined
+                maxTasksPerReviewer?: number | undefined
+                minAnnotatorReputation?: number | undefined
+                minReviewerReputation?: number | undefined
+                maxRejectionsBeforeReassign?: number | undefined
+                autoReassignOnSkip?: boolean | undefined
+            }
         },
     ) {
         try {
@@ -198,7 +219,20 @@ export class ProjectService {
                     ...(data.labelConfig && { labelConfig: data.labelConfig }),
                     ...(data.enableAiAssistance !== undefined && { enableAiAssistance: data.enableAiAssistance }),
                     ...(data.status && { status: data.status }),
+
+                    // Handle Assignment Rules Upsert
+                    ...(data.assignmentRule && {
+                        assignmentRule: {
+                            upsert: {
+                                create: data.assignmentRule,
+                                update: data.assignmentRule
+                            }
+                        }
+                    })
                 },
+                include: {
+                    assignmentRule: true // Return the updated rules
+                }
             })
 
             return project
@@ -210,15 +244,49 @@ export class ProjectService {
 
     /**
      * Delete project (Soft Delete)
+     * Authorization: Creator or Admin only
+     * Validation: Cannot delete if tasks are IN_PROGRESS
      */
-    static async delete(id: string) {
+    static async delete(id: string, userId: string, userRole: string) {
         try {
-            // Soft delete: status = ARCHIVED
+            // 1. Fetch project to check permissions (MANAGER role) and tasks status
+            const project = await prisma.project.findUnique({
+                where: { id },
+                include: {
+                    members: {
+                        where: { userId }, // Only fetch membership for the requesting user
+                        select: { projectRole: true },
+                    },
+                    _count: {
+                        select: {
+                            tasks: {
+                                where: { status: 'IN_PROGRESS' }, // Check for processing tasks
+                            },
+                        },
+                    },
+                },
+            })
+
+            if (!project) throw new Error('Project not found')
+
+            // 2. Authorization Check
+            // Allow if user is ADMIN or a MANAGER of this project
+            const isManager = project.members.length > 0 && project.members[0]?.projectRole === ProjectRole.MANAGER
+            const isAdmin = userRole === 'ADMIN'
+
+            if (!isManager && !isAdmin) {
+                throw new Error('Unauthorized: Only Project Manager or Admin can delete project')
+            }
+
+            // 3. Validation Check (Active Tasks)
+            if (project._count.tasks > 0) {
+                throw new Error('Cannot delete project with tasks in progress')
+            }
+
+            // 4. Soft delete
             return await prisma.project.update({
                 where: { id },
-                data: {
-                    status: ProjectStatus.ARCHIVED,
-                },
+                data: { status: ProjectStatus.ARCHIVED },
             })
         } catch (error) {
             logger.error('SERVICE', 'Error deleting project', { id, error })
@@ -447,5 +515,125 @@ export class ProjectService {
         }
 
         return updatedMember;
+    }
+    /**
+     * Get images for a project with optional filtering
+     */
+    static async getImages(projectId: string, options: {
+        page?: number
+        limit?: number
+        datasetId?: string | null // string for strict ID, null for strictly NO dataset (general), undefined for ALL
+    }) {
+        try {
+            const { page = 1, limit = 20, datasetId } = options
+            const skip = (page - 1) * limit
+
+            const where: Prisma.ImageWhereInput = {
+                projectId,
+                ...(datasetId !== undefined && { datasetId: datasetId })
+            }
+
+            const [images, total] = await Promise.all([
+                prisma.image.findMany({
+                    where,
+                    orderBy: { uploadedAt: 'desc' },
+                    skip,
+                    take: limit,
+                    include: {
+                        dataset: {
+                            select: { name: true }
+                        }
+                    }
+                }),
+                prisma.image.count({ where })
+            ])
+
+            return {
+                data: images,
+                meta: {
+                    total,
+                    page,
+                    limit,
+                    totalPages: Math.ceil(total / limit)
+                }
+            }
+        } catch (error) {
+            logger.error('SERVICE', 'Error getting project images', { projectId, error })
+            throw error
+        }
+    }
+    /**
+     * Delete an image from project
+     */
+    static async deleteImage(projectId: string, imageId: string) {
+        try {
+            // 1. Get image to find publicId
+            const image = await prisma.image.findFirst({
+                where: {
+                    id: imageId,
+                    projectId: projectId
+                }
+            })
+
+            if (!image) {
+                throw new Error('Image not found in project')
+            }
+
+            // 2. Delete from DB
+            await prisma.image.delete({
+                where: { id: imageId }
+            })
+
+            // 3. Delete from Cloudinary
+            if (image.publicId) {
+                const { ImageService } = await import('./image.service.js')
+                await ImageService.deleteImage(image.publicId)
+            }
+
+            return true
+        } catch (error) {
+            logger.error('SERVICE', 'Error deleting image', { projectId, imageId, error })
+            throw error
+        }
+    }
+
+    /**
+     * Bulk delete images
+     */
+    static async deleteImages(projectId: string, imageIds: string[]) {
+        try {
+            // 1. Get images to find publicIds
+            const images = await prisma.image.findMany({
+                where: {
+                    id: { in: imageIds },
+                    projectId: projectId
+                }
+            })
+
+            if (images.length === 0) {
+                return { count: 0 }
+            }
+
+            const publicIds = images.map(img => img.publicId).filter(id => id !== null) as string[]
+
+            // 2. Delete from DB
+            await prisma.image.deleteMany({
+                where: {
+                    id: { in: imageIds },
+                    projectId: projectId
+                }
+            })
+
+            // 3. Delete from Cloudinary (Parallel)
+            if (publicIds.length > 0) {
+                const { ImageService } = await import('./image.service.js')
+                await Promise.all(publicIds.map(id => ImageService.deleteImage(id)))
+            }
+
+            return { count: images.length }
+        } catch (error) {
+            logger.error('SERVICE', 'Error bulk deleting images', { projectId, count: imageIds.length, error })
+            throw error
+        }
     }
 }

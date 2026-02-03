@@ -1,0 +1,328 @@
+{
+    "info": {
+        "_postman_id": "85c3c13a-0e9e-4c3d-8888-phase3123456",
+        "name": "V-Label Phase 3 Test (Datasets & Images)",
+        "description": "Automated test collection for Phase 3: Project Images & Datasets",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "1. Login (Manager)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "exec": [
+                            "var jsonData = pm.response.json();",
+                            "if (jsonData.accessToken) {",
+                            "    pm.collectionVariables.set(\"accessToken\", jsonData.accessToken);",
+                            "    console.log(\"Access Token set successfully\");",
+                            "} else {",
+                            "    console.error(\"Login failed, no access token\");",
+                            "}"
+                        ],
+                        "type": "text/javascript"
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"email\": \"manager@vlabel.com\",\n    \"password\": \"123\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/auth/login",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "auth",
+                        "login"
+                    ]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "2. Create Test Project",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "exec": [
+                            "var jsonData = pm.response.json();",
+                            "if (jsonData.id) {",
+                            "    pm.collectionVariables.set(\"projectId\", jsonData.id);",
+                            "    console.log(\"Project created: \" + jsonData.id);",
+                            "}"
+                        ],
+                        "type": "text/javascript"
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"Dataset Test Project {{timestamp}}\",\n    \"description\": \"Project for testing datasets\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/projects",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "projects"
+                    ]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "3. Create Dataset (Training)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "exec": [
+                            "var jsonData = pm.response.json();",
+                            "if (jsonData.id) {",
+                            "    pm.collectionVariables.set(\"datasetId\", jsonData.id);",
+                            "    console.log(\"Dataset created: \" + jsonData.id);",
+                            "}"
+                        ],
+                        "type": "text/javascript"
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"Training Set A\",\n    \"description\": \"Initial training images\",\n    \"source\": \"Camera 1\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/projects/{{projectId}}/datasets",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "projects",
+                        "{{projectId}}",
+                        "datasets"
+                    ]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "4. Get Project Datasets",
+            "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                    "raw": "{{baseUrl}}/projects/{{projectId}}/datasets",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "projects",
+                        "{{projectId}}",
+                        "datasets"
+                    ]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "5. Get Dataset Details",
+            "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                    "raw": "{{baseUrl}}/projects/{{projectId}}/datasets/{{datasetId}}",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "projects",
+                        "{{projectId}}",
+                        "datasets",
+                        "{{datasetId}}"
+                    ]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "6. Upload Image to Dataset",
+            "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                    "mode": "formdata",
+                    "formdata": [
+                        {
+                            "key": "image",
+                            "type": "file",
+                            "src": []
+                        },
+                        {
+                            "key": "datasetId",
+                            "value": "{{datasetId}}",
+                            "type": "text"
+                        }
+                    ]
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/projects/{{projectId}}/images",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "projects",
+                        "{{projectId}}",
+                        "images"
+                    ]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "7. Upload Image to Project (No Dataset)",
+            "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                    "mode": "formdata",
+                    "formdata": [
+                        {
+                            "key": "image",
+                            "type": "file",
+                            "src": []
+                        }
+                    ]
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/projects/{{projectId}}/images",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "projects",
+                        "{{projectId}}",
+                        "images"
+                    ]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "8. Delete Dataset",
+            "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                    "raw": "{{baseUrl}}/projects/{{projectId}}/datasets/{{datasetId}}",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "projects",
+                        "{{projectId}}",
+                        "datasets",
+                        "{{datasetId}}"
+                    ]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "9. Cleanup Project",
+            "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                    "raw": "{{baseUrl}}/projects/{{projectId}}",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "projects",
+                        "{{projectId}}"
+                    ]
+                }
+            },
+            "response": []
+        }
+    ],
+    "auth": {
+        "type": "bearer",
+        "bearer": [
+            {
+                "key": "token",
+                "value": "{{accessToken}}",
+                "type": "string"
+            }
+        ]
+    },
+    "event": [
+        {
+            "listen": "prerequest",
+            "script": {
+                "type": "text/javascript",
+                "exec": [
+                    "if (!pm.collectionVariables.get(\"timestamp\")) {",
+                    "    pm.collectionVariables.set(\"timestamp\", Date.now());",
+                    "}"
+                ]
+            }
+        }
+    ],
+    "variable": [
+        {
+            "key": "baseUrl",
+            "value": "http://localhost:4000/api/v1",
+            "type": "string"
+        },
+        {
+            "key": "accessToken",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "projectId",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "datasetId",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "timestamp",
+            "value": "",
+            "type": "string"
+        }
+    ]
+}

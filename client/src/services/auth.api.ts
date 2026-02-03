@@ -232,4 +232,18 @@ export const authApi = {
     const response = await apiClient.post<{ message: string }>('/auth/reset-password', { token, newPassword });
     return response.data;
   },
+
+  /**
+   * Upload user avatar
+   */
+  uploadAvatar: async (file: File): Promise<AuthResponse['user']> => {
+    const formData = new FormData()
+    formData.append('avatar', file)
+    const response = await apiClient.post<AuthResponse['user']>('/users/me/avatar', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+    return response.data
+  },
 }
