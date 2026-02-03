@@ -1,0 +1,537 @@
+{
+    "info": {
+        "_postman_id": "90d4d24b-1f8f-5d4e-9999-phase5labelreq",
+        "name": "V-Label Phase 5 Test (Label Requests)",
+        "description": "Automated test collection for Phase 5: Label Request Management (Tested with Manager and Annotator roles)",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "1. Login (Manager)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "exec": [
+                            "var jsonData = pm.response.json();",
+                            "if (jsonData.accessToken) {",
+                            "    pm.collectionVariables.set(\"managerToken\", jsonData.accessToken);",
+                            "    pm.collectionVariables.set(\"accessToken\", jsonData.accessToken);",
+                            "    console.log(\"Manager Access Token set successfully\");",
+                            "}"
+                        ],
+                        "type": "text/javascript"
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"email\": \"manager@vlabel.com\",\n    \"password\": \"123\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/auth/login",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "auth",
+                        "login"
+                    ]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "2. Create Test Project",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "exec": [
+                            "var jsonData = pm.response.json();",
+                            "if (jsonData.id) {",
+                            "    pm.collectionVariables.set(\"projectId\", jsonData.id);",
+                            "    console.log(\"Project created: \" + jsonData.id);",
+                            "}"
+                        ],
+                        "type": "text/javascript"
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"name\": \"Label Request Test Project {{timestamp}}\",\n    \"description\": \"Project for testing label requests\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/projects",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "projects"
+                    ]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "3. Login (Annotator)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "exec": [
+                            "var jsonData = pm.response.json();",
+                            "if (jsonData.accessToken) {",
+                            "    pm.collectionVariables.set(\"annotatorToken\", jsonData.accessToken);",
+                            "    pm.collectionVariables.set(\"accessToken\", jsonData.accessToken); // Switch current token to Annotator",
+                            "    console.log(\"Annotator Access Token set successfully\");",
+                            "}",
+                            "if (jsonData.user && jsonData.user.id) {",
+                            "    pm.collectionVariables.set(\"annotatorId\", jsonData.user.id);",
+                            "    console.log(\"Annotator ID set: \" + jsonData.user.id);",
+                            "}"
+                        ],
+                        "type": "text/javascript"
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"email\": \"annotator@vlabel.com\",\n    \"password\": \"123\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/auth/login",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "auth",
+                        "login"
+                    ]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "4. Add Annotator to Project (As Manager)",
+            "event": [
+                {
+                    "listen": "prerequest",
+                    "script": {
+                        "exec": [
+                            "// Switch back to Manager token temporarily",
+                            "// Assuming managerToken is stored from Step 1",
+                            "// Ideally we should manage tokens better, but for linear execution:",
+                            "// This step needs MANAGER token, but previous step set accessToken to ANNOTATOR.",
+                            "// FOR SIMPLICITY: We will overwrite the Auth header manually using the variable"
+                        ],
+                        "type": "text/javascript"
+                    }
+                }
+            ],
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{managerToken}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"userId\": \"{{annotatorId}}\", \n    \"role\": \"ANNOTATOR\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/projects/{{projectId}}/members",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "projects",
+                        "{{projectId}}",
+                        "members"
+                    ]
+                },
+                "description": "Note: You might need to know the Annotator's ID. In a real test script, we'd fetch user list or rely on seeded ID. For now, assuming user is added or we skip this if project is public/open."
+            },
+            "response": []
+        },
+        {
+            "name": "5. Create Label Request (As Annotator)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "exec": [
+                            "var jsonData = pm.response.json();",
+                            "if (jsonData.data && jsonData.data.id) {",
+                            "    pm.collectionVariables.set(\"requestId\", jsonData.data.id);",
+                            "    console.log(\"Label Request created: \" + jsonData.data.id);",
+                            "}"
+                        ],
+                        "type": "text/javascript"
+                    }
+                },
+                {
+                    "listen": "prerequest",
+                    "script": {
+                        "exec": [
+                            "// Ensure we use annotator token",
+                            "pm.request.auth.bearer.all()[0].update({value: pm.collectionVariables.get(\"annotatorToken\")});"
+                        ],
+                        "type": "text/javascript"
+                    }
+                }
+            ],
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{annotatorToken}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"labelName\": \"Test Label Annotator {{timestamp}}\",\n    \"suggestedColor\": \"#00FF00\",\n    \"reason\": \"Annotator needs this\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/projects/{{projectId}}/labels/requests",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "projects",
+                        "{{projectId}}",
+                        "labels",
+                        "requests"
+                    ]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "6. Get Pending Count (As Manager)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "exec": [
+                            "var jsonData = pm.response.json();",
+                            "pm.test(\"Count should be greater than 0\", function () {",
+                            "    pm.expect(jsonData.data.count).to.be.above(0);",
+                            "});"
+                        ],
+                        "type": "text/javascript"
+                    }
+                }
+            ],
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{managerToken}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                    "raw": "{{baseUrl}}/projects/{{projectId}}/labels/requests/pending-count",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "projects",
+                        "{{projectId}}",
+                        "labels",
+                        "requests",
+                        "pending-count"
+                    ]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "7. Approve Request (As Manager)",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{managerToken}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "PUT",
+                "header": [],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/projects/{{projectId}}/labels/requests/{{requestId}}/approve",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "projects",
+                        "{{projectId}}",
+                        "labels",
+                        "requests",
+                        "{{requestId}}",
+                        "approve"
+                    ]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "8. Create Another Request (As Annotator - For Rejection)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "exec": [
+                            "var jsonData = pm.response.json();",
+                            "if (jsonData.data && jsonData.data.id) {",
+                            "    pm.collectionVariables.set(\"rejectRequestId\", jsonData.data.id);",
+                            "}"
+                        ],
+                        "type": "text/javascript"
+                    }
+                }
+            ],
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{annotatorToken}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"labelName\": \"Reject This Annotator {{timestamp}}\",\n    \"suggestedColor\": \"#000000\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/projects/{{projectId}}/labels/requests",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "projects",
+                        "{{projectId}}",
+                        "labels",
+                        "requests"
+                    ]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "9. Reject Request (As Manager)",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{managerToken}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "PUT",
+                "header": [],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"reason\": \"Invalid label request\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/projects/{{projectId}}/labels/requests/{{rejectRequestId}}/reject",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "projects",
+                        "{{projectId}}",
+                        "labels",
+                        "requests",
+                        "{{rejectRequestId}}",
+                        "reject"
+                    ]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "10. Cleanup Project (As Manager)",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{managerToken}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                    "raw": "{{baseUrl}}/projects/{{projectId}}",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "projects",
+                        "{{projectId}}"
+                    ]
+                }
+            },
+            "response": []
+        }
+    ],
+    "auth": {
+        "type": "bearer",
+        "bearer": [
+            {
+                "key": "token",
+                "value": "{{accessToken}}",
+                "type": "string"
+            }
+        ]
+    },
+    "event": [
+        {
+            "listen": "prerequest",
+            "script": {
+                "type": "text/javascript",
+                "exec": [
+                    "if (!pm.collectionVariables.get(\"timestamp\")) {",
+                    "    pm.collectionVariables.set(\"timestamp\", Date.now());",
+                    "}"
+                ]
+            }
+        }
+    ],
+    "variable": [
+        {
+            "key": "baseUrl",
+            "value": "http://localhost:4000/api/v1",
+            "type": "string"
+        },
+        {
+            "key": "accessToken",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "managerToken",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "annotatorToken",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "projectId",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "annotatorId",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "requestId",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "rejectRequestId",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "timestamp",
+            "value": "",
+            "type": "string"
+        }
+    ]
+}

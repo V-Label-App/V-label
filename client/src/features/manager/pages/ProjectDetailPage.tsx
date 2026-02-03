@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { DatasetList } from "../components/DatasetList";
 import { UploadImageDialog } from "../components/UploadImageDialog";
 import { DatasetCreateDialog } from "../components/DatasetCreateDialog";
+import { LabelRequestManager } from "../components/LabelRequestManager";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "../../../components/ui/button";
 import { Card } from "../../../components/ui/card";
@@ -84,7 +85,6 @@ import {
   FileUp,
   Search,
   Loader2,
-  Shield,
   Eye,
   Pen,
   CheckCircle2,
@@ -98,6 +98,7 @@ import { projectApi } from "../../../services/project.api";
 import {
   projectLabelApi,
   labelApi,
+  labelRequestApi,
   type Label as ApiLabel,
 } from "../../../services/label.api";
 import {
@@ -139,6 +140,7 @@ export function ProjectDetailPage() {
 
   // Dialog States
   const [isAddImagesOpen, setIsAddImagesOpen] = useState(false);
+  const [pendingLabelRequests, setPendingLabelRequests] = useState(0);
 
   // Search & Filter State
   const [taskSearchQuery, setTaskSearchQuery] = useState("");
@@ -180,6 +182,7 @@ export function ProjectDetailPage() {
   const [potentialMembers, setPotentialMembers] = useState<any[]>([]);
   const [selectedMembers, setSelectedMembers] = useState<any[]>([]); // Multi-select
   const [selectedRole, setSelectedRole] = useState("ANNOTATOR");
+  const [isRoleOverride, setIsRoleOverride] = useState(false);
   const [isSearchingMembers, setIsSearchingMembers] = useState(false);
   const [isAddingMembers, setIsAddingMembers] = useState(false);
 
@@ -221,9 +224,15 @@ export function ProjectDetailPage() {
     try {
       // Process in parallel for speed, though sequentially might be safer for rate limits.
       // Parallel is fine for < 100 usually.
-      const promises = selectedMembers.map((user) =>
-        projectApi.addMember(project.id, user.id, selectedRole),
-      );
+      const promises = selectedMembers.map((user) => {
+        // If override is checked, use the selected dropdown role
+        // If not, use the user's system role (or fallback to selectedRole if missing)
+        const roleToAdd = isRoleOverride
+          ? selectedRole
+          : user.role || selectedRole;
+
+        return projectApi.addMember(project.id, user.id, roleToAdd);
+      });
 
       await Promise.all(promises);
 
@@ -291,6 +300,11 @@ export function ProjectDetailPage() {
         .getAll()
         .then((labels) => setAllAvailableLabels(labels))
         .catch((err) => console.error("Failed to load all labels", err));
+
+      // Load pending label requests count
+      labelRequestApi.getPendingCount(projectId)
+        .then(count => setPendingLabelRequests(count))
+        .catch(err => console.error("Failed to load pending requests count", err));
     }
   }, [projectId, navigate]);
 
@@ -808,6 +822,20 @@ export function ProjectDetailPage() {
                 </p>
               </div>
             </div>
+
+            {pendingLabelRequests > 0 && (
+              <div className="flex items-center gap-3 p-3 bg-purple-50 rounded-lg cursor-pointer hover:bg-purple-100 transition-colors" onClick={() => setActiveTab("requests")}>
+                <div className="w-10 h-10 bg-purple-200 rounded-lg flex items-center justify-center">
+                  <Pen className="w-5 h-5 text-purple-600" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Label Requests</p>
+                  <p className="text-xl font-semibold text-purple-700">
+                    {pendingLabelRequests} Pending
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </Card>
 
@@ -820,6 +848,14 @@ export function ProjectDetailPage() {
           <TabsList>
             <TabsTrigger value="tasks">Task Management</TabsTrigger>
             <TabsTrigger value="datasets">Datasets</TabsTrigger>
+            <TabsTrigger value="requests" className="relative">
+              Label Requests
+              {pendingLabelRequests > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
+                  {pendingLabelRequests}
+                </span>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="members">Members</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
@@ -1066,14 +1102,6 @@ export function ProjectDetailPage() {
             </div>
 
             {[
-              {
-                title: "Project Managers",
-                icon: Shield,
-                color: "text-violet-600",
-                bgColor: "bg-violet-100",
-                role: "MANAGER",
-                description: "Has full access to project settings and members.",
-              },
               {
                 title: "Reviewers",
                 icon: Eye,
@@ -1491,6 +1519,13 @@ export function ProjectDetailPage() {
               Analytics will be available once tasks are populated.
             </Card>
           </TabsContent>
+
+          <TabsContent value="requests" className="space-y-6">
+            <LabelRequestManager
+              projectId={project.id}
+              onUpdatePendingCount={setPendingLabelRequests}
+            />
+          </TabsContent>
         </Tabs>
         {/* Edit Role Dialog */}
         <Dialog open={isEditRoleOpen} onOpenChange={setIsEditRoleOpen}>
@@ -1702,6 +1737,14 @@ export function ProjectDetailPage() {
                                 {user.email}
                               </p>
                             </div>
+                            {user.role && (
+                              <Badge
+                                variant="secondary"
+                                className="text-[10px] h-5 px-1 bg-gray-100 text-gray-600 border-gray-200"
+                              >
+                                {user.role}
+                              </Badge>
+                            )}
                           </div>
                         );
                       })}
@@ -1710,17 +1753,48 @@ export function ProjectDetailPage() {
                 </Card>
               </div>
 
-              <div className="space-y-2 animate-in fade-in zoom-in-95 duration-200">
-                <Label>Role for Selected Members</Label>
-                <Select value={selectedRole} onValueChange={setSelectedRole}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ANNOTATOR">Annotator</SelectItem>
-                    <SelectItem value="REVIEWER">Reviewer</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="space-y-3 pt-2 border-t border-gray-100">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="role-override"
+                    checked={isRoleOverride}
+                    onCheckedChange={(c) => setIsRoleOverride(c as boolean)}
+                  />
+                  <Label
+                    htmlFor="role-override"
+                    className="text-sm font-medium leading-none cursor-pointer"
+                  >
+                    Override default role?
+                  </Label>
+                </div>
+
+                {isRoleOverride ? (
+                  <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <Label className="text-xs text-muted-foreground">
+                      Assign this role to all selected:
+                    </Label>
+                    <Select
+                      value={selectedRole}
+                      onValueChange={setSelectedRole}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ANNOTATOR">Annotator</SelectItem>
+                        <SelectItem value="REVIEWER">Reviewer</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground pl-6">
+                    Selected members will be added with their{" "}
+                    <strong className="font-medium text-gray-700">
+                      system role
+                    </strong>
+                    .
+                  </p>
+                )}
               </div>
             </div>
 
@@ -1753,8 +1827,8 @@ export function ProjectDetailPage() {
         <DatasetCreateDialog
           projectId={project.id}
           open={false}
-          onOpenChange={() => {}}
-          onSuccess={() => {}}
+          onOpenChange={() => { }}
+          onSuccess={() => { }}
         />
 
         <UploadImageDialog

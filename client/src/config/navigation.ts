@@ -21,7 +21,8 @@ export interface NavItem {
   title: string;
   url: string;
   icon: LucideIcon;
-  isActive?: boolean; // For default active state if needed
+  isActive?: boolean;
+  group?: string; // New property for grouping
 }
 
 export type RoleNavigation = {
@@ -30,29 +31,36 @@ export type RoleNavigation = {
 
 export const ROLE_NAVIGATION: RoleNavigation = {
   ADMIN: [
-    { title: "Dashboard", url: "/admin", icon: LayoutDashboard },
-    { title: "Users", url: "/admin/users", icon: Users },
-    { title: "Project Categories", url: "/admin/categories", icon: Layers },
-    { title: "Media", url: "/admin/media", icon: ImageIcon },
-    { title: "AI Chat Setting", url: "/admin/ai-chat", icon: Sparkles },
-    { title: "Chat", url: "/admin/chat", icon: MessageSquare }, // Always visible for ADMIN
-    { title: "Logs", url: "/admin/logs", icon: FileText },
-    { title: "Settings", url: "/admin/settings", icon: Settings },
-    { title: "Notifications", url: "/admin/notifications", icon: Bell },
+    // General
+    { title: "Dashboard", url: "/admin", icon: LayoutDashboard, group: "General" },
+
+    // Management
+    { title: "Users", url: "/admin/users", icon: Users, group: "Management" },
+    { title: "Project Categories", url: "/admin/categories", icon: Layers, group: "Management" },
+    { title: "Images", url: "/admin/media", icon: ImageIcon, group: "Management" },
+
+    // Settings
+    { title: "AI Chat Setting", url: "/admin/ai-chat", icon: Sparkles, group: "Settings" },
+    { title: "Email Setting", url: "/admin/settings", icon: Settings, group: "Settings" },
+
+    // System
+    { title: "Chat", url: "/admin/chat", icon: MessageSquare, group: "System" },
+    { title: "Notifications", url: "/admin/notifications", icon: Bell, group: "System" },
+    { title: "Logs", url: "/admin/logs", icon: FileText, group: "System" },
   ],
   MANAGER: [
-    { title: "Projects", url: "/manager/projects", icon: Folder },
-    { title: "Labels", url: "/manager/labels", icon: Tag },
-    { title: "Chat", url: "/manager/chat", icon: MessageSquare }, // Conditional
+    { title: "Projects", url: "/manager/projects", icon: Folder, group: "Workspace" },
+    { title: "Labels", url: "/manager/labels", icon: Tag, group: "Workspace" },
+    { title: "Chat", url: "/manager/chat", icon: MessageSquare, group: "Communication" },
   ],
   ANNOTATOR: [
-    { title: "My Tasks", url: "/annotator", icon: ListTodo },
-    { title: "Performance", url: "/profile", icon: BarChart },
-    { title: "Chat", url: "/annotator/chat", icon: MessageSquare }, // Conditional
+    { title: "My Tasks", url: "/annotator", icon: ListTodo, group: "Workspace" },
+    { title: "Performance", url: "/profile", icon: BarChart, group: "Profile" },
+    { title: "Chat", url: "/annotator/chat", icon: MessageSquare, group: "Communication" },
   ],
   REVIEWER: [
-    { title: "Review Queue", url: "/reviewer", icon: CheckSquare },
-    { title: "Performance", url: "/profile", icon: BarChart },
-    { title: "Chat", url: "/reviewer/chat", icon: MessageSquare }, // Conditional
+    { title: "Review Queue", url: "/reviewer", icon: CheckSquare, group: "Workspace" },
+    { title: "Performance", url: "/profile", icon: BarChart, group: "Profile" },
+    { title: "Chat", url: "/reviewer/chat", icon: MessageSquare, group: "Communication" },
   ],
 };

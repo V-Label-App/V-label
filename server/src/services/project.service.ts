@@ -36,7 +36,7 @@ export class ProjectService {
                 include: {
                     category: true,
                     _count: {
-                        select: { tasks: true, members: true },
+                        select: { tasks: true, members: true, images: true },
                     },
                 },
             })
@@ -82,7 +82,17 @@ export class ProjectService {
                     include: {
                         category: true,
                         _count: {
-                            select: { tasks: true, members: true },
+                            select: {
+                                tasks: true,
+                                members: {
+                                    where: {
+                                        projectRole: {
+                                            not: ProjectRole.MANAGER
+                                        }
+                                    }
+                                },
+                                images: true
+                            },
                         },
                     },
                     orderBy: { createdAt: 'desc' },
@@ -92,8 +102,14 @@ export class ProjectService {
                 prisma.project.count({ where }),
             ])
 
+            // Map _count.images to totalImages for frontend
+            const mappedProjects = projects.map(p => ({
+                ...p,
+                totalImages: p._count.images
+            }))
+
             return {
-                data: projects,
+                data: mappedProjects,
                 meta: {
                     total,
                     page,
@@ -138,13 +154,20 @@ export class ProjectService {
                         },
                     },
                     _count: {
-                        select: { tasks: true, members: true },
+                        select: { tasks: true, members: true, images: true },
                     },
                 },
             })
 
+            if (!project) return null
 
-            return project
+            // Map _count.images to totalImages for frontend
+            const mappedProject = {
+                ...project,
+                totalImages: project._count.images
+            }
+
+            return mappedProject
         } catch (error) {
             logger.error('SERVICE', 'Error getting project by id', { id, error })
             throw error
@@ -327,6 +350,7 @@ export class ProjectService {
                     fullName: true,
                     email: true,
                     avatarUrl: true,
+                    role: true,
                 },
                 take: 20,
             })

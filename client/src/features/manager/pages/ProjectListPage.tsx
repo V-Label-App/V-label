@@ -35,8 +35,6 @@ import {
   Users,
   Calendar as CalendarIcon,
   Loader2,
-  ExternalLink,
-  Settings,
   MoreVertical,
   ArrowUpDown,
   ArrowUp,
@@ -54,7 +52,7 @@ import type { Project } from "../../../types/project.types";
 
 export function ProjectListPage() {
   const navigate = useNavigate();
-  const {} = useAuth();
+  const { } = useAuth();
 
   // State
   const [projects, setProjects] = useState<Project[]>([]);
@@ -339,10 +337,10 @@ export function ProjectListPage() {
         ) : (
           <Card className="overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full table-fixed">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="px-6 py-3 text-left">
+                    <th className="px-6 py-3 text-left w-[25%]">
                       <button
                         onClick={() => handleSort("name")}
                         className="flex items-center gap-2 font-medium text-sm text-gray-600 hover:text-gray-900 transition-colors"
@@ -351,12 +349,12 @@ export function ProjectListPage() {
                         {getSortIcon("name")}
                       </button>
                     </th>
-                    <th className="px-6 py-3 text-left">
+                    <th className="px-6 py-3 text-left w-[12%]">
                       <span className="font-medium text-sm text-gray-600">
                         Category
                       </span>
                     </th>
-                    <th className="px-6 py-3 text-left">
+                    <th className="px-6 py-3 text-left w-[25%]">
                       <button
                         onClick={() => handleSort("progress")}
                         className="flex items-center gap-2 font-medium text-sm text-gray-600 hover:text-gray-900 transition-colors"
@@ -365,7 +363,7 @@ export function ProjectListPage() {
                         {getSortIcon("progress")}
                       </button>
                     </th>
-                    <th className="px-6 py-3 text-left">
+                    <th className="px-6 py-3 text-left w-[10%]">
                       <button
                         onClick={() => handleSort("totalImages")}
                         className="flex items-center gap-2 font-medium text-sm text-gray-600 hover:text-gray-900 transition-colors"
@@ -374,12 +372,12 @@ export function ProjectListPage() {
                         {getSortIcon("totalImages")}
                       </button>
                     </th>
-                    <th className="px-6 py-3 text-left">
+                    <th className="px-6 py-3 text-left w-[8%]">
                       <span className="font-medium text-sm text-gray-600">
                         Members
                       </span>
                     </th>
-                    <th className="px-6 py-3 text-left">
+                    <th className="px-6 py-3 text-left w-[10%]">
                       <button
                         onClick={() => handleSort("status")}
                         className="flex items-center gap-2 font-medium text-sm text-gray-600 hover:text-gray-900 transition-colors"
@@ -388,7 +386,7 @@ export function ProjectListPage() {
                         {getSortIcon("status")}
                       </button>
                     </th>
-                    <th className="px-6 py-3 text-right">
+                    <th className="px-6 py-3 text-right w-[10%]">
                       <span className="font-medium text-sm text-gray-600">
                         Actions
                       </span>
@@ -412,10 +410,13 @@ export function ProjectListPage() {
                               <FolderKanban className="w-5 h-5 text-blue-600" />
                             </div>
                             <div className="min-w-0">
-                              <div className="font-semibold text-gray-900 truncate">
+                              <div
+                                className="font-semibold text-gray-900 line-clamp-2 max-w-full"
+                                title={project.name}
+                              >
                                 {project.name}
                               </div>
-                              <div className="text-xs text-gray-500 truncate">
+                              <div className="text-xs text-gray-500 truncate max-w-full">
                                 {project.description || "No description"}
                               </div>
                             </div>
@@ -462,32 +463,6 @@ export function ProjectListPage() {
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                navigate(`/manager/projects/${project.id}`);
-                              }}
-                              title="Open Project"
-                            >
-                              <ExternalLink className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                navigate(
-                                  `/manager/projects/${project.id}/settings`,
-                                );
-                              }}
-                              title="Project Settings"
-                            >
-                              <Settings className="w-4 h-4" />
-                            </Button>
                             <Button
                               variant="ghost"
                               size="sm"
