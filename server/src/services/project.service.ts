@@ -516,4 +516,124 @@ export class ProjectService {
 
         return updatedMember;
     }
+    /**
+     * Get images for a project with optional filtering
+     */
+    static async getImages(projectId: string, options: {
+        page?: number
+        limit?: number
+        datasetId?: string | null // string for strict ID, null for strictly NO dataset (general), undefined for ALL
+    }) {
+        try {
+            const { page = 1, limit = 20, datasetId } = options
+            const skip = (page - 1) * limit
+
+            const where: Prisma.ImageWhereInput = {
+                projectId,
+                ...(datasetId !== undefined && { datasetId: datasetId })
+            }
+
+            const [images, total] = await Promise.all([
+                prisma.image.findMany({
+                    where,
+                    orderBy: { uploadedAt: 'desc' },
+                    skip,
+                    take: limit,
+                    include: {
+                        dataset: {
+                            select: { name: true }
+                        }
+                    }
+                }),
+                prisma.image.count({ where })
+            ])
+
+            return {
+                data: images,
+                meta: {
+                    total,
+                    page,
+                    limit,
+                    totalPages: Math.ceil(total / limit)
+                }
+            }
+        } catch (error) {
+            logger.error('SERVICE', 'Error getting project images', { projectId, error })
+            throw error
+        }
+    }
+    /**
+     * Delete an image from project
+     */
+    static async deleteImage(projectId: string, imageId: string) {
+        try {
+            // 1. Get image to find publicId
+            const image = await prisma.image.findFirst({
+                where: {
+                    id: imageId,
+                    projectId: projectId
+                }
+            })
+
+            if (!image) {
+                throw new Error('Image not found in project')
+            }
+
+            // 2. Delete from DB
+            await prisma.image.delete({
+                where: { id: imageId }
+            })
+
+            // 3. Delete from Cloudinary
+            if (image.publicId) {
+                const { ImageService } = await import('./image.service.js')
+                await ImageService.deleteImage(image.publicId)
+            }
+
+            return true
+        } catch (error) {
+            logger.error('SERVICE', 'Error deleting image', { projectId, imageId, error })
+            throw error
+        }
+    }
+
+    /**
+     * Bulk delete images
+     */
+    static async deleteImages(projectId: string, imageIds: string[]) {
+        try {
+            // 1. Get images to find publicIds
+            const images = await prisma.image.findMany({
+                where: {
+                    id: { in: imageIds },
+                    projectId: projectId
+                }
+            })
+
+            if (images.length === 0) {
+                return { count: 0 }
+            }
+
+            const publicIds = images.map(img => img.publicId).filter(id => id !== null) as string[]
+
+            // 2. Delete from DB
+            await prisma.image.deleteMany({
+                where: {
+                    id: { in: imageIds },
+                    projectId: projectId
+                }
+            })
+
+            // 3. Delete from Cloudinary (Parallel)
+            if (publicIds.length > 0) {
+                const { ImageService } = await import('./image.service.js')
+                await Promise.all(publicIds.map(id => ImageService.deleteImage(id)))
+            }
+
+            return { count: images.length }
+        } catch (error) {
+            logger.error('SERVICE', 'Error bulk deleting images', { projectId, count: imageIds.length, error })
+            throw error
+        }
+    }
 }

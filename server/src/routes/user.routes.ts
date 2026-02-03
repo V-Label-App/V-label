@@ -2,10 +2,13 @@ import { Router } from 'express'
 import { UserController } from '../controllers/user.controller.js'
 import { authMiddleware } from '../middlewares/auth.middleware.js'
 import { requireRole } from '../middlewares/role.middleware.js'
+import { uploadMiddleware } from '../middlewares/upload.middleware.js'
+
 const router = Router()
 
 router.get('/me', authMiddleware, UserController.getMe)
 router.put('/me', authMiddleware, UserController.updateProfile)
+router.post('/me/avatar', authMiddleware, uploadMiddleware.single('avatar'), UserController.uploadAvatar)
 
 // Admin Routes
 router.get('/', authMiddleware, requireRole(['admin']), UserController.getAllUsers)
