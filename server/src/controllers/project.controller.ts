@@ -103,6 +103,7 @@ export class ProjectController {
                 ...(userId !== undefined && { userId }),
             })
 
+            logger.info('API', `Get all projects (User: ${userId || 'ADMIN'})`)
             return res.json(result)
         } catch (error) {
             logger.error('API', 'Get all projects failed', { error })
