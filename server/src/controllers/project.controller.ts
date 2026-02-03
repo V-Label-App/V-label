@@ -100,7 +100,7 @@ export class ProjectController {
             const result = await ProjectService.getAll({
                 page,
                 limit,
-                userId: userIdFilter,
+
                 ...(search !== undefined && { search }),
                 ...(categoryId !== undefined && { categoryId }),
                 ...(status !== undefined && { status }),
