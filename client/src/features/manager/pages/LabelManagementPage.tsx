@@ -83,7 +83,6 @@ import {
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
-  DropdownMenuCheckboxItem,
 } from "../../../components/ui/dropdown-menu";
 import {
   Collapsible,
@@ -1108,68 +1107,6 @@ export function LabelManagementPage() {
     setIsGlobal(label.isGlobal);
     setIsCategoryLocked(false);
     setIsAddLabelOpen(true);
-  };
-
-  // Move label to category (from dropdown menu)
-  const handleMoveToCategory = async (
-    labelId: string,
-    categoryId: string | null,
-  ) => {
-    const label = labels.find((l) => l.id === labelId);
-    if (!label) return;
-
-    try {
-      await labelApi.update(labelId, { categoryId });
-      const targetName =
-        categoryId === null
-          ? "Uncategorized"
-          : categories.find((c) => c.id === categoryId)?.name;
-      toast.success(`Moved "${label.name}" to ${targetName}`);
-      await fetchData();
-    } catch (error: unknown) {
-      const err = error as { response?: { data?: { error?: string } } };
-      toast.error(err.response?.data?.error || "Failed to move label");
-    }
-  };
-
-  // Toggle project assignment for a label
-  const handleToggleProjectAssignment = async (
-    labelId: string,
-    projectId: string,
-  ) => {
-    const label = labels.find((l) => l.id === labelId);
-    if (!label) return;
-
-    const isCurrentlyAssigned =
-      projectLabels[projectId]?.includes(labelId) || false;
-
-    try {
-      if (isCurrentlyAssigned) {
-        // Remove label from project
-        await apiClient.delete(`/projects/${projectId}/labels/${labelId}`);
-        setProjectLabels((prev) => ({
-          ...prev,
-          [projectId]: prev[projectId]?.filter((id) => id !== labelId) || [],
-        }));
-        toast.success(`Removed "${label.name}" from project`);
-      } else {
-        // Add label to project
-        await apiClient.post(`/projects/${projectId}/labels`, { labelId });
-        setProjectLabels((prev) => ({
-          ...prev,
-          [projectId]: [...(prev[projectId] || []), labelId],
-        }));
-        const project = projects.find((p) => p.id === projectId);
-        toast.success(`Added "${label.name}" to ${project?.name || "project"}`);
-      }
-    } catch (error: unknown) {
-      const err = error as { response?: { data?: { error?: string } } };
-      toast.error(
-        err.response?.data?.error || "Failed to update project assignment",
-      );
-      // Refresh project labels on error
-      await fetchProjectsWithLabels();
-    }
   };
 
   // Get active label for drag overlay
@@ -2956,7 +2893,7 @@ Animals,Living creatures,Dog,#F59E0B,false`}
 
       {/* Unassign Confirmation Dialog */}
       <Dialog open={unassignConfirmOpen} onOpenChange={setUnassignConfirmOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="sm:max-w-[420px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-amber-500" />
