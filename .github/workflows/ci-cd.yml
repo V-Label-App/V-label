@@ -252,57 +252,29 @@ jobs:
             source .env.production
             set +a
             
-            # Pre-pull images to minimize downtime and verify network
-            echo "📥 Pre-pulling images..."
-            docker compose -f docker-compose.prod.yml pull
+            # Stop current containers
+            echo "⏹️  Stopping current containers..."
+            docker compose -f docker-compose.prod.yml down
             
-            # Backup current state for potential rollback
-            echo "💾 Backing up current configuration..."
-            cp docker-compose.prod.yml docker-compose.prod.yml.bak || true
-            
-            # Start new containers WITHOUT stopping old ones first (if possible)
-            # Docker Compose up -d will recreate only what's changed
-            echo "🏗️  Starting new containers..."
-            docker compose -f docker-compose.prod.yml up -d
+            # Build and start with new code
+            echo "🏗️  Building and starting services..."
+            docker compose -f docker-compose.prod.yml up -d --build
             
             # Wait for services to be healthy
             echo "⏳ Waiting for services to be ready..."
-            MAX_RETRIES=10
-            COUNT=0
-            while [ $COUNT -lt $MAX_RETRIES ]; do
-              if curl -s -f http://localhost:4000/api/v1/health > /dev/null; then
-                echo "✅ Health check passed!"
-                HEALTHY=true
-                break
-              fi
-              echo "⏳ Health check attempt $((COUNT+1)) failed, retrying in 10s..."
-              sleep 10
-              COUNT=$((COUNT+1))
-            done
-
-            if [ "$HEALTHY" != "true" ]; then
-              echo "❌ Health check FAILED after $MAX_RETRIES attempts!"
-              echo "🔄 Attempting ROLLBACK..."
-              
-              # Log failure for debugging
-              docker compose -f docker-compose.prod.yml logs --tail=50
-              
-              # Rollback: Revert to previous version (this assumes we have a way to revert code)
-              # For now, we attempt to restart old containers if they were stopped
-              git checkout HEAD^ 
-              docker compose -f docker-compose.prod.yml up -d
-              
-              echo "⚠️  Rollback initiated. Check logs for details."
-              exit 1
-            fi
+            sleep 15
             
-            # Run database migrations ONLY after server is healthy/up
-            echo "Packaging database migrations..."
+            # Run database migrations
+            echo "📦 Running database migrations..."
             docker compose -f docker-compose.prod.yml exec -T server npx prisma migrate deploy
             
-            # Clean up old images to save space
-            echo "🧹 Cleaning up old images..."
-            docker image prune -f
+            # Check service status
+            echo "✅ Checking service status..."
+            docker compose -f docker-compose.prod.yml ps
+            
+            # Health check
+            echo "🏥 Running health check..."
+            curl -f http://localhost:4000/api/v1/health || echo "❌ Health check failed"
             
             echo "🎉 Deployment completed successfully!"
           EOF
