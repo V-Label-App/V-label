@@ -414,10 +414,11 @@ export function ProjectDetailPage() {
     currentPage * ITEMS_PER_PAGE,
   );
 
-  const projectProgress =
-    project._count?.tasks && project._count.tasks > 0
-      ? 0 // Placeholder
-      : 0;
+  const approvedTasksCount = tasks.filter((t: any) => t.status === "approved").length;
+  const totalTasksCount = project._count?.tasks || 0;
+  const projectProgress = totalTasksCount > 0
+    ? Math.round((approvedTasksCount / totalTasksCount) * 100)
+    : 0;
 
   // Handlers
   const handleEditProject = async () => {
@@ -1244,11 +1245,22 @@ export function ProjectDetailPage() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {Object.values(ProjectStatus).map((s) => (
-                              <SelectItem key={s} value={s}>
-                                {s}
-                              </SelectItem>
-                            ))}
+                            {Object.values(ProjectStatus).map((s) => {
+                              const isCompleted = s === ProjectStatus.COMPLETED;
+                              const isDisabled = isCompleted && projectProgress < 100;
+
+                              return (
+                                <SelectItem
+                                  key={s}
+                                  value={s}
+                                  disabled={isDisabled}
+                                  title={isDisabled ? "Project progress must be 100% to complete" : undefined}
+                                >
+                                  {s}
+                                  {isDisabled && " (100% required)"}
+                                </SelectItem>
+                              );
+                            })}
                           </SelectContent>
                         </Select>
                       </div>
@@ -1340,7 +1352,19 @@ export function ProjectDetailPage() {
                       </h4>
 
                       <div className="flex items-center justify-between">
-                        <Label>Auto-Assign Tasks</Label>
+                        <div className="flex items-center gap-2">
+                          <Label>Auto-Assign Tasks</Label>
+                          <Popover>
+                            <PopoverTrigger>
+                              <AlertCircle className="w-4 h-4 text-gray-400 cursor-help" />
+                            </PopoverTrigger>
+                            <PopoverContent className="w-80">
+                              <p className="text-sm">
+                                If enabled, new image uploads will be automatically distributed to available annotators based on the selected strategy.
+                              </p>
+                            </PopoverContent>
+                          </Popover>
+                        </div>
                         <Switch
                           checked={editAssignmentRule.isAutoAssignEnabled}
                           onCheckedChange={(c) =>
@@ -1381,7 +1405,19 @@ export function ProjectDetailPage() {
 
                       <div className="flex items-center justify-between pt-2">
                         <div className="space-y-0.5">
-                          <Label>Auto-Assign Reviewer</Label>
+                          <div className="flex items-center gap-2">
+                            <Label>Auto-Assign Reviewer</Label>
+                            <Popover>
+                              <PopoverTrigger>
+                                <AlertCircle className="w-4 h-4 text-gray-400 cursor-help" />
+                              </PopoverTrigger>
+                              <PopoverContent className="w-80">
+                                <p className="text-sm">
+                                  When an annotator submits a task, it will be immediately assigned to a reviewer (preventing specific annotator-reviewer pairings).
+                                </p>
+                              </PopoverContent>
+                            </Popover>
+                          </div>
                           <p className="text-xs text-muted-foreground">
                             Assign reviewer when task is submitted
                           </p>
@@ -1456,7 +1492,19 @@ export function ProjectDetailPage() {
                         </div>
                         <div className="flex items-center justify-between">
                           <div className="space-y-0.5">
-                            <Label>Auto-Reassign on Skip</Label>
+                            <div className="flex items-center gap-2">
+                              <Label>Auto-Reassign on Skip</Label>
+                              <Popover>
+                                <PopoverTrigger>
+                                  <AlertCircle className="w-4 h-4 text-gray-400 cursor-help" />
+                                </PopoverTrigger>
+                                <PopoverContent className="w-80">
+                                  <p className="text-sm">
+                                    If an annotator skips a task, it will be removed from their queue and sent back to the pool for reassignment.
+                                  </p>
+                                </PopoverContent>
+                              </Popover>
+                            </div>
                             <p className="text-xs text-muted-foreground">
                               Automatically assign to another user if skipped
                             </p>

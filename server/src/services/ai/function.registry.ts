@@ -98,8 +98,8 @@ FunctionRegistry.register(
   async (params) => {
     return ResponseFormatter.asText(
       `**Echo Test Result**\n\n` +
-        `Received parameters:\n\`\`\`json\n${JSON.stringify(params, null, 2)}\n\`\`\`\n\n` +
-        `Timestamp: ${new Date().toLocaleString('vi-VN')}`,
+      `Received parameters:\n\`\`\`json\n${JSON.stringify(params, null, 2)}\n\`\`\`\n\n` +
+      `Timestamp: ${new Date().toLocaleString('vi-VN')}`,
     )
   },
   {
@@ -528,7 +528,56 @@ Only show form for title/message if not provided. DO NOT ask for targetType/targ
   },
 )
 
-// 6. Create Labels Automatically (Manager/Admin only)
+// 6. Suggest Labels (Preview)
+FunctionRegistry.register(
+  'suggest_labels',
+  async (params) => {
+    const { categoryName, labels } = params
+
+    return ResponseFormatter.asCard({
+      title: '📋 Label Suggestion Plan',
+      subtitle: `Suggested labels for category: ${categoryName}`,
+      variant: 'default',
+      fields: {
+        Category: categoryName,
+        'Label Count': labels.length,
+        Labels:
+          labels.length <= 15
+            ? labels.join(', ')
+            : labels.slice(0, 15).join(', ') + ` (+${labels.length - 15} more)`,
+      },
+      data: {
+        type: 'label_suggestion',
+        categoryName,
+        labels,
+      },
+    })
+  },
+  {
+    description:
+      'Suggest a list of label names and colors. Use this when the user wants to see a preview of labels before creating them.',
+    parameters: {
+      type: 'object',
+      properties: {
+        categoryName: {
+          type: 'string',
+          description: 'Name of the category for these labels',
+        },
+        labels: {
+          type: 'array',
+          items: {
+            type: 'string',
+            description: 'Label name',
+          },
+          description: 'A list of label names to suggest',
+        },
+      },
+      required: ['categoryName', 'labels'],
+    },
+  },
+)
+
+// 7. Create Labels Automatically (Manager/Admin only)
 FunctionRegistry.register(
   'create_labels_auto',
   async (params, context) => {
@@ -546,10 +595,10 @@ FunctionRegistry.register(
     if (!labels || !Array.isArray(labels) || labels.length === 0) {
       return ResponseFormatter.asText(
         `Vui lòng cho tôi biết bạn muốn tạo những label gì. Ví dụ:\n` +
-          `- "Tạo category Animals với các label: Dog, Cat, Bird, Fish, Rabbit"\n` +
-          `- "Tạo 10 label con vật dưới nước trong category Sea Animals"\n` +
-          `- "Thêm các label Xe máy, Ô tô, Xe đạp vào category Vehicles"\n\n` +
-          `Tôi sẽ tự động tạo category (nếu chưa có) và các label cho bạn.`,
+        `- "Tạo category Animals với các label: Dog, Cat, Bird, Fish, Rabbit"\n` +
+        `- "Tạo 10 label con vật dưới nước trong category Sea Animals"\n` +
+        `- "Thêm các label Xe máy, Ô tô, Xe đạp vào category Vehicles"\n\n` +
+        `Tôi sẽ tự động tạo category (nếu chưa có) và các label cho bạn.`,
       )
     }
 
@@ -781,7 +830,7 @@ FunctionRegistry.register(
           results.labelsCreated.length <= 10
             ? results.labelsCreated.join(', ')
             : results.labelsCreated.slice(0, 10).join(', ') +
-              ` (+${results.labelsCreated.length - 10} more)`
+            ` (+${results.labelsCreated.length - 10} more)`
       }
 
       if (results.labelsSkipped.length > 0) {

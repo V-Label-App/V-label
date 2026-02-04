@@ -72,6 +72,7 @@ export interface CardContent {
     fields: Record<string, any>;
     actions?: ButtonAction[];
     variant?: 'default' | 'success' | 'warning' | 'error';
+    data?: any;              // Additional structured data for frontend
 }
 
 export interface ButtonAction {
