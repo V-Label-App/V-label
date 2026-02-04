@@ -244,12 +244,9 @@ Requirements:
 
                 {(step === "thinking" || step === "creating") && (
                     <div className="py-20 flex flex-col items-center justify-center space-y-4 animate-in fade-in duration-500">
-                        <div className="relative">
-                            <Sparkles className="w-12 h-12 text-blue-500 animate-pulse" />
-                            <Loader2 className="w-12 h-12 text-blue-200 animate-spin absolute inset-0 -m-0.5 border-4 rounded-full border-t-blue-500 border-r-transparent border-b-transparent border-l-transparent" />
-                        </div>
+                        <Sparkles className="w-12 h-12 text-blue-500 animate-pulse" />
                         <p className="text-sm font-medium text-gray-600">
-                            {step === "thinking" ? "Thinking of best labels..." : "Saving labels to system..."}
+                            {step === "thinking" ? "AI is analyzing your request and preparing suggestions..." : "Saving labels to system..."}
                         </p>
                     </div>
                 )}
