@@ -1,6 +1,6 @@
 import { prisma } from '../utils/database.js'
 import logger from '../utils/logger.js'
-import { Prisma, ProjectStatus, ProjectRole } from '@prisma/client'
+import { Prisma, ProjectStatus, ProjectRole, TaskStatus } from '@prisma/client'
 
 export class ProjectService {
     /**
@@ -245,7 +245,7 @@ export class ProjectService {
             if (data.status === ProjectStatus.COMPLETED) {
                 const [totalTasks, approvedTasks] = await Promise.all([
                     prisma.task.count({ where: { projectId: id } }),
-                    prisma.task.count({ where: { projectId: id, status: 'approved' } })
+                    prisma.task.count({ where: { projectId: id, status: TaskStatus.DONE } })
                 ])
 
                 if (totalTasks === 0 || approvedTasks < totalTasks) {

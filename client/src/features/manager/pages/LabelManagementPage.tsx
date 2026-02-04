@@ -37,7 +37,6 @@ import {
   MoreHorizontal,
   ChevronRight,
   Upload,
-  Download,
   FileDown,
   FileText,
   FileSpreadsheet,
@@ -45,6 +44,7 @@ import {
   XCircle,
   GripVertical,
   Copy,
+  Sparkles,
 } from "lucide-react";
 import {
   DndContext,
@@ -86,6 +86,7 @@ import {
   CollapsibleTrigger,
 } from "../../../components/ui/collapsible";
 import { HexColorPicker } from "react-colorful";
+import { AIGenerateLabelsDialog } from "../components/AIGenerateLabelsDialog";
 
 const DEFAULT_COLORS = [
   "#EF4444",
@@ -147,11 +148,10 @@ function DraggableLabelItem({
     <div
       ref={setNodeRef}
       style={style}
-      className={`group flex items-center gap-2 p-3 rounded-lg border transition-all ${
-        isSelected
-          ? "bg-blue-50 border-blue-200"
-          : "bg-white border-gray-200 hover:border-gray-300"
-      } ${isDragging ? "shadow-lg z-50" : ""}`}
+      className={`group flex items-center gap-2 p-3 rounded-lg border transition-all ${isSelected
+        ? "bg-blue-50 border-blue-200"
+        : "bg-white border-gray-200 hover:border-gray-300"
+        } ${isDragging ? "shadow-lg z-50" : ""}`}
     >
       <button
         {...attributes}
@@ -291,7 +291,7 @@ export function LabelManagementPage() {
     title: string;
     message: string;
     onConfirm: () => void;
-  }>({ open: false, title: "", message: "", onConfirm: () => {} });
+  }>({ open: false, title: "", message: "", onConfirm: () => { } });
 
   // Import dialog state
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
@@ -320,6 +320,7 @@ export function LabelManagementPage() {
   const [selectedLabelsPerProject, setSelectedLabelsPerProject] = useState<
     Record<string, string[]>
   >({});
+  const [isAIGenerateOpen, setIsAIGenerateOpen] = useState(false);
 
   // Drag and drop state
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -1191,6 +1192,7 @@ export function LabelManagementPage() {
                       </SelectContent>
                     </Select>
                     <div className="flex-1" />
+                    {/* Management group removed from here, moved to the right group */}
                     {selectedLabelIds.length > 0 && (
                       <Button
                         variant="destructive"
@@ -1206,55 +1208,88 @@ export function LabelManagementPage() {
                         Delete ({selectedLabelIds.length})
                       </Button>
                     )}
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" disabled={isExporting}>
-                          {isExporting ? (
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          ) : (
-                            <Download className="w-4 h-4 mr-2" />
-                          )}
-                          Export
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-56">
-                        <DropdownMenuItem onClick={handleExportCSV}>
-                          <FileText className="w-4 h-4 mr-2" />
-                          Export as CSV
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={handleExportExcel}>
-                          <FileSpreadsheet className="w-4 h-4 mr-2" />
-                          Export as Excel
-                        </DropdownMenuItem>
-                        <div className="h-px bg-gray-200 my-1" />
-                        <DropdownMenuItem onClick={handleDownloadCSVTemplate}>
-                          <FileText className="w-4 h-4 mr-2" />
-                          CSV Template
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={handleDownloadExcelTemplate}>
-                          <FileSpreadsheet className="w-4 h-4 mr-2" />
-                          Excel Template
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                    <Button
-                      variant="outline"
-                      onClick={() => setIsImportDialogOpen(true)}
-                    >
-                      <Upload className="w-4 h-4 mr-2" />
-                      Import
-                    </Button>
-                    <Button variant="outline" onClick={openProjectsDialog}>
-                      <FolderKanban className="w-4 h-4 mr-2" />
-                      Projects
-                    </Button>
-                    {/* New Label button removed */}
+                    {/* Grouping utility actions */}
+                    <div className="flex items-center bg-gray-50/80 p-1 rounded-lg border border-gray-100 gap-1 mr-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={openProjectsDialog}
+                        className="h-8 text-xs hover:bg-white hover:shadow-sm transition-all"
+                      >
+                        <FolderKanban className="w-3.5 h-3.5 mr-1.5" />
+                        Projects
+                      </Button>
+                      <div className="w-px h-4 bg-gray-200 mx-1" />
+
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={isExporting || isImporting}
+                            className="h-8 text-xs hover:bg-white hover:shadow-sm transition-all"
+                          >
+                            {isExporting || isImporting ? (
+                              <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                            ) : (
+                              <FolderOpen className="w-3.5 h-3.5 mr-1.5" />
+                            )}
+                            Data Actions
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-56">
+                          <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                            Import Data
+                          </div>
+                          <DropdownMenuItem onClick={() => setIsImportDialogOpen(true)}>
+                            <Upload className="w-4 h-4 mr-2" />
+                            Import Labels
+                          </DropdownMenuItem>
+
+                          <div className="h-px bg-gray-100 my-1" />
+                          <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                            Export Data
+                          </div>
+                          <DropdownMenuItem onClick={handleExportCSV}>
+                            <FileText className="w-4 h-4 mr-2" />
+                            Export as CSV
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={handleExportExcel}>
+                            <FileSpreadsheet className="w-4 h-4 mr-2" />
+                            Export as Excel
+                          </DropdownMenuItem>
+
+                          <div className="h-px bg-gray-100 my-1" />
+                          <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                            Templates
+                          </div>
+                          <DropdownMenuItem onClick={handleDownloadCSVTemplate}>
+                            <FileText className="w-4 h-4 mr-2" />
+                            CSV Template
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={handleDownloadExcelTemplate}>
+                            <FileSpreadsheet className="w-4 h-4 mr-2" />
+                            Excel Template
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+
                     <Button
                       onClick={() => setIsAddCategoryOpen(true)}
                       variant="outline"
+                      className="hover:bg-gray-50"
                     >
                       <Plus className="w-4 h-4 mr-2" />
                       New Category
+                    </Button>
+
+                    <Button
+                      onClick={() => setIsAIGenerateOpen(true)}
+                      className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm shadow-blue-200 border-0 gap-2 px-4"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      AI Generate
                     </Button>
                   </div>
                 </Card>
@@ -1428,105 +1463,105 @@ export function LabelManagementPage() {
                       {/* Uncategorized Labels */}
                       {(labelsByCategory["uncategorized"]?.length > 0 ||
                         categories.length === 0) && (
-                        <Collapsible
-                          open={expandedCategories.has("uncategorized")}
-                          onOpenChange={() => toggleCategory("uncategorized")}
-                        >
-                          <Card className="overflow-hidden" id="uncategorized">
-                            {/* Uncategorized Header */}
-                            <CollapsibleTrigger asChild>
-                              <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b cursor-pointer hover:bg-gray-100 transition-colors">
-                                <div className="flex items-center gap-2">
-                                  <ChevronRight
-                                    className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${expandedCategories.has("uncategorized") ? "rotate-90" : ""}`}
-                                  />
-                                  <span className="font-medium text-gray-600">
-                                    Uncategorized
-                                  </span>
-                                  <Badge variant="secondary" className="ml-1">
-                                    {labelsByCategory["uncategorized"]
-                                      ?.length || 0}
-                                  </Badge>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  {(labelsByCategory["uncategorized"]?.length ||
-                                    0) > 0 && (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="text-sm text-blue-600 hover:text-blue-700 h-auto py-1"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        selectAllInCategory("uncategorized");
-                                      }}
-                                    >
-                                      {isAllSelectedInCategory("uncategorized")
-                                        ? "Deselect All"
-                                        : "Select All"}
-                                    </Button>
-                                  )}
-                                </div>
-                              </div>
-                            </CollapsibleTrigger>
-
-                            {/* Uncategorized Labels Grid */}
-                            <CollapsibleContent className="data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up overflow-hidden">
-                              <div
-                                className="p-4"
-                                data-category-id="uncategorized"
-                              >
-                                <SortableContext
-                                  items={(
-                                    labelsByCategory["uncategorized"] || []
-                                  ).map((l) => l.id)}
-                                  strategy={verticalListSortingStrategy}
-                                >
-                                  <div className="grid grid-cols-2 gap-3">
-                                    {(
-                                      labelsByCategory["uncategorized"] || []
-                                    ).map((label) => (
-                                      <DraggableLabelItem
-                                        key={label.id}
-                                        label={label}
-                                        isSelected={selectedLabelIds.includes(
-                                          label.id,
-                                        )}
-                                        categories={categories}
-                                        onToggleSelect={() =>
-                                          toggleLabelSelection(label.id)
-                                        }
-                                        onEdit={() => openEditLabel(label)}
-                                        onDelete={() =>
-                                          handleDeleteLabel(label.id)
-                                        }
-                                        onDuplicate={() =>
-                                          handleDuplicateLabel(label)
-                                        }
-                                        onMoveToCategory={(catId) =>
-                                          handleMoveToCategory(label.id, catId)
-                                        }
-                                      />
-                                    ))}
-
-                                    {/* Add Label Button */}
-                                    <button
-                                      onClick={() =>
-                                        openCreateLabelInCategory(
-                                          "uncategorized",
-                                        )
-                                      }
-                                      className="flex items-center justify-center gap-2 p-3 rounded-lg border-2 border-dashed border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-                                    >
-                                      <Plus className="w-4 h-4" />
-                                      <span>Add Label</span>
-                                    </button>
+                          <Collapsible
+                            open={expandedCategories.has("uncategorized")}
+                            onOpenChange={() => toggleCategory("uncategorized")}
+                          >
+                            <Card className="overflow-hidden" id="uncategorized">
+                              {/* Uncategorized Header */}
+                              <CollapsibleTrigger asChild>
+                                <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b cursor-pointer hover:bg-gray-100 transition-colors">
+                                  <div className="flex items-center gap-2">
+                                    <ChevronRight
+                                      className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${expandedCategories.has("uncategorized") ? "rotate-90" : ""}`}
+                                    />
+                                    <span className="font-medium text-gray-600">
+                                      Uncategorized
+                                    </span>
+                                    <Badge variant="secondary" className="ml-1">
+                                      {labelsByCategory["uncategorized"]
+                                        ?.length || 0}
+                                    </Badge>
                                   </div>
-                                </SortableContext>
-                              </div>
-                            </CollapsibleContent>
-                          </Card>
-                        </Collapsible>
-                      )}
+                                  <div className="flex items-center gap-2">
+                                    {(labelsByCategory["uncategorized"]?.length ||
+                                      0) > 0 && (
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="text-sm text-blue-600 hover:text-blue-700 h-auto py-1"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            selectAllInCategory("uncategorized");
+                                          }}
+                                        >
+                                          {isAllSelectedInCategory("uncategorized")
+                                            ? "Deselect All"
+                                            : "Select All"}
+                                        </Button>
+                                      )}
+                                  </div>
+                                </div>
+                              </CollapsibleTrigger>
+
+                              {/* Uncategorized Labels Grid */}
+                              <CollapsibleContent className="data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up overflow-hidden">
+                                <div
+                                  className="p-4"
+                                  data-category-id="uncategorized"
+                                >
+                                  <SortableContext
+                                    items={(
+                                      labelsByCategory["uncategorized"] || []
+                                    ).map((l) => l.id)}
+                                    strategy={verticalListSortingStrategy}
+                                  >
+                                    <div className="grid grid-cols-2 gap-3">
+                                      {(
+                                        labelsByCategory["uncategorized"] || []
+                                      ).map((label) => (
+                                        <DraggableLabelItem
+                                          key={label.id}
+                                          label={label}
+                                          isSelected={selectedLabelIds.includes(
+                                            label.id,
+                                          )}
+                                          categories={categories}
+                                          onToggleSelect={() =>
+                                            toggleLabelSelection(label.id)
+                                          }
+                                          onEdit={() => openEditLabel(label)}
+                                          onDelete={() =>
+                                            handleDeleteLabel(label.id)
+                                          }
+                                          onDuplicate={() =>
+                                            handleDuplicateLabel(label)
+                                          }
+                                          onMoveToCategory={(catId) =>
+                                            handleMoveToCategory(label.id, catId)
+                                          }
+                                        />
+                                      ))}
+
+                                      {/* Add Label Button */}
+                                      <button
+                                        onClick={() =>
+                                          openCreateLabelInCategory(
+                                            "uncategorized",
+                                          )
+                                        }
+                                        className="flex items-center justify-center gap-2 p-3 rounded-lg border-2 border-dashed border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                                      >
+                                        <Plus className="w-4 h-4" />
+                                        <span>Add Label</span>
+                                      </button>
+                                    </div>
+                                  </SortableContext>
+                                </div>
+                              </CollapsibleContent>
+                            </Card>
+                          </Collapsible>
+                        )}
                     </div>
 
                     {/* Drag Overlay */}
@@ -2214,11 +2249,10 @@ Animals,Living creatures,Dog,#F59E0B,false`}
                                       return (
                                         <div
                                           key={label.id}
-                                          className={`flex items-center gap-2 p-2 rounded transition-all ${
-                                            isAssigned
-                                              ? "bg-green-50 border-2 border-green-300 cursor-default"
-                                              : "hover:bg-gray-50 border-2 border-transparent"
-                                          }`}
+                                          className={`flex items-center gap-2 p-2 rounded transition-all ${isAssigned
+                                            ? "bg-green-50 border-2 border-green-300 cursor-default"
+                                            : "hover:bg-gray-50 border-2 border-transparent"
+                                            }`}
                                           title={
                                             isAssigned
                                               ? "Already assigned to this project"
@@ -2245,11 +2279,10 @@ Animals,Living creatures,Dog,#F59E0B,false`}
                                             }}
                                           />
                                           <span
-                                            className={`text-sm truncate flex-1 font-medium ${
-                                              isAssigned
-                                                ? "text-green-700"
-                                                : "text-gray-700"
-                                            }`}
+                                            className={`text-sm truncate flex-1 font-medium ${isAssigned
+                                              ? "text-green-700"
+                                              : "text-gray-700"
+                                              }`}
                                           >
                                             {label.name}
                                           </span>
@@ -2282,11 +2315,10 @@ Animals,Living creatures,Dog,#F59E0B,false`}
                                       return (
                                         <div
                                           key={label.id}
-                                          className={`flex items-center gap-2 p-2 rounded transition-all ${
-                                            isAssigned
-                                              ? "bg-green-50 border-2 border-green-300 cursor-default"
-                                              : "hover:bg-gray-50 border-2 border-transparent"
-                                          }`}
+                                          className={`flex items-center gap-2 p-2 rounded transition-all ${isAssigned
+                                            ? "bg-green-50 border-2 border-green-300 cursor-default"
+                                            : "hover:bg-gray-50 border-2 border-transparent"
+                                            }`}
                                           title={
                                             isAssigned
                                               ? "Already assigned to this project"
@@ -2313,11 +2345,10 @@ Animals,Living creatures,Dog,#F59E0B,false`}
                                             }}
                                           />
                                           <span
-                                            className={`text-sm truncate flex-1 font-medium ${
-                                              isAssigned
-                                                ? "text-green-700"
-                                                : "text-gray-700"
-                                            }`}
+                                            className={`text-sm truncate flex-1 font-medium ${isAssigned
+                                              ? "text-green-700"
+                                              : "text-gray-700"
+                                              }`}
                                           >
                                             {label.name}
                                           </span>
@@ -2484,6 +2515,12 @@ Animals,Living creatures,Dog,#F59E0B,false`}
           </div>
         </DialogContent>
       </Dialog>
+      <AIGenerateLabelsDialog
+        isOpen={isAIGenerateOpen}
+        onClose={() => setIsAIGenerateOpen(false)}
+        categories={categories}
+        onSuccess={fetchData}
+      />
     </div>
   );
 }
