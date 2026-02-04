@@ -2,14 +2,15 @@
 
 name: v-label-prod
 
+# Shared logging configuration
+# This limits logs to 10MB per file, max 3 files to save disk space
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
-  # Shared logging configuration
-  # This limits logs to 10MB per file, max 3 files to save disk space
-  x-logging: &default-logging
-    driver: "json-file"
-    options:
-      max-size: "10m"
-      max-file: "3"
 
   # PostgreSQL Database
   postgres:
