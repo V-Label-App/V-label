@@ -276,6 +276,10 @@ jobs:
             echo "🏥 Running health check..."
             curl -f http://localhost:4000/api/v1/health || echo "❌ Health check failed"
             
+            # Cleanup builder cache
+            echo "🧹 Cleaning up builder cache to save space..."
+            docker builder prune -f
+            
             echo "🎉 Deployment completed successfully!"
           EOF
 
