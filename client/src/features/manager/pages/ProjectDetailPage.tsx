@@ -414,10 +414,11 @@ export function ProjectDetailPage() {
     currentPage * ITEMS_PER_PAGE,
   );
 
-  const projectProgress =
-    project._count?.tasks && project._count.tasks > 0
-      ? 0 // Placeholder
-      : 0;
+  const approvedTasksCount = tasks.filter((t: any) => t.status === "approved").length;
+  const totalTasksCount = project._count?.tasks || 0;
+  const projectProgress = totalTasksCount > 0
+    ? Math.round((approvedTasksCount / totalTasksCount) * 100)
+    : 0;
 
   // Handlers
   const handleEditProject = async () => {
@@ -1244,11 +1245,22 @@ export function ProjectDetailPage() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {Object.values(ProjectStatus).map((s) => (
-                              <SelectItem key={s} value={s}>
-                                {s}
-                              </SelectItem>
-                            ))}
+                            {Object.values(ProjectStatus).map((s) => {
+                              const isCompleted = s === ProjectStatus.COMPLETED;
+                              const isDisabled = isCompleted && projectProgress < 100;
+
+                              return (
+                                <SelectItem
+                                  key={s}
+                                  value={s}
+                                  disabled={isDisabled}
+                                  title={isDisabled ? "Project progress must be 100% to complete" : undefined}
+                                >
+                                  {s}
+                                  {isDisabled && " (100% required)"}
+                                </SelectItem>
+                              );
+                            })}
                           </SelectContent>
                         </Select>
                       </div>

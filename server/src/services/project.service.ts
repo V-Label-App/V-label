@@ -154,7 +154,17 @@ export class ProjectService {
                         },
                     },
                     _count: {
-                        select: { tasks: true, members: true, images: true },
+                        select: {
+                            tasks: true,
+                            members: {
+                                where: {
+                                    projectRole: {
+                                        not: 'MANAGER'
+                                    }
+                                }
+                            },
+                            images: true
+                        },
                     },
                 },
             })
@@ -228,6 +238,20 @@ export class ProjectService {
                             'Cannot update Label Configuration because this project already has tasks. Please delete all tasks first.',
                         )
                     }
+                }
+            }
+
+            // If status is being updated to COMPLETED, check progress
+            if (data.status === ProjectStatus.COMPLETED) {
+                const [totalTasks, approvedTasks] = await Promise.all([
+                    prisma.task.count({ where: { projectId: id } }),
+                    prisma.task.count({ where: { projectId: id, status: 'approved' } })
+                ])
+
+                if (totalTasks === 0 || approvedTasks < totalTasks) {
+                    throw new Error(
+                        'Cannot mark project as COMPLETED until all tasks are approved (100% progress).'
+                    )
                 }
             }
 
