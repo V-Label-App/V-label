@@ -1340,7 +1340,19 @@ export function ProjectDetailPage() {
                       </h4>
 
                       <div className="flex items-center justify-between">
-                        <Label>Auto-Assign Tasks</Label>
+                        <div className="flex items-center gap-2">
+                          <Label>Auto-Assign Tasks</Label>
+                          <Popover>
+                            <PopoverTrigger>
+                              <AlertCircle className="w-4 h-4 text-gray-400 cursor-help" />
+                            </PopoverTrigger>
+                            <PopoverContent className="w-80">
+                              <p className="text-sm">
+                                If enabled, new image uploads will be automatically distributed to available annotators based on the selected strategy.
+                              </p>
+                            </PopoverContent>
+                          </Popover>
+                        </div>
                         <Switch
                           checked={editAssignmentRule.isAutoAssignEnabled}
                           onCheckedChange={(c) =>
@@ -1381,7 +1393,19 @@ export function ProjectDetailPage() {
 
                       <div className="flex items-center justify-between pt-2">
                         <div className="space-y-0.5">
-                          <Label>Auto-Assign Reviewer</Label>
+                          <div className="flex items-center gap-2">
+                            <Label>Auto-Assign Reviewer</Label>
+                            <Popover>
+                              <PopoverTrigger>
+                                <AlertCircle className="w-4 h-4 text-gray-400 cursor-help" />
+                              </PopoverTrigger>
+                              <PopoverContent className="w-80">
+                                <p className="text-sm">
+                                  When an annotator submits a task, it will be immediately assigned to a reviewer (preventing specific annotator-reviewer pairings).
+                                </p>
+                              </PopoverContent>
+                            </Popover>
+                          </div>
                           <p className="text-xs text-muted-foreground">
                             Assign reviewer when task is submitted
                           </p>
@@ -1456,7 +1480,19 @@ export function ProjectDetailPage() {
                         </div>
                         <div className="flex items-center justify-between">
                           <div className="space-y-0.5">
-                            <Label>Auto-Reassign on Skip</Label>
+                            <div className="flex items-center gap-2">
+                              <Label>Auto-Reassign on Skip</Label>
+                              <Popover>
+                                <PopoverTrigger>
+                                  <AlertCircle className="w-4 h-4 text-gray-400 cursor-help" />
+                                </PopoverTrigger>
+                                <PopoverContent className="w-80">
+                                  <p className="text-sm">
+                                    If an annotator skips a task, it will be removed from their queue and sent back to the pool for reassignment.
+                                  </p>
+                                </PopoverContent>
+                              </Popover>
+                            </div>
                             <p className="text-xs text-muted-foreground">
                               Automatically assign to another user if skipped
                             </p>

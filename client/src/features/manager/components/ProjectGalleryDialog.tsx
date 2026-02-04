@@ -237,37 +237,60 @@ export function ProjectGalleryDialog({ projectId, initialDatasetId, open, onOpen
                     ) : (
                         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10 gap-4">
                             {images.map(img => (
-                                <div key={img.id} className="group relative aspect-square bg-gray-100 rounded-lg overflow-hidden border hover:ring-2 hover:ring-primary transition-all">
-                                    <img
-                                        src={img.storageUrl}
-                                        alt={img.originalFilename}
-                                        className="w-full h-full object-cover"
-                                        loading="lazy"
-                                    />
-                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-2">
-                                        <p className="text-white text-xs truncate font-medium">{img.originalFilename}</p>
-                                        <p className="text-white/80 text-[10px]">{formatSize(img.fileSizeBytes)}</p>
-                                        {img.dataset && (
-                                            <Badge variant="secondary" className="mt-1 w-fit text-[10px] h-4 px-1">{img.dataset.name}</Badge>
-                                        )}
-
-                                        <Checkbox
-                                            className="absolute top-2 left-2 z-10 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 bg-white/80 border-gray-400"
-                                            checked={selectedImages.includes(img.id)}
-                                            onCheckedChange={() => toggleSelect(img.id)}
-                                            onClick={(e) => e.stopPropagation()}
+                                <div
+                                    key={img.id}
+                                    className={`
+                                        group relative rounded-lg overflow-hidden border transition-all
+                                        ${selectedImages.includes(img.id) ? 'ring-2 ring-blue-600 border-transparent bg-blue-50/10' : 'hover:ring-2 hover:ring-gray-300 bg-white'}
+                                    `}
+                                >
+                                    <div className="aspect-square relative bg-gray-100 overflow-hidden">
+                                        <img
+                                            src={img.storageUrl}
+                                            alt={img.originalFilename}
+                                            className="w-full h-full object-cover"
+                                            loading="lazy"
                                         />
 
-                                        <div className="absolute top-2 right-2 flex gap-1">
-                                            <Button size="icon" variant="destructive" className="h-6 w-6" onClick={(e) => {
-                                                e.stopPropagation();
-                                                confirmDelete(img.id);
-                                            }}>
-                                                <Trash2 className="w-3 h-3" />
-                                            </Button>
-                                            <Button size="icon" variant="secondary" className="h-6 w-6" onClick={() => setPreviewImage(img)}>
-                                                <ZoomIn className="w-3 h-3" />
-                                            </Button>
+                                        {/* Overlay for Actions */}
+                                        <div className={`
+                                            absolute inset-0 bg-black/10 transition-opacity flex flex-col justify-between p-2
+                                            ${selectedImages.includes(img.id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}
+                                        `}>
+                                            <div className="flex justify-between items-start">
+                                                <Checkbox
+                                                    className={`
+                                                        data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 bg-white/90 border-gray-400 shadow-sm
+                                                    `}
+                                                    checked={selectedImages.includes(img.id)}
+                                                    onCheckedChange={() => toggleSelect(img.id)}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                />
+                                                <div className="flex gap-1 ml-auto">
+                                                    <Button size="icon" variant="destructive" className="h-6 w-6 shadow-sm" onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        confirmDelete(img.id);
+                                                    }}>
+                                                        <Trash2 className="w-3 h-3" />
+                                                    </Button>
+                                                    <Button size="icon" variant="secondary" className="h-6 w-6 shadow-sm bg-white/90 hover:bg-white" onClick={() => setPreviewImage(img)}>
+                                                        <ZoomIn className="w-3 h-3" />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Info Below Image */}
+                                    <div className="p-2 border-t bg-white">
+                                        <p className="text-xs font-medium text-gray-900 truncate" title={img.originalFilename}>
+                                            {img.originalFilename}
+                                        </p>
+                                        <div className="flex items-center justify-between mt-1">
+                                            <p className="text-[10px] text-muted-foreground">{formatSize(img.fileSizeBytes)}</p>
+                                            {img.dataset && (
+                                                <Badge variant="secondary" className="text-[10px] h-4 px-1">{img.dataset.name}</Badge>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
