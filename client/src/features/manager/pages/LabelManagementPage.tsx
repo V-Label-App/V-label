@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "../../../components/ui/select";
 import { Checkbox } from "../../../components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "../../../components/ui/radio-group";
 import {
   Plus,
   Trash2,
@@ -79,6 +80,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
 } from "../../../components/ui/dropdown-menu";
 import {
   Collapsible,
@@ -110,7 +114,8 @@ interface DraggableLabelProps {
   onEdit: () => void;
   onDelete: () => void;
   onDuplicate: () => void;
-  onMoveToCategory: (categoryId: string | null) => void;
+  onOpenMoveCategory: () => void;
+  onOpenAssignProjects: () => void;
 }
 
 function DraggableLabelItem({
@@ -121,7 +126,8 @@ function DraggableLabelItem({
   onEdit,
   onDelete,
   onDuplicate,
-  onMoveToCategory,
+  onOpenMoveCategory,
+  onOpenAssignProjects,
 }: DraggableLabelProps) {
   const {
     attributes,
@@ -148,10 +154,11 @@ function DraggableLabelItem({
     <div
       ref={setNodeRef}
       style={style}
-      className={`group flex items-center gap-2 p-3 rounded-lg border transition-all ${isSelected
-        ? "bg-blue-50 border-blue-200"
-        : "bg-white border-gray-200 hover:border-gray-300"
-        } ${isDragging ? "shadow-lg z-50" : ""}`}
+      className={`group flex items-center gap-2 p-3 rounded-lg border transition-all ${
+        isSelected
+          ? "bg-blue-50 border-blue-200"
+          : "bg-white border-gray-200 hover:border-gray-300"
+      } ${isDragging ? "shadow-lg z-50" : ""}`}
     >
       <button
         {...attributes}
@@ -190,7 +197,7 @@ function DraggableLabelItem({
             <MoreHorizontal className="w-4 h-4" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuContent align="end" className="w-56">
           <DropdownMenuItem onClick={onEdit}>
             <Edit2 className="w-4 h-4 mr-2" />
             Edit
@@ -199,23 +206,24 @@ function DraggableLabelItem({
             <Copy className="w-4 h-4 mr-2" />
             Duplicate
           </DropdownMenuItem>
+
+          {/* Move to Category Dialog */}
           {moveOptions.length > 0 && (
             <>
               <div className="h-px bg-gray-200 my-1" />
-              <div className="px-2 py-1.5 text-xs font-medium text-gray-500">
-                Move to
-              </div>
-              {moveOptions.map((opt) => (
-                <DropdownMenuItem
-                  key={opt.id || "uncategorized"}
-                  onClick={() => onMoveToCategory(opt.id)}
-                >
-                  <FolderOpen className="w-4 h-4 mr-2" />
-                  {opt.name}
-                </DropdownMenuItem>
-              ))}
+              <DropdownMenuItem onClick={onOpenMoveCategory}>
+                <FolderOpen className="w-4 h-4 mr-2" />
+                Move to Category
+              </DropdownMenuItem>
             </>
           )}
+
+          {/* Assign to Projects Dialog */}
+          <DropdownMenuItem onClick={onOpenAssignProjects}>
+            <FolderKanban className="w-4 h-4 mr-2" />
+            Assign to Projects
+          </DropdownMenuItem>
+
           <div className="h-px bg-gray-200 my-1" />
           <DropdownMenuItem
             onClick={onDelete}
@@ -291,7 +299,7 @@ export function LabelManagementPage() {
     title: string;
     message: string;
     onConfirm: () => void;
-  }>({ open: false, title: "", message: "", onConfirm: () => { } });
+  }>({ open: false, title: "", message: "", onConfirm: () => {} });
 
   // Import dialog state
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
@@ -321,6 +329,25 @@ export function LabelManagementPage() {
     Record<string, string[]>
   >({});
   const [isAIGenerateOpen, setIsAIGenerateOpen] = useState(false);
+
+  // Label context menu dialogs
+  const [moveCategoryDialogOpen, setMoveCategoryDialogOpen] = useState(false);
+  const [assignProjectsDialogOpen, setAssignProjectsDialogOpen] =
+    useState(false);
+  const [contextLabel, setContextLabel] = useState<Label | null>(null);
+  const [selectedCategoryForMove, setSelectedCategoryForMove] = useState<
+    string | null
+  >(null);
+  const [selectedProjectsForAssign, setSelectedProjectsForAssign] = useState<
+    string[]
+  >([]);
+  const [initialProjectAssignments, setInitialProjectAssignments] = useState<
+    string[]
+  >([]);
+  const [unassignConfirmOpen, setUnassignConfirmOpen] = useState(false);
+  const [projectsToUnassign, setProjectsToUnassign] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
 
   // Drag and drop state
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -358,6 +385,11 @@ export function LabelManagementPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Load projects on mount for label assignment
+  useEffect(() => {
+    fetchProjectsWithLabels();
+  }, []);
 
   // Listen for label events from socket (create/update/delete)
   useEffect(() => {
@@ -1077,30 +1109,167 @@ export function LabelManagementPage() {
     setIsAddLabelOpen(true);
   };
 
-  // Move label to category (from dropdown menu)
-  const handleMoveToCategory = async (
-    labelId: string,
-    categoryId: string | null,
-  ) => {
-    const label = labels.find((l) => l.id === labelId);
-    if (!label) return;
+  // Get active label for drag overlay
+  const activeLabel = activeId ? labels.find((l) => l.id === activeId) : null;
+
+  // Open move to category dialog
+  const handleOpenMoveCategory = (label: Label) => {
+    setContextLabel(label);
+    setSelectedCategoryForMove(label.categoryId);
+    setMoveCategoryDialogOpen(true);
+  };
+
+  // Confirm move to category
+  const handleConfirmMoveCategory = async () => {
+    if (!contextLabel) return;
 
     try {
-      await labelApi.update(labelId, { categoryId });
+      await labelApi.update(contextLabel.id, {
+        categoryId: selectedCategoryForMove,
+      });
       const targetName =
-        categoryId === null
+        selectedCategoryForMove === null
           ? "Uncategorized"
-          : categories.find((c) => c.id === categoryId)?.name;
-      toast.success(`Moved "${label.name}" to ${targetName}`);
+          : categories.find((c) => c.id === selectedCategoryForMove)?.name;
+      toast.success(`Moved "${contextLabel.name}" to ${targetName}`);
       await fetchData();
+      setMoveCategoryDialogOpen(false);
+      setContextLabel(null);
+      setSelectedCategoryForMove(null);
     } catch (error: unknown) {
       const err = error as { response?: { data?: { error?: string } } };
       toast.error(err.response?.data?.error || "Failed to move label");
     }
   };
 
-  // Get active label for drag overlay
-  const activeLabel = activeId ? labels.find((l) => l.id === activeId) : null;
+  // Open assign to projects dialog
+  const handleOpenAssignProjects = (label: Label) => {
+    setContextLabel(label);
+    // Get currently assigned projects for this label
+    const assignedProjects = Object.entries(projectLabels)
+      .filter(([_, labelIds]) => labelIds.includes(label.id))
+      .map(([projectId]) => projectId);
+    setSelectedProjectsForAssign(assignedProjects);
+    setInitialProjectAssignments(assignedProjects); // Save initial state
+    setAssignProjectsDialogOpen(true);
+  };
+
+  // Toggle project selection
+  const handleToggleProjectSelection = (projectId: string) => {
+    setSelectedProjectsForAssign((prev) =>
+      prev.includes(projectId)
+        ? prev.filter((id) => id !== projectId)
+        : [...prev, projectId],
+    );
+  };
+
+  // Select all projects
+  const handleSelectAllProjects = () => {
+    if (selectedProjectsForAssign.length === projects.length) {
+      setSelectedProjectsForAssign([]);
+    } else {
+      setSelectedProjectsForAssign(projects.map((p) => p.id));
+    }
+  };
+
+  // Confirm assign to projects
+  const handleConfirmAssignProjects = async () => {
+    if (!contextLabel) return;
+
+    const toAdd = selectedProjectsForAssign.filter(
+      (id) => !initialProjectAssignments.includes(id),
+    );
+    const toRemove = initialProjectAssignments.filter(
+      (id) => !selectedProjectsForAssign.includes(id),
+    );
+
+    if (toAdd.length === 0 && toRemove.length === 0) {
+      toast.info("No changes to save");
+      setAssignProjectsDialogOpen(false);
+      return;
+    }
+
+    // If there are projects being removed, show confirmation
+    if (toRemove.length > 0) {
+      const projectsToRemove = toRemove
+        .map((id) => {
+          const project = projects.find((p) => p.id === id);
+          return project ? { id, name: project.name } : null;
+        })
+        .filter((p) => p !== null) as Array<{ id: string; name: string }>;
+
+      setProjectsToUnassign(projectsToRemove);
+      setUnassignConfirmOpen(true);
+      return; // Wait for confirmation
+    }
+
+    // If only adding, proceed directly
+    await performAssignmentUpdate(toAdd, toRemove);
+  };
+
+  // Perform the actual assignment update
+  const performAssignmentUpdate = async (
+    toAdd: string[],
+    toRemove: string[],
+  ) => {
+    if (!contextLabel) return;
+
+    try {
+      for (const projectId of toRemove) {
+        await apiClient.delete(
+          `/projects/${projectId}/labels/${contextLabel.id}`,
+        );
+      }
+      for (const projectId of toAdd) {
+        await apiClient.post(`/projects/${projectId}/labels`, {
+          labelId: contextLabel.id,
+        });
+      }
+
+      // Update local state
+      const newProjectLabels = { ...projectLabels };
+      for (const projectId of toRemove) {
+        newProjectLabels[projectId] =
+          newProjectLabels[projectId]?.filter((id) => id !== contextLabel.id) ||
+          [];
+      }
+      for (const projectId of toAdd) {
+        newProjectLabels[projectId] = [
+          ...(newProjectLabels[projectId] || []),
+          contextLabel.id,
+        ];
+      }
+      setProjectLabels(newProjectLabels);
+
+      toast.success(`Updated project assignments for "${contextLabel.name}"`);
+      setAssignProjectsDialogOpen(false);
+      setUnassignConfirmOpen(false);
+      setContextLabel(null);
+      setSelectedProjectsForAssign([]);
+      setInitialProjectAssignments([]);
+      setProjectsToUnassign([]);
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { error?: string } } };
+      toast.error(
+        err.response?.data?.error || "Failed to update project assignments",
+      );
+      await fetchProjectsWithLabels();
+    }
+  };
+
+  // Handle confirmed unassignment
+  const handleConfirmUnassign = async () => {
+    if (!contextLabel) return;
+
+    const toAdd = selectedProjectsForAssign.filter(
+      (id) => !initialProjectAssignments.includes(id),
+    );
+    const toRemove = initialProjectAssignments.filter(
+      (id) => !selectedProjectsForAssign.includes(id),
+    );
+
+    await performAssignmentUpdate(toAdd, toRemove);
+  };
 
   // Get total filtered labels count
   const totalFilteredLabels = useMemo(() => {
@@ -1241,36 +1410,54 @@ export function LabelManagementPage() {
                           <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
                             Import Data
                           </div>
-                          <DropdownMenuItem onClick={() => setIsImportDialogOpen(true)}>
+                          <DropdownMenuItem
+                            onClick={() => setIsImportDialogOpen(true)}
+                          >
                             <Upload className="w-4 h-4 mr-2" />
                             Import Labels
                           </DropdownMenuItem>
 
                           <div className="h-px bg-gray-100 my-1" />
-                          <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                            Export Data
-                          </div>
-                          <DropdownMenuItem onClick={handleExportCSV}>
-                            <FileText className="w-4 h-4 mr-2" />
-                            Export as CSV
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={handleExportExcel}>
-                            <FileSpreadsheet className="w-4 h-4 mr-2" />
-                            Export as Excel
-                          </DropdownMenuItem>
 
-                          <div className="h-px bg-gray-100 my-1" />
-                          <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                            Templates
-                          </div>
-                          <DropdownMenuItem onClick={handleDownloadCSVTemplate}>
-                            <FileText className="w-4 h-4 mr-2" />
-                            CSV Template
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={handleDownloadExcelTemplate}>
-                            <FileSpreadsheet className="w-4 h-4 mr-2" />
-                            Excel Template
-                          </DropdownMenuItem>
+                          {/* Export Data Submenu */}
+                          <DropdownMenuSub>
+                            <DropdownMenuSubTrigger>
+                              <FileDown className="w-4 h-4 mr-2" />
+                              Export Data
+                            </DropdownMenuSubTrigger>
+                            <DropdownMenuSubContent>
+                              <DropdownMenuItem onClick={handleExportCSV}>
+                                <FileText className="w-4 h-4 mr-2" />
+                                Export as CSV
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={handleExportExcel}>
+                                <FileSpreadsheet className="w-4 h-4 mr-2" />
+                                Export as Excel
+                              </DropdownMenuItem>
+                            </DropdownMenuSubContent>
+                          </DropdownMenuSub>
+
+                          {/* Templates Submenu */}
+                          <DropdownMenuSub>
+                            <DropdownMenuSubTrigger>
+                              <FileText className="w-4 h-4 mr-2" />
+                              Templates
+                            </DropdownMenuSubTrigger>
+                            <DropdownMenuSubContent>
+                              <DropdownMenuItem
+                                onClick={handleDownloadCSVTemplate}
+                              >
+                                <FileText className="w-4 h-4 mr-2" />
+                                CSV Template
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={handleDownloadExcelTemplate}
+                              >
+                                <FileSpreadsheet className="w-4 h-4 mr-2" />
+                                Excel Template
+                              </DropdownMenuItem>
+                            </DropdownMenuSubContent>
+                          </DropdownMenuSub>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -1432,11 +1619,11 @@ export function LabelManagementPage() {
                                           onDuplicate={() =>
                                             handleDuplicateLabel(label)
                                           }
-                                          onMoveToCategory={(catId) =>
-                                            handleMoveToCategory(
-                                              label.id,
-                                              catId,
-                                            )
+                                          onOpenMoveCategory={() =>
+                                            handleOpenMoveCategory(label)
+                                          }
+                                          onOpenAssignProjects={() =>
+                                            handleOpenAssignProjects(label)
                                           }
                                         />
                                       ))}
@@ -1463,105 +1650,108 @@ export function LabelManagementPage() {
                       {/* Uncategorized Labels */}
                       {(labelsByCategory["uncategorized"]?.length > 0 ||
                         categories.length === 0) && (
-                          <Collapsible
-                            open={expandedCategories.has("uncategorized")}
-                            onOpenChange={() => toggleCategory("uncategorized")}
-                          >
-                            <Card className="overflow-hidden" id="uncategorized">
-                              {/* Uncategorized Header */}
-                              <CollapsibleTrigger asChild>
-                                <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b cursor-pointer hover:bg-gray-100 transition-colors">
-                                  <div className="flex items-center gap-2">
-                                    <ChevronRight
-                                      className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${expandedCategories.has("uncategorized") ? "rotate-90" : ""}`}
-                                    />
-                                    <span className="font-medium text-gray-600">
-                                      Uncategorized
-                                    </span>
-                                    <Badge variant="secondary" className="ml-1">
-                                      {labelsByCategory["uncategorized"]
-                                        ?.length || 0}
-                                    </Badge>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    {(labelsByCategory["uncategorized"]?.length ||
-                                      0) > 0 && (
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="text-sm text-blue-600 hover:text-blue-700 h-auto py-1"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            selectAllInCategory("uncategorized");
-                                          }}
-                                        >
-                                          {isAllSelectedInCategory("uncategorized")
-                                            ? "Deselect All"
-                                            : "Select All"}
-                                        </Button>
-                                      )}
-                                  </div>
+                        <Collapsible
+                          open={expandedCategories.has("uncategorized")}
+                          onOpenChange={() => toggleCategory("uncategorized")}
+                        >
+                          <Card className="overflow-hidden" id="uncategorized">
+                            {/* Uncategorized Header */}
+                            <CollapsibleTrigger asChild>
+                              <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b cursor-pointer hover:bg-gray-100 transition-colors">
+                                <div className="flex items-center gap-2">
+                                  <ChevronRight
+                                    className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${expandedCategories.has("uncategorized") ? "rotate-90" : ""}`}
+                                  />
+                                  <span className="font-medium text-gray-600">
+                                    Uncategorized
+                                  </span>
+                                  <Badge variant="secondary" className="ml-1">
+                                    {labelsByCategory["uncategorized"]
+                                      ?.length || 0}
+                                  </Badge>
                                 </div>
-                              </CollapsibleTrigger>
+                                <div className="flex items-center gap-2">
+                                  {(labelsByCategory["uncategorized"]?.length ||
+                                    0) > 0 && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="text-sm text-blue-600 hover:text-blue-700 h-auto py-1"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        selectAllInCategory("uncategorized");
+                                      }}
+                                    >
+                                      {isAllSelectedInCategory("uncategorized")
+                                        ? "Deselect All"
+                                        : "Select All"}
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            </CollapsibleTrigger>
 
-                              {/* Uncategorized Labels Grid */}
-                              <CollapsibleContent className="data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up overflow-hidden">
-                                <div
-                                  className="p-4"
-                                  data-category-id="uncategorized"
+                            {/* Uncategorized Labels Grid */}
+                            <CollapsibleContent className="data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up overflow-hidden">
+                              <div
+                                className="p-4"
+                                data-category-id="uncategorized"
+                              >
+                                <SortableContext
+                                  items={(
+                                    labelsByCategory["uncategorized"] || []
+                                  ).map((l) => l.id)}
+                                  strategy={verticalListSortingStrategy}
                                 >
-                                  <SortableContext
-                                    items={(
+                                  <div className="grid grid-cols-2 gap-3">
+                                    {(
                                       labelsByCategory["uncategorized"] || []
-                                    ).map((l) => l.id)}
-                                    strategy={verticalListSortingStrategy}
-                                  >
-                                    <div className="grid grid-cols-2 gap-3">
-                                      {(
-                                        labelsByCategory["uncategorized"] || []
-                                      ).map((label) => (
-                                        <DraggableLabelItem
-                                          key={label.id}
-                                          label={label}
-                                          isSelected={selectedLabelIds.includes(
-                                            label.id,
-                                          )}
-                                          categories={categories}
-                                          onToggleSelect={() =>
-                                            toggleLabelSelection(label.id)
-                                          }
-                                          onEdit={() => openEditLabel(label)}
-                                          onDelete={() =>
-                                            handleDeleteLabel(label.id)
-                                          }
-                                          onDuplicate={() =>
-                                            handleDuplicateLabel(label)
-                                          }
-                                          onMoveToCategory={(catId) =>
-                                            handleMoveToCategory(label.id, catId)
-                                          }
-                                        />
-                                      ))}
-
-                                      {/* Add Label Button */}
-                                      <button
-                                        onClick={() =>
-                                          openCreateLabelInCategory(
-                                            "uncategorized",
-                                          )
+                                    ).map((label) => (
+                                      <DraggableLabelItem
+                                        key={label.id}
+                                        label={label}
+                                        isSelected={selectedLabelIds.includes(
+                                          label.id,
+                                        )}
+                                        categories={categories}
+                                        onToggleSelect={() =>
+                                          toggleLabelSelection(label.id)
                                         }
-                                        className="flex items-center justify-center gap-2 p-3 rounded-lg border-2 border-dashed border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-                                      >
-                                        <Plus className="w-4 h-4" />
-                                        <span>Add Label</span>
-                                      </button>
-                                    </div>
-                                  </SortableContext>
-                                </div>
-                              </CollapsibleContent>
-                            </Card>
-                          </Collapsible>
-                        )}
+                                        onEdit={() => openEditLabel(label)}
+                                        onDelete={() =>
+                                          handleDeleteLabel(label.id)
+                                        }
+                                        onDuplicate={() =>
+                                          handleDuplicateLabel(label)
+                                        }
+                                        onOpenMoveCategory={() =>
+                                          handleOpenMoveCategory(label)
+                                        }
+                                        onOpenAssignProjects={() =>
+                                          handleOpenAssignProjects(label)
+                                        }
+                                      />
+                                    ))}
+
+                                    {/* Add Label Button */}
+                                    <button
+                                      onClick={() =>
+                                        openCreateLabelInCategory(
+                                          "uncategorized",
+                                        )
+                                      }
+                                      className="flex items-center justify-center gap-2 p-3 rounded-lg border-2 border-dashed border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                                    >
+                                      <Plus className="w-4 h-4" />
+                                      <span>Add Label</span>
+                                    </button>
+                                  </div>
+                                </SortableContext>
+                              </div>
+                            </CollapsibleContent>
+                          </Card>
+                        </Collapsible>
+                      )}
                     </div>
 
                     {/* Drag Overlay */}
@@ -2249,10 +2439,11 @@ Animals,Living creatures,Dog,#F59E0B,false`}
                                       return (
                                         <div
                                           key={label.id}
-                                          className={`flex items-center gap-2 p-2 rounded transition-all ${isAssigned
-                                            ? "bg-green-50 border-2 border-green-300 cursor-default"
-                                            : "hover:bg-gray-50 border-2 border-transparent"
-                                            }`}
+                                          className={`flex items-center gap-2 p-2 rounded transition-all ${
+                                            isAssigned
+                                              ? "bg-green-50 border-2 border-green-300 cursor-default"
+                                              : "hover:bg-gray-50 border-2 border-transparent"
+                                          }`}
                                           title={
                                             isAssigned
                                               ? "Already assigned to this project"
@@ -2279,10 +2470,11 @@ Animals,Living creatures,Dog,#F59E0B,false`}
                                             }}
                                           />
                                           <span
-                                            className={`text-sm truncate flex-1 font-medium ${isAssigned
-                                              ? "text-green-700"
-                                              : "text-gray-700"
-                                              }`}
+                                            className={`text-sm truncate flex-1 font-medium ${
+                                              isAssigned
+                                                ? "text-green-700"
+                                                : "text-gray-700"
+                                            }`}
                                           >
                                             {label.name}
                                           </span>
@@ -2315,10 +2507,11 @@ Animals,Living creatures,Dog,#F59E0B,false`}
                                       return (
                                         <div
                                           key={label.id}
-                                          className={`flex items-center gap-2 p-2 rounded transition-all ${isAssigned
-                                            ? "bg-green-50 border-2 border-green-300 cursor-default"
-                                            : "hover:bg-gray-50 border-2 border-transparent"
-                                            }`}
+                                          className={`flex items-center gap-2 p-2 rounded transition-all ${
+                                            isAssigned
+                                              ? "bg-green-50 border-2 border-green-300 cursor-default"
+                                              : "hover:bg-gray-50 border-2 border-transparent"
+                                          }`}
                                           title={
                                             isAssigned
                                               ? "Already assigned to this project"
@@ -2345,10 +2538,11 @@ Animals,Living creatures,Dog,#F59E0B,false`}
                                             }}
                                           />
                                           <span
-                                            className={`text-sm truncate flex-1 font-medium ${isAssigned
-                                              ? "text-green-700"
-                                              : "text-gray-700"
-                                              }`}
+                                            className={`text-sm truncate flex-1 font-medium ${
+                                              isAssigned
+                                                ? "text-green-700"
+                                                : "text-gray-700"
+                                            }`}
                                           >
                                             {label.name}
                                           </span>
@@ -2521,6 +2715,232 @@ Animals,Living creatures,Dog,#F59E0B,false`}
         categories={categories}
         onSuccess={fetchData}
       />
+
+      {/* Move to Category Dialog */}
+      <Dialog
+        open={moveCategoryDialogOpen}
+        onOpenChange={setMoveCategoryDialogOpen}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Move Label to Category</DialogTitle>
+            <DialogDescription>
+              Select a category for "{contextLabel?.name}"
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4">
+            <RadioGroup
+              value={selectedCategoryForMove || "uncategorized"}
+              onValueChange={(value) =>
+                setSelectedCategoryForMove(
+                  value === "uncategorized" ? null : value,
+                )
+              }
+            >
+              <div className="space-y-2">
+                <div className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
+                  <RadioGroupItem
+                    value="uncategorized"
+                    id="cat-uncategorized"
+                  />
+                  <UILabel
+                    htmlFor="cat-uncategorized"
+                    className="flex-1 cursor-pointer font-normal"
+                  >
+                    <div className="flex items-center gap-2">
+                      <FolderOpen className="w-4 h-4 text-gray-400" />
+                      <span>Uncategorized</span>
+                    </div>
+                  </UILabel>
+                </div>
+
+                {categories
+                  .filter((c) => c.id !== contextLabel?.categoryId)
+                  .map((category) => (
+                    <div
+                      key={category.id}
+                      className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      <RadioGroupItem
+                        value={category.id}
+                        id={`cat-${category.id}`}
+                      />
+                      <UILabel
+                        htmlFor={`cat-${category.id}`}
+                        className="flex-1 cursor-pointer font-normal"
+                      >
+                        <div className="flex items-center gap-2">
+                          <FolderOpen className="w-4 h-4 text-gray-500" />
+                          <span>{category.name}</span>
+                        </div>
+                      </UILabel>
+                    </div>
+                  ))}
+              </div>
+            </RadioGroup>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setMoveCategoryDialogOpen(false);
+                setContextLabel(null);
+                setSelectedCategoryForMove(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmMoveCategory}>Move</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Assign to Projects Dialog */}
+      <Dialog
+        open={assignProjectsDialogOpen}
+        onOpenChange={setAssignProjectsDialogOpen}
+      >
+        <DialogContent className="max-w-md max-h-[600px] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Assign to Projects</DialogTitle>
+            <DialogDescription>
+              Select projects for "{contextLabel?.name}"
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto py-4">
+            {projects.length === 0 ? (
+              <div className="text-center text-gray-500 py-8">
+                No projects available
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {/* Select All Option */}
+                <div className="flex items-center space-x-3 p-3 rounded-lg bg-gray-50 border border-gray-200">
+                  <Checkbox
+                    id="select-all-projects"
+                    checked={
+                      selectedProjectsForAssign.length === projects.length
+                    }
+                    onCheckedChange={handleSelectAllProjects}
+                    className="data-[state=checked]:bg-blue-600"
+                  />
+                  <UILabel
+                    htmlFor="select-all-projects"
+                    className="flex-1 cursor-pointer font-medium"
+                  >
+                    Select All ({projects.length})
+                  </UILabel>
+                </div>
+
+                <div className="h-px bg-gray-200 my-2" />
+
+                {/* Project List */}
+                {projects.map((project) => (
+                  <div
+                    key={project.id}
+                    className="p-3 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <Checkbox
+                        id={`project-${project.id}`}
+                        checked={selectedProjectsForAssign.includes(project.id)}
+                        onCheckedChange={() =>
+                          handleToggleProjectSelection(project.id)
+                        }
+                        className="data-[state=checked]:bg-blue-600"
+                      />
+                      <UILabel
+                        htmlFor={`project-${project.id}`}
+                        className="font-semibold text-sm text-gray-900 cursor-pointer"
+                      >
+                        {project.name}
+                      </UILabel>
+                    </div>
+                    {project.description && (
+                      <p className="text-xs text-gray-500 mt-1 ml-8 line-clamp-2">
+                        {project.description}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-between items-center pt-4 border-t">
+            <span className="text-sm text-gray-500">
+              {selectedProjectsForAssign.length} of {projects.length} selected
+            </span>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setAssignProjectsDialogOpen(false);
+                  setContextLabel(null);
+                  setSelectedProjectsForAssign([]);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleConfirmAssignProjects}>Save</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Unassign Confirmation Dialog */}
+      <Dialog open={unassignConfirmOpen} onOpenChange={setUnassignConfirmOpen}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-500" />
+              Confirm Un-assignment
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to un-assign label "{contextLabel?.name}"
+              from the following project(s)?
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4">
+            <div className="space-y-2 max-h-[200px] overflow-y-auto">
+              {projectsToUnassign.map((project) => (
+                <div
+                  key={project.id}
+                  className="flex items-center gap-2 p-2 rounded bg-amber-50 border border-amber-200"
+                >
+                  <XCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                  <span className="text-sm font-medium text-gray-900">
+                    {project.name}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setUnassignConfirmOpen(false);
+                setProjectsToUnassign([]);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmUnassign}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              Confirm Un-assign
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
