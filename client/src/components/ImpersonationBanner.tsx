@@ -12,7 +12,7 @@ export function ImpersonationBanner() {
             <div className="flex items-center gap-2">
                 <Eye className="w-5 h-5 animate-pulse" />
                 <span className="font-medium">
-                    Impersonating Tenant: <span className="font-bold">{user?.fullName || user?.email}</span>
+                    Impersonating User: <span className="font-bold">{user?.fullName || user?.email} | Role: {user?.role.toLowerCase()}</span>
                 </span>
             </div>
 
