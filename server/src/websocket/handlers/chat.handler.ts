@@ -13,6 +13,10 @@ export function registerChatHandlers(io: Server, socket: Socket) {
     // Verify user is a member of the project
     const member = await prisma.projectMember.findFirst({
       where: { projectId, userId },
+      include: {
+        user: { select: { fullName: true, email: true } },
+        project: { select: { name: true } }
+      }
     });
 
     if (!member) {
@@ -21,7 +25,9 @@ export function registerChatHandlers(io: Server, socket: Socket) {
     }
 
     socket.join(`project:${projectId}`);
-    logger.info('WEBSOCKET', `User ${userId} joined project room ${projectId}`);
+    const userName = member.user?.fullName || member.user?.email || userId;
+    const projectName = member.project?.name || projectId;
+    logger.info('WEBSOCKET', `User "${userName}" joined project room "${projectName}"`);
   });
 
   // Leave project chat room
@@ -32,12 +38,12 @@ export function registerChatHandlers(io: Server, socket: Socket) {
   // Send message
   socket.on('chat:send-message', async (payload: SendMessagePayload) => {
     const { projectId, content } = payload;
-    
+
     // logger.debug('WEBSOCKET', `Sending message. User: ${userId}, Project: ${projectId}, Content: ${content}`);
 
     try {
       if (!projectId || !content) {
-          throw new Error('Missing projectId or content');
+        throw new Error('Missing projectId or content');
       }
 
       // Save message to database
@@ -69,7 +75,7 @@ export function registerChatHandlers(io: Server, socket: Socket) {
   // Typing indicator
   socket.on('chat:typing', (payload: TypingPayload) => {
     const { projectId, isTyping } = payload;
-    
+
     // Broadcast to others in the room (exclude sender)
     socket.to(`project:${projectId}`).emit('chat:user-typing', {
       userId,

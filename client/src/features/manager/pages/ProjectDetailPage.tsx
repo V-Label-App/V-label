@@ -95,6 +95,7 @@ import { toast } from "sonner";
 import { useAuth } from "../../../context/AuthContext";
 import { ChatPanel } from "../../../components/chat/ChatPanel";
 import { projectApi } from "../../../services/project.api";
+import { ProjectHealthDashboard } from "../components/ProjectHealthDashboard";
 import {
   projectLabelApi,
   labelApi,
@@ -116,6 +117,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
 } from "lucide-react";
+import { useDebounce } from "../../../hooks/useDebounce";
 
 export function ProjectDetailPage() {
   const { projectId } = useParams();
@@ -136,7 +138,8 @@ export function ProjectDetailPage() {
   const [isTasksLoading, setIsTasksLoading] = useState(false);
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 5;
+  const [totalPages, setTotalPages] = useState(1);
+  const ITEMS_PER_PAGE = 10;
 
   // Dialog States
   const [isAddImagesOpen, setIsAddImagesOpen] = useState(false);
@@ -144,6 +147,7 @@ export function ProjectDetailPage() {
 
   // Search & Filter State
   const [taskSearchQuery, setTaskSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebounce(taskSearchQuery, 500);
   const [taskFilterStatus, setTaskFilterStatus] = useState<string>("all");
   const [taskFilterAssignee, setTaskFilterAssignee] = useState<string>("all");
 
@@ -323,27 +327,45 @@ export function ProjectDetailPage() {
     }
   }, [project, activeTab]);
 
-  // Fetch images as tasks when tab is active
+  // Fetch images as tasks when tab is active (Server-Side Pagination)
   useEffect(() => {
     if (project && activeTab === "tasks") {
       setIsTasksLoading(true);
+
+      // Reset page to 1 if search query changes (handled by separate effect or check here)
+      // But here we rely on currentPage state which should be reset on search change
+
       projectApi
-        .getImages(project.id, { page: 1, limit: 100 })
+        .getImages(project.id, {
+          page: currentPage,
+          limit: ITEMS_PER_PAGE,
+          search: debouncedSearchQuery
+        })
         .then((res) => {
+          // Response structure: { data: [...], meta: { total, page, limit, totalPages } }
           const mappedTasks = res.data.map((img: any) => ({
             id: img.id,
             imageName: img.originalFilename,
             imageUrl: img.storageUrl,
-            status: "pending",
-            assignee: "Unassigned",
+            status: "pending", // Placeholder
+            assignee: "Unassigned", // Placeholder
             uploadedAt: img.uploadedAt,
           }));
           setTasks(mappedTasks);
+
+          if (res.meta) {
+            setTotalPages(res.meta.totalPages);
+          }
         })
         .catch(console.error)
         .finally(() => setIsTasksLoading(false));
     }
-  }, [project, activeTab]);
+  }, [project, activeTab, currentPage, debouncedSearchQuery]);
+
+  // Reset page when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearchQuery]);
 
   // Load available categories
   useEffect(() => {
@@ -365,9 +387,10 @@ export function ProjectDetailPage() {
     }
   }, [isAddMemberOpen]);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [taskSearchQuery, taskFilterStatus, taskFilterAssignee]);
+  // Removed client-side page reset effect as we handle it above with debounced query
+  // useEffect(() => {
+  //   setCurrentPage(1);
+  // }, [taskSearchQuery, taskFilterStatus, taskFilterAssignee]);
 
   if (isLoading) {
     return (
@@ -391,28 +414,14 @@ export function ProjectDetailPage() {
       email: m.user?.email,
     }));
 
-  const filteredTasks = tasks.filter((task) => {
-    // using local tasks state
-    const matchesSearch =
-      task.imageName?.toLowerCase().includes(taskSearchQuery.toLowerCase()) ||
-      task.id?.toLowerCase().includes(taskSearchQuery.toLowerCase());
+  // Client-side filtering is removed/minimized as we use server-side search
+  // We strictly show what the API returns. 
+  // Status/Assignee filters are currently visual-only or disabled effectively until backend supports them.
+  const filteredTasks = tasks;
 
-    const matchesStatus =
-      taskFilterStatus === "all" || task.status === taskFilterStatus;
-    const matchesAssignee =
-      taskFilterAssignee === "all" || task.assignee === taskFilterAssignee;
-
-    return matchesSearch && matchesStatus && matchesAssignee;
-  });
-
-  const totalPages = Math.max(
-    1,
-    Math.ceil(filteredTasks.length / ITEMS_PER_PAGE),
-  );
-  const currentTableData = filteredTasks.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE,
-  );
+  // Pagination is handled by API
+  // const totalPages = Math.max(...) -> Handled by state
+  const currentTableData = tasks; // No slicing needed
 
   const approvedTasksCount = tasks.filter((t: any) => t.status === "approved").length;
   const totalTasksCount = project._count?.tasks || 0;
@@ -847,6 +856,7 @@ export function ProjectDetailPage() {
           className="space-y-6"
         >
           <TabsList>
+            <TabsTrigger value="health" className="data-[state=active]:bg-red-50 data-[state=active]:text-red-700">Health (Rescue)</TabsTrigger>
             <TabsTrigger value="tasks">Task Management</TabsTrigger>
             <TabsTrigger value="datasets">Datasets</TabsTrigger>
             <TabsTrigger value="requests" className="relative">
@@ -861,6 +871,10 @@ export function ProjectDetailPage() {
             <TabsTrigger value="settings">Settings</TabsTrigger>
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="health">
+            <ProjectHealthDashboard projectId={project.id} />
+          </TabsContent>
 
           <TabsContent value="tasks" className="space-y-6">
             {/* Warning about missing tasks */}

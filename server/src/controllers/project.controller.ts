@@ -1,6 +1,7 @@
 import { Request, Response } from 'express'
 import { z, ZodError } from 'zod'
 import { ProjectService } from '../services/project.service.js'
+import { ProjectHealthService } from '../services/project-health.service.js'
 import logger from '../utils/logger.js'
 import { ProjectStatus } from '@prisma/client'
 
@@ -404,6 +405,7 @@ export class ProjectController {
             // - 'null': fetch images with datasetId = null (General)
             // - 'some-uuid': fetch images for that dataset
             let datasetId: string | null | undefined = req.query.datasetId as string | undefined
+            const search = req.query.search as string | undefined
 
             if (datasetId === 'null') {
                 datasetId = null
@@ -414,7 +416,8 @@ export class ProjectController {
             const result = await ProjectService.getImages(id, {
                 page,
                 limit,
-                ...(datasetId !== undefined && { datasetId })
+                ...(datasetId !== undefined && { datasetId }),
+                ...(search && { search })
             })
 
             // Serialize BigInt
@@ -474,6 +477,53 @@ export class ProjectController {
         } catch (error) {
             logger.error('API', 'Batch delete project images failed', { error })
             return res.status(500).json({ error: 'Internal server error' })
+        }
+    }
+    /**
+ * GET /api/v1/projects/:id/health
+ * Get project health statistics
+ */
+    static async getHealthStats(req: Request, res: Response) {
+        try {
+            const { id } = req.params as { id: string }
+            const stats = await ProjectHealthService.getProjectHealthStats(id)
+            return res.json(stats)
+        } catch (error) {
+            console.error('Get health stats error:', error)
+            return res.status(500).json({ error: 'Internal server error' })
+        }
+    }
+
+    /**
+     * GET /api/v1/projects/:id/rescue
+     * Get rescue tasks by type
+     */
+    static async getRescueTasks(req: Request, res: Response) {
+        try {
+            const { id } = req.params as { id: string }
+            const { type } = req.query as { type: 'STUCK' | 'PROBLEMATIC' | 'ORPHANED' }
+
+            let tasks: any[] = []
+
+            switch (type) {
+                case 'STUCK':
+                    tasks = await ProjectHealthService.getStuckTasks(id)
+                    break
+                case 'PROBLEMATIC':
+                    tasks = await ProjectHealthService.getProblematicTasks(id)
+                    break
+                case 'ORPHANED':
+                    tasks = await ProjectHealthService.getOrphanedTasks(id)
+                    break
+                default:
+                    return res.status(400).json({ error: 'Invalid rescue type' })
+            }
+
+            return res.json(tasks)
+        } catch (error) {
+            console.error('Get rescue tasks error:', error)
+            return res.status(500).json({ error: 'Internal server error' })
+
         }
     }
 }

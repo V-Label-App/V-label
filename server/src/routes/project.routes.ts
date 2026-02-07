@@ -10,6 +10,10 @@ const router = Router()
 // All routes require authentication
 router.use(authMiddleware)
 
+// Project Health Routes (Must be before general getById to avoid collision if ever needed, though here paths are distinct)
+router.get('/:id/health', authMiddleware, requireRole(['MANAGER', 'ADMIN']), ProjectController.getHealthStats)
+router.get('/:id/rescue', authMiddleware, requireRole(['MANAGER', 'ADMIN']), ProjectController.getRescueTasks)
+
 // GET: Anyone logged in can likely see projects (or we might restrict to members later)
 router.get('/', ProjectController.getAll)
 router.get('/:id', ProjectController.getById)

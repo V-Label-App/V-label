@@ -3,7 +3,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "../../../components/ui/avat
 import { Button } from "../../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card"
 import { Badge } from "../../../components/ui/badge"
-import { CalendarDays, Mail, Shield, User as UserIcon, ArrowLeft, Phone } from "lucide-react"
+import { CalendarDays, Mail, Shield, User as UserIcon, ArrowLeft, Phone, Briefcase } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs"
 import {
@@ -14,10 +14,10 @@ import { Trophy, Upload, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "../../../components/ui/dialog"
 import { Input } from "../../../components/ui/input"
 import { Label } from "../../../components/ui/label"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { toast } from "sonner"
 import api from "../../../api/axiosClient"
-import { authApi } from "../../../services/auth.api"
+import { authApi, type PerformanceStats } from "../../../services/auth.api"
 
 
 
@@ -69,33 +69,25 @@ export default function ProfilePage() {
         }
     }
 
-    // Mock Chart Data
-    const weeklyActivityData = [
-        { name: 'Mon', completed: 12, rejected: 2 },
-        { name: 'Tue', completed: 19, rejected: 1 },
-        { name: 'Wed', completed: 15, rejected: 0 },
-        { name: 'Thu', completed: 22, rejected: 3 },
-        { name: 'Fri', completed: 28, rejected: 1 },
-        { name: 'Sat', completed: 10, rejected: 0 },
-        { name: 'Sun', completed: 5, rejected: 0 },
-    ];
+    const [performanceStats, setPerformanceStats] = useState<PerformanceStats | null>(null)
 
-    const taskDistributionData = [
-        { name: 'Assigned', value: 12, color: '#3B82F6' },
-        { name: 'Submitted', value: 45, color: '#8B5CF6' },
-        { name: 'Rejected', value: 8, color: '#EF4444' },
-    ];
+    useEffect(() => {
+        const fetchStats = async () => {
+            try {
+                const stats = await authApi.getPerformanceStats()
+                setPerformanceStats(stats)
+            } catch (error) {
+                console.error("Failed to fetch performance stats", error)
+            }
+        }
+        if (user) {
+            fetchStats()
+        }
+    }, [user])
 
-    const dailyProgressData = [
-        { time: '9 AM', tasks: 2 },
-        { time: '10 AM', tasks: 5 },
-        { time: '11 AM', tasks: 8 },
-        { time: '12 PM', tasks: 12 },
-        { time: '1 PM', tasks: 14 },
-        { time: '2 PM', tasks: 19 },
-        { time: '3 PM', tasks: 25 },
-        { time: '4 PM', tasks: 28 },
-    ];
+    const weeklyActivityData = performanceStats?.weeklyActivity || []
+    const taskDistributionData = performanceStats?.taskDistribution || []
+    const dailyProgressData = performanceStats?.dailyProgress || []
 
     return (
         <div className="container max-w-4xl mx-auto py-10 px-4 space-y-8 animate-in fade-in slide-in-from-bottom-5 duration-700">
@@ -242,7 +234,7 @@ export default function ProfilePage() {
                 <TabsContent value="overview" className="space-y-6">
                     {/* Role Specific Stats / Dashboard */}
                     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                        {/* Only show Reputation Score for non-admin/manager roles */}
+                        {/* Reputation Score for non-admin/manager roles */}
                         {user.role !== 'ADMIN' && user.role !== 'MANAGER' && (
                             <Card>
                                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -253,6 +245,22 @@ export default function ProfilePage() {
                                     <div className="text-2xl font-bold">{(user as any).reputationScore ?? 0}</div>
                                     <p className="text-xs text-muted-foreground">
                                         Current reliability score
+                                    </p>
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {/* Managed Projects Count for Managers */}
+                        {user.role === 'MANAGER' && (
+                            <Card>
+                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                    <CardTitle className="text-sm font-medium">Managed Projects</CardTitle>
+                                    <Briefcase className="h-4 w-4 text-muted-foreground" />
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="text-2xl font-bold">{(user as any).projectsManaged || 0}</div>
+                                    <p className="text-xs text-muted-foreground">
+                                        Active projects
                                     </p>
                                 </CardContent>
                             </Card>

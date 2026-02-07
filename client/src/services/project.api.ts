@@ -2,6 +2,14 @@ import { apiClient } from './auth.api';
 import type { CreateProjectRequest, Project, ProjectListResponse, UpdateProjectRequest } from '../types/project.types';
 import { ProjectStatus } from '../types/project.types';
 
+export interface ProjectHealthStats {
+    stuck: number;
+    problematic: number;
+    orphaned: number;
+    totalIssues: number;
+    status: 'HEALTHY' | 'WARNING' | 'CRITICAL';
+}
+
 const BASE_URL = '/projects';
 
 export const projectApi = {
@@ -111,7 +119,8 @@ export const projectApi = {
     getImages: async (projectId: string, params?: {
         page?: number;
         limit?: number;
-        datasetId?: string | 'null'
+        datasetId?: string | 'null';
+        search?: string;
     }) => {
         const response = await apiClient.get<any>(`${BASE_URL}/${projectId}/images`, { params });
         return response.data;
@@ -131,6 +140,24 @@ export const projectApi = {
     deleteImages: async (projectId: string, imageIds: string[]) => {
         const response = await apiClient.delete(`${BASE_URL}/${projectId}/images/batch`, {
             data: { imageIds }
+        });
+        return response.data;
+    },
+
+    /**
+     * Get Project Health Statistics
+     */
+    getHealthStats: async (projectId: string) => {
+        const response = await apiClient.get<ProjectHealthStats>(`${BASE_URL}/${projectId}/health`);
+        return response.data;
+    },
+
+    /**
+     * Get Rescue Tasks (Stuck, Problematic, Orphaned)
+     */
+    getRescueTasks: async (projectId: string, type: 'STUCK' | 'PROBLEMATIC' | 'ORPHANED') => {
+        const response = await apiClient.get<any[]>(`${BASE_URL}/${projectId}/rescue`, {
+            params: { type }
         });
         return response.data;
     }

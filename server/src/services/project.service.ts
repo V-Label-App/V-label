@@ -571,14 +571,21 @@ export class ProjectService {
         page?: number
         limit?: number
         datasetId?: string | null // string for strict ID, null for strictly NO dataset (general), undefined for ALL
+        search?: string
     }) {
         try {
-            const { page = 1, limit = 20, datasetId } = options
+            const { page = 1, limit = 20, datasetId, search } = options
             const skip = (page - 1) * limit
 
             const where: Prisma.ImageWhereInput = {
                 projectId,
-                ...(datasetId !== undefined && { datasetId: datasetId })
+                ...(datasetId !== undefined && { datasetId: datasetId }),
+                ...(search && {
+                    originalFilename: {
+                        contains: search,
+                        mode: 'insensitive'
+                    }
+                })
             }
 
             const [images, total] = await Promise.all([
