@@ -9,6 +9,10 @@ on:
 env:
   NODE_VERSION: '20'
 
+permissions:
+  contents: read
+  packages: write  # Required for pushing Docker images to GitHub Container Registry
+
 jobs:
   # Job 1: Test & Build Backend
   build-backend:
