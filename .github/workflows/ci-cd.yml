@@ -295,9 +295,11 @@ jobs:
             # Navigate to project directory
             cd ${{ secrets.DEPLOY_PATH }}
             
-            # Pull latest code using GITHUB_TOKEN
-            echo "📥 Pulling latest code..."
-            git pull https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git main
+            # Pull latest code using GITHUB_TOKEN (force reset to match GitHub)
+            echo "📥 Fetching latest code..."
+            git fetch https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git main
+            echo "🔄 Resetting to match GitHub main branch..."
+            git reset --hard FETCH_HEAD
             
             # Load environment variables
             set -a
