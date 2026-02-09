@@ -14,9 +14,9 @@ permissions:
   packages: write  # Required for pushing Docker images to GitHub Container Registry
 
 jobs:
-  # Job 1: Test & Build Backend
-  build-backend:
-    name: Build & Test Backend
+  # Job 1: Test & Build Backend Docker Image
+  test-and-build-backend:
+    name: 🧪 Test & Build Backend API
     runs-on: ubuntu-latest
     
     steps:
@@ -54,9 +54,9 @@ jobs:
           path: server/dist
           retention-days: 1
 
-  # Job 2: Test & Build Frontend
-  build-frontend:
-    name: Build & Test Frontend
+  # Job 2: Test & Build Frontend Docker Image
+  test-and-build-frontend:
+    name: 🎨 Test & Build Frontend Client
     runs-on: ubuntu-latest
     
     steps:
@@ -147,11 +147,11 @@ jobs:
           cache-to: type=gha,mode=max
 
   # Job 3: Deploy to VPS (only on main branch)
-  deploy:
-    name: Deploy to VPS
+  deploy-to-production:
+    name: 🚀 Deploy to Production VPS
     environment: production
     runs-on: ubuntu-latest
-    needs: [build-backend, build-frontend]
+    needs: [test-and-build-backend, test-and-build-frontend]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     
     steps:
