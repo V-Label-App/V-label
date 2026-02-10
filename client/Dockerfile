@@ -32,15 +32,20 @@ ENV VITE_FIREBASE_MESSAGING_SENDER_ID=$VITE_FIREBASE_MESSAGING_SENDER_ID
 ENV VITE_FIREBASE_APP_ID=$VITE_FIREBASE_APP_ID
 ENV VITE_FIREBASE_MEASUREMENT_ID=$VITE_FIREBASE_MEASUREMENT_ID
 
-# Create .env file from build args (Vite needs this file to exist!)
-RUN printf "VITE_API_URL=%s\n" "${VITE_API_URL}" > .env && \
-    printf "VITE_FIREBASE_API_KEY=%s\n" "${VITE_FIREBASE_API_KEY}" >> .env && \
-    printf "VITE_FIREBASE_AUTH_DOMAIN=%s\n" "${VITE_FIREBASE_AUTH_DOMAIN}" >> .env && \
-    printf "VITE_FIREBASE_PROJECT_ID=%s\n" "${VITE_FIREBASE_PROJECT_ID}" >> .env && \
-    printf "VITE_FIREBASE_STORAGE_BUCKET=%s\n" "${VITE_FIREBASE_STORAGE_BUCKET}" >> .env && \
-    printf "VITE_FIREBASE_MESSAGING_SENDER_ID=%s\n" "${VITE_FIREBASE_MESSAGING_SENDER_ID}" >> .env && \
-    printf "VITE_FIREBASE_APP_ID=%s\n" "${VITE_FIREBASE_APP_ID}" >> .env && \
-    printf "VITE_FIREBASE_MEASUREMENT_ID=%s\n" "${VITE_FIREBASE_MEASUREMENT_ID}" >> .env
+# Create .env file from build args using a script to avoid shell issues
+RUN echo "#!/bin/sh" > /tmp/create-env.sh && \
+    echo "rm -f .env" >> /tmp/create-env.sh && \
+    echo "touch .env" >> /tmp/create-env.sh && \
+    echo "echo \"VITE_API_URL=${VITE_API_URL}\" >> .env" >> /tmp/create-env.sh && \
+    echo "echo \"VITE_FIREBASE_API_KEY=${VITE_FIREBASE_API_KEY}\" >> .env" >> /tmp/create-env.sh && \
+    echo "echo \"VITE_FIREBASE_AUTH_DOMAIN=${VITE_FIREBASE_AUTH_DOMAIN}\" >> .env" >> /tmp/create-env.sh && \
+    echo "echo \"VITE_FIREBASE_PROJECT_ID=${VITE_FIREBASE_PROJECT_ID}\" >> .env" >> /tmp/create-env.sh && \
+    echo "echo \"VITE_FIREBASE_STORAGE_BUCKET=${VITE_FIREBASE_STORAGE_BUCKET}\" >> .env" >> /tmp/create-env.sh && \
+    echo "echo \"VITE_FIREBASE_MESSAGING_SENDER_ID=${VITE_FIREBASE_MESSAGING_SENDER_ID}\" >> .env" >> /tmp/create-env.sh && \
+    echo "echo \"VITE_FIREBASE_APP_ID=${VITE_FIREBASE_APP_ID}\" >> .env" >> /tmp/create-env.sh && \
+    echo "echo \"VITE_FIREBASE_MEASUREMENT_ID=${VITE_FIREBASE_MEASUREMENT_ID}\" >> .env" >> /tmp/create-env.sh && \
+    chmod +x /tmp/create-env.sh && \
+    /tmp/create-env.sh
 
 # DEBUG: Print .env content to build logs to verify variables are present
 RUN echo "=== DEBUG: .env content ===" && cat .env && echo "=== END DEBUG ==="
