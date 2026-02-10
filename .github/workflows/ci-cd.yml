@@ -57,6 +57,7 @@ jobs:
   # Job 2: Test & Build Frontend Docker Image
   test-and-build-frontend:
     name: 🎨 Test & Build Frontend Client
+    environment: production
     runs-on: ubuntu-latest
     
     steps:
