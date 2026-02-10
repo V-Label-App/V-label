@@ -33,6 +33,7 @@ ENV VITE_FIREBASE_APP_ID=$VITE_FIREBASE_APP_ID
 ENV VITE_FIREBASE_MEASUREMENT_ID=$VITE_FIREBASE_MEASUREMENT_ID
 
 # Create .env file from build args using a script to avoid shell issues
+# We use a script to cleaner handle the writes and avoid shell escaping hell
 RUN echo "#!/bin/sh" > /tmp/create-env.sh && \
     echo "rm -f .env" >> /tmp/create-env.sh && \
     echo "touch .env" >> /tmp/create-env.sh && \
