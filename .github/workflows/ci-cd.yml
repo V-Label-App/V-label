@@ -315,6 +315,13 @@ jobs:
             echo "🔑 Logging into GitHub Container Registry..."
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             
+            # Cleanup old Docker resources to free disk space
+            echo "🧹 Cleaning up old Docker resources..."
+            docker image prune -a -f || true
+            docker container prune -f || true
+            docker volume prune -f || true
+            docker builder prune -f || true
+            
             # Stop current containers
             echo "⏹️  Stopping current containers..."
             docker compose -f docker-compose.prod.pull.yml down
