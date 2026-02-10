@@ -42,6 +42,9 @@ RUN printf "VITE_API_URL=%s\n" "${VITE_API_URL}" > .env && \
     printf "VITE_FIREBASE_APP_ID=%s\n" "${VITE_FIREBASE_APP_ID}" >> .env && \
     printf "VITE_FIREBASE_MEASUREMENT_ID=%s\n" "${VITE_FIREBASE_MEASUREMENT_ID}" >> .env
 
+# DEBUG: Print .env content to build logs to verify variables are present
+RUN echo "=== DEBUG: .env content ===" && cat .env && echo "=== END DEBUG ==="
+
 # Build the application
 RUN npm run build
 
