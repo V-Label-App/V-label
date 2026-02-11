@@ -1582,16 +1582,17 @@ Output: {"name": "Traffic Detection Project", "description": "Một dự án com
       )
 
       // Step 6: Broadcast event for frontend auto-refresh
-      broadcastService.broadcastToAll(
-        SystemEventType.PROJECT_CREATED,
-        {
-          projectId: project.id,
-          projectName: project.name,
-          labelCount: assignmentResult.count,
-          createdBy: context.userId,
-        },
-        context.userId,
-      )
+      // TODO: Temporarily disabled - need to add frontend handler first
+      // broadcastService.broadcastToAll(
+      //   SystemEventType.PROJECT_CREATED,
+      //   {
+      //     projectId: project.id,
+      //     projectName: project.name,
+      //     labelCount: assignmentResult.count,
+      //     createdBy: context.userId,
+      //   },
+      //   context.userId,
+      // )
 
       // Step 7: Get full project details with labels
       const fullProject = await prisma.project.findUnique({
