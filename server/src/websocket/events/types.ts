@@ -21,11 +21,6 @@ export enum SystemEventType {
   LABEL_UPDATED = 'label:updated',
   LABEL_DELETED = 'label:deleted',
 
-  // Project Events
-  PROJECT_CREATED = 'project:created',
-  PROJECT_UPDATED = 'project:updated',
-  PROJECT_DELETED = 'project:deleted',
-
   // User Events (Future)
   USER_ROLE_CHANGED = 'user:role:changed',
   USER_STATUS_CHANGED = 'user:status:changed',

@@ -1581,20 +1581,7 @@ Output: {"name": "Traffic Detection Project", "description": "Một dự án com
         `[create_project_with_smart_labels] Assigned ${assignmentResult.count} labels`,
       )
 
-      // Step 6: Broadcast event for frontend auto-refresh
-      // TODO: Temporarily disabled - need to add frontend handler first
-      // broadcastService.broadcastToAll(
-      //   SystemEventType.PROJECT_CREATED,
-      //   {
-      //     projectId: project.id,
-      //     projectName: project.name,
-      //     labelCount: assignmentResult.count,
-      //     createdBy: context.userId,
-      //   },
-      //   context.userId,
-      // )
-
-      // Step 7: Get full project details with labels
+      // Step 6: Get full project details with labels
       const fullProject = await prisma.project.findUnique({
         where: { id: project.id },
         include: {
@@ -1612,7 +1599,7 @@ Output: {"name": "Traffic Detection Project", "description": "Một dự án com
         },
       })
 
-      // Step 8: Format success response
+      // Step 7: Format success response
       const assignedLabelNames = fullProject!.projectLabels
         .map((pl) => pl.label.name)
         .join(', ')
