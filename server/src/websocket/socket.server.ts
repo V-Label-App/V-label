@@ -13,7 +13,9 @@ export function initializeSocketServer(httpServer: HttpServer) {
         process.env.CLIENT_URL || 'http://localhost:5173',
         'http://127.0.0.1:5173',
         'https://vlabel.cloud',
-        'https://www.vlabel.cloud'
+        'https://www.vlabel.cloud',
+        'http://localhost:5174',
+        'http://127.0.0.1:5174',
       ],
       credentials: true,
     },

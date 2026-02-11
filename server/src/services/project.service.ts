@@ -102,11 +102,28 @@ export class ProjectService {
                 prisma.project.count({ where }),
             ])
 
-            // Map _count.images to totalImages for frontend
-            const mappedProjects = projects.map(p => ({
-                ...p,
-                totalImages: p._count.images
-            }))
+            // Calculate progress for each project and map totalImages
+            const mappedProjects = await Promise.all(
+                projects.map(async (p) => {
+                    const [totalTasks, approvedTasks] = await Promise.all([
+                        prisma.task.count({ where: { projectId: p.id } }),
+                        prisma.task.count({
+                            where: {
+                                projectId: p.id,
+                                status: TaskStatus.DONE
+                            }
+                        })
+                    ]);
+
+                    const progress = totalTasks > 0 ? (approvedTasks / totalTasks) * 100 : 0;
+
+                    return {
+                        ...p,
+                        totalImages: p._count.images,
+                        progress
+                    };
+                })
+            );
 
             return {
                 data: mappedProjects,
@@ -141,6 +158,15 @@ export class ProjectService {
                 include: {
                     category: true,
                     assignmentRule: true, // Include Assignment Rules
+                    projectLabels: {
+                        include: {
+                            label: {
+                                include: {
+                                    category: true
+                                }
+                            }
+                        }
+                    },
                     members: {
                         include: {
                             user: {
@@ -171,10 +197,24 @@ export class ProjectService {
 
             if (!project) return null
 
+            // Calculate progress for the project
+            const [totalTasks, approvedTasks] = await Promise.all([
+                prisma.task.count({ where: { projectId: project.id } }),
+                prisma.task.count({
+                    where: {
+                        projectId: project.id,
+                        status: TaskStatus.DONE
+                    }
+                })
+            ]);
+
+            const progress = totalTasks > 0 ? (approvedTasks / totalTasks) * 100 : 0;
+
             // Map _count.images to totalImages for frontend
             const mappedProject = {
                 ...project,
-                totalImages: project._count.images
+                totalImages: project._count.images,
+                progress
             }
 
             return mappedProject

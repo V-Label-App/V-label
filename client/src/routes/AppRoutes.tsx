@@ -15,6 +15,7 @@ import { ProjectListPage } from "../features/manager/pages/ProjectListPage";
 import { ProjectDetailPage } from "../features/manager/pages/ProjectDetailPage";
 import { LabelManagementPage } from "../features/manager/pages/LabelManagementPage";
 import { AnnotatorTasks } from "../features/annotator/pages/AnnotatorTasks";
+import { AnnotatorProjectDetailPage } from "../features/annotator/pages/AnnotatorProjectDetailPage";
 import { ReviewerQueue } from "../features/reviewer/pages/ReviewerQueue";
 import { ChatPage } from "../features/chat-widget/pages/ChatPage";
 
@@ -134,6 +135,14 @@ export const AppRoutes = () => {
                   (window.location.href = `/workspace/${taskId}`)
                 }
               />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/annotator/projects/:projectId"
+          element={
+            <ProtectedRoute allowedRoles={["ANNOTATOR"]}>
+              <AnnotatorProjectDetailPage />
             </ProtectedRoute>
           }
         />

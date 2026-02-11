@@ -1,367 +1,218 @@
-import { useState } from "react";
-import { Button } from "../../../components/ui/button";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card } from "../../../components/ui/card";
 import { Badge } from "../../../components/ui/badge";
+import { Input } from "../../../components/ui/input";
+import { Progress } from "../../../components/ui/progress";
 import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "../../../components/ui/tabs";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../../../components/ui/table";
 
-import { Play, AlertTriangle, Calendar, Tag } from "lucide-react";
-import { format, isPast, parseISO } from "date-fns";
-import { motion } from "framer-motion";
-
-interface Task {
-  id: string;
-  thumbnail: string;
-  title: string;
-  status: "assigned" | "submitted" | "rejected";
-  deadline: string;
-  rejectionReason?: string;
-  annotatorNote?: string;
-  projectId: string;
-  projectName: string;
-  labelIds: string[];
-}
-
-interface Label {
-  id: string;
-  name: string;
-  color: string;
-}
+import { FolderKanban, Loader2, Users, CheckCircle2, Search } from "lucide-react";
+import { annotatorApi } from "../../../services/annotator.api";
+import type { AnnotatorProject } from "../../../services/annotator.api";
+import { toast } from "sonner";
 
 interface AnnotatorTasksProps {
   onOpenWorkspace: (taskId: string, mode: "annotate") => void;
 }
 
-export function AnnotatorTasks({ onOpenWorkspace }: AnnotatorTasksProps) {
-  // Mock labels data
-  const [labels] = useState<Label[]>([
-    { id: "L-001", name: "Tumor", color: "#EF4444" },
-    { id: "L-002", name: "Fracture", color: "#F59E0B" },
-    { id: "L-003", name: "Brain Lesion", color: "#8B5CF6" },
-    { id: "L-004", name: "Hemorrhage", color: "#EC4899" },
-  ]);
+export function AnnotatorTasks(_props: AnnotatorTasksProps) {
+  const navigate = useNavigate();
+  const [projects, setProjects] = useState<AnnotatorProject[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const [tasks] = useState<Task[]>([
-    {
-      id: "T-002",
-      thumbnail: "🖼️",
-      title: "Medical Scan - Chest X-Ray",
-      status: "assigned",
-      deadline: "2026-01-15",
-      projectId: "PRJ-001",
-      projectName: "Medical Imaging Classification",
-      labelIds: ["L-001", "L-002"],
-    },
-    {
-      id: "T-007",
-      thumbnail: "🖼️",
-      title: "Medical Scan - Brain MRI",
-      status: "assigned",
-      deadline: "2026-01-16",
-      projectId: "PRJ-002",
-      projectName: "Neurology Diagnosis",
-      labelIds: ["L-003", "L-004"],
-    },
-    {
-      id: "T-003",
-      thumbnail: "🖼️",
-      title: "Medical Scan - Lung CT",
-      status: "submitted",
-      deadline: "2026-01-14",
-      projectId: "PRJ-001",
-      projectName: "Medical Imaging Classification",
-      labelIds: ["L-001", "L-002"],
-    },
-    {
-      id: "T-008",
-      thumbnail: "🖼️",
-      title: "Medical Scan - Cardiac Echo",
-      status: "rejected",
-      deadline: "2026-01-12",
-      rejectionReason:
-        "Bounding box boundaries are not precise. The annotation extends beyond the actual region of interest. Please ensure all edges align with the target structure.",
-      annotatorNote: "Initial attempt - need refinement",
-      projectId: "PRJ-001",
-      projectName: "Medical Imaging Classification",
-      labelIds: ["L-001", "L-002"],
-    },
-    {
-      id: "T-009",
-      thumbnail: "🖼️",
-      title: "Medical Scan - Spine X-Ray",
-      status: "rejected",
-      deadline: "2026-01-10",
-      rejectionReason:
-        "Missing labels for secondary findings. Please annotate all visible abnormalities.",
-      annotatorNote: "Focused on primary finding only",
-      projectId: "PRJ-001",
-      projectName: "Medical Imaging Classification",
-      labelIds: ["L-001", "L-002"],
-    },
-  ]);
-
-  const getStatusBadge = (status: string) => {
-    const styles = {
-      assigned: {
-        className: "bg-gray-100 text-gray-700 border-gray-300",
-        label: "Assigned",
-      },
-      submitted: {
-        className: "bg-blue-100 text-blue-700 border-blue-300",
-        label: "Submitted",
-      },
-      rejected: {
-        className: "bg-red-100 text-red-700 border-red-300",
-        label: "REJECTED",
-      },
+  // Fetch projects on mount
+  useEffect(() => {
+    const fetchProjects = async () => {
+      setIsLoading(true);
+      try {
+        const projectsData = await annotatorApi.getMyProjects();
+        setProjects(projectsData);
+      } catch (error) {
+        console.error('Failed to fetch projects:', error);
+        toast.error('Failed to load projects');
+      } finally {
+        setIsLoading(false);
+      }
     };
-    return styles[status as keyof typeof styles];
+
+    fetchProjects();
+  }, []);
+
+  // Filter projects by search
+  const filteredProjects = projects.filter((project) =>
+    project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    project.id.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const getStatusBadgeColor = (status: string) => {
+    switch (status) {
+      case "ACTIVE":
+        return "bg-blue-50 text-blue-700 border-blue-200";
+      case "COMPLETED":
+        return "bg-green-50 text-green-700 border-green-200";
+      case "PAUSED":
+        return "bg-yellow-50 text-yellow-700 border-yellow-200";
+      case "ARCHIVED":
+        return "bg-gray-50 text-gray-700 border-gray-200";
+      default:
+        return "bg-gray-50 text-gray-700 border-gray-200";
+    }
   };
 
-  const isDeadlineClose = (deadline: string) => {
-    const deadlineDate = parseISO(deadline);
-    const today = new Date("2026-01-14");
-    const daysUntil = Math.ceil(
-      (deadlineDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
-    );
-    return daysUntil <= 2 && daysUntil >= 0;
-  };
-
-  const isDeadlinePassed = (deadline: string) => {
-    return isPast(parseISO(deadline));
-  };
-
-  const assignedTasks = tasks.filter((t) => t.status === "assigned");
-  const submittedTasks = tasks.filter((t) => t.status === "submitted");
-  const rejectedTasks = tasks.filter((t) => t.status === "rejected");
-
-  const TaskCard = ({ task, index }: { task: Task; index?: number }) => {
-    const statusBadge = getStatusBadge(task.status);
-    const urgentDeadline = isDeadlineClose(task.deadline);
-    const overdueDeadline = isDeadlinePassed(task.deadline);
-
+  // Loading state
+  if (isLoading) {
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: (index || 0) * 0.1 }}
-        whileHover={{ scale: 1.02, transition: { duration: 0.2 } }}
-      >
-        <Card className="p-5 hover:shadow-lg transition-shadow">
-          <div className="flex gap-4">
-            <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-purple-100 rounded-lg flex items-center justify-center text-3xl flex-shrink-0">
-              {task.thumbnail}
-            </div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading your projects...</p>
+        </div>
+      </div>
+    );
+  }
 
-            <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between gap-3 mb-2">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-semibold">{task.title}</h3>
-                    <Badge variant="outline" className={statusBadge.className}>
-                      {statusBadge.label}
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Task ID: {task.id}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Project: {task.projectName}
-                  </p>
+  return (
+    <div className="min-h-screen bg-gray-50 animate-in fade-in slide-in-from-bottom-5 duration-700">
+      <div className="max-w-7xl mx-auto px-8 py-8">
+        {/* Page Header */}
+        <div className="mb-6">
+          <h2 className="text-3xl font-semibold mb-2">My Projects</h2>
+          <p className="text-muted-foreground">
+            View projects you're assigned to and manage your tasks
+          </p>
+        </div>
 
-                  {/* Project Labels */}
-                  {task.labelIds && task.labelIds.length > 0 && (
-                    <div className="flex items-center gap-2 mt-2">
-                      <Tag className="w-3 h-3 text-muted-foreground" />
-                      <div className="flex flex-wrap gap-1">
-                        {task.labelIds.map((labelId) => {
-                          const label = labels.find((l) => l.id === labelId);
-                          if (!label) return null;
-                          return (
-                            <Badge
-                              key={labelId}
-                              className="text-xs"
-                              style={{
-                                backgroundColor: label.color,
-                                color: "white",
-                                borderColor: label.color,
-                              }}
-                            >
-                              {label.name}
-                            </Badge>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4 text-sm mb-3">
-                <div
-                  className={`flex items-center gap-1 ${overdueDeadline
-                      ? "text-red-600 font-medium"
-                      : urgentDeadline
-                        ? "text-orange-600 font-medium"
-                        : "text-muted-foreground"
-                    }`}
-                >
-                  <Calendar className="w-4 h-4" />
-                  <span>
-                    Due: {format(parseISO(task.deadline), "MMM dd, yyyy")}
-                  </span>
-                  {urgentDeadline && !overdueDeadline && (
-                    <AlertTriangle className="w-4 h-4 ml-1 text-orange-500" />
-                  )}
-                  {overdueDeadline && (
-                    <AlertTriangle className="w-4 h-4 ml-1 text-red-500" />
-                  )}
-                </div>
-              </div>
-
-              {task.status === "rejected" && task.rejectionReason && (
-                <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <p className="text-xs font-medium text-red-800 mb-1 flex items-center gap-1">
-                    <AlertTriangle className="w-3 h-3" />
-                    Rejection Reason:
-                  </p>
-                  <p className="text-sm text-red-700">{task.rejectionReason}</p>
-                </div>
-              )}
-
-              <div className="flex gap-2">
-                <Button
-                  className="bg-blue-600 hover:bg-blue-700"
-                  onClick={() => onOpenWorkspace(task.id, "annotate")}
-                >
-                  <Play className="w-4 h-4 mr-2" />
-                  {task.status === "rejected"
-                    ? "Fix & Resubmit"
-                    : task.status === "assigned"
-                      ? "Start Labeling"
-                      : "View Submission"}
-                </Button>
-                {task.status === "rejected" && (
-                  <Button variant="outline">View Details</Button>
-                )}
+        {/* Search Bar */}
+        <Card className="p-4 mb-6">
+          <div className="flex items-center gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search projects by name or ID..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                />
               </div>
             </div>
           </div>
         </Card>
-      </motion.div>
-    );
-  };
 
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
-      className="min-h-screen bg-gray-50"
-    >
-
-
-      <div className="max-w-7xl mx-auto px-8 py-8">
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.5 }}
-          className="mb-6"
-        >
-          <h2 className="text-2xl font-semibold mb-2">My Tasks</h2>
-          <p className="text-muted-foreground">
-            Manage your assigned labeling tasks and submissions
-          </p>
-        </motion.div>
-
-        <Tabs defaultValue="all" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="all">All Tasks ({tasks.length})</TabsTrigger>
-            <TabsTrigger value="assigned">
-              Assigned ({assignedTasks.length})
-            </TabsTrigger>
-            <TabsTrigger value="submitted">
-              Submitted ({submittedTasks.length})
-            </TabsTrigger>
-            <TabsTrigger
-              value="rejected"
-              className="data-[state=active]:text-red-600"
-            >
-              Rejected ({rejectedTasks.length})
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="all" className="space-y-4">
-            {rejectedTasks.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.4 }}
-                className="p-4 bg-red-50 border border-red-200 rounded-lg mb-4"
-              >
-                <div className="flex items-start gap-2">
-                  <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-red-800">
-                      Action Required: {rejectedTasks.length} Rejected Task
-                      {rejectedTasks.length !== 1 ? "s" : ""}
-                    </p>
-                    <p className="text-sm text-red-700 mt-1">
-                      Please review and fix the rejected tasks to maintain your
-                      reputation score.
-                    </p>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-            {tasks.map((task, index) => (
-              <TaskCard key={task.id} task={task} index={index} />
-            ))}
-          </TabsContent>
-
-          <TabsContent value="assigned" className="space-y-4">
-            {assignedTasks.length === 0 ? (
-              <Card className="p-12 text-center">
-                <p className="text-muted-foreground">
-                  No assigned tasks at the moment
-                </p>
-              </Card>
-            ) : (
-              assignedTasks.map((task, index) => (
-                <TaskCard key={task.id} task={task} index={index} />
-              ))
-            )}
-          </TabsContent>
-
-          <TabsContent value="submitted" className="space-y-4">
-            {submittedTasks.length === 0 ? (
-              <Card className="p-12 text-center">
-                <p className="text-muted-foreground">No submitted tasks</p>
-              </Card>
-            ) : (
-              submittedTasks.map((task, index) => (
-                <TaskCard key={task.id} task={task} index={index} />
-              ))
-            )}
-          </TabsContent>
-
-          <TabsContent value="rejected" className="space-y-4">
-            {rejectedTasks.length === 0 ? (
-              <Card className="p-12 text-center">
-                <p className="text-muted-foreground">No rejected tasks</p>
-              </Card>
-            ) : (
-              rejectedTasks.map((task, index) => (
-                <TaskCard key={task.id} task={task} index={index} />
-              ))
-            )}
-          </TabsContent>
-        </Tabs>
+        {/* Projects Table */}
+        {filteredProjects.length === 0 ? (
+          <Card className="p-12 text-center">
+            <FolderKanban className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">
+              {projects.length === 0 ? "No projects yet" : "No projects found"}
+            </h3>
+            <p className="text-muted-foreground mb-4">
+              {projects.length === 0
+                ? "You haven't been added to any projects yet"
+                : "Try adjusting your search"}
+            </p>
+          </Card>
+        ) : (
+          <Card className="overflow-hidden">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader className="bg-gray-50 border-b border-gray-200">
+                  <TableRow>
+                    <TableHead className="w-[35%]">Project Name</TableHead>
+                    <TableHead className="w-[15%]">Category</TableHead>
+                    <TableHead className="w-[20%]">Progress</TableHead>
+                    <TableHead className="w-[10%]">My Tasks</TableHead>
+                    <TableHead className="w-[10%]">Members</TableHead>
+                    <TableHead className="w-[10%]">Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="divide-y divide-gray-200">
+                  {filteredProjects.map((project) => {
+                    const progress = project.progress || 0;
+                    return (
+                      <TableRow
+                        key={project.id}
+                        className="hover:bg-gray-50 transition-colors cursor-pointer"
+                        onClick={() => navigate(`/annotator/projects/${project.id}`)}
+                      >
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                              <FolderKanban className="w-5 h-5 text-blue-600" />
+                            </div>
+                            <div className="min-w-0">
+                              <div
+                                className="font-semibold text-gray-900 line-clamp-2 max-w-full"
+                                title={project.name}
+                              >
+                                {project.name}
+                              </div>
+                              <div className="text-xs text-gray-500 truncate max-w-full">
+                                {project.description || "No description"}
+                              </div>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {project.category ? (
+                            <Badge className="bg-blue-50 text-blue-700 border border-blue-200">
+                              {project.category.name}
+                            </Badge>
+                          ) : (
+                            <span className="text-sm text-gray-400">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <div className="flex-1 min-w-[100px]">
+                              <Progress value={progress} className="h-2" />
+                            </div>
+                            <span className="text-sm font-medium text-gray-700 w-12 text-right">
+                              {Math.round(progress)}%
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 className="w-4 h-4 text-blue-500" />
+                            <span className="text-sm font-medium text-gray-700">
+                              {project._count.tasks || 0}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Users className="w-4 h-4 text-gray-400" />
+                            <span className="text-sm text-gray-700">
+                              {project._count.members || 0}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant="outline"
+                            className={`border ${getStatusBadgeColor(project.status)}`}
+                          >
+                            {project.status}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </Card>
+        )}
       </div>
-    </motion.div>
+    </div>
   );
 }

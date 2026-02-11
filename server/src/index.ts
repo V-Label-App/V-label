@@ -21,6 +21,7 @@ import projectLabelRoutes from './routes/project-label.routes.js'
 import projectCategoryRoutes from './routes/project-category.routes.js'
 import projectRoutes from './routes/project.routes.js'
 import configRoutes from './routes/config.routes.js'
+import annotatorRoutes from './routes/annotator.routes.js'
 import { initializeSocketServer } from './websocket/socket.server.js'
 import { EmailTemplateService } from './services/email/template.service.js'
 import { NotificationTemplateService } from './services/notification.template.service.js'
@@ -65,6 +66,7 @@ app.use('/api/v1/labels', labelRoutes)
 app.use('/api/v1/projects', projectRoutes)
 app.use('/api/v1/projects/:projectId/labels', projectLabelRoutes)
 app.use('/api/v1/project-categories', projectCategoryRoutes)
+app.use('/api/v1/annotator', annotatorRoutes)
 
 // 404 Catch-all
 app.use((req, res, next) => {
