@@ -1197,7 +1197,7 @@ FunctionRegistry.register(
     }
 
     const genAI = new GoogleGenerativeAI(apiKey)
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' })
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-pro' })
 
     // Build label list for Gemini
     const labelList = allLabels

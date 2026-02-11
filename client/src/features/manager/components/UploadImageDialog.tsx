@@ -270,7 +270,7 @@ export function UploadImageDialog({ projectId, datasetId: initialDatasetId, open
     };
 
     // Helper to count issues
-    const badQualityCount = files.filter(f => !f.quality?.isGood).length;
+    // const badQualityCount = files.filter(f => !f.quality?.isGood).length;
 
     return (
         <>

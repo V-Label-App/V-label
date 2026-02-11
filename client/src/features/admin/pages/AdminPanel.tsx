@@ -51,7 +51,6 @@ import {
   ArrowUp,
   ArrowDown,
   Eye,
-  Image as ImageIcon,
 } from "lucide-react";
 import { useLocation } from "react-router-dom";
 
