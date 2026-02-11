@@ -1197,7 +1197,7 @@ FunctionRegistry.register(
     }
 
     const genAI = new GoogleGenerativeAI(apiKey)
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' })
 
     // Build label list for Gemini
     const labelList = allLabels
@@ -1410,7 +1410,7 @@ FunctionRegistry.register(
     }
 
     const genAI = new GoogleGenerativeAI(apiKey)
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' })
 
     const formattingPrompt = `You are a project management expert. Format the user's raw project idea into a professional project.
 
