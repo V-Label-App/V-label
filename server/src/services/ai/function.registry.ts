@@ -2,9 +2,15 @@ import { prisma } from '../../utils/database.js'
 import bcrypt from 'bcryptjs'
 import { ResponseFormatter } from './responseFormatter.js'
 import { NotificationService } from '../notification.service.js'
-import { LabelService, LabelCategoryService } from '../label.service.js'
+import {
+  LabelService,
+  LabelCategoryService,
+  ProjectLabelService,
+} from '../label.service.js'
+import { ProjectService } from '../project.service.js'
 import { broadcastService } from '../../websocket/events/broadcast.service.js'
 import { SystemEventType } from '../../websocket/events/types.js'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 
 type FunctionImplementation = (params: any, context?: any) => Promise<any>
 
@@ -1129,6 +1135,590 @@ RESPONSE FORMAT:
           description: 'Optional: Limit number of results (default 50)',
         },
       },
+    },
+  },
+)
+
+// ============================================================================
+// PROJECT MANAGEMENT WITH SMART LABEL SUGGESTIONS
+// ============================================================================
+
+/**
+ * Function 1: Suggest labels for a new project based on description
+ */
+FunctionRegistry.register(
+  'suggest_labels_for_project',
+  async (params, context) => {
+    // Security: Only MANAGER or ADMIN can create projects
+    if (!['MANAGER', 'ADMIN'].includes(context.userRole)) {
+      throw new Error(
+        'Permission denied: Only MANAGER or ADMIN can create projects.',
+      )
+    }
+
+    const { projectDescription } = params
+
+    if (!projectDescription || projectDescription.trim().length === 0) {
+      return ResponseFormatter.asText(
+        '❌ Vui lòng mô tả project bạn muốn tạo. Ví dụ: "Tôi muốn tạo project nhận diện các loại xe cộ trên đường"',
+      )
+    }
+
+    // Step 1: Get all existing labels from database
+    console.log('[suggest_labels_for_project] Fetching all existing labels...')
+    const allLabels = await LabelService.getAll()
+
+    if (allLabels.length === 0) {
+      return ResponseFormatter.asCard({
+        title: '⚠️ No Labels Available',
+        variant: 'warning',
+        fields: {
+          Message:
+            'Hệ thống chưa có labels nào. Vui lòng tạo labels trước khi tạo project.',
+        },
+        actions: [
+          {
+            label: 'Tạo labels',
+            action: 'create_labels_auto',
+            variant: 'primary',
+          },
+        ],
+      })
+    }
+
+    // Step 2: Use Gemini AI to semantically match labels with project description
+    console.log(
+      `[suggest_labels_for_project] Matching ${allLabels.length} labels with description...`,
+    )
+
+    const apiKey = process.env.GEMINI_API_KEY
+    if (!apiKey) {
+      throw new Error('GEMINI_API_KEY not configured')
+    }
+
+    const genAI = new GoogleGenerativeAI(apiKey)
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+
+    // Build label list for Gemini
+    const labelList = allLabels
+      .map((label, idx) => {
+        const categoryInfo = label.category
+          ? ` (Category: ${label.category.name})`
+          : ''
+        return `${idx + 1}. ${label.name}${categoryInfo}`
+      })
+      .join('\n')
+
+    const matchingPrompt = `You are an expert in computer vision and image annotation projects.
+
+Given the following list of available labels in the system:
+${labelList}
+
+Project Description: "${projectDescription}"
+
+Task: Select the most relevant labels for this project. Return ONLY a JSON array of label names that are semantically related to the project description.
+
+Rules:
+- Return ONLY label names that exist in the provided list
+- Select 3-10 labels maximum (prioritize most relevant)
+- If description mentions specific objects, include them
+- Consider semantic similarity (e.g., "traffic" → "Car", "Bus", "Truck")
+- Return ONLY valid JSON array format: ["Label1", "Label2", ...]
+- Do not explain, just return the JSON array
+
+Example:
+Input: "detect animals in wildlife"
+Output: ["Dog", "Cat", "Bird", "Horse"]`
+
+    try {
+      const result = await model.generateContent(matchingPrompt)
+      const responseText = result.response.text().trim()
+
+      console.log(
+        '[suggest_labels_for_project] Gemini response:',
+        responseText,
+      )
+
+      // Parse JSON response
+      let suggestedLabelNames: string[] = []
+      try {
+        // Extract JSON array from response (handle markdown code blocks)
+        const jsonMatch = responseText.match(/\[[\s\S]*\]/)
+        if (jsonMatch) {
+          suggestedLabelNames = JSON.parse(jsonMatch[0])
+        } else {
+          suggestedLabelNames = JSON.parse(responseText)
+        }
+      } catch (parseError) {
+        console.error(
+          '[suggest_labels_for_project] Failed to parse Gemini response:',
+          parseError,
+        )
+        throw new Error('Failed to parse AI response. Please try again.')
+      }
+
+      if (
+        !Array.isArray(suggestedLabelNames) ||
+        suggestedLabelNames.length === 0
+      ) {
+        return ResponseFormatter.asCard({
+          title: '⚠️ No Matching Labels Found',
+          variant: 'warning',
+          fields: {
+            'Project Description': projectDescription,
+            Message:
+              'Không tìm thấy labels phù hợp với mô tả này. Vui lòng thử mô tả chi tiết hơn hoặc tạo labels mới.',
+          },
+          actions: [
+            {
+              label: 'Tạo labels mới',
+              action: 'create_labels_auto',
+              variant: 'primary',
+            },
+          ],
+        })
+      }
+
+      // Step 3: Get full label details
+      const suggestedLabels = allLabels.filter((label) =>
+        suggestedLabelNames.includes(label.name),
+      )
+
+      console.log(
+        `[suggest_labels_for_project] Matched ${suggestedLabels.length} labels:`,
+        suggestedLabels.map((l) => l.name),
+      )
+
+      // Step 4: Format response with label preview
+      const labelDetails = suggestedLabels
+        .map((label) => {
+          const categoryInfo = label.category
+            ? ` (${label.category.name})`
+            : ' (Uncategorized)'
+          return `• **${label.name}**${categoryInfo} - ${label.color}`
+        })
+        .join('\n')
+
+      return ResponseFormatter.asCard({
+        title: '✨ Suggested Labels for Your Project',
+        variant: 'default',
+        fields: {
+          'Project Description': projectDescription,
+          'Suggested Labels Count': `${suggestedLabels.length} labels`,
+          Labels: labelDetails,
+          '':
+            '\n**Bước tiếp theo:** Nếu bạn đồng ý với các labels này, hãy xác nhận để tôi tạo project!',
+        },
+        actions: [
+          {
+            label: '✅ Tạo project với labels này',
+            action: `create_project_with_smart_labels`,
+            variant: 'primary',
+            data: {
+              projectDescription: projectDescription,
+              labelIds: suggestedLabels.map((l) => l.id),
+            },
+          },
+          {
+            label: '🔄 Chọn lại labels',
+            action: 'suggest_labels_for_project',
+            variant: 'secondary',
+          },
+        ],
+      })
+    } catch (error: any) {
+      console.error('[suggest_labels_for_project] Error:', error)
+      throw new Error(`Failed to suggest labels: ${error.message}`)
+    }
+  },
+  {
+    description: `Suggest relevant labels for a new project based on its description.
+
+This function uses AI to semantically match existing labels in the system with the project description.
+
+Use cases:
+- User wants to create a project and needs label suggestions
+- User describes what they want to label (e.g., "detect traffic", "classify flowers")
+- Returns preview of suggested labels for user confirmation
+
+Workflow:
+1. User describes project idea
+2. AI matches with existing labels
+3. Returns suggested labels + confirmation prompt
+4. User confirms → proceeds to create_project_with_smart_labels
+
+IMPORTANT: This only suggests EXISTING labels. It does NOT create new labels.`,
+    parameters: {
+      type: 'object',
+      properties: {
+        projectDescription: {
+          type: 'string',
+          description:
+            'Description of what the project will label. Can be in natural language. Examples: "nhận diện xe cộ", "detect flowers", "phân loại thú cưng"',
+        },
+      },
+      required: ['projectDescription'],
+    },
+  },
+)
+
+/**
+ * Function 2: Create project with smart-formatted name/description and assign labels
+ */
+FunctionRegistry.register(
+  'create_project_with_smart_labels',
+  async (params, context) => {
+    // Security: Only MANAGER or ADMIN can create projects
+    if (!['MANAGER', 'ADMIN'].includes(context.userRole)) {
+      throw new Error(
+        'Permission denied: Only MANAGER or ADMIN can create projects.',
+      )
+    }
+
+    const {
+      projectIdea,
+      projectDescription, // From suggest_labels_for_project
+      labelIds,
+      categoryId,
+      deadline,
+      enableAiAssistance = true,
+    } = params
+
+    // Use projectDescription if provided (from suggestion flow), otherwise use projectIdea
+    const rawDescription = projectDescription || projectIdea
+
+    if (!rawDescription || rawDescription.trim().length === 0) {
+      return ResponseFormatter.asText(
+        '❌ Vui lòng cung cấp mô tả project. Ví dụ: "Tạo project detect traffic"',
+      )
+    }
+
+    if (!labelIds || !Array.isArray(labelIds) || labelIds.length === 0) {
+      return ResponseFormatter.asText(
+        '❌ Vui lòng chọn ít nhất 1 label cho project. Sử dụng `suggest_labels_for_project` để được gợi ý labels.',
+      )
+    }
+
+    // Step 1: Use Gemini to format professional project name and description
+    console.log(
+      '[create_project_with_smart_labels] Formatting project name and description with AI...',
+    )
+
+    const apiKey = process.env.GEMINI_API_KEY
+    if (!apiKey) {
+      throw new Error('GEMINI_API_KEY not configured')
+    }
+
+    const genAI = new GoogleGenerativeAI(apiKey)
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+
+    const formattingPrompt = `You are a project management expert. Format the user's raw project idea into a professional project.
+
+User's raw idea: "${rawDescription}"
+
+Task: Return a JSON object with:
+{
+  "name": "Professional project name (3-6 words, title case)",
+  "description": "Clear 1-2 sentence description of what this project will annotate/label"
+}
+
+Rules:
+- name: Short, clear, professional (e.g., "Traffic Detection System", "Flower Classification Dataset")
+- description: Explain what will be labeled, why, and scope (1-2 sentences)
+- Keep Vietnamese if user's input was Vietnamese
+- Return ONLY valid JSON, no explanation
+
+Example:
+Input: "tạo project detect traffic"
+Output: {"name": "Traffic Detection Project", "description": "Một dự án computer vision để phát hiện và phân loại các phương tiện giao thông bao gồm ô tô, xe buýt, xe tải và xe máy trên đường phố."}`
+
+    let formattedName: string
+    let formattedDescription: string
+
+    try {
+      const result = await model.generateContent(formattingPrompt)
+      const responseText = result.response.text().trim()
+
+      console.log(
+        '[create_project_with_smart_labels] Formatting response:',
+        responseText,
+      )
+
+      // Parse JSON response
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/)
+      if (!jsonMatch) {
+        throw new Error('No JSON found in response')
+      }
+
+      const formatted = JSON.parse(jsonMatch[0])
+      formattedName = formatted.name || rawDescription
+      formattedDescription =
+        formatted.description || `Project for ${rawDescription}`
+    } catch (error) {
+      console.error(
+        '[create_project_with_smart_labels] Failed to format with AI, using defaults:',
+        error,
+      )
+      // Fallback to simple formatting
+      formattedName = rawDescription
+        .slice(0, 50)
+        .replace(/^(tạo project|create project)/i, '')
+        .trim()
+      formattedDescription = `A computer vision project for ${rawDescription}`
+    }
+
+    // Step 2: Check if need to ask for additional info
+    const missingInfo: string[] = []
+    if (!categoryId) missingInfo.push('category')
+    if (!deadline) missingInfo.push('deadline')
+
+    if (missingInfo.length > 0 && !params._skipQuestions) {
+      // Ask user for missing info
+      const questions = []
+      if (!categoryId) {
+        questions.push(
+          '• **Project Category**: Bạn muốn project thuộc category nào? (Object Detection, Image Classification, Segmentation, hoặc để trống)',
+        )
+      }
+      if (!deadline) {
+        questions.push(
+          '• **Deadline**: Bạn có muốn đặt deadline không? (Ví dụ: "30 ngày", "2 tuần", hoặc để trống)',
+        )
+      }
+
+      return ResponseFormatter.asCard({
+        title: '📋 Project Information',
+        variant: 'default',
+        fields: {
+          'Project Name': formattedName,
+          Description: formattedDescription,
+          Labels: `${labelIds.length} labels đã chọn`,
+          'Missing Info':
+            'Vui lòng cung cấp thêm thông tin sau (có thể bỏ qua):',
+          Questions: questions.join('\n'),
+        },
+        actions: [
+          {
+            label: '✅ Tạo project ngay (bỏ qua câu hỏi)',
+            action: 'create_project_with_smart_labels',
+            variant: 'primary',
+            data: {
+              ...params,
+              _skipQuestions: true,
+            },
+          },
+          {
+            label: '❌ Huỷ',
+            action: 'cancel',
+            variant: 'secondary',
+          },
+        ],
+      })
+    }
+
+    // Step 3: Parse deadline if provided
+    let parsedDeadline: Date | undefined
+    if (deadline && typeof deadline === 'string') {
+      try {
+        // Parse relative deadline (e.g., "30 ngày", "2 tuần")
+        const daysMatch = deadline.match(/(\d+)\s*(ngày|day|days)/i)
+        const weeksMatch = deadline.match(/(\d+)\s*(tuần|week|weeks)/i)
+
+        if (daysMatch && daysMatch[1]) {
+          const days = parseInt(daysMatch[1])
+          parsedDeadline = new Date()
+          parsedDeadline.setDate(parsedDeadline.getDate() + days)
+        } else if (weeksMatch && weeksMatch[1]) {
+          const weeks = parseInt(weeksMatch[1])
+          parsedDeadline = new Date()
+          parsedDeadline.setDate(parsedDeadline.getDate() + weeks * 7)
+        } else {
+          // Try parsing ISO date
+          parsedDeadline = new Date(deadline)
+          if (isNaN(parsedDeadline.getTime())) {
+            parsedDeadline = undefined
+          }
+        }
+      } catch (error) {
+        console.error(
+          '[create_project_with_smart_labels] Failed to parse deadline:',
+          error,
+        )
+        parsedDeadline = undefined
+      }
+    }
+
+    // Step 4: Create the project
+    console.log('[create_project_with_smart_labels] Creating project...')
+    try {
+      const projectData: any = {
+        name: formattedName,
+        description: formattedDescription,
+        enableAiAssistance,
+        creatorId: context.userId,
+      }
+
+      // Add optional fields only if they exist
+      if (categoryId) projectData.categoryId = categoryId
+      if (parsedDeadline) projectData.deadline = parsedDeadline
+
+      const project = await ProjectService.create(projectData)
+
+      console.log(
+        `[create_project_with_smart_labels] Project created: ${project.id}`,
+      )
+
+      // Step 5: Assign labels to project
+      console.log(
+        `[create_project_with_smart_labels] Assigning ${labelIds.length} labels...`,
+      )
+      const assignmentResult = await ProjectLabelService.assignLabels(
+        project.id,
+        labelIds,
+      )
+
+      console.log(
+        `[create_project_with_smart_labels] Assigned ${assignmentResult.count} labels`,
+      )
+
+      // Step 6: Broadcast event for frontend auto-refresh
+      broadcastService.broadcastToAll(
+        SystemEventType.PROJECT_CREATED,
+        {
+          projectId: project.id,
+          projectName: project.name,
+          labelCount: assignmentResult.count,
+          createdBy: context.userId,
+        },
+        context.userId,
+      )
+
+      // Step 7: Get full project details with labels
+      const fullProject = await prisma.project.findUnique({
+        where: { id: project.id },
+        include: {
+          category: true,
+          projectLabels: {
+            include: {
+              label: {
+                include: { category: true },
+              },
+            },
+          },
+          _count: {
+            select: { members: true, tasks: true },
+          },
+        },
+      })
+
+      // Step 8: Format success response
+      const assignedLabelNames = fullProject!.projectLabels
+        .map((pl) => pl.label.name)
+        .join(', ')
+
+      return ResponseFormatter.asCard({
+        title: '✅ Project Created Successfully!',
+        variant: 'success',
+        fields: {
+          'Project Name': fullProject!.name,
+          Description: fullProject!.description || '(No description)',
+          Category: fullProject!.category?.name || 'Uncategorized',
+          Deadline: fullProject!.deadline
+            ? new Date(fullProject!.deadline).toLocaleDateString('vi-VN')
+            : 'No deadline',
+          'Labels Assigned': `${fullProject!.projectLabels.length} labels`,
+          'Label Names': assignedLabelNames,
+          'AI Assistance': enableAiAssistance ? '✓ Enabled' : '✗ Disabled',
+          Members: `${fullProject!._count.members} member(s) (including you as MANAGER)`,
+          'Project ID': fullProject!.id,
+        },
+        actions: [
+          {
+            label: '👀 View project details',
+            action: 'view_project',
+            variant: 'primary',
+            data: { projectId: fullProject!.id },
+          },
+          {
+            label: '➕ Create another project',
+            action: 'suggest_labels_for_project',
+            variant: 'secondary',
+          },
+          {
+            label: '👥 Invite members',
+            action: 'invite_members',
+            variant: 'secondary',
+            data: { projectId: fullProject!.id },
+          },
+        ],
+      })
+    } catch (error: any) {
+      console.error('[create_project_with_smart_labels] Error:', error)
+      throw new Error(`Failed to create project: ${error.message}`)
+    }
+  },
+  {
+    description: `Create a new project with AI-formatted name/description and assign suggested labels.
+
+This function:
+1. Uses AI to format raw project idea into professional name and description
+2. Optionally asks for additional info (category, deadline)
+3. Creates the project
+4. Assigns selected labels to the project
+5. Adds creator as MANAGER automatically
+
+Use cases:
+- After user confirms labels from suggest_labels_for_project
+- Direct project creation with label IDs
+- Auto-formats messy input into professional project details
+
+Workflow:
+1. User confirms suggested labels
+2. AI formats name + description
+3. Ask for category/deadline (optional)
+4. Create project + assign labels
+5. Return success with actions
+
+IMPORTANT: labelIds must be valid label IDs from the database.`,
+    parameters: {
+      type: 'object',
+      properties: {
+        projectIdea: {
+          type: 'string',
+          description:
+            'Raw project idea from user (e.g., "tạo project detect traffic"). Will be formatted by AI.',
+        },
+        projectDescription: {
+          type: 'string',
+          description:
+            'Alternative: Pre-formatted description from suggest_labels_for_project flow',
+        },
+        labelIds: {
+          type: 'array',
+          items: { type: 'string' },
+          description:
+            'Array of label IDs to assign to project. Get from suggest_labels_for_project.',
+        },
+        categoryId: {
+          type: 'string',
+          description: 'Optional: Project category UUID',
+        },
+        deadline: {
+          type: 'string',
+          description:
+            'Optional: Deadline as string. Can be relative ("30 ngày", "2 tuần") or ISO date.',
+        },
+        enableAiAssistance: {
+          type: 'boolean',
+          description:
+            'Enable AI assistance for this project (default: true)',
+        },
+        _skipQuestions: {
+          type: 'boolean',
+          description: 'Internal: Skip asking for missing info',
+        },
+      },
+      required: ['labelIds'],
     },
   },
 )

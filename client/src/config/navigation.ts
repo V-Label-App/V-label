@@ -38,6 +38,7 @@ export const ROLE_NAVIGATION: RoleNavigation = {
     { title: "Users", url: "/admin/users", icon: Users, group: "Management" },
     { title: "Project Categories", url: "/admin/categories", icon: Layers, group: "Management" },
     { title: "Images", url: "/admin/media", icon: ImageIcon, group: "Management" },
+    { title: "Image Quality", url: "/admin/image-quality", icon: Sparkles, group: "Management" },
 
     // Settings
     { title: "AI Chat Setting", url: "/admin/ai-chat", icon: Sparkles, group: "Settings" },
