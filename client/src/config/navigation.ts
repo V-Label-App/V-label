@@ -9,7 +9,6 @@ import {
   Tag,
   ListTodo,
   BarChart,
-  CheckSquare,
   MessageSquare,
   Layers,
   Image as ImageIcon,
@@ -56,12 +55,12 @@ export const ROLE_NAVIGATION: RoleNavigation = {
   ],
   ANNOTATOR: [
     { title: "My Tasks", url: "/annotator", icon: ListTodo, group: "Workspace" },
-    { title: "Performance", url: "/profile", icon: BarChart, group: "Profile" },
+    { title: "Performance", url: "/annotator/performance", icon: BarChart, group: "Profile" },
     { title: "Chat", url: "/annotator/chat", icon: MessageSquare, group: "Communication" },
   ],
   REVIEWER: [
-    { title: "Review Queue", url: "/reviewer", icon: CheckSquare, group: "Workspace" },
-    { title: "Performance", url: "/profile", icon: BarChart, group: "Profile" },
+    { title: "My Projects", url: "/reviewer", icon: Folder, group: "Workspace" },
+    { title: "Performance", url: "/reviewer/performance", icon: BarChart, group: "Profile" },
     { title: "Chat", url: "/reviewer/chat", icon: MessageSquare, group: "Communication" },
   ],
 };

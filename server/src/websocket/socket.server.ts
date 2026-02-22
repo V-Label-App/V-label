@@ -43,7 +43,7 @@ export function initializeSocketServer(httpServer: HttpServer) {
         });
         const displayName = user?.fullName || user?.email || userId;
         logger.info('WEBSOCKET', `User connected: "${displayName}" | Role: ${userRole}`);
-      } catch (e) {
+      } catch (error) {
         logger.info('WEBSOCKET', `User connected: ${userId} | Role: ${userRole}`);
       }
     })();

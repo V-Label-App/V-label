@@ -27,7 +27,7 @@ export function registerChatHandlers(io: Server, socket: Socket) {
     socket.join(`project:${projectId}`);
     const userName = member.user?.fullName || member.user?.email || userId;
     const projectName = member.project?.name || projectId;
-    logger.info('WEBSOCKET', `User "${userName}" joined project room "${projectName}"`);
+    logger.info('WEBSOCKET', `User "${userName}" joined project name: "${projectName}"`);
   });
 
   // Leave project chat room

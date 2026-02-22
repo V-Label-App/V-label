@@ -175,7 +175,7 @@ export class ProjectController {
                 ...(validatedData.assignmentRule && { assignmentRule: validatedData.assignmentRule }),
             })
 
-            logger.info('API', `Project updated: ${id}`, { actorId: (req as any).user?.sub || (req as any).user?.id })
+            logger.info('API', `Project updated: ${project.name}`, { actorId: (req as any).user?.sub || (req as any).user?.fullName })
             return res.json(project)
         } catch (error) {
             if (error instanceof ZodError) {
