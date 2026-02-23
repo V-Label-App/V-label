@@ -476,4 +476,335 @@ export class ProjectController {
             return res.status(500).json({ error: 'Internal server error' })
         }
     }
+
+    /**
+     * POST /api/v1/projects/:id/images/import-zip
+     * Import images from ZIP file (max 200 images)
+     */
+    static async importFromZip(req: Request, res: Response) {
+        try {
+            const { id: projectId } = req.params as { id: string }
+            const user = (req as any).user
+            const zipFile = req.file
+
+            if (!zipFile) {
+                return res.status(400).json({ error: 'No ZIP file uploaded' })
+            }
+
+            logger.info('API', `Starting ZIP import for project ${projectId}`, { 
+                zipFilename: zipFile.originalname,
+                zipSize: zipFile.size 
+            })
+
+            // Load ZIP
+            const JSZip = (await import('jszip')).default
+            const zip = await JSZip.loadAsync(zipFile.buffer)
+
+            // Filter image files (skip hidden files and folders)
+            const imageFiles = Object.keys(zip.files)
+                .filter(filename => {
+                    if (filename.startsWith('__MACOSX') || 
+                        filename.includes('.DS_Store') ||
+                        filename.toLowerCase().includes('thumbs.db') ||
+                        filename.endsWith('/')) {
+                        return false
+                    }
+                    return /\.(jpg|jpeg|png|webp)$/i.test(filename)
+                })
+                .map(filename => zip.files[filename])
+
+            // Limit to 200 images
+            if (imageFiles.length > 200) {
+                return res.status(400).json({ 
+                    error: 'Too many images in ZIP',
+                    message: `ZIP contains ${imageFiles.length} images. Maximum allowed is 200 images.`
+                })
+            }
+
+            if (imageFiles.length === 0) {
+                return res.status(400).json({ 
+                    error: 'No valid images found in ZIP',
+                    message: 'ZIP must contain at least one image file (JPG, PNG, or WebP)'
+                })
+            }
+
+            const crypto = await import('crypto')
+            const { prisma } = await import('../utils/database.js')
+            const { ImageService } = await import('../services/image.service.js')
+
+            // Process each image
+            const results = await Promise.allSettled(
+                imageFiles.map(async (file) => {
+                    const buffer = await file!.async('nodebuffer')
+                    const filename = file!.name.split('/').pop() || file!.name
+                    
+                    // Calculate checksum
+                    const checksum = crypto.createHash('md5').update(buffer).digest('hex')
+                    
+                    // Check duplicate
+                    const existing = await prisma.image.findFirst({
+                        where: { projectId, checksum }
+                    })
+                    
+                    if (existing) {
+                        return {
+                            status: 'duplicate' as const,
+                            filename,
+                            existingId: existing.id,
+                            existingUrl: existing.storageUrl
+                        }
+                    }
+                    
+                    // Upload to Cloudinary
+                    const uploadResult = await ImageService.uploadImage(
+                        buffer,
+                        `v-label/projects/${projectId}/zip-imports`
+                    )
+                    
+                    // Save to DB
+                    const image = await prisma.image.create({
+                        data: {
+                            projectId,
+                            originalFilename: filename,
+                            storageUrl: uploadResult.secure_url,
+                            publicId: uploadResult.public_id,
+                            width: uploadResult.width,
+                            height: uploadResult.height,
+                            format: uploadResult.format,
+                            fileSizeBytes: BigInt(uploadResult.bytes),
+                            checksum,
+                            uploadedBy: user.id || user.sub,
+                            channels: 3
+                        }
+                    })
+                    
+                    return {
+                        status: 'success' as const,
+                        image
+                    }
+                })
+            )
+
+            // Aggregate results
+            const successful: any[] = []
+            const duplicates: any[] = []
+            const failed: any[] = []
+            
+            results.forEach((result, index) => {
+                if (result.status === 'fulfilled') {
+                    if (result.value.status === 'success') {
+                        successful.push(result.value.image)
+                    } else if (result.value.status === 'duplicate') {
+                        duplicates.push({
+                            filename: result.value.filename,
+                            existingId: result.value.existingId,
+                            existingUrl: result.value.existingUrl
+                        })
+                    }
+                } else {
+                    failed.push({
+                        filename: imageFiles[index]!.name.split('/').pop(),
+                        error: result.reason?.message || 'Unknown error'
+                    })
+                }
+            })
+
+            logger.info('API', `ZIP import completed for project ${projectId}`, {
+                success: successful.length,
+                duplicates: duplicates.length,
+                failed: failed.length
+            })
+
+            return res.status(200).json({
+                zipFilename: zipFile.originalname,
+                totalFilesInZip: Object.keys(zip.files).length,
+                validImages: imageFiles.length,
+                success: successful.length,
+                duplicates: duplicates.length,
+                failed: failed.length,
+                images: successful.map(img => ({
+                    ...img,
+                    fileSizeBytes: img.fileSizeBytes?.toString()
+                })),
+                duplicateFiles: duplicates,
+                errors: failed
+            })
+
+        } catch (error) {
+            logger.error('API', 'Import from ZIP failed', { error })
+            return res.status(500).json({ 
+                error: 'Internal server error',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            })
+        }
+    }
+
+    /**
+     * POST /api/v1/projects/:id/images/import-cloud
+     * Import images from Cloudinary folder (max 200 images)
+     */
+    static async importFromCloud(req: Request, res: Response) {
+        try {
+            const { id: projectId } = req.params as { id: string }
+            const { source, folderPath } = req.body
+            const user = (req as any).user
+
+            // Validate
+            if (!source || source !== 'cloudinary') {
+                return res.status(400).json({ 
+                    error: 'Invalid source',
+                    message: 'Only "cloudinary" is supported as source'
+                })
+            }
+
+            if (!folderPath) {
+                return res.status(400).json({ 
+                    error: 'Missing folderPath',
+                    message: 'folderPath is required (e.g., "v-label/datasets/batch-001")'
+                })
+            }
+
+            logger.info('API', `Starting cloud import for project ${projectId}`, { 
+                source,
+                folderPath 
+            })
+
+            // List all images in Cloudinary folder
+            const cloudinary = (await import('../config/cloudinary.js')).default
+            
+            let allResources: any[] = []
+            let nextCursor: string | undefined = undefined
+
+            // Fetch all resources (handle pagination)
+            do {
+                const result = await cloudinary.api.resources({
+                    type: 'upload',
+                    prefix: folderPath,
+                    max_results: 500,
+                    next_cursor: nextCursor,
+                    resource_type: 'image'
+                })
+
+                allResources.push(...result.resources)
+                nextCursor = result.next_cursor
+                
+                // Stop if we already have more than 200
+                if (allResources.length > 200) {
+                    break
+                }
+            } while (nextCursor)
+
+            // Limit to 200 images
+            if (allResources.length > 200) {
+                return res.status(400).json({ 
+                    error: 'Too many images in folder',
+                    message: `Folder contains ${allResources.length} images. Maximum allowed is 200 images.`
+                })
+            }
+
+            if (allResources.length === 0) {
+                return res.status(404).json({ 
+                    error: 'No images found',
+                    message: `No images found in folder: ${folderPath}`
+                })
+            }
+
+            const { prisma } = await import('../utils/database.js')
+
+            // Process each image
+            const results = await Promise.allSettled(
+                allResources.map(async (resource) => {
+                    // Check duplicate by publicId (faster than checksum)
+                    const existing = await prisma.image.findFirst({
+                        where: { 
+                            projectId,
+                            publicId: resource.public_id
+                        }
+                    })
+
+                    if (existing) {
+                        return {
+                            status: 'duplicate' as const,
+                            filename: resource.public_id,
+                            existingId: existing.id,
+                            existingUrl: existing.storageUrl
+                        }
+                    }
+
+                    // Save to DB (image already in Cloudinary, no need to upload)
+                    const image = await prisma.image.create({
+                        data: {
+                            projectId,
+                            originalFilename: resource.public_id.split('/').pop() || resource.public_id,
+                            storageUrl: resource.secure_url,
+                            publicId: resource.public_id,
+                            width: resource.width,
+                            height: resource.height,
+                            format: resource.format,
+                            fileSizeBytes: BigInt(resource.bytes),
+                            uploadedBy: user.id || user.sub,
+                            channels: 3
+                        }
+                    })
+
+                    return {
+                        status: 'success' as const,
+                        image
+                    }
+                })
+            )
+
+            // Aggregate results
+            const successful: any[] = []
+            const duplicates: any[] = []
+            const failed: any[] = []
+
+            results.forEach((result, index) => {
+                if (result.status === 'fulfilled') {
+                    if (result.value.status === 'success') {
+                        successful.push(result.value.image)
+                    } else if (result.value.status === 'duplicate') {
+                        duplicates.push({
+                            filename: result.value.filename,
+                            existingId: result.value.existingId,
+                            existingUrl: result.value.existingUrl
+                        })
+                    }
+                } else {
+                    failed.push({
+                        filename: allResources[index].public_id,
+                        error: result.reason?.message || 'Unknown error'
+                    })
+                }
+            })
+
+            logger.info('API', `Cloud import completed for project ${projectId}`, {
+                success: successful.length,
+                duplicates: duplicates.length,
+                failed: failed.length
+            })
+
+            return res.status(200).json({
+                source,
+                folderPath,
+                totalFound: allResources.length,
+                success: successful.length,
+                duplicates: duplicates.length,
+                failed: failed.length,
+                images: successful.map(img => ({
+                    ...img,
+                    fileSizeBytes: img.fileSizeBytes?.toString()
+                })),
+                duplicateFiles: duplicates,
+                errors: failed
+            })
+
+        } catch (error) {
+            logger.error('API', 'Import from cloud failed', { error })
+            return res.status(500).json({ 
+                error: 'Internal server error',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            })
+        }
+    }
 }
