@@ -3,7 +3,7 @@ import { ProjectController } from '../controllers/project.controller.js'
 import { DatasetController } from '../controllers/dataset.controller.js'
 import { authMiddleware } from '../middlewares/auth.middleware.js'
 import { requireRole } from '../middlewares/role.middleware.js'
-import { uploadMiddleware } from '../middlewares/upload.middleware.js'
+import { uploadMiddleware, uploadZip } from '../middlewares/upload.middleware.js'
 
 const router = Router()
 
@@ -76,6 +76,20 @@ router.post(
     ProjectController.uploadImage
 )
 
+// Import Images from ZIP (max 200 images)
+router.post(
+    '/:id/images/import-zip',
+    requireRole(['ADMIN', 'MANAGER']),
+    uploadZip.single('zipFile'),
+    ProjectController.importFromZip
+)
+
+// Import Images from Cloud Storage (max 200 images)
+router.post(
+    '/:id/images/import-cloud',
+    requireRole(['ADMIN', 'MANAGER']),
+    ProjectController.importFromCloud
+)
 
 router.get(
     '/:id/images',
