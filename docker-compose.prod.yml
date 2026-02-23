@@ -2,9 +2,19 @@
 
 name: v-label-prod
 
+# Shared logging configuration
+# This limits logs to 10MB per file, max 3 files to save disk space
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
+
   # PostgreSQL Database
   postgres:
+    logging: *default-logging
     image: postgres:16-alpine
     container_name: vlabel-postgres
     restart: unless-stopped
@@ -27,6 +37,7 @@ services:
 
   # Backend API Server
   server:
+    logging: *default-logging
     build:
       context: ./server
       dockerfile: Dockerfile
@@ -65,6 +76,7 @@ services:
 
   # Frontend Client
   client:
+    logging: *default-logging
     build:
       context: ./client
       dockerfile: Dockerfile
@@ -84,6 +96,7 @@ services:
 
   # Nginx Reverse Proxy
   nginx:
+    logging: *default-logging
     image: nginx:alpine
     container_name: vlabel-nginx
     restart: unless-stopped
@@ -104,6 +117,7 @@ services:
 
   # Dozzle - Real-time Docker logs viewer
   dozzle:
+    logging: *default-logging
     image: amir20/dozzle:latest
     container_name: vlabel-dozzle
     restart: unless-stopped

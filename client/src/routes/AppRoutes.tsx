@@ -15,7 +15,10 @@ import { ProjectListPage } from "../features/manager/pages/ProjectListPage";
 import { ProjectDetailPage } from "../features/manager/pages/ProjectDetailPage";
 import { LabelManagementPage } from "../features/manager/pages/LabelManagementPage";
 import { AnnotatorTasks } from "../features/annotator/pages/AnnotatorTasks";
-import { ReviewerQueue } from "../features/reviewer/pages/ReviewerQueue";
+import { AnnotatorProjectDetailPage } from "../features/annotator/pages/AnnotatorProjectDetailPage";
+import { AnnotatorPerformancePage } from "../features/annotator/pages/AnnotatorPerformancePage";
+import { ReviewerProjects } from "../features/reviewer/pages/ReviewerProjects";
+import { ReviewerProjectDetailPage } from "../features/reviewer/pages/ReviewerProjectDetailPage";
 import { ChatPage } from "../features/chat-widget/pages/ChatPage";
 
 // Other pages
@@ -138,6 +141,22 @@ export const AppRoutes = () => {
           }
         />
         <Route
+          path="/annotator/projects/:projectId"
+          element={
+            <ProtectedRoute allowedRoles={["ANNOTATOR"]}>
+              <AnnotatorProjectDetailPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/annotator/performance"
+          element={
+            <ProtectedRoute allowedRoles={["ANNOTATOR"]}>
+              <AnnotatorPerformancePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/annotator/chat"
           element={
             <ProtectedRoute allowedRoles={["ANNOTATOR"]}>
@@ -152,11 +171,27 @@ export const AppRoutes = () => {
           path="/reviewer"
           element={
             <ProtectedRoute allowedRoles={["REVIEWER"]}>
-              <ReviewerQueue
+              <ReviewerProjects
                 onOpenWorkspace={(taskId) =>
                   (window.location.href = `/workspace/${taskId}`)
                 }
               />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/reviewer/projects/:projectId"
+          element={
+            <ProtectedRoute allowedRoles={["REVIEWER"]}>
+              <ReviewerProjectDetailPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/reviewer/performance"
+          element={
+            <ProtectedRoute allowedRoles={["REVIEWER"]}>
+              <AnnotatorPerformancePage />
             </ProtectedRoute>
           }
         />

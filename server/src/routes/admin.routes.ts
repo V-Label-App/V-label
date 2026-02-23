@@ -42,4 +42,8 @@ router.delete('/email/logs/:id', authMiddleware, requireRole(['ADMIN']), AdminCo
 router.get('/cloudinary-usage', authMiddleware, requireRole(['ADMIN']), AdminController.getCloudinaryUsage);
 router.get('/cloudinary-resources', authMiddleware, requireRole(['ADMIN']), AdminController.getCloudinaryResources);
 
+// Image Quality Config
+router.get('/config/image-quality', authMiddleware, requireRole(['ADMIN']), AdminController.getImageQualityConfig);
+router.put('/config/image-quality', authMiddleware, requireRole(['ADMIN']), AdminController.updateImageQualityConfig);
+
 export default router;

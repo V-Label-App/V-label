@@ -5,6 +5,7 @@ import { hashPassword } from '../utils/password.utils.js'
 import { userCreateSchema, userUpdateSchema, formatZodError } from '../utils/validation.js'
 import { z } from 'zod'
 import { ImageService } from '../services/image.service.js'
+import { PerformanceService } from '../services/performance.service.js'
 
 export class UserController {
   /**
@@ -105,7 +106,19 @@ export class UserController {
         return res.status(404).json({ error: 'User not found' })
       }
 
-      return res.json(user)
+      let extraStats = {}
+      if (user.role === 'MANAGER') {
+        const projectsManaged = await prisma.projectMember.groupBy({
+          by: ['projectId'],
+          where: {
+            userId: user.id,
+            projectRole: 'MANAGER',
+          },
+        })
+        extraStats = { projectsManaged: projectsManaged.length }
+      }
+
+      return res.json({ ...user, ...extraStats })
     } catch (error) {
       console.error('Get profile error:', error)
       return res.status(500).json({ error: 'Internal server error' })
@@ -354,6 +367,36 @@ export class UserController {
       return res.json({ message: 'User deleted successfully' })
     } catch (error) {
       console.error('Delete user error:', error)
+      return res.status(500).json({ error: 'Internal server error' })
+    }
+  }
+
+  /**
+   * GET /api/v1/users/me/performance
+   * Get current user performance stats
+   */
+  static async getPerformanceStats(req: Request, res: Response) {
+    try {
+      const userPayload = req.user as any
+      const userId = userPayload?.id || userPayload?.sub
+
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' })
+      }
+
+      const [weeklyActivity, taskDistribution, dailyProgress] = await Promise.all([
+        PerformanceService.getWeeklyActivity(userId),
+        PerformanceService.getTaskStatusDistribution(userId),
+        PerformanceService.getTodayProgress(userId)
+      ])
+
+      return res.json({
+        weeklyActivity,
+        taskDistribution,
+        dailyProgress
+      })
+    } catch (error) {
+      console.error('Get performance stats error:', error)
       return res.status(500).json({ error: 'Internal server error' })
     }
   }

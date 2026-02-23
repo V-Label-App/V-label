@@ -87,7 +87,9 @@ model Project {
   
   // Stores label configuration like [{"id": "car", "color": "red"}]
   labelConfig        Json          @default("[]") @map("label_config")
-  
+
+  qualitySettings    Json?         @map("quality_settings")
+
   deadline           DateTime?
   enableAiAssistance Boolean       @default(false) @map("enable_ai_assistance")
   status             ProjectStatus @default(ACTIVE)

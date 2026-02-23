@@ -1,0 +1,142 @@
+
+name: v-label-prod
+
+# Shared logging configuration
+# This limits logs to 10MB per file, max 3 files to save disk space
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+
+  # PostgreSQL Database
+  postgres:
+    logging: *default-logging
+    image: postgres:16-alpine
+    container_name: vlabel-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - vlabel-network
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER} -d ${DB_NAME}']
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+
+  # Backend API Server (Pull pre-built image)
+  server:
+    logging: *default-logging
+    image: ghcr.io/${GITHUB_REPO_OWNER}/vlabel-server:latest
+    container_name: vlabel-server
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}?schema=public
+      - JWT_SECRET=${JWT_SECRET}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
+      - FIREBASE_CLIENT_EMAIL=${FIREBASE_CLIENT_EMAIL}
+      - FIREBASE_PRIVATE_KEY=${FIREBASE_PRIVATE_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - EMAIL_FROM=${EMAIL_FROM}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - FRONTEND_URL=${FRONTEND_URL}
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - vlabel-network
+    healthcheck:
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:4000/api/v1/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend Client (Pull pre-built image)
+  client:
+    logging: *default-logging
+    image: ghcr.io/${GITHUB_REPO_OWNER}/vlabel-client:latest
+    container_name: vlabel-client
+    restart: unless-stopped
+    networks:
+      - vlabel-network
+
+  # Nginx Reverse Proxy
+  nginx:
+    logging: *default-logging
+    image: nginx:alpine
+    container_name: vlabel-nginx
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./certbot/www:/var/www/certbot:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    depends_on:
+      - server
+      - client
+    networks:
+      - vlabel-network
+
+
+  # Dozzle - Real-time Docker logs viewer
+  dozzle:
+    logging: *default-logging
+    image: amir20/dozzle:latest
+    container_name: vlabel-dozzle
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"  # Localhost only for security
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - DOZZLE_LEVEL=info
+      - DOZZLE_TAILSIZE=300
+      - DOZZLE_FILTER=name=vlabel-*
+      - DOZZLE_NO_ANALYTICS=true
+    networks:
+      - vlabel-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Certbot for SSL (optional - run manually)
+  certbot:
+    image: certbot/certbot
+    container_name: vlabel-certbot
+    volumes:
+      - ./certbot/www:/var/www/certbot
+      - ./certbot/conf:/etc/letsencrypt
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+
+networks:
+  vlabel-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local

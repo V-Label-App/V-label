@@ -349,4 +349,31 @@ export class AdminController {
             return res.status(500).json({ error: 'Failed to fetch Cloudinary resources' });
         }
     }
+    /**
+     * Get Image Quality Configuration
+     */
+    static async getImageQualityConfig(req: Request, res: Response) {
+        try {
+            const config = await SystemConfigService.getImageQualityConfig();
+            return res.json(config);
+        } catch (error) {
+            console.error('[Admin] Get image quality config error:', error);
+            return res.status(500).json({ error: 'Failed to fetch config' });
+        }
+    }
+
+    /**
+     * Update Image Quality Configuration
+     */
+    static async updateImageQualityConfig(req: Request, res: Response) {
+        try {
+            const newConfig = req.body;
+            const adminId = (req as any).user?.sub;
+            const updated = await SystemConfigService.updateImageQualityConfig(newConfig, adminId);
+            return res.json(updated.value);
+        } catch (error) {
+            console.error('[Admin] Update image quality config error:', error);
+            return res.status(500).json({ error: 'Failed to update config' });
+        }
+    }
 }

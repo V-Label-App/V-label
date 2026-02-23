@@ -39,6 +39,7 @@ import { AdminEmailSettingsPage } from "./AdminEmailSettingsPage";
 import { AdminNotificationSettingsPage } from "./AdminNotificationSettingsPage";
 import { AdminProjectCategoriesPage } from "./AdminProjectCategoriesPage";
 import { AdminCloudinaryManagerPage } from "./AdminCloudinaryManagerPage";
+import { AdminImageQualityPage } from "./AdminImageQualityPage";
 import {
   Users,
   Database,
@@ -96,6 +97,7 @@ export function AdminPanel() {
     if (path.includes("/admin/ai-chat")) return "ai-chat";
     if (path.includes("/admin/notifications")) return "notifications";
     if (path.includes("/admin/media")) return "media";
+    if (path.includes("/admin/image-quality")) return "image-quality";
     return "dashboard";
   }, [location.pathname]);
 
@@ -376,10 +378,10 @@ export function AdminPanel() {
   const getInitials = (name: string) => {
     return name
       ? name
-          .split(" ")
-          .map((n) => n[0])
-          .join("")
-          .toUpperCase()
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase()
       : "??";
   };
 
@@ -507,11 +509,10 @@ export function AdminPanel() {
                           <Label>Email</Label>
                           <input
                             type="email"
-                            className={`w-full px-4 py-2 rounded-md border ${
-                              emailError
-                                ? "border-red-500 focus:ring-red-500 focus:border-red-500"
-                                : "border-gray-300"
-                            }`}
+                            className={`w-full px-4 py-2 rounded-md border ${emailError
+                              ? "border-red-500 focus:ring-red-500 focus:border-red-500"
+                              : "border-gray-300"
+                              }`}
                             placeholder="user@gmail.com"
                             value={newEmail}
                             onChange={(e) => {
@@ -545,11 +546,10 @@ export function AdminPanel() {
                           <Label>Phone Number</Label>
                           <input
                             type="tel"
-                            className={`w-full px-4 py-2 rounded-md border ${
-                              phoneError
-                                ? "border-red-500 focus:ring-red-500 focus:border-red-500"
-                                : "border-gray-300"
-                            }`}
+                            className={`w-full px-4 py-2 rounded-md border ${phoneError
+                              ? "border-red-500 focus:ring-red-500 focus:border-red-500"
+                              : "border-gray-300"
+                              }`}
                             placeholder="0123456789"
                             value={newPhone}
                             onChange={(e) => {
@@ -838,6 +838,7 @@ export function AdminPanel() {
         {activeTab === "categories" && <AdminProjectCategoriesPage />}
 
         {activeTab === "media" && <AdminCloudinaryManagerPage />}
+        {activeTab === "image-quality" && <AdminImageQualityPage />}
       </div>
 
       <Dialog

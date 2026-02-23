@@ -67,7 +67,17 @@ export interface Project {
 
     // Relations (Optional, depending on query)
     members?: ProjectMember[];
-    projectLabels?: ProjectLabel[];
+    projectLabels?: {
+        label: {
+            id: string;
+            name: string;
+            color: string;
+            category?: {
+                id: string;
+                name: string;
+            };
+        };
+    }[];
     category?: {
         id: string;
         name: string;

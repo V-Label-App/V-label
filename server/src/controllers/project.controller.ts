@@ -1,6 +1,7 @@
 import { Request, Response } from 'express'
 import { z, ZodError } from 'zod'
 import { ProjectService } from '../services/project.service.js'
+import { ProjectHealthService } from '../services/project-health.service.js'
 import logger from '../utils/logger.js'
 import { ProjectStatus } from '@prisma/client'
 
@@ -174,7 +175,7 @@ export class ProjectController {
                 ...(validatedData.assignmentRule && { assignmentRule: validatedData.assignmentRule }),
             })
 
-            logger.info('API', `Project updated: ${id}`, { actorId: (req as any).user?.sub || (req as any).user?.id })
+            logger.info('API', `Project updated: ${project.name}`, { actorId: (req as any).user?.sub || (req as any).user?.fullName })
             return res.json(project)
         } catch (error) {
             if (error instanceof ZodError) {
@@ -274,6 +275,12 @@ export class ProjectController {
             return res.json({ message: 'Member removed successfully' })
         } catch (error) {
             logger.error('API', 'Remove project member failed', { error })
+
+            // Check if error is about active tasks
+            if (error instanceof Error && error.message.includes('Cannot remove member')) {
+                return res.status(400).json({ error: error.message })
+            }
+
             return res.status(500).json({ error: 'Internal server error' })
         }
     }
@@ -379,6 +386,25 @@ export class ProjectController {
 
             logger.info('API', `Image uploaded to project ${id}: ${image.id}`, { actorId: user.id })
 
+            // Auto-assign task to annotator if enabled
+            try {
+                const { TaskService } = await import('../services/task.service.js')
+
+                // Create task from image
+                const taskId = await TaskService.createTaskFromImage(image.id, id)
+
+                // Auto-assign to annotator if enabled
+                await TaskService.autoAssignTask(taskId, id, 'ANNOTATOR')
+
+                logger.info('API', `Task created and auto-assigned for image ${image.id}`, { taskId })
+            } catch (taskError) {
+                // Log error but don't fail the upload
+                logger.error('API', 'Failed to create/assign task for image', {
+                    error: taskError,
+                    imageId: image.id
+                })
+            }
+
             // Return JSON compatible with BigInt handling (BigInt to string)
             return res.status(201).json({
                 ...image,
@@ -404,6 +430,7 @@ export class ProjectController {
             // - 'null': fetch images with datasetId = null (General)
             // - 'some-uuid': fetch images for that dataset
             let datasetId: string | null | undefined = req.query.datasetId as string | undefined
+            const search = req.query.search as string | undefined
 
             if (datasetId === 'null') {
                 datasetId = null
@@ -414,7 +441,8 @@ export class ProjectController {
             const result = await ProjectService.getImages(id, {
                 page,
                 limit,
-                ...(datasetId !== undefined && { datasetId })
+                ...(datasetId !== undefined && { datasetId }),
+                ...(search && { search })
             })
 
             // Serialize BigInt
@@ -473,6 +501,449 @@ export class ProjectController {
             return res.json({ message: `Successfully deleted ${result.count} images` })
         } catch (error) {
             logger.error('API', 'Batch delete project images failed', { error })
+            return res.status(500).json({ error: 'Internal server error' })
+        }
+    }
+    /**
+ * GET /api/v1/projects/:id/health
+ * Get project health statistics
+ */
+    static async getHealthStats(req: Request, res: Response) {
+        try {
+            const { id } = req.params as { id: string }
+            const stats = await ProjectHealthService.getProjectHealthStats(id)
+            return res.json(stats)
+        } catch (error) {
+            console.error('Get health stats error:', error)
+            return res.status(500).json({ error: 'Internal server error' })
+        }
+    }
+
+    /**
+     * GET /api/v1/projects/:id/rescue
+     * Get rescue tasks by type
+     */
+    static async getRescueTasks(req: Request, res: Response) {
+        try {
+            const { id } = req.params as { id: string }
+            const { type } = req.query as { type: 'STUCK' | 'PROBLEMATIC' | 'ORPHANED' }
+
+            let tasks: any[] = []
+
+            switch (type) {
+                case 'STUCK':
+                    tasks = await ProjectHealthService.getStuckTasks(id)
+                    break
+                case 'PROBLEMATIC':
+                    tasks = await ProjectHealthService.getProblematicTasks(id)
+                    break
+                case 'ORPHANED':
+                    tasks = await ProjectHealthService.getOrphanedTasks(id)
+                    break
+                default:
+                    return res.status(400).json({ error: 'Invalid rescue type' })
+            }
+
+            return res.json(tasks)
+        } catch (error) {
+            console.error('Get rescue tasks error:', error)
+            return res.status(500).json({ error: 'Internal server error' })
+
+        }
+    }
+
+    /**
+     * GET /api/v1/projects/:id/tasks
+     * Get all tasks for a project with assignment status
+     */
+    static async getTasks(req: Request, res: Response) {
+        try {
+            const { id } = req.params as { id: string }
+            const page = parseInt(req.query.page as string) || 1
+            const limit = parseInt(req.query.limit as string) || 20
+            const status = req.query.status as string | undefined
+            const assigneeId = req.query.assigneeId as string | undefined
+
+            const { prisma } = await import('../utils/database.js')
+
+            const where: any = { projectId: id }
+
+            // Build where clause for filtering
+            const assignmentWhere: any = {}
+
+            if (status) {
+                assignmentWhere.status = status
+            }
+
+            if (assigneeId) {
+                assignmentWhere.annotatorId = assigneeId
+            }
+
+            // Only apply assignment filter if we have conditions
+            if (Object.keys(assignmentWhere).length > 0) {
+                where.assignments = {
+                    some: assignmentWhere
+                }
+            }
+
+            const skip = (page - 1) * limit
+
+            const [tasks, total] = await Promise.all([
+                prisma.task.findMany({
+                    where,
+                    include: {
+                        image: {
+                            select: {
+                                id: true,
+                                storageUrl: true,
+                                originalFilename: true,
+                                width: true,
+                                height: true
+                            }
+                        },
+                        assignments: {
+                            include: {
+                                annotator: {
+                                    select: {
+                                        id: true,
+                                        fullName: true,
+                                        email: true,
+                                        avatarUrl: true
+                                    }
+                                },
+                                reviewer: {
+                                    select: {
+                                        id: true,
+                                        fullName: true,
+                                        email: true,
+                                        avatarUrl: true
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    orderBy: { id: 'desc' },
+                    skip,
+                    take: limit
+                }),
+                prisma.task.count({ where })
+            ])
+
+            return res.json({
+                data: tasks,
+                meta: {
+                    total,
+                    page,
+                    limit,
+                    totalPages: Math.ceil(total / limit)
+                }
+            })
+        } catch (error) {
+            logger.error('API', 'Get project tasks failed', { error })
+            return res.status(500).json({ error: 'Internal server error' })
+        }
+    }
+
+    /**
+     * POST /api/v1/projects/:id/tasks/:taskId/assign
+     * Manually assign a task to an annotator
+     */
+    static async assignTask(req: Request, res: Response) {
+        try {
+            const { id, taskId } = req.params as { id: string; taskId: string }
+            const { annotatorId, deadline } = req.body
+            const user = (req as any).user
+            const userId = user.sub || user.id
+
+            if (!annotatorId) {
+                return res.status(400).json({ error: 'annotatorId is required' })
+            }
+
+            const { prisma } = await import('../utils/database.js')
+            const { AssignmentMethod, AssignmentStatus, ProjectRole } = await import('@prisma/client')
+
+            // Verify task belongs to project
+            const task = await prisma.task.findFirst({
+                where: {
+                    id: taskId,
+                    projectId: id
+                }
+            })
+
+            if (!task) {
+                return res.status(404).json({ error: 'Task not found in this project' })
+            }
+
+            // Verify annotator is a member of this project with ANNOTATOR role
+            const member = await prisma.projectMember.findFirst({
+                where: {
+                    projectId: id,
+                    userId: annotatorId,
+                    projectRole: ProjectRole.ANNOTATOR
+                }
+            })
+
+            if (!member) {
+                return res.status(400).json({ error: 'User is not an annotator in this project' })
+            }
+
+            // Check if task already has an active assignment for this annotator
+            const existingAssignment = await prisma.taskAssignment.findFirst({
+                where: {
+                    taskId,
+                    annotatorId,
+                    status: {
+                        in: [AssignmentStatus.ASSIGNED, AssignmentStatus.IN_PROGRESS]
+                    }
+                }
+            })
+
+            if (existingAssignment) {
+                return res.status(409).json({ error: 'Task already assigned to this annotator' })
+            }
+
+            // Use TaskService to create assignment with auto-calculated deadline
+            const { TaskService } = await import('../services/task.service.js')
+            const customDeadline = deadline ? new Date(deadline) : undefined
+
+            await TaskService.assignToUser(
+                taskId,
+                annotatorId,
+                'ANNOTATOR',
+                AssignmentMethod.MANUAL,
+                userId,
+                customDeadline
+            )
+
+            // Fetch the created assignment to return
+            const assignment = await prisma.taskAssignment.findFirst({
+                where: {
+                    taskId,
+                    annotatorId
+                },
+                orderBy: { createdAt: 'desc' },
+                include: {
+                    annotator: {
+                        select: {
+                            id: true,
+                            fullName: true,
+                            email: true,
+                            avatarUrl: true
+                        }
+                    },
+                    task: {
+                        include: {
+                            image: {
+                                select: {
+                                    id: true,
+                                    storageUrl: true,
+                                    originalFilename: true
+                                }
+                            }
+                        }
+                    }
+                }
+            })
+
+            logger.info('API', `Task ${taskId} manually assigned to ${annotatorId}`, {
+                actorId: userId,
+                projectId: id
+            })
+
+            return res.status(201).json(assignment)
+        } catch (error) {
+            logger.error('API', 'Manual task assignment failed', { error })
+            return res.status(500).json({ error: 'Internal server error' })
+        }
+    }
+
+    /**
+     * DELETE /api/v1/projects/:id/tasks/:taskId/unassign
+     * Unassign a task (remove assignment)
+     */
+    static async unassignTask(req: Request, res: Response) {
+        try {
+            const { id, taskId } = req.params as { id: string; taskId: string }
+            const user = (req as any).user
+            const userId = user.sub || user.id
+
+            const { prisma } = await import('../utils/database.js')
+            const { AssignmentStatus } = await import('@prisma/client')
+
+            // Verify task belongs to project
+            const task = await prisma.task.findFirst({
+                where: {
+                    id: taskId,
+                    projectId: id
+                }
+            })
+
+            if (!task) {
+                return res.status(404).json({ error: 'Task not found in this project' })
+            }
+
+            // Find active assignment for this task
+            const assignment = await prisma.taskAssignment.findFirst({
+                where: {
+                    taskId,
+                    status: {
+                        in: [AssignmentStatus.ASSIGNED, AssignmentStatus.IN_PROGRESS]
+                    }
+                }
+            })
+
+            if (!assignment) {
+                return res.status(404).json({ error: 'No active assignment found for this task' })
+            }
+
+            const previousAnnotatorId = assignment.annotatorId;
+            const assignmentStatus = assignment.status;
+
+            // Delete the assignment and clear task deadline in a transaction
+            await prisma.$transaction([
+                prisma.taskAssignment.delete({
+                    where: { id: assignment.id }
+                }),
+                prisma.task.update({
+                    where: { id: taskId },
+                    data: { deadline: null }
+                })
+            ])
+
+            // Update user workload based on assignment status
+            if (previousAnnotatorId) {
+                const { UserWorkloadService } = await import('../services/user-workload.service.js');
+
+                if (assignmentStatus === AssignmentStatus.ASSIGNED) {
+                    await UserWorkloadService.decrementAssignedTasks(previousAnnotatorId, id);
+                } else if (assignmentStatus === AssignmentStatus.IN_PROGRESS) {
+                    // Decrement inProgressTasks
+                    const workload = await UserWorkloadService.getWorkload(previousAnnotatorId, id);
+                    await prisma.userWorkload.update({
+                        where: {
+                            userId_projectId: {
+                                userId: previousAnnotatorId,
+                                projectId: id
+                            }
+                        },
+                        data: {
+                            inProgressTasks: { decrement: 1 }
+                        }
+                    });
+                    await UserWorkloadService.updateAvailabilityStatus(previousAnnotatorId, id);
+                }
+            }
+
+            logger.info('API', `Task ${taskId} unassigned, deadline cleared, and workload updated`, {
+                actorId: userId,
+                projectId: id,
+                previousAnnotatorId
+            })
+
+            return res.json({ message: 'Task unassigned successfully' })
+        } catch (error) {
+            logger.error('API', 'Unassign task failed', { error })
+            return res.status(500).json({ error: 'Internal server error' })
+        }
+    }
+
+    /**
+     * PATCH /api/v1/projects/:id/tasks/:taskId/deadline
+     * Update deadline for an existing task assignment
+     */
+    static async updateTaskDeadline(req: Request, res: Response) {
+        try {
+            const { id, taskId } = req.params as { id: string; taskId: string }
+            const { deadline } = req.body
+            const user = (req as any).user
+            const userId = user.sub || user.id
+
+            if (!deadline) {
+                return res.status(400).json({ error: 'deadline is required' })
+            }
+
+            const { prisma } = await import('../utils/database.js')
+            const { AssignmentStatus } = await import('@prisma/client')
+
+            // Verify task belongs to project
+            const task = await prisma.task.findFirst({
+                where: {
+                    id: taskId,
+                    projectId: id
+                }
+            })
+
+            if (!task) {
+                return res.status(404).json({ error: 'Task not found in this project' })
+            }
+
+            // Find active assignment for this task
+            const assignment = await prisma.taskAssignment.findFirst({
+                where: {
+                    taskId,
+                    status: {
+                        in: [AssignmentStatus.ASSIGNED, AssignmentStatus.IN_PROGRESS]
+                    }
+                }
+            })
+
+            if (!assignment) {
+                return res.status(404).json({ error: 'No active assignment found for this task' })
+            }
+
+            // Update the deadline in both task_assignments and tasks tables
+            const deadlineDate = new Date(deadline)
+
+            const [updatedAssignment] = await prisma.$transaction([
+                // Update task assignment deadline
+                prisma.taskAssignment.update({
+                    where: { id: assignment.id },
+                    data: { deadline: deadlineDate },
+                    include: {
+                        annotator: {
+                            select: {
+                                id: true,
+                                fullName: true,
+                                email: true,
+                                avatarUrl: true
+                            }
+                        }
+                    }
+                }),
+                // Also update task deadline
+                prisma.task.update({
+                    where: { id: taskId },
+                    data: { deadline: deadlineDate }
+                })
+            ])
+
+            logger.info('API', `Task ${taskId} deadline updated in both task and assignment`, {
+                actorId: userId,
+                projectId: id,
+                newDeadline: deadline
+            })
+
+            return res.json(updatedAssignment)
+        } catch (error) {
+            logger.error('API', 'Update task deadline failed', { error })
+            return res.status(500).json({ error: 'Internal server error' })
+        }
+    }
+
+    /**
+     * GET /api/v1/projects/:id/workloads
+     * Get user workloads for a project
+     */
+    static async getWorkloads(req: Request, res: Response) {
+        try {
+            const { id } = req.params as { id: string }
+
+            const { UserWorkloadService } = await import('../services/user-workload.service.js')
+            const workloads = await UserWorkloadService.getProjectWorkloads(id)
+
+            return res.json(workloads)
+        } catch (error) {
+            logger.error('API', 'Get workloads failed', { error })
             return res.status(500).json({ error: 'Internal server error' })
         }
     }

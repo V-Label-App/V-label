@@ -19,4 +19,19 @@ router.get('/chat', authMiddleware, async (req, res) => {
     }
 });
 
+/**
+ * GET /api/config/image-quality
+ * Public endpoint for all authenticated users to read image quality config
+ * Used by UploadImageDialog to apply quality gates
+ */
+router.get('/image-quality', authMiddleware, async (req, res) => {
+    try {
+        const config = await SystemConfigService.getImageQualityConfig();
+        return res.json(config);
+    } catch (error) {
+        console.error('[Config] Get image quality config error:', error);
+        return res.status(500).json({ error: 'Failed to fetch config' });
+    }
+});
+
 export default router;

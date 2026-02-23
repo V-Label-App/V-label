@@ -13,7 +13,9 @@ export function initializeSocketServer(httpServer: HttpServer) {
         process.env.CLIENT_URL || 'http://localhost:5173',
         'http://127.0.0.1:5173',
         'https://vlabel.cloud',
-        'https://www.vlabel.cloud'
+        'https://www.vlabel.cloud',
+        'http://localhost:5174',
+        'http://127.0.0.1:5174',
       ],
       credentials: true,
     },
@@ -30,8 +32,21 @@ export function initializeSocketServer(httpServer: HttpServer) {
   io.on('connection', (socket: Socket) => {
     const userId = socket.data.userId || 'Default';
     const userRole = socket.data.userRole || 'UNKNOWN';
-    const userName = socket.data.userName;
-    logger.info('WEBSOCKET', `User connected: ${userId} | Role: ${userRole} | Load prompt for: ${userRole}`);
+
+    // Fetch user details for nicer logging
+    (async () => {
+      try {
+        const { prisma } = await import('../utils/database.js');
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { fullName: true, email: true }
+        });
+        const displayName = user?.fullName || user?.email || userId;
+        logger.info('WEBSOCKET', `User connected: "${displayName}" | Role: ${userRole}`);
+      } catch (error) {
+        logger.info('WEBSOCKET', `User connected: ${userId} | Role: ${userRole}`);
+      }
+    })();
 
     // Join user's personal room for direct notifications
     socket.join(`user:${userId}`);
@@ -42,8 +57,18 @@ export function initializeSocketServer(httpServer: HttpServer) {
     // Register event handlers
     registerChatHandlers(io, socket);
 
-    socket.on('disconnect', () => {
-      logger.info('WEBSOCKET', `User disconnected: ${userId} (${userRole})`);
+    socket.on('disconnect', async () => {
+      try {
+        const { prisma } = await import('../utils/database.js');
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { fullName: true, email: true }
+        });
+        const displayName = user?.fullName || user?.email || userId;
+        logger.info('WEBSOCKET', `User disconnected: "${displayName}" (${userRole})`);
+      } catch (e) {
+        logger.info('WEBSOCKET', `User disconnected: ${userId} (${userRole})`);
+      }
     });
 
     socket.on('error', (error) => {

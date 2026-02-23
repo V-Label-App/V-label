@@ -1,0 +1,19 @@
+import { Router } from 'express';
+import { ReviewerController } from '../controllers/reviewer.controller.js';
+import { authMiddleware } from '../middlewares/auth.middleware.js';
+import { requireRole } from '../middlewares/role.middleware.js';
+
+const router = Router();
+
+// All routes require authentication
+router.use(authMiddleware);
+
+// Reviewer routes (only accessible by REVIEWER role)
+router.use(requireRole(['REVIEWER']));
+
+router.get('/projects', ReviewerController.getMyProjects);
+router.get('/queue', ReviewerController.getReviewQueue);
+router.post('/assignments/:assignmentId/approve', ReviewerController.approveTask);
+router.post('/assignments/:assignmentId/reject', ReviewerController.rejectTask);
+
+export default router;

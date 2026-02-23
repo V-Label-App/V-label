@@ -7,6 +7,7 @@ import { uploadMiddleware } from '../middlewares/upload.middleware.js'
 const router = Router()
 
 router.get('/me', authMiddleware, UserController.getMe)
+router.get('/me/performance', authMiddleware, UserController.getPerformanceStats)
 router.put('/me', authMiddleware, UserController.updateProfile)
 router.post('/me/avatar', authMiddleware, uploadMiddleware.single('avatar'), UserController.uploadAvatar)
 

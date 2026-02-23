@@ -102,11 +102,28 @@ export class ProjectService {
                 prisma.project.count({ where }),
             ])
 
-            // Map _count.images to totalImages for frontend
-            const mappedProjects = projects.map(p => ({
-                ...p,
-                totalImages: p._count.images
-            }))
+            // Calculate progress for each project and map totalImages
+            const mappedProjects = await Promise.all(
+                projects.map(async (p) => {
+                    const [totalTasks, approvedTasks] = await Promise.all([
+                        prisma.task.count({ where: { projectId: p.id } }),
+                        prisma.task.count({
+                            where: {
+                                projectId: p.id,
+                                status: TaskStatus.DONE
+                            }
+                        })
+                    ]);
+
+                    const progress = totalTasks > 0 ? (approvedTasks / totalTasks) * 100 : 0;
+
+                    return {
+                        ...p,
+                        totalImages: p._count.images,
+                        progress
+                    };
+                })
+            );
 
             return {
                 data: mappedProjects,
@@ -141,6 +158,15 @@ export class ProjectService {
                 include: {
                     category: true,
                     assignmentRule: true, // Include Assignment Rules
+                    projectLabels: {
+                        include: {
+                            label: {
+                                include: {
+                                    category: true
+                                }
+                            }
+                        }
+                    },
                     members: {
                         include: {
                             user: {
@@ -171,10 +197,24 @@ export class ProjectService {
 
             if (!project) return null
 
+            // Calculate progress for the project
+            const [totalTasks, approvedTasks] = await Promise.all([
+                prisma.task.count({ where: { projectId: project.id } }),
+                prisma.task.count({
+                    where: {
+                        projectId: project.id,
+                        status: TaskStatus.DONE
+                    }
+                })
+            ]);
+
+            const progress = totalTasks > 0 ? (approvedTasks / totalTasks) * 100 : 0;
+
             // Map _count.images to totalImages for frontend
             const mappedProject = {
                 ...project,
-                totalImages: project._count.images
+                totalImages: project._count.images,
+                progress
             }
 
             return mappedProject
@@ -489,6 +529,50 @@ export class ProjectService {
      */
     static async removeMember(projectId: string, userId: string) {
         try {
+            // Check if user has active tasks (ASSIGNED, IN_PROGRESS, or SUBMITTED)
+            const { AssignmentStatus } = await import('@prisma/client');
+            const activeTasks = await prisma.taskAssignment.findMany({
+                where: {
+                    annotatorId: userId,
+                    task: {
+                        projectId
+                    },
+                    status: {
+                        in: [
+                            AssignmentStatus.ASSIGNED,
+                            AssignmentStatus.IN_PROGRESS,
+                            AssignmentStatus.SUBMITTED
+                        ]
+                    }
+                },
+                select: {
+                    id: true,
+                    status: true
+                }
+            });
+
+            if (activeTasks.length > 0) {
+                throw new Error(`Cannot remove member. User has ${activeTasks.length} active task(s). Please unassign or complete all tasks first.`);
+            }
+
+            // Also check if user is a reviewer with active tasks
+            const activeReviewTasks = await prisma.taskAssignment.findMany({
+                where: {
+                    reviewerId: userId,
+                    task: {
+                        projectId
+                    },
+                    status: AssignmentStatus.SUBMITTED
+                },
+                select: {
+                    id: true
+                }
+            });
+
+            if (activeReviewTasks.length > 0) {
+                throw new Error(`Cannot remove member. User has ${activeReviewTasks.length} task(s) pending review. Please complete all reviews first.`);
+            }
+
             await prisma.projectMember.delete({
                 where: {
                     projectId_userId: {
@@ -497,6 +581,8 @@ export class ProjectService {
                     },
                 },
             })
+
+            logger.info('SERVICE', 'Member removed successfully', { projectId, userId });
             return true
         } catch (error) {
             logger.error('SERVICE', 'Error removing member', { projectId, userId, error })
@@ -571,14 +657,21 @@ export class ProjectService {
         page?: number
         limit?: number
         datasetId?: string | null // string for strict ID, null for strictly NO dataset (general), undefined for ALL
+        search?: string
     }) {
         try {
-            const { page = 1, limit = 20, datasetId } = options
+            const { page = 1, limit = 20, datasetId, search } = options
             const skip = (page - 1) * limit
 
             const where: Prisma.ImageWhereInput = {
                 projectId,
-                ...(datasetId !== undefined && { datasetId: datasetId })
+                ...(datasetId !== undefined && { datasetId: datasetId }),
+                ...(search && {
+                    originalFilename: {
+                        contains: search,
+                        mode: 'insensitive'
+                    }
+                })
             }
 
             const [images, total] = await Promise.all([

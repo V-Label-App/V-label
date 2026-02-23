@@ -75,6 +75,11 @@ export interface AuthResponse {
   }
 }
 
+export interface PerformanceStats {
+  weeklyActivity: { name: string; completed: number; rejected: number }[]
+  taskDistribution: { name: string; value: number; color: string }[]
+  dailyProgress: { time: string; tasks: number }[]
+}
 
 export const authApi = {
   /**
@@ -244,6 +249,14 @@ export const authApi = {
         'Content-Type': 'multipart/form-data',
       },
     })
+    return response.data
+  },
+
+  /**
+   * Get performance stats
+   */
+  getPerformanceStats: async (): Promise<PerformanceStats> => {
+    const response = await apiClient.get<PerformanceStats>('/users/me/performance')
     return response.data
   },
 }

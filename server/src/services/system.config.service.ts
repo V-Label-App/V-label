@@ -15,6 +15,7 @@ export interface ChatFunctionDefinition {
 export const SYSTEM_CONFIG_KEYS = {
   CHAT_WIDGET: 'chatWidget',
   AUDIT_LOG_RETENTION: 'auditLogRetention',
+  IMAGE_QUALITY: 'imageQuality',
 };
 
 export interface ChatWidgetConfig {
@@ -45,6 +46,13 @@ export interface ChatWidgetConfig {
   functions?: ChatFunctionDefinition[];
 }
 
+export interface ImageQualityConfig {
+  minResolution: number;
+  minBrightness: number;
+  maxBrightness: number;
+  blurThreshold: number;
+}
+
 export interface AuditLogConfig {
   retentionDays: number; // 30, 60, 90, etc. 0 means keep forever
 }
@@ -64,6 +72,13 @@ const DEFAULT_CHAT_CONFIG: ChatWidgetConfig = {
     quickReplies: []
   },
   functions: []
+};
+
+const DEFAULT_IMAGE_QUALITY_CONFIG: ImageQualityConfig = {
+  minResolution: 100,
+  minBrightness: 25,
+  maxBrightness: 245,
+  blurThreshold: 25
 };
 
 const DEFAULT_AUDIT_LOG_CONFIG: AuditLogConfig = {
@@ -167,6 +182,61 @@ export class SystemConfigService {
       where: { key: SYSTEM_CONFIG_KEYS.CHAT_WIDGET },
       update: { value: updated as any },
       create: { key: SYSTEM_CONFIG_KEYS.CHAT_WIDGET, value: updated as any }
+    });
+  }
+
+  /**
+   * Get Image Quality Configuration
+   */
+  static async getImageQualityConfig(): Promise<ImageQualityConfig> {
+    const config = await prisma.systemConfig.findUnique({
+      where: { key: SYSTEM_CONFIG_KEYS.IMAGE_QUALITY }
+    });
+
+    if (!config || !config.value) {
+      return DEFAULT_IMAGE_QUALITY_CONFIG;
+    }
+
+    const saved = config.value as Partial<ImageQualityConfig>;
+    return {
+      minResolution: saved.minResolution ?? DEFAULT_IMAGE_QUALITY_CONFIG.minResolution,
+      minBrightness: saved.minBrightness ?? DEFAULT_IMAGE_QUALITY_CONFIG.minBrightness,
+      maxBrightness: saved.maxBrightness ?? DEFAULT_IMAGE_QUALITY_CONFIG.maxBrightness,
+      blurThreshold: saved.blurThreshold ?? DEFAULT_IMAGE_QUALITY_CONFIG.blurThreshold
+    };
+  }
+
+  /**
+   * Update Image Quality Configuration
+   */
+  static async updateImageQualityConfig(newConfig: Partial<ImageQualityConfig>, adminId?: string) {
+    const current = await this.getImageQualityConfig();
+    const updated = { ...current, ...newConfig };
+
+    // Log configuration change
+    if (adminId) {
+      await prisma.auditLog.create({
+        data: {
+          action: 'UPDATE_IMAGE_QUALITY_CONFIG',
+          actorId: adminId,
+          targetId: null,
+          metadata: {
+            changes: {
+              minResolution: newConfig.minResolution !== undefined ? { old: current.minResolution, new: updated.minResolution } : undefined,
+              minBrightness: newConfig.minBrightness !== undefined ? { old: current.minBrightness, new: updated.minBrightness } : undefined,
+              maxBrightness: newConfig.maxBrightness !== undefined ? { old: current.maxBrightness, new: updated.maxBrightness } : undefined,
+              blurThreshold: newConfig.blurThreshold !== undefined ? { old: current.blurThreshold, new: updated.blurThreshold } : undefined,
+            },
+            timestamp: new Date().toISOString()
+          }
+        }
+      });
+    }
+
+    return prisma.systemConfig.upsert({
+      where: { key: SYSTEM_CONFIG_KEYS.IMAGE_QUALITY },
+      update: { value: updated as any },
+      create: { key: SYSTEM_CONFIG_KEYS.IMAGE_QUALITY, value: updated as any }
     });
   }
 

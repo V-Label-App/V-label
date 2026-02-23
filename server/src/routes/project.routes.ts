@@ -10,6 +10,10 @@ const router = Router()
 // All routes require authentication
 router.use(authMiddleware)
 
+// Project Health Routes (Must be before general getById to avoid collision if ever needed, though here paths are distinct)
+router.get('/:id/health', authMiddleware, requireRole(['MANAGER', 'ADMIN']), ProjectController.getHealthStats)
+router.get('/:id/rescue', authMiddleware, requireRole(['MANAGER', 'ADMIN']), ProjectController.getRescueTasks)
+
 // GET: Anyone logged in can likely see projects (or we might restrict to members later)
 router.get('/', ProjectController.getAll)
 router.get('/:id', ProjectController.getById)
@@ -111,6 +115,35 @@ router.delete( // Delete Dataset
     '/:id/datasets/:datasetId',
     requireRole(['ADMIN', 'MANAGER']),
     DatasetController.delete
+)
+
+// Task Management
+router.get( // Get Tasks
+    '/:id/tasks',
+    ProjectController.getTasks
+)
+
+router.post( // Manually Assign Task
+    '/:id/tasks/:taskId/assign',
+    requireRole(['ADMIN', 'MANAGER']),
+    ProjectController.assignTask
+)
+
+router.delete( // Unassign Task
+    '/:id/tasks/:taskId/unassign',
+    requireRole(['ADMIN', 'MANAGER']),
+    ProjectController.unassignTask
+)
+
+router.patch( // Update Task Deadline
+    '/:id/tasks/:taskId/deadline',
+    requireRole(['ADMIN', 'MANAGER']),
+    ProjectController.updateTaskDeadline
+)
+
+router.get( // Get User Workloads
+    '/:id/workloads',
+    ProjectController.getWorkloads
 )
 
 export default router

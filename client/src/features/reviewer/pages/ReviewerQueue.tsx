@@ -13,7 +13,6 @@ import { Avatar, AvatarFallback } from "../../../components/ui/avatar";
 import { Badge } from "../../../components/ui/badge";
 import { Clock, Star, Sparkles, Tag } from "lucide-react";
 import { formatDistanceToNow, parseISO } from "date-fns";
-import logoUrl from "../../../assets/android-chrome-192x192.png";
 
 interface QueueTask {
   id: string;
@@ -116,33 +115,6 @@ export function ReviewerQueue({ onOpenWorkspace }: ReviewerQueueProps) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <img
-                src={logoUrl}
-                alt="VLabel Logo"
-                className="w-8 h-8 rounded-lg"
-              />
-              <div>
-                <h1 className="text-xl font-semibold">VLabel</h1>
-                <p className="text-xs text-muted-foreground">
-                  Quality Assurance Dashboard
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              {/* <Button variant="ghost" size="icon" className="relative">
-                <Bell className="w-5 h-5" />
-                <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full" />
-              </Button> */}
-            </div>
-          </div>
-        </div>
-      </div>
-
       <div className="max-w-7xl mx-auto px-8 py-8">
         {/* Stats */}
         <div className="grid grid-cols-4 gap-6 mb-8">

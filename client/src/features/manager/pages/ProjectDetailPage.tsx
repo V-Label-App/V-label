@@ -85,7 +85,6 @@ import {
   FileUp,
   Search,
   Loader2,
-  Eye,
   Pen,
   CheckCircle2,
 } from "lucide-react";
@@ -95,6 +94,7 @@ import { toast } from "sonner";
 import { useAuth } from "../../../context/AuthContext";
 import { ChatPanel } from "../../../components/chat/ChatPanel";
 import { projectApi } from "../../../services/project.api";
+import { ProjectHealthDashboard } from "../components/ProjectHealthDashboard";
 import {
   projectLabelApi,
   labelApi,
@@ -115,7 +115,9 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  ChevronDown,
 } from "lucide-react";
+import { useDebounce } from "../../../hooks/useDebounce";
 
 export function ProjectDetailPage() {
   const { projectId } = useParams();
@@ -135,8 +137,10 @@ export function ProjectDetailPage() {
   const [tasks, setTasks] = useState<any[]>([]);
   const [isTasksLoading, setIsTasksLoading] = useState(false);
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 5;
+  const TASKS_PER_USER_PAGE = 8;
+  const [userPages, setUserPages] = useState<Record<string, number>>({});
+  const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
+  const [workloads, setWorkloads] = useState<Record<string, any>>({});
 
   // Dialog States
   const [isAddImagesOpen, setIsAddImagesOpen] = useState(false);
@@ -144,6 +148,7 @@ export function ProjectDetailPage() {
 
   // Search & Filter State
   const [taskSearchQuery, setTaskSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebounce(taskSearchQuery, 500);
   const [taskFilterStatus, setTaskFilterStatus] = useState<string>("all");
   const [taskFilterAssignee, setTaskFilterAssignee] = useState<string>("all");
 
@@ -173,6 +178,7 @@ export function ProjectDetailPage() {
     maxRejectionsBeforeReassign: 3,
     autoReassignOnSkip: true,
   });
+
 
   const [categories, setCategories] = useState<ProjectCategory[]>([]);
 
@@ -267,6 +273,145 @@ export function ProjectDetailPage() {
   const [isRemoveMemberOpen, setIsRemoveMemberOpen] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<any>(null);
 
+  // Task Assignment State
+  const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
+  const [taskToAssign, setTaskToAssign] = useState<any>(null);
+  const [selectedAnnotatorId, setSelectedAnnotatorId] = useState<string>("");
+  const [selectedDeadline, setSelectedDeadline] = useState<Date | undefined>();
+  const [isAssigning, setIsAssigning] = useState(false);
+
+  // Task Unassign State
+  const [isUnassignDialogOpen, setIsUnassignDialogOpen] = useState(false);
+  const [taskToUnassign, setTaskToUnassign] = useState<any>(null);
+  const [isUnassigning, setIsUnassigning] = useState(false);
+
+  // Bulk Deadline State
+  const [isBulkDeadlineDialogOpen, setIsBulkDeadlineDialogOpen] = useState(false);
+  const [bulkDeadlineUserId, setBulkDeadlineUserId] = useState<string | null>(null);
+  const [bulkDeadline, setBulkDeadline] = useState<Date | undefined>();
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+
+  // Fetch tasks function
+  const fetchTasks = async () => {
+    if (!projectId) return;
+
+    setIsTasksLoading(true);
+    try {
+      const params: any = {
+        page: 1,
+        limit: 1000 // Fetch all tasks
+      };
+
+      if (taskFilterStatus && taskFilterStatus !== 'all') {
+        params.status = taskFilterStatus.toUpperCase();
+      }
+
+      if (taskFilterAssignee && taskFilterAssignee !== 'all') {
+        params.assigneeId = taskFilterAssignee;
+      }
+
+      const response = await projectApi.getTasks(projectId, params);
+      setTasks(response.data || []);
+    } catch (error) {
+      console.error('Failed to fetch tasks:', error);
+      toast.error('Failed to load tasks');
+    } finally {
+      setIsTasksLoading(false);
+    }
+  };
+
+  // Fetch workloads function
+  const fetchWorkloads = async () => {
+    if (!projectId) return;
+
+    try {
+      const workloadsList = await projectApi.getWorkloads(projectId);
+      const workloadsMap = workloadsList.reduce((acc: Record<string, any>, workload: any) => {
+        acc[workload.userId] = workload;
+        return acc;
+      }, {});
+      setWorkloads(workloadsMap);
+    } catch (error) {
+      console.error('Failed to fetch workloads:', error);
+    }
+  };
+
+  // Handle task assignment
+  const handleAssignTask = async () => {
+    if (!projectId || !taskToAssign || !selectedAnnotatorId) return;
+
+    setIsAssigning(true);
+    try {
+      await projectApi.assignTask(projectId, taskToAssign.id, selectedAnnotatorId, selectedDeadline);
+      toast.success('Task assigned successfully');
+      setIsAssignDialogOpen(false);
+      setTaskToAssign(null);
+      setSelectedAnnotatorId("");
+      setSelectedDeadline(undefined);
+      fetchTasks(); // Refresh tasks
+      fetchWorkloads(); // Refresh workloads
+    } catch (error: any) {
+      console.error('Failed to assign task:', error);
+      toast.error(error.response?.data?.error || 'Failed to assign task');
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
+  // Handle task unassignment
+  const handleUnassignTask = async () => {
+    if (!projectId || !taskToUnassign) return;
+
+    setIsUnassigning(true);
+    try {
+      await projectApi.unassignTask(projectId, taskToUnassign.id);
+      toast.success('Task unassigned successfully');
+      setIsUnassignDialogOpen(false);
+      setTaskToUnassign(null);
+      fetchTasks(); // Refresh tasks
+      fetchWorkloads(); // Refresh workloads
+    } catch (error: any) {
+      console.error('Failed to unassign task:', error);
+      toast.error(error.response?.data?.error || 'Failed to unassign task');
+    } finally {
+      setIsUnassigning(false);
+    }
+  };
+
+  // Handle bulk deadline update for all tasks of a user
+  const handleBulkDeadlineUpdate = async () => {
+    if (!projectId || !bulkDeadlineUserId || !bulkDeadline) return;
+
+    const userTasks = groupedTasks[bulkDeadlineUserId];
+    if (!userTasks || userTasks.length === 0) return;
+
+    setIsBulkUpdating(true);
+    try {
+      // Update deadline for all tasks of this user
+      await Promise.all(
+        userTasks.map((task: any) => {
+          return projectApi.updateTaskDeadline(
+            projectId,
+            task.id,
+            bulkDeadline
+          );
+        })
+      );
+
+      toast.success(`Deadline updated for ${userTasks.length} task${userTasks.length > 1 ? 's' : ''}`);
+      setIsBulkDeadlineDialogOpen(false);
+      setBulkDeadlineUserId(null);
+      setBulkDeadline(undefined);
+      fetchTasks(); // Refresh tasks
+      fetchWorkloads(); // Refresh workloads
+    } catch (error: any) {
+      console.error('Failed to update deadlines:', error);
+      toast.error(error.response?.data?.error || 'Failed to update deadlines');
+    } finally {
+      setIsBulkUpdating(false);
+    }
+  };
+
   // Load Project
   useEffect(() => {
     if (projectId) {
@@ -320,30 +465,21 @@ export function ProjectDetailPage() {
       if (project.assignmentRule) {
         setEditAssignmentRule(project.assignmentRule);
       }
+
+      // Fetch tasks and workloads when project loads
+      fetchTasks();
+      fetchWorkloads();
     }
   }, [project, activeTab]);
 
-  // Fetch images as tasks when tab is active
+  // Fetch tasks when filters change
   useEffect(() => {
-    if (project && activeTab === "tasks") {
-      setIsTasksLoading(true);
-      projectApi
-        .getImages(project.id, { page: 1, limit: 100 })
-        .then((res) => {
-          const mappedTasks = res.data.map((img: any) => ({
-            id: img.id,
-            imageName: img.originalFilename,
-            imageUrl: img.storageUrl,
-            status: "pending",
-            assignee: "Unassigned",
-            uploadedAt: img.uploadedAt,
-          }));
-          setTasks(mappedTasks);
-        })
-        .catch(console.error)
-        .finally(() => setIsTasksLoading(false));
+    if (projectId && activeTab === 'tasks') {
+      fetchTasks();
+      fetchWorkloads();
     }
-  }, [project, activeTab]);
+  }, [taskFilterStatus, taskFilterAssignee, debouncedSearchQuery]);
+
 
   // Load available categories
   useEffect(() => {
@@ -365,9 +501,10 @@ export function ProjectDetailPage() {
     }
   }, [isAddMemberOpen]);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [taskSearchQuery, taskFilterStatus, taskFilterAssignee]);
+  // Removed client-side page reset effect as we handle it above with debounced query
+  // useEffect(() => {
+  //   setCurrentPage(1);
+  // }, [taskSearchQuery, taskFilterStatus, taskFilterAssignee]);
 
   if (isLoading) {
     return (
@@ -381,60 +518,85 @@ export function ProjectDetailPage() {
 
   // Derived State
   const projectMembers = project.members || [];
-  const annotators = projectMembers
-    .filter(
-      (m: any) => m.projectRole === "ANNOTATOR" || m.projectRole === "REVIEWER",
-    ) // Simplified
-    .map((m: any) => ({
-      id: m.userId,
-      name: m.user?.fullName || m.user?.email || "Unknown",
-      email: m.user?.email,
-    }));
-
-  const filteredTasks = tasks.filter((task) => {
-    // using local tasks state
-    const matchesSearch =
-      task.imageName?.toLowerCase().includes(taskSearchQuery.toLowerCase()) ||
-      task.id?.toLowerCase().includes(taskSearchQuery.toLowerCase());
-
-    const matchesStatus =
-      taskFilterStatus === "all" || task.status === taskFilterStatus;
-    const matchesAssignee =
-      taskFilterAssignee === "all" || task.assignee === taskFilterAssignee;
-
-    return matchesSearch && matchesStatus && matchesAssignee;
-  });
-
-  const totalPages = Math.max(
-    1,
-    Math.ceil(filteredTasks.length / ITEMS_PER_PAGE),
-  );
-  const currentTableData = filteredTasks.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE,
+  const annotators = projectMembers.filter(
+    (m: any) => m.projectRole === "ANNOTATOR" || m.projectRole === "REVIEWER"
   );
 
-  const approvedTasksCount = tasks.filter((t: any) => t.status === "approved").length;
+  // Client-side filtering is removed/minimized as we use server-side search
+  // We strictly show what the API returns.
+  // Status/Assignee filters are currently visual-only or disabled effectively until backend supports them.
+  const filteredTasks = tasks;
+
+  // Group tasks by assignee
+  const groupedTasks = tasks.reduce((acc: Record<string, any[]>, task: any) => {
+    const annotatorAssignment = task.assignments?.find((a: any) => a.annotatorId);
+    const assigneeId = annotatorAssignment?.annotatorId || 'unassigned';
+    if (!acc[assigneeId]) {
+      acc[assigneeId] = [];
+    }
+    acc[assigneeId].push(task);
+    return acc;
+  }, {});
+
+  // Get workload from cached workloads (total active tasks)
+  const workloadMap: Record<string, number> = Object.keys(workloads).reduce((acc: Record<string, number>, userId: string) => {
+    const workload = workloads[userId];
+    acc[userId] = (workload.assignedTasks || 0) + (workload.inProgressTasks || 0);
+    return acc;
+  }, {});
+
+  // Toggle user expansion
+  const toggleUserExpansion = (userId: string) => {
+    const newExpanded = new Set(expandedUsers);
+    if (newExpanded.has(userId)) {
+      newExpanded.delete(userId);
+    } else {
+      newExpanded.add(userId);
+      // Initialize page 1 for this user if not set
+      if (!userPages[userId]) {
+        setUserPages(prev => ({ ...prev, [userId]: 1 }));
+      }
+    }
+    setExpandedUsers(newExpanded);
+  };
+
+  // Per-user pagination helpers
+  const getUserPage = (userId: string) => userPages[userId] || 1;
+
+  const setUserPage = (userId: string, page: number) => {
+    setUserPages(prev => ({ ...prev, [userId]: page }));
+  };
+
+  const getPaginatedUserTasks = (userTasks: any[], userId: string) => {
+    const page = getUserPage(userId);
+    const startIndex = (page - 1) * TASKS_PER_USER_PAGE;
+    const endIndex = startIndex + TASKS_PER_USER_PAGE;
+    return userTasks.slice(startIndex, endIndex);
+  };
+
+  const getUserTotalPages = (userTasks: any[]) => {
+    return Math.ceil(userTasks.length / TASKS_PER_USER_PAGE);
+  };
+
+  const approvedTasksCount = tasks.filter((t: any) => {
+    const assignment = t.assignments?.find((a: any) => a.annotatorId);
+    return assignment?.status === 'APPROVED';
+  }).length;
   const totalTasksCount = project._count?.tasks || 0;
   const projectProgress = totalTasksCount > 0
     ? Math.round((approvedTasksCount / totalTasksCount) * 100)
     : 0;
 
   // Handlers
-  const handleEditProject = async () => {
-    if (!project || !editName || !editDeadline) return;
+  const handleSaveLabels = async () => {
+    if (!project) return;
 
     try {
       // Construct labelConfig from selected labels
-      // We want to map selected IDs -> full label objects
       const selectedLabels = allAvailableLabels.filter((l) =>
         selectedLabelIds.includes(l.id),
       );
 
-      // Format for labelConfig (assuming simple list of label objects for now)
-      // If there's existing config, we might want to preserve other settings (like annotationType)
-      // But user said "label_config represents which labels that project currently has", so we sync.
-      // We'll try to preserve the 'meta' config if it exists.
       const metaConfig = project.labelConfig?.find(
         (l: any) => l.type === "meta",
       );
@@ -449,18 +611,35 @@ export function ProjectDetailPage() {
 
       await Promise.all([
         projectApi.update(project.id, {
-          name: editName,
-          description: editDescription,
-          deadline: editDeadline.toISOString(),
           labelConfig: newLabelConfig,
-          status: editStatus,
-          categoryId: editCategoryId === "none" ? "" : editCategoryId,
-          enableAiAssistance: editEnableAi,
-          assignmentRule: editAssignmentRule,
         }),
-        // Update labels relation
         projectLabelApi.updateProjectLabels(project.id, selectedLabelIds),
       ]);
+
+      toast.success("Labels updated successfully");
+
+      // Refresh project data
+      const updatedProject = await projectApi.getById(project.id);
+      setProject(updatedProject);
+    } catch (error) {
+      console.error("Failed to update labels:", error);
+      toast.error("Failed to update labels");
+    }
+  };
+
+  const handleEditProject = async () => {
+    if (!project || !editName || !editDeadline) return;
+
+    try {
+      await projectApi.update(project.id, {
+        name: editName,
+        description: editDescription,
+        deadline: editDeadline.toISOString(),
+        status: editStatus,
+        categoryId: editCategoryId === "none" ? "" : editCategoryId,
+        enableAiAssistance: editEnableAi,
+        assignmentRule: editAssignmentRule,
+      });
 
       // Refresh project data to be sure
       const updated = await projectApi.getById(project.id);
@@ -612,9 +791,10 @@ export function ProjectDetailPage() {
       });
 
       setIsRemoveMemberOpen(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      toast.error("Failed to remove member");
+      const errorMessage = error?.response?.data?.error || "Failed to remove member";
+      toast.error(errorMessage);
     }
   };
 
@@ -847,29 +1027,27 @@ export function ProjectDetailPage() {
           className="space-y-6"
         >
           <TabsList>
-            <TabsTrigger value="tasks">Task Management</TabsTrigger>
-            <TabsTrigger value="datasets">Datasets</TabsTrigger>
-            <TabsTrigger value="requests" className="relative">
-              Label Requests
+            <TabsTrigger value="health" className="data-[state=active]:bg-red-50 data-[state=active]:text-red-700">
+              Health (Rescue)
+            </TabsTrigger>
+            <TabsTrigger value="tasks">Tasks</TabsTrigger>
+            <TabsTrigger value="resources" className="relative">
+              Resources
               {pendingLabelRequests > 0 && (
                 <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
                   {pendingLabelRequests}
                 </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="members">Members</TabsTrigger>
+            <TabsTrigger value="team">Team</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
-            <TabsTrigger value="analytics">Analytics</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="tasks" className="space-y-6">
-            {/* Warning about missing tasks */}
-            {/* Warning about missing tasks */}
-            <div className="p-4 bg-blue-50 text-blue-800 rounded-md border border-blue-200">
-              <strong>Note:</strong> Showing project images as tasks. Assignment
-              functionality coming soon.
-            </div>
+          <TabsContent value="health">
+            <ProjectHealthDashboard projectId={project.id} />
+          </TabsContent>
 
+          <TabsContent value="tasks" className="space-y-6">
             {/* Search & Filter for Tasks */}
             <Card className="p-4">
               <div className="flex flex-wrap gap-4">
@@ -893,10 +1071,36 @@ export function ProjectDetailPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="assigned">Assigned</SelectItem>
-                    <SelectItem value="submitted">Submitted</SelectItem>
-                    <SelectItem value="approved">Approved</SelectItem>
+                    <SelectItem value="assigned">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                        Assigned
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="in_progress">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+                        In Progress
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="submitted">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+                        Submitted
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="approved">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                        Approved
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="rejected">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                        Rejected
+                      </div>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
 
@@ -909,19 +1113,19 @@ export function ProjectDetailPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Assignees</SelectItem>
-                    {annotators.map((a: any) => (
-                      <SelectItem key={a.id} value={a.name}>
-                        {a.name}
-                      </SelectItem>
-                    ))}
+                    {annotators
+                      .filter((a: any) => a.projectRole === 'ANNOTATOR')
+                      .map((a: any) => (
+                        <SelectItem key={a.userId} value={a.userId}>
+                          {a.user?.fullName || a.user?.email || 'Unknown'}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
             </Card>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2">
-                <Card className="p-6">
+            <Card className="p-6">
                   <div className="flex items-center justify-between mb-6">
                     <div>
                       <h3 className="text-xl font-semibold">Tasks</h3>
@@ -946,9 +1150,8 @@ export function ProjectDetailPage() {
                               }
                             />
                           </TableHead>
-                          <TableHead>Preview</TableHead>
-                          <TableHead>Name</TableHead>
-                          <TableHead>Status</TableHead>
+                          <TableHead>User / Task</TableHead>
+                          <TableHead className="w-[100px] text-right">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -964,112 +1167,495 @@ export function ProjectDetailPage() {
                         ) : filteredTasks.length === 0 ? (
                           <TableRow>
                             <TableCell
-                              colSpan={3}
+                              colSpan={7}
                               className="text-center py-8 text-muted-foreground"
                             >
                               No tasks found
                             </TableCell>
                           </TableRow>
                         ) : (
-                          currentTableData.map((task, i) => (
-                            <TableRow key={task.id || i}>
-                              <TableCell>
-                                <Checkbox
-                                  checked={selectedTasks.includes(task.id)}
-                                  onCheckedChange={(checked) =>
-                                    handleSelectTask(task.id, !!checked)
-                                  }
-                                />
-                              </TableCell>
-                              <TableCell>
-                                <div className="w-16 h-16 rounded overflow-hidden bg-gray-100 border relative group">
-                                  <img
-                                    src={task.imageUrl}
-                                    alt={task.imageName}
-                                    className="w-full h-full object-cover"
-                                    loading="lazy"
-                                  />
-                                  <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-10 transition-opacity" />
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="font-medium text-sm">
-                                  {task.imageName}
-                                </div>
-                                <div className="text-xs text-muted-foreground font-mono mt-1">
-                                  ID: {task.id.slice(0, 8)}...
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <Badge
-                                  variant="secondary"
-                                  className="font-normal capitalize"
-                                >
-                                  {task.status}
-                                </Badge>
-                                {task.assignee !== "Unassigned" && (
-                                  <div className="text-xs text-muted-foreground mt-1">
-                                    Assigned to: {task.assignee}
-                                  </div>
-                                )}
-                              </TableCell>
-                            </TableRow>
-                          ))
+                          <>
+                            {Object.entries(groupedTasks).map(([assigneeId, userTasks]) => {
+                              const firstTask = userTasks[0];
+                              const annotatorAssignment = firstTask.assignments?.find((a: any) => a.annotatorId);
+                              const assignee = annotatorAssignment?.annotator;
+                              const isExpanded = expandedUsers.has(assigneeId);
+                              const taskCount = userTasks.length;
+
+                              return (
+                                <>
+                                  {/* User Group Row */}
+                                  <TableRow
+                                    key={`user-${assigneeId}`}
+                                    className="bg-gradient-to-r from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-200 cursor-pointer border-b-2 border-gray-300"
+                                    onClick={() => toggleUserExpansion(assigneeId)}
+                                  >
+                                    <TableCell className="py-4">
+                                      <Checkbox
+                                        checked={userTasks.every((t: any) => selectedTasks.includes(t.id))}
+                                        onCheckedChange={(checked) => {
+                                          userTasks.forEach((t: any) => handleSelectTask(t.id, !!checked));
+                                        }}
+                                        onClick={(e) => e.stopPropagation()}
+                                      />
+                                    </TableCell>
+                                    <TableCell colSpan={2} className="py-4">
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                          {isExpanded ? (
+                                            <ChevronDown className="h-5 w-5 text-gray-700 flex-shrink-0" />
+                                          ) : (
+                                            <ChevronRight className="h-5 w-5 text-gray-700 flex-shrink-0" />
+                                          )}
+                                          {assignee ? (
+                                            <div className="flex items-center gap-3">
+                                              <Avatar className="h-10 w-10 ring-2 ring-white shadow-sm">
+                                                <AvatarImage src={assignee.avatarUrl} alt={assignee.fullName} />
+                                                <AvatarFallback className="text-sm font-semibold bg-gradient-to-br from-blue-400 to-blue-600 text-white">
+                                                  {assignee.fullName?.charAt(0).toUpperCase() || 'U'}
+                                                </AvatarFallback>
+                                              </Avatar>
+                                              <div>
+                                                <div className="text-base font-semibold text-gray-900">{assignee.fullName}</div>
+                                                <div className="text-xs text-gray-600">{assignee.email}</div>
+                                              </div>
+                                            </div>
+                                          ) : (
+                                            <div className="flex items-center gap-3">
+                                              <div className="h-10 w-10 rounded-full bg-gray-400 flex items-center justify-center ring-2 ring-white shadow-sm">
+                                                <Users className="h-5 w-5 text-white" />
+                                              </div>
+                                              <span className="text-base font-semibold text-gray-800">Unassigned Tasks</span>
+                                            </div>
+                                          )}
+                                          <Badge variant="secondary" className="ml-2 text-sm font-semibold px-3 py-1">
+                                            {taskCount} {taskCount === 1 ? 'task' : 'tasks'}
+                                          </Badge>
+                                        </div>
+                                        <div onClick={(e) => e.stopPropagation()}>
+                                          {assignee && (
+                                            <DropdownMenu>
+                                              <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="sm">
+                                                  <MoreVertical className="h-4 w-4" />
+                                                </Button>
+                                              </DropdownMenuTrigger>
+                                              <DropdownMenuContent align="end">
+                                                <DropdownMenuItem
+                                                  onClick={() => {
+                                                    setBulkDeadlineUserId(assigneeId);
+                                                    setIsBulkDeadlineDialogOpen(true);
+                                                  }}
+                                                >
+                                                  <Clock className="mr-2 h-4 w-4" />
+                                                  Set Deadline for All Tasks
+                                                </DropdownMenuItem>
+                                              </DropdownMenuContent>
+                                            </DropdownMenu>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+
+                                  {/* Expanded Task Rows */}
+                                  {isExpanded && getPaginatedUserTasks(userTasks, assigneeId).map((task: any, i: number) => {
+                                    const taskAssignment = task.assignments?.find((a: any) => a.annotatorId);
+                                    const status = taskAssignment?.status || 'UNASSIGNED';
+
+                                    return (
+                                      <TableRow key={task.id || i} className="bg-white hover:bg-gray-50 border-b border-gray-100">
+                                        <TableCell className="py-3">
+                                          <Checkbox
+                                            checked={selectedTasks.includes(task.id)}
+                                            onCheckedChange={(checked) =>
+                                              handleSelectTask(task.id, !!checked)
+                                            }
+                                          />
+                                        </TableCell>
+                                        <TableCell className="py-3">
+                                          <div className="flex items-center gap-3 pl-8">
+                                            <div className="w-14 h-14 rounded overflow-hidden bg-gray-100 border flex-shrink-0">
+                                              <img
+                                                src={task.image?.storageUrl}
+                                                alt={task.image?.originalFilename || 'Task image'}
+                                                className="w-full h-full object-cover"
+                                                loading="lazy"
+                                              />
+                                            </div>
+                                            <div className="min-w-0 flex-1 space-y-1.5">
+                                              <div className="font-medium text-sm truncate">
+                                                {task.image?.originalFilename || 'Untitled'}
+                                              </div>
+                                              <div className="text-xs text-muted-foreground font-mono">
+                                                ID: {task.id.slice(0, 8)}...
+                                              </div>
+                                              <div className="flex items-center gap-2 flex-wrap">
+                                                <Badge
+                                                  variant={
+                                                    status === 'REJECTED' ? 'destructive' : 'outline'
+                                                  }
+                                                  className={`font-normal capitalize text-xs ${
+                                                    status === 'APPROVED' ? 'bg-green-100 text-green-800 border-green-300' :
+                                                    status === 'SUBMITTED' ? 'bg-purple-100 text-purple-800 border-purple-300' :
+                                                    status === 'IN_PROGRESS' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' :
+                                                    status === 'ASSIGNED' ? 'bg-blue-100 text-blue-800 border-blue-300' :
+                                                    status === 'UNASSIGNED' ? 'bg-gray-100 text-gray-600 border-gray-300' :
+                                                    ''
+                                                  }`}
+                                                >
+                                                  {status.toLowerCase().replace('_', ' ')}
+                                                </Badge>
+                                                {taskAssignment?.deadline && (
+                                                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                                    <Clock className="h-3 w-3" />
+                                                    <span>
+                                                      {new Date(taskAssignment.deadline).toLocaleDateString()} {new Date(taskAssignment.deadline).toLocaleTimeString([], {
+                                                        hour: '2-digit',
+                                                        minute: '2-digit'
+                                                      })}
+                                                    </span>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </TableCell>
+                                        <TableCell className="py-3 text-right">
+                                          {assignee ? (
+                                            <DropdownMenu>
+                                              <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="sm">
+                                                  <MoreVertical className="h-4 w-4" />
+                                                </Button>
+                                              </DropdownMenuTrigger>
+                                              <DropdownMenuContent align="end">
+                                                <DropdownMenuItem
+                                                  onClick={() => {
+                                                    setTaskToAssign(task);
+                                                    setSelectedAnnotatorId(taskAssignment?.annotatorId || "");
+                                                    setIsAssignDialogOpen(true);
+                                                  }}
+                                                >
+                                                  <Edit className="mr-2 h-4 w-4" />
+                                                  Reassign
+                                                </DropdownMenuItem>
+                                                <DropdownMenuSeparator />
+                                                <DropdownMenuItem
+                                                  onClick={() => {
+                                                    setTaskToUnassign(task);
+                                                    setIsUnassignDialogOpen(true);
+                                                  }}
+                                                  className="text-red-600"
+                                                >
+                                                  <Trash2 className="mr-2 h-4 w-4" />
+                                                  Unassign
+                                                </DropdownMenuItem>
+                                              </DropdownMenuContent>
+                                            </DropdownMenu>
+                                          ) : (
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              onClick={() => {
+                                                setTaskToAssign(task);
+                                                setSelectedAnnotatorId("");
+                                                setIsAssignDialogOpen(true);
+                                              }}
+                                            >
+                                              Assign
+                                            </Button>
+                                          )}
+                                        </TableCell>
+                                      </TableRow>
+                                    );
+                                  })}
+
+                                  {/* Per-User Pagination Controls */}
+                                  {isExpanded && getUserTotalPages(userTasks) > 1 && (
+                                    <TableRow className="bg-gray-50">
+                                      <TableCell colSpan={3} className="py-3">
+                                        <div className="flex items-center justify-between px-8">
+                                          <div className="text-sm text-muted-foreground">
+                                            Page {getUserPage(assigneeId)} of {getUserTotalPages(userTasks)}
+                                          </div>
+                                          <div className="flex items-center gap-2">
+                                            <Button
+                                              variant="outline"
+                                              size="icon"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setUserPage(assigneeId, 1);
+                                              }}
+                                              disabled={getUserPage(assigneeId) === 1}
+                                            >
+                                              <ChevronsLeft className="w-4 h-4" />
+                                            </Button>
+                                            <Button
+                                              variant="outline"
+                                              size="icon"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setUserPage(assigneeId, Math.max(1, getUserPage(assigneeId) - 1));
+                                              }}
+                                              disabled={getUserPage(assigneeId) === 1}
+                                            >
+                                              <ChevronLeft className="w-4 h-4" />
+                                            </Button>
+                                            <Button
+                                              variant="outline"
+                                              size="icon"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setUserPage(assigneeId, Math.min(getUserTotalPages(userTasks), getUserPage(assigneeId) + 1));
+                                              }}
+                                              disabled={getUserPage(assigneeId) === getUserTotalPages(userTasks)}
+                                            >
+                                              <ChevronRight className="w-4 h-4" />
+                                            </Button>
+                                            <Button
+                                              variant="outline"
+                                              size="icon"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setUserPage(assigneeId, getUserTotalPages(userTasks));
+                                              }}
+                                              disabled={getUserPage(assigneeId) === getUserTotalPages(userTasks)}
+                                            >
+                                              <ChevronsRight className="w-4 h-4" />
+                                            </Button>
+                                          </div>
+                                        </div>
+                                      </TableCell>
+                                    </TableRow>
+                                  )}
+                                </>
+                              );
+                            })}
+                          </>
                         )}
                       </TableBody>
                     </Table>
                   </div>
-
-                  {/* Pagination Controls */}
-                  <div className="flex items-center justify-between mt-4">
-                    <div className="text-sm text-muted-foreground">
-                      Page {currentPage} of {totalPages}
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => setCurrentPage(1)}
-                        disabled={currentPage === 1}
-                      >
-                        <ChevronsLeft className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() =>
-                          setCurrentPage((prev) => Math.max(1, prev - 1))
-                        }
-                        disabled={currentPage === 1}
-                      >
-                        <ChevronLeft className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() =>
-                          setCurrentPage((prev) =>
-                            Math.min(totalPages, prev + 1),
-                          )
-                        }
-                        disabled={currentPage === totalPages}
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => setCurrentPage(totalPages)}
-                        disabled={currentPage === totalPages}
-                      >
-                        <ChevronsRight className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
                 </Card>
-              </div>
+          </TabsContent>
 
-              <div className="lg:col-span-1">
+          <TabsContent value="resources" className="space-y-6">
+            <Tabs defaultValue="datasets" className="space-y-4">
+              <TabsList className="inline-flex h-auto gap-2 bg-transparent border-b w-full justify-start rounded-none p-0 pb-3">
+                <TabsTrigger
+                  value="datasets"
+                  className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:border-blue-700 data-[state=active]:shadow-none rounded-md border-2 border-transparent px-4 py-1.5 text-sm font-medium transition-all hover:bg-gray-50"
+                >
+                  Datasets
+                </TabsTrigger>
+                <TabsTrigger
+                  value="labels"
+                  className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:border-blue-700 data-[state=active]:shadow-none rounded-md border-2 border-transparent px-4 py-1.5 text-sm font-medium transition-all hover:bg-gray-50"
+                >
+                  Labels
+                </TabsTrigger>
+                <TabsTrigger
+                  value="requests"
+                  className="relative data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:border-blue-700 data-[state=active]:shadow-none rounded-md border-2 border-transparent px-4 py-1.5 text-sm font-medium transition-all hover:bg-gray-50"
+                >
+                  Label Requests
+                  {pendingLabelRequests > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
+                      {pendingLabelRequests}
+                    </span>
+                  )}
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="datasets">
+                <DatasetList projectId={project.id} />
+              </TabsContent>
+
+              <TabsContent value="labels" className="space-y-6">
+                <Card className="p-6">
+                  <h3 className="text-lg font-semibold mb-4">
+                    Label Management
+                  </h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Select the labels that annotators can use in this project.
+                  </p>
+                  <LabelSelector
+                    projectId={project.id}
+                    selectedLabelIds={selectedLabelIds}
+                    onSelectionChange={setSelectedLabelIds}
+                    allowCreateLabel={true}
+                  />
+                </Card>
+
+                {/* Save Button */}
+                <div className="flex justify-end gap-3 sticky bottom-6 z-10">
+                  <div className="bg-white/80 backdrop-blur-sm p-2 rounded-lg shadow-lg border border-gray-100 flex gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setActiveTab("tasks")}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleSaveLabels}
+                      className="bg-blue-600 hover:bg-blue-700 text-white shadow-md"
+                    >
+                      <CheckCircle2 className="w-4 h-4 mr-2" />
+                      Save Labels
+                    </Button>
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="requests" className="space-y-6">
+                <LabelRequestManager
+                  projectId={project.id}
+                  onUpdatePendingCount={setPendingLabelRequests}
+                />
+              </TabsContent>
+            </Tabs>
+          </TabsContent>
+
+          <TabsContent value="team" className="space-y-6">
+            <Tabs defaultValue="members" className="space-y-4">
+              <TabsList className="inline-flex h-auto gap-2 bg-transparent border-b w-full justify-start rounded-none p-0 pb-3">
+                <TabsTrigger
+                  value="members"
+                  className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:border-blue-700 data-[state=active]:shadow-none rounded-md border-2 border-transparent px-4 py-1.5 text-sm font-medium transition-all hover:bg-gray-50"
+                >
+                  Members
+                </TabsTrigger>
+                <TabsTrigger
+                  value="chat"
+                  className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:border-blue-700 data-[state=active]:shadow-none rounded-md border-2 border-transparent px-4 py-1.5 text-sm font-medium transition-all hover:bg-gray-50"
+                >
+                  Chat
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="members" className="space-y-6">
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <h3 className="text-2xl font-bold tracking-tight">
+                      Team Members
+                    </h3>
+                    <p className="text-muted-foreground">
+                      Manage access and roles for this project.
+                    </p>
+                  </div>
+                  <Button onClick={() => setIsAddMemberOpen(true)}>
+                    <Users className="w-4 h-4 mr-2" />
+                    Add Member
+                  </Button>
+                </div>
+
+                {[
+                  {
+                    title: "Reviewers",
+                    color: "text-blue-600",
+                    bgColor: "bg-blue-100",
+                    role: "REVIEWER",
+                    description: "Can review and approve annotations.",
+                  },
+                  {
+                    title: "Annotators",
+                    color: "text-emerald-600",
+                    bgColor: "bg-emerald-100",
+                    role: "ANNOTATOR",
+                    description: "Can label tasks assigned to them.",
+                  },
+                ].map((group) => {
+                  const groupMembers = projectMembers.filter(
+                    (m: any) => m.projectRole === group.role,
+                  );
+                  return (
+                    <Card key={group.role} className="p-6">
+                      <div className="flex items-center gap-3 mb-6">
+                        <div>
+                          <h4 className="text-lg font-semibold flex items-center gap-2">
+                            {group.title}
+                            <Badge variant="secondary" className="ml-2 font-normal">
+                              {groupMembers.length}
+                            </Badge>
+                          </h4>
+                          <p className="text-sm text-muted-foreground">
+                            {group.description}
+                          </p>
+                        </div>
+                      </div>
+
+                      {groupMembers.length === 0 ? (
+                        <div className="text-center py-8 text-muted-foreground bg-gray-50 rounded-lg border border-dashed">
+                          No {group.title.toLowerCase()} assigned.
+                        </div>
+                      ) : (
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>User</TableHead>
+                              <TableHead>Joined</TableHead>
+                              <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {groupMembers.map((member: any) => (
+                              <TableRow key={member.id}>
+                                <TableCell className="flex items-center gap-3">
+                                  <Avatar className="w-8 h-8">
+                                    <AvatarImage src={member.user?.avatarUrl} />
+                                    <AvatarFallback>
+                                      {member.user?.fullName?.[0] ||
+                                        member.user?.email?.[0]}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div>
+                                    <p className="font-medium">
+                                      {member.user?.fullName || "Unknown"}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {member.user?.email}
+                                    </p>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-muted-foreground text-sm">
+                                  {format(
+                                    new Date(member.joinedAt),
+                                    "MMM dd, yyyy",
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <div className="flex items-center justify-end gap-2">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 w-8 p-0"
+                                      onClick={() => openEditRoleDialog(member)}
+                                    >
+                                      <Edit className="h-4 w-4 text-muted-foreground" />
+                                      <span className="sr-only">Edit Role</span>
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                      onClick={() => confirmRemoveMember(member)}
+                                    >
+                                      Remove
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      )}
+                    </Card>
+                  );
+                })}
+              </TabsContent>
+
+              <TabsContent value="chat" className="space-y-6">
                 <ChatPanel
                   projectId={project.id}
                   projectName={project.name}
@@ -1078,138 +1664,8 @@ export function ProjectDetailPage() {
                       ?.projectRole === "MANAGER"
                   }
                 />
-              </div>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="datasets">
-            <DatasetList projectId={project.id} />
-          </TabsContent>
-
-          <TabsContent value="members" className="space-y-6">
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <h3 className="text-2xl font-bold tracking-tight">
-                  Team Members
-                </h3>
-                <p className="text-muted-foreground">
-                  Manage access and roles for this project.
-                </p>
-              </div>
-              <Button onClick={() => setIsAddMemberOpen(true)}>
-                <Users className="w-4 h-4 mr-2" />
-                Add Member
-              </Button>
-            </div>
-
-            {[
-              {
-                title: "Reviewers",
-                icon: Eye,
-                color: "text-blue-600",
-                bgColor: "bg-blue-100",
-                role: "REVIEWER",
-                description: "Can review and approve annotations.",
-              },
-              {
-                title: "Annotators",
-                icon: Pen,
-                color: "text-emerald-600",
-                bgColor: "bg-emerald-100",
-                role: "ANNOTATOR",
-                description: "Can label tasks assigned to them.",
-              },
-            ].map((group) => {
-              const groupMembers = projectMembers.filter(
-                (m: any) => m.projectRole === group.role,
-              );
-              return (
-                <Card key={group.role} className="p-6">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className={`p-2 rounded-lg ${group.bgColor}`}>
-                      <group.icon className={`w-5 h-5 ${group.color}`} />
-                    </div>
-                    <div>
-                      <h4 className="text-lg font-semibold flex items-center gap-2">
-                        {group.title}
-                        <Badge variant="secondary" className="ml-2 font-normal">
-                          {groupMembers.length}
-                        </Badge>
-                      </h4>
-                      <p className="text-sm text-muted-foreground">
-                        {group.description}
-                      </p>
-                    </div>
-                  </div>
-
-                  {groupMembers.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground bg-gray-50 rounded-lg border border-dashed">
-                      No {group.title.toLowerCase()} assigned.
-                    </div>
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>User</TableHead>
-                          <TableHead>Joined</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {groupMembers.map((member: any) => (
-                          <TableRow key={member.id}>
-                            <TableCell className="flex items-center gap-3">
-                              <Avatar className="w-8 h-8">
-                                <AvatarImage src={member.user?.avatarUrl} />
-                                <AvatarFallback>
-                                  {member.user?.fullName?.[0] ||
-                                    member.user?.email?.[0]}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <p className="font-medium">
-                                  {member.user?.fullName || "Unknown"}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {member.user?.email}
-                                </p>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-muted-foreground text-sm">
-                              {format(
-                                new Date(member.joinedAt),
-                                "MMM dd, yyyy",
-                              )}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex items-center justify-end gap-2">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 w-8 p-0"
-                                  onClick={() => openEditRoleDialog(member)}
-                                >
-                                  <Edit className="h-4 w-4 text-muted-foreground" />
-                                  <span className="sr-only">Edit Role</span>
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                  onClick={() => confirmRemoveMember(member)}
-                                >
-                                  Remove
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  )}
-                </Card>
-              );
-            })}
+              </TabsContent>
+            </Tabs>
           </TabsContent>
 
           <TabsContent value="settings">
@@ -1345,132 +1801,213 @@ export function ProjectDetailPage() {
                     Configure how tasks are distributed and reviewed.
                   </p>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                      <h4 className="font-medium text-sm text-gray-900 border-b pb-2">
-                        Assignment Strategy
+                  <div className="space-y-8">
+                    {/* 1. Auto-Assignment Settings */}
+                    <div>
+                      <h4 className="font-medium text-sm text-gray-900 border-b pb-2 mb-4">
+                        Auto-Assignment Settings
                       </h4>
-
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Label>Auto-Assign Tasks</Label>
-                          <Popover>
-                            <PopoverTrigger>
-                              <AlertCircle className="w-4 h-4 text-gray-400 cursor-help" />
-                            </PopoverTrigger>
-                            <PopoverContent className="w-80">
-                              <p className="text-sm">
-                                If enabled, new image uploads will be automatically distributed to available annotators based on the selected strategy.
-                              </p>
-                            </PopoverContent>
-                          </Popover>
-                        </div>
-                        <Switch
-                          checked={editAssignmentRule.isAutoAssignEnabled}
-                          onCheckedChange={(c) =>
-                            setEditAssignmentRule((p) => ({
-                              ...p,
-                              isAutoAssignEnabled: c,
-                            }))
-                          }
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Strategy</Label>
-                        <Select
-                          value={editAssignmentRule.assignmentStrategy}
-                          onValueChange={(v) =>
-                            setEditAssignmentRule((p) => ({
-                              ...p,
-                              assignmentStrategy: v,
-                            }))
-                          }
-                          disabled={!editAssignmentRule.isAutoAssignEnabled}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="ROUND_ROBIN">
-                              Round Robin
-                            </SelectItem>
-                            <SelectItem value="LEAST_BUSY">
-                              Least Busy
-                            </SelectItem>
-                            <SelectItem value="RANDOM">Random</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="flex items-center justify-between pt-2">
-                        <div className="space-y-0.5">
-                          <div className="flex items-center gap-2">
-                            <Label>Auto-Assign Reviewer</Label>
-                            <Popover>
-                              <PopoverTrigger>
-                                <AlertCircle className="w-4 h-4 text-gray-400 cursor-help" />
-                              </PopoverTrigger>
-                              <PopoverContent className="w-80">
-                                <p className="text-sm">
-                                  When an annotator submits a task, it will be immediately assigned to a reviewer (preventing specific annotator-reviewer pairings).
-                                </p>
-                              </PopoverContent>
-                            </Popover>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Label>Auto-Assign Tasks</Label>
+                              <Popover>
+                                <PopoverTrigger>
+                                  <AlertCircle className="w-4 h-4 text-gray-400 cursor-help" />
+                                </PopoverTrigger>
+                                <PopoverContent className="w-80">
+                                  <p className="text-sm">
+                                    Automatically distribute new image uploads to available annotators based on the selected strategy.
+                                  </p>
+                                </PopoverContent>
+                              </Popover>
+                            </div>
+                            <Switch
+                              checked={editAssignmentRule.isAutoAssignEnabled}
+                              onCheckedChange={(c) =>
+                                setEditAssignmentRule((p) => ({
+                                  ...p,
+                                  isAutoAssignEnabled: c,
+                                }))
+                              }
+                            />
                           </div>
+
+                          <div className="space-y-2">
+                            <Label>Assignment Strategy</Label>
+                            <Select
+                              value={editAssignmentRule.assignmentStrategy}
+                              onValueChange={(v) =>
+                                setEditAssignmentRule((p) => ({
+                                  ...p,
+                                  assignmentStrategy: v,
+                                }))
+                              }
+                              disabled={!editAssignmentRule.isAutoAssignEnabled}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="ROUND_ROBIN">
+                                  Round Robin
+                                </SelectItem>
+                                <SelectItem value="LEAST_BUSY">
+                                  Least Busy
+                                </SelectItem>
+                                <SelectItem value="RANDOM">Random</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-2">
+                                <Label>Auto-Assign Reviewer</Label>
+                                <Popover>
+                                  <PopoverTrigger>
+                                    <AlertCircle className="w-4 h-4 text-gray-400 cursor-help" />
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-80">
+                                    <p className="text-sm">
+                                      Automatically assign a reviewer when an annotator submits a task (prevents conflict of interest).
+                                    </p>
+                                  </PopoverContent>
+                                </Popover>
+                              </div>
+                              {/* <p className="text-xs text-muted-foreground">
+                                Assign reviewer when task is submitted
+                              </p> */}
+                            </div>
+                            <Switch
+                              checked={editAssignmentRule.autoAssignReviewer}
+                              onCheckedChange={(c) =>
+                                setEditAssignmentRule((p) => ({
+                                  ...p,
+                                  autoAssignReviewer: c,
+                                }))
+                              }
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Reviewer Assignment Delay (hours)</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              value={editAssignmentRule.reviewerDelayHours}
+                              onChange={(e) =>
+                                setEditAssignmentRule((p) => ({
+                                  ...p,
+                                  reviewerDelayHours: parseInt(e.target.value) || 0,
+                                }))
+                              }
+                              disabled={!editAssignmentRule.autoAssignReviewer}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Optional delay before assigning reviewer (0 = immediate)
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 2. Workload & Capacity Limits */}
+                    <div>
+                      <h4 className="font-medium text-sm text-gray-900 border-b pb-2 mb-4">
+                        Workload & Capacity Limits
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <Label>Max Tasks per Annotator</Label>
+                          <Input
+                            type="number"
+                            min="1"
+                            value={editAssignmentRule.maxTasksPerAnnotator}
+                            onChange={(e) =>
+                              setEditAssignmentRule((p) => ({
+                                ...p,
+                                maxTasksPerAnnotator: parseInt(e.target.value) || 1,
+                              }))
+                            }
+                          />
                           <p className="text-xs text-muted-foreground">
-                            Assign reviewer when task is submitted
+                            Maximum concurrent tasks per annotator
                           </p>
                         </div>
-                        <Switch
-                          checked={editAssignmentRule.autoAssignReviewer}
-                          onCheckedChange={(c) =>
-                            setEditAssignmentRule((p) => ({
-                              ...p,
-                              autoAssignReviewer: c,
-                            }))
-                          }
-                        />
+
+                        <div className="space-y-2">
+                          <Label>Max Tasks per Reviewer</Label>
+                          <Input
+                            type="number"
+                            min="1"
+                            value={editAssignmentRule.maxTasksPerReviewer}
+                            onChange={(e) =>
+                              setEditAssignmentRule((p) => ({
+                                ...p,
+                                maxTasksPerReviewer: parseInt(e.target.value) || 1,
+                              }))
+                            }
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Maximum review queue size per reviewer
+                          </p>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="space-y-4">
-                      <h4 className="font-medium text-sm text-gray-900 border-b pb-2">
-                        Workload Limits
+                    {/* 3. Quality Requirements */}
+                    <div>
+                      <h4 className="font-medium text-sm text-gray-900 border-b pb-2 mb-4">
+                        Quality Requirements
                       </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <Label>Min Annotator Reputation (%)</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={editAssignmentRule.minAnnotatorReputation}
+                            onChange={(e) =>
+                              setEditAssignmentRule((p) => ({
+                                ...p,
+                                minAnnotatorReputation: parseInt(e.target.value) || 0,
+                              }))
+                            }
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Minimum reputation score required for annotators
+                          </p>
+                        </div>
 
-                      <div className="space-y-2">
-                        <Label>Max Tasks per Annotator</Label>
-                        <Input
-                          type="number"
-                          value={editAssignmentRule.maxTasksPerAnnotator}
-                          onChange={(e) =>
-                            setEditAssignmentRule((p) => ({
-                              ...p,
-                              maxTasksPerAnnotator:
-                                parseInt(e.target.value) || 0,
-                            }))
-                          }
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Max Review Queue Size</Label>
-                        <Input
-                          type="number"
-                          value={editAssignmentRule.maxTasksPerReviewer}
-                          onChange={(e) =>
-                            setEditAssignmentRule((p) => ({
-                              ...p,
-                              maxTasksPerReviewer:
-                                parseInt(e.target.value) || 0,
-                            }))
-                          }
-                        />
+                        <div className="space-y-2">
+                          <Label>Min Reviewer Reputation (%)</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={editAssignmentRule.minReviewerReputation}
+                            onChange={(e) =>
+                              setEditAssignmentRule((p) => ({
+                                ...p,
+                                minReviewerReputation: parseInt(e.target.value) || 0,
+                              }))
+                            }
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Minimum reputation score required for reviewers
+                          </p>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="space-y-4 md:col-span-2">
-                      <h4 className="font-medium text-sm text-gray-900 border-b pb-2">
+                    {/* 4. Quality Control */}
+                    <div>
+                      <h4 className="font-medium text-sm text-gray-900 border-b pb-2 mb-4">
                         Quality Control
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1478,19 +2015,21 @@ export function ProjectDetailPage() {
                           <Label>Max Rejections Before Reassign</Label>
                           <Input
                             type="number"
-                            value={
-                              editAssignmentRule.maxRejectionsBeforeReassign
-                            }
+                            min="1"
+                            value={editAssignmentRule.maxRejectionsBeforeReassign}
                             onChange={(e) =>
                               setEditAssignmentRule((p) => ({
                                 ...p,
-                                maxRejectionsBeforeReassign:
-                                  parseInt(e.target.value) || 0,
+                                maxRejectionsBeforeReassign: parseInt(e.target.value) || 1,
                               }))
                             }
                           />
+                          <p className="text-xs text-muted-foreground">
+                            Reassign task to another annotator after this many rejections
+                          </p>
                         </div>
-                        <div className="flex items-center justify-between">
+
+                        <div className="flex items-center justify-between pt-6">
                           <div className="space-y-0.5">
                             <div className="flex items-center gap-2">
                               <Label>Auto-Reassign on Skip</Label>
@@ -1500,13 +2039,13 @@ export function ProjectDetailPage() {
                                 </PopoverTrigger>
                                 <PopoverContent className="w-80">
                                   <p className="text-sm">
-                                    If an annotator skips a task, it will be removed from their queue and sent back to the pool for reassignment.
+                                    If an annotator skips a task, it will be automatically reassigned to another annotator.
                                   </p>
                                 </PopoverContent>
                               </Popover>
                             </div>
                             <p className="text-xs text-muted-foreground">
-                              Automatically assign to another user if skipped
+                              Automatically reassign skipped tasks
                             </p>
                           </div>
                           <Switch
@@ -1521,23 +2060,19 @@ export function ProjectDetailPage() {
                         </div>
                       </div>
                     </div>
+
                   </div>
                 </Card>
 
-                {/* 3. Label Settings */}
+                {/* 3. Analytics */}
                 <Card className="p-6">
-                  <h3 className="text-lg font-semibold mb-4">
-                    Label Management
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-green-600" />
+                    Analytics
                   </h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Select the labels that annotators can use in this project.
-                  </p>
-                  <LabelSelector
-                    projectId={project.id}
-                    selectedLabelIds={selectedLabelIds}
-                    onSelectionChange={setSelectedLabelIds}
-                    allowCreateLabel={true}
-                  />
+                  <div className="p-12 text-center text-muted-foreground bg-gray-50 rounded-lg">
+                    Analytics will be available once tasks are populated.
+                  </div>
                 </Card>
 
                 {/* Save Button */}
@@ -1560,19 +2095,6 @@ export function ProjectDetailPage() {
                 </div>
               </div>
             </div>
-          </TabsContent>
-
-          <TabsContent value="analytics" className="space-y-6">
-            <Card className="p-12 text-center text-muted-foreground">
-              Analytics will be available once tasks are populated.
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="requests" className="space-y-6">
-            <LabelRequestManager
-              projectId={project.id}
-              onUpdatePendingCount={setPendingLabelRequests}
-            />
           </TabsContent>
         </Tabs>
         {/* Edit Role Dialog */}
@@ -1889,6 +2411,303 @@ export function ProjectDetailPage() {
             toast.success("Project updated");
           }}
         />
+
+        {/* Task Assignment Dialog */}
+        <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Assign Task</DialogTitle>
+              <DialogDescription>
+                Assign this task to an annotator in the project.
+              </DialogDescription>
+            </DialogHeader>
+
+            {taskToAssign && (
+              <div className="space-y-4">
+                {/* Task Preview */}
+                <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
+                  <div className="w-16 h-16 rounded overflow-hidden bg-gray-100 border">
+                    <img
+                      src={taskToAssign.image?.storageUrl}
+                      alt={taskToAssign.image?.originalFilename || 'Task'}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-medium text-sm">
+                      {taskToAssign.image?.originalFilename || 'Untitled'}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      ID: {taskToAssign.id.slice(0, 8)}...
+                    </div>
+                    <Badge
+                      variant={
+                        taskToAssign.difficultyLevel === 'EASY' ? 'default' :
+                        taskToAssign.difficultyLevel === 'NORMAL' ? 'secondary' :
+                        taskToAssign.difficultyLevel === 'HARD' ? 'destructive' :
+                        'outline'
+                      }
+                      className="mt-1"
+                    >
+                      {taskToAssign.difficultyLevel || 'NORMAL'}
+                    </Badge>
+                  </div>
+                </div>
+
+                {/* Annotator Selection */}
+                <div className="space-y-2">
+                  <Label>Select Annotator</Label>
+                  <Select
+                    value={selectedAnnotatorId}
+                    onValueChange={setSelectedAnnotatorId}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose an annotator..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {annotators
+                        .filter((a: any) => a.projectRole === 'ANNOTATOR')
+                        .map((annotator: any) => {
+                          const taskCount = workloadMap[annotator.userId] || 0;
+                          return (
+                            <SelectItem key={annotator.userId} value={annotator.userId}>
+                              <div className="flex items-center justify-between w-full">
+                                <span>{annotator.user?.fullName || annotator.user?.email}</span>
+                                <Badge variant="secondary" className="ml-2 text-xs">
+                                  {taskCount} tasks
+                                </Badge>
+                              </div>
+                            </SelectItem>
+                          );
+                        })}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Deadline Selection */}
+                <div className="space-y-2">
+                  <Label>Deadline (Optional)</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start text-left font-normal"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {selectedDeadline ? (
+                          format(selectedDeadline, "PPP")
+                        ) : (
+                          <span className="text-muted-foreground">
+                            Select a deadline
+                          </span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={selectedDeadline}
+                        onSelect={setSelectedDeadline}
+                        initialFocus
+                        disabled={(date) => date < new Date()}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <p className="text-xs text-muted-foreground">
+                    If not set, deadline will be auto-calculated based on task difficulty
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsAssignDialogOpen(false);
+                  setTaskToAssign(null);
+                  setSelectedAnnotatorId("");
+                  setSelectedDeadline(undefined);
+                }}
+                disabled={isAssigning}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleAssignTask}
+                disabled={!selectedAnnotatorId || isAssigning}
+              >
+                {isAssigning ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Assigning...
+                  </>
+                ) : (
+                  'Assign Task'
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Task Unassign Confirmation Dialog */}
+        <AlertDialog open={isUnassignDialogOpen} onOpenChange={setIsUnassignDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Unassign Task</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to unassign this task? The annotator will lose access to this task.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+
+            {taskToUnassign && (
+              <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
+                <div className="w-16 h-16 rounded overflow-hidden bg-gray-100 border">
+                  <img
+                    src={taskToUnassign.image?.storageUrl}
+                    alt={taskToUnassign.image?.originalFilename || 'Task'}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div>
+                  <div className="font-medium text-sm">
+                    {taskToUnassign.image?.originalFilename || 'Untitled'}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    ID: {taskToUnassign.id.slice(0, 8)}...
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <AlertDialogFooter>
+              <AlertDialogCancel
+                onClick={() => {
+                  setIsUnassignDialogOpen(false);
+                  setTaskToUnassign(null);
+                }}
+                disabled={isUnassigning}
+              >
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleUnassignTask}
+                disabled={isUnassigning}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                {isUnassigning ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Unassigning...
+                  </>
+                ) : (
+                  'Unassign Task'
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Bulk Deadline Dialog */}
+        <Dialog open={isBulkDeadlineDialogOpen} onOpenChange={setIsBulkDeadlineDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Set Deadline for All Tasks</DialogTitle>
+              <DialogDescription>
+                Set a deadline for all tasks assigned to this user.
+              </DialogDescription>
+            </DialogHeader>
+
+            {bulkDeadlineUserId && groupedTasks[bulkDeadlineUserId] && (
+              <div className="space-y-4">
+                {/* User Info */}
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  {(() => {
+                    const firstTask = groupedTasks[bulkDeadlineUserId][0];
+                    const annotatorAssignment = firstTask.assignments?.find((a: any) => a.annotatorId);
+                    const assignee = annotatorAssignment?.annotator;
+                    const taskCount = groupedTasks[bulkDeadlineUserId].length;
+
+                    return (
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage src={assignee?.avatarUrl} alt={assignee?.fullName} />
+                          <AvatarFallback className="text-sm">
+                            {assignee?.fullName?.charAt(0).toUpperCase() || 'U'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="font-medium text-sm">{assignee?.fullName || 'Unknown'}</div>
+                          <div className="text-xs text-muted-foreground">{assignee?.email || ''}</div>
+                          <Badge variant="secondary" className="mt-1 text-xs">
+                            {taskCount} {taskCount === 1 ? 'task' : 'tasks'}
+                          </Badge>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* Deadline Picker */}
+                <div className="space-y-2">
+                  <Label>Select Deadline</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start text-left font-normal"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {bulkDeadline ? (
+                          format(bulkDeadline, "PPP")
+                        ) : (
+                          <span className="text-muted-foreground">
+                            Pick a deadline
+                          </span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={bulkDeadline}
+                        onSelect={setBulkDeadline}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsBulkDeadlineDialogOpen(false);
+                  setBulkDeadlineUserId(null);
+                  setBulkDeadline(undefined);
+                }}
+                disabled={isBulkUpdating}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleBulkDeadlineUpdate}
+                disabled={!bulkDeadline || isBulkUpdating}
+              >
+                {isBulkUpdating ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  'Set Deadline'
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
