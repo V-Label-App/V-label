@@ -117,4 +117,33 @@ router.delete( // Delete Dataset
     DatasetController.delete
 )
 
+// Task Management
+router.get( // Get Tasks
+    '/:id/tasks',
+    ProjectController.getTasks
+)
+
+router.post( // Manually Assign Task
+    '/:id/tasks/:taskId/assign',
+    requireRole(['ADMIN', 'MANAGER']),
+    ProjectController.assignTask
+)
+
+router.delete( // Unassign Task
+    '/:id/tasks/:taskId/unassign',
+    requireRole(['ADMIN', 'MANAGER']),
+    ProjectController.unassignTask
+)
+
+router.patch( // Update Task Deadline
+    '/:id/tasks/:taskId/deadline',
+    requireRole(['ADMIN', 'MANAGER']),
+    ProjectController.updateTaskDeadline
+)
+
+router.get( // Get User Workloads
+    '/:id/workloads',
+    ProjectController.getWorkloads
+)
+
 export default router

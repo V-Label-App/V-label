@@ -47,4 +47,67 @@ export class ReviewerController {
             return res.status(500).json({ error: 'Failed to fetch review queue' });
         }
     }
+
+    /**
+     * POST /api/v1/reviewer/assignments/:assignmentId/approve
+     * Approve a task assignment
+     */
+    static async approveTask(req: Request, res: Response) {
+        try {
+            const userId = (req as any).user.sub || (req as any).user.id;
+            const assignmentId = req.params.assignmentId as string;
+            const { reviewComment } = req.body;
+
+            if (!assignmentId) {
+                return res.status(400).json({ error: 'Assignment ID is required' });
+            }
+
+            const result = await ReviewerService.approveTask(assignmentId, userId, reviewComment);
+
+            logger.info('API', 'Task approved', { assignmentId, reviewerId: userId });
+            return res.json(result);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Unknown error';
+            if (message.includes('not found') || message.includes('not submitted')) {
+                return res.status(404).json({ error: message });
+            }
+            logger.error('API', 'Approve task failed', { error });
+            return res.status(500).json({ error: 'Failed to approve task' });
+        }
+    }
+
+    /**
+     * POST /api/v1/reviewer/assignments/:assignmentId/reject
+     * Reject a task assignment
+     */
+    static async rejectTask(req: Request, res: Response) {
+        try {
+            const userId = (req as any).user.sub || (req as any).user.id;
+            const assignmentId = req.params.assignmentId as string;
+            const { reviewComment } = req.body;
+
+            if (!assignmentId) {
+                return res.status(400).json({ error: 'Assignment ID is required' });
+            }
+
+            if (!reviewComment || reviewComment.trim() === '') {
+                return res.status(400).json({ error: 'Review comment is required when rejecting a task' });
+            }
+
+            const result = await ReviewerService.rejectTask(assignmentId, userId, reviewComment);
+
+            logger.info('API', 'Task rejected', { assignmentId, reviewerId: userId });
+            return res.json(result);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Unknown error';
+            if (message.includes('not found') || message.includes('not submitted')) {
+                return res.status(404).json({ error: message });
+            }
+            if (message.includes('required')) {
+                return res.status(400).json({ error: message });
+            }
+            logger.error('API', 'Reject task failed', { error });
+            return res.status(500).json({ error: 'Failed to reject task' });
+        }
+    }
 }

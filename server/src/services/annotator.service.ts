@@ -277,6 +277,33 @@ export class AnnotatorService {
             });
 
             logger.info('SERVICE', 'Task assignment updated', { assignmentId, userId, status: updates.status });
+
+            // Auto-assign reviewer when task is submitted
+            if (updates.status === AssignmentStatus.SUBMITTED) {
+                try {
+                    const { TaskService } = await import('./task.service.js');
+
+                    const projectId = updated.task.projectId;
+                    const taskId = updated.taskId;
+                    const annotatorId = userId;
+
+                    // Auto-assign reviewer (excluding the annotator to prevent conflict of interest)
+                    await TaskService.autoAssignTask(taskId, projectId, 'REVIEWER', annotatorId);
+
+                    logger.info('SERVICE', 'Auto-assigned reviewer after submission', {
+                        taskId,
+                        assignmentId,
+                        annotatorId
+                    });
+                } catch (reviewerError) {
+                    // Log error but don't fail the submission
+                    logger.error('SERVICE', 'Failed to auto-assign reviewer', {
+                        error: reviewerError,
+                        assignmentId
+                    });
+                }
+            }
+
             return updated;
         } catch (error) {
             logger.error('SERVICE', 'Error updating task assignment', { error, assignmentId, userId });

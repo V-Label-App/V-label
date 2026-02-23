@@ -13,5 +13,7 @@ router.use(requireRole(['REVIEWER']));
 
 router.get('/projects', ReviewerController.getMyProjects);
 router.get('/queue', ReviewerController.getReviewQueue);
+router.post('/assignments/:assignmentId/approve', ReviewerController.approveTask);
+router.post('/assignments/:assignmentId/reject', ReviewerController.rejectTask);
 
 export default router;

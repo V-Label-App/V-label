@@ -160,5 +160,55 @@ export const projectApi = {
             params: { type }
         });
         return response.data;
+    },
+
+    /**
+     * Get tasks for a project with assignment information
+     */
+    getTasks: async (projectId: string, params?: {
+        page?: number;
+        limit?: number;
+        status?: string;
+        assigneeId?: string;
+    }) => {
+        const response = await apiClient.get<any>(`${BASE_URL}/${projectId}/tasks`, { params });
+        return response.data;
+    },
+
+    /**
+     * Manually assign a task to an annotator
+     */
+    assignTask: async (projectId: string, taskId: string, annotatorId: string, deadline?: Date) => {
+        const response = await apiClient.post(`${BASE_URL}/${projectId}/tasks/${taskId}/assign`, {
+            annotatorId,
+            ...(deadline && { deadline: deadline.toISOString() })
+        });
+        return response.data;
+    },
+
+    /**
+     * Unassign a task (remove assignment)
+     */
+    unassignTask: async (projectId: string, taskId: string) => {
+        const response = await apiClient.delete(`${BASE_URL}/${projectId}/tasks/${taskId}/unassign`);
+        return response.data;
+    },
+
+    /**
+     * Update task deadline
+     */
+    updateTaskDeadline: async (projectId: string, taskId: string, deadline: Date) => {
+        const response = await apiClient.patch(`${BASE_URL}/${projectId}/tasks/${taskId}/deadline`, {
+            deadline: deadline.toISOString()
+        });
+        return response.data;
+    },
+
+    /**
+     * Get user workloads for a project
+     */
+    getWorkloads: async (projectId: string) => {
+        const response = await apiClient.get<any[]>(`${BASE_URL}/${projectId}/workloads`);
+        return response.data;
     }
 };

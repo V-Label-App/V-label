@@ -529,6 +529,50 @@ export class ProjectService {
      */
     static async removeMember(projectId: string, userId: string) {
         try {
+            // Check if user has active tasks (ASSIGNED, IN_PROGRESS, or SUBMITTED)
+            const { AssignmentStatus } = await import('@prisma/client');
+            const activeTasks = await prisma.taskAssignment.findMany({
+                where: {
+                    annotatorId: userId,
+                    task: {
+                        projectId
+                    },
+                    status: {
+                        in: [
+                            AssignmentStatus.ASSIGNED,
+                            AssignmentStatus.IN_PROGRESS,
+                            AssignmentStatus.SUBMITTED
+                        ]
+                    }
+                },
+                select: {
+                    id: true,
+                    status: true
+                }
+            });
+
+            if (activeTasks.length > 0) {
+                throw new Error(`Cannot remove member. User has ${activeTasks.length} active task(s). Please unassign or complete all tasks first.`);
+            }
+
+            // Also check if user is a reviewer with active tasks
+            const activeReviewTasks = await prisma.taskAssignment.findMany({
+                where: {
+                    reviewerId: userId,
+                    task: {
+                        projectId
+                    },
+                    status: AssignmentStatus.SUBMITTED
+                },
+                select: {
+                    id: true
+                }
+            });
+
+            if (activeReviewTasks.length > 0) {
+                throw new Error(`Cannot remove member. User has ${activeReviewTasks.length} task(s) pending review. Please complete all reviews first.`);
+            }
+
             await prisma.projectMember.delete({
                 where: {
                     projectId_userId: {
@@ -537,6 +581,8 @@ export class ProjectService {
                     },
                 },
             })
+
+            logger.info('SERVICE', 'Member removed successfully', { projectId, userId });
             return true
         } catch (error) {
             logger.error('SERVICE', 'Error removing member', { projectId, userId, error })

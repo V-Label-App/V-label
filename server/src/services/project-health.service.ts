@@ -49,25 +49,28 @@ export class ProjectHealthService {
     }
 
     /**
-     * Get Orphaned Tasks: TODO status but meaningful deadline or old age
-     * Definition:
-     * 1. Status is TODO
-     * 2. AND (Deadline is within 24h OR Created > 7 days ago)
+     * Get Orphaned Tasks: Tasks without any active assignment
+     * Definition: Tasks that don't have ANY active assignment (ASSIGNED or IN_PROGRESS)
      */
     static async getOrphanedTasks(projectId: string) {
-        const twentyFourHoursFromNow = new Date(Date.now() + 24 * 60 * 60 * 1000);
-        // Task model doesn't have createdAt, so we can only filter by deadline for now
-        // or add createdAt to Task model (out of scope for quick breakthrough)
-
-        return await prisma.task.findMany({
-            where: {
-                projectId,
-                status: TaskStatus.TODO,
-                assignments: { none: {} }, // confirm no active assignments
-                deadline: { lte: twentyFourHoursFromNow }, // Near deadline
-            },
-            // orderBy: { createdAt: 'asc' }, // Removed: createdAt missing on Task
+        // Find all tasks in the project
+        const allTasks = await prisma.task.findMany({
+            where: { projectId },
+            include: {
+                assignments: {
+                    where: {
+                        status: {
+                            in: [AssignmentStatus.ASSIGNED, AssignmentStatus.IN_PROGRESS]
+                        }
+                    }
+                }
+            }
         });
+
+        // Filter tasks that have no active assignments
+        const orphanedTasks = allTasks.filter(task => task.assignments.length === 0);
+
+        return orphanedTasks;
     }
 
     /**
