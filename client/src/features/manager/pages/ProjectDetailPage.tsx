@@ -87,6 +87,8 @@ import {
   Loader2,
   Pen,
   CheckCircle2,
+  Sparkles,
+  UserMinus,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -101,6 +103,7 @@ import {
   labelRequestApi,
   type Label as ApiLabel,
 } from "../../../services/label.api";
+import { aiApi } from "../../../services/ai.api";
 import {
   projectCategoryApi,
   type ProjectCategory,
@@ -162,6 +165,7 @@ export function ProjectDetailPage() {
   );
   const [editCategoryId, setEditCategoryId] = useState<string>("");
   const [editEnableAi, setEditEnableAi] = useState(false);
+  const [isAiRefactoring, setIsAiRefactoring] = useState(false);
 
   // Assignment Rule State
   const [editAssignmentRule, setEditAssignmentRule] = useState<
@@ -279,6 +283,7 @@ export function ProjectDetailPage() {
   const [selectedAnnotatorId, setSelectedAnnotatorId] = useState<string>("");
   const [selectedDeadline, setSelectedDeadline] = useState<Date | undefined>();
   const [isAssigning, setIsAssigning] = useState(false);
+  const [isBulkAssign, setIsBulkAssign] = useState(false);
 
   // Task Unassign State
   const [isUnassignDialogOpen, setIsUnassignDialogOpen] = useState(false);
@@ -290,6 +295,15 @@ export function ProjectDetailPage() {
   const [bulkDeadlineUserId, setBulkDeadlineUserId] = useState<string | null>(null);
   const [bulkDeadline, setBulkDeadline] = useState<Date | undefined>();
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+
+  // Bulk Delete State
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Bulk Unassign State
+  const [isBulkUnassignDialogOpen, setIsBulkUnassignDialogOpen] = useState(false);
+  const [isBulkUnassigning, setIsBulkUnassigning] = useState(false);
+  const [bulkUnassignUserId, setBulkUnassignUserId] = useState<string | null>(null);
 
   // Fetch tasks function
   const fetchTasks = async () => {
@@ -336,9 +350,41 @@ export function ProjectDetailPage() {
     }
   };
 
-  // Handle task assignment
+  // Handle task assignment (single or bulk)
   const handleAssignTask = async () => {
-    if (!projectId || !taskToAssign || !selectedAnnotatorId) return;
+    if (!projectId || !selectedAnnotatorId) return;
+
+    // Bulk assign mode
+    if (isBulkAssign) {
+      if (selectedTasks.length === 0) return;
+
+      setIsAssigning(true);
+      try {
+        // Assign all selected tasks
+        await Promise.all(
+          selectedTasks.map(taskId =>
+            projectApi.assignTask(projectId, taskId, selectedAnnotatorId, selectedDeadline)
+          )
+        );
+        toast.success(`${selectedTasks.length} tasks assigned successfully`);
+        setIsAssignDialogOpen(false);
+        setSelectedAnnotatorId("");
+        setSelectedDeadline(undefined);
+        setSelectedTasks([]); // Clear selection
+        setIsBulkAssign(false);
+        fetchTasks();
+        fetchWorkloads();
+      } catch (error: any) {
+        console.error('Failed to assign tasks:', error);
+        toast.error(error.response?.data?.error || 'Failed to assign tasks');
+      } finally {
+        setIsAssigning(false);
+      }
+      return;
+    }
+
+    // Single assign mode
+    if (!taskToAssign) return;
 
     setIsAssigning(true);
     try {
@@ -348,8 +394,8 @@ export function ProjectDetailPage() {
       setTaskToAssign(null);
       setSelectedAnnotatorId("");
       setSelectedDeadline(undefined);
-      fetchTasks(); // Refresh tasks
-      fetchWorkloads(); // Refresh workloads
+      fetchTasks();
+      fetchWorkloads();
     } catch (error: any) {
       console.error('Failed to assign task:', error);
       toast.error(error.response?.data?.error || 'Failed to assign task');
@@ -409,6 +455,77 @@ export function ProjectDetailPage() {
       toast.error(error.response?.data?.error || 'Failed to update deadlines');
     } finally {
       setIsBulkUpdating(false);
+    }
+  };
+
+  // Handle bulk delete tasks (remove images from project)
+  const handleDeleteTasks = async () => {
+    if (!projectId || selectedTasks.length === 0) return;
+
+    setIsDeleting(true);
+    try {
+      // Get image IDs from selected tasks
+      const imageIds = selectedTasks
+        .map(taskId => {
+          const task = tasks.find(t => t.id === taskId);
+          return task?.imageId;
+        })
+        .filter(Boolean) as string[];
+
+      if (imageIds.length === 0) {
+        toast.error('No images to delete');
+        return;
+      }
+
+      // Delete images (which will also delete associated tasks)
+      await projectApi.deleteImages(projectId, imageIds);
+
+      toast.success(`${imageIds.length} task${imageIds.length > 1 ? 's' : ''} deleted successfully`);
+      setIsDeleteDialogOpen(false);
+      setSelectedTasks([]);
+      fetchTasks(); // Refresh tasks
+      fetchWorkloads(); // Refresh workloads
+    } catch (error: any) {
+      console.error('Failed to delete tasks:', error);
+      toast.error(error.response?.data?.error || 'Failed to delete tasks');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // Handle bulk unassign tasks
+  const handleBulkUnassignTasks = async () => {
+    if (!projectId || !bulkUnassignUserId) return;
+
+    const userTasks = groupedTasks[bulkUnassignUserId];
+    if (!userTasks || userTasks.length === 0) return;
+
+    // Get selected tasks from this user
+    const userTaskIds = userTasks.map((t: any) => t.id);
+    const tasksToUnassign = selectedTasks.filter(id => userTaskIds.includes(id));
+
+    if (tasksToUnassign.length === 0) return;
+
+    setIsBulkUnassigning(true);
+    try {
+      // Unassign all selected tasks
+      await Promise.all(
+        tasksToUnassign.map(taskId =>
+          projectApi.unassignTask(projectId, taskId)
+        )
+      );
+
+      toast.success(`${tasksToUnassign.length} task${tasksToUnassign.length > 1 ? 's' : ''} unassigned successfully`);
+      setIsBulkUnassignDialogOpen(false);
+      setBulkUnassignUserId(null);
+      setSelectedTasks([]);
+      fetchTasks();
+      fetchWorkloads();
+    } catch (error: any) {
+      console.error('Failed to unassign tasks:', error);
+      toast.error(error.response?.data?.error || 'Failed to unassign tasks');
+    } finally {
+      setIsBulkUnassigning(false);
     }
   };
 
@@ -624,6 +741,28 @@ export function ProjectDetailPage() {
     } catch (error) {
       console.error("Failed to update labels:", error);
       toast.error("Failed to update labels");
+    }
+  };
+
+  const handleAiRefactorDescription = async () => {
+    if (!editDescription || editDescription.trim() === "") {
+      toast.error("Please enter a description first");
+      return;
+    }
+
+    setIsAiRefactoring(true);
+    try {
+      const { refactoredText } = await aiApi.refactorText(
+        editDescription,
+        "project description"
+      );
+      setEditDescription(refactoredText);
+      toast.success("Description refactored successfully");
+    } catch (error: any) {
+      console.error("Failed to refactor description:", error);
+      toast.error(error.response?.data?.error || "Failed to refactor description");
+    } finally {
+      setIsAiRefactoring(false);
     }
   };
 
@@ -1131,6 +1270,11 @@ export function ProjectDetailPage() {
                       <h3 className="text-xl font-semibold">Tasks</h3>
                       <p className="text-sm text-muted-foreground">
                         Showing {filteredTasks.length} tasks
+                        {selectedTasks.length > 0 && (
+                          <span className="ml-2 text-blue-600 font-medium">
+                            ({selectedTasks.length} selected)
+                          </span>
+                        )}
                       </p>
                     </div>
                   </div>
@@ -1232,27 +1376,79 @@ export function ProjectDetailPage() {
                                             {taskCount} {taskCount === 1 ? 'task' : 'tasks'}
                                           </Badge>
                                         </div>
-                                        <div onClick={(e) => e.stopPropagation()}>
-                                          {assignee && (
-                                            <DropdownMenu>
-                                              <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="sm">
-                                                  <MoreVertical className="h-4 w-4" />
-                                                </Button>
-                                              </DropdownMenuTrigger>
-                                              <DropdownMenuContent align="end">
-                                                <DropdownMenuItem
+                                        <div onClick={(e) => e.stopPropagation()} className="flex items-center gap-2">
+                                          {!assignee && (() => {
+                                            // Count how many selected tasks are from unassigned section
+                                            const unassignedTaskIds = userTasks.map((t: any) => t.id);
+                                            const selectedUnassignedCount = selectedTasks.filter(id => unassignedTaskIds.includes(id)).length;
+
+                                            return selectedUnassignedCount > 0 ? (
+                                              <>
+                                                <Button
                                                   onClick={() => {
-                                                    setBulkDeadlineUserId(assigneeId);
-                                                    setIsBulkDeadlineDialogOpen(true);
+                                                    setIsBulkAssign(true);
+                                                    setIsAssignDialogOpen(true);
                                                   }}
+                                                  size="sm"
+                                                  className="gap-2"
                                                 >
-                                                  <Clock className="mr-2 h-4 w-4" />
-                                                  Set Deadline for All Tasks
-                                                </DropdownMenuItem>
-                                              </DropdownMenuContent>
-                                            </DropdownMenu>
-                                          )}
+                                                  <Users className="h-4 w-4" />
+                                                  Assign {selectedUnassignedCount} Task{selectedUnassignedCount > 1 ? 's' : ''}
+                                                </Button>
+                                                <Button
+                                                  onClick={() => setIsDeleteDialogOpen(true)}
+                                                  size="sm"
+                                                  variant="destructive"
+                                                  className="gap-2"
+                                                >
+                                                  <Trash2 className="h-4 w-4" />
+                                                  Delete {selectedUnassignedCount} Task{selectedUnassignedCount > 1 ? 's' : ''}
+                                                </Button>
+                                              </>
+                                            ) : null;
+                                          })()}
+                                          {assignee && (() => {
+                                            // Count how many selected tasks are from this assigned user's section
+                                            const assignedUserTaskIds = userTasks.map((t: any) => t.id);
+                                            const selectedAssignedCount = selectedTasks.filter(id => assignedUserTaskIds.includes(id)).length;
+
+                                            return (
+                                              <>
+                                                {selectedAssignedCount > 0 && (
+                                                  <Button
+                                                    onClick={() => {
+                                                      setBulkUnassignUserId(assigneeId);
+                                                      setIsBulkUnassignDialogOpen(true);
+                                                    }}
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="gap-2"
+                                                  >
+                                                    <UserMinus className="h-4 w-4" />
+                                                    Unassign {selectedAssignedCount} Task{selectedAssignedCount > 1 ? 's' : ''}
+                                                  </Button>
+                                                )}
+                                                <DropdownMenu>
+                                                  <DropdownMenuTrigger asChild>
+                                                    <Button variant="ghost" size="sm">
+                                                      <MoreVertical className="h-4 w-4" />
+                                                    </Button>
+                                                  </DropdownMenuTrigger>
+                                                  <DropdownMenuContent align="end">
+                                                    <DropdownMenuItem
+                                                      onClick={() => {
+                                                        setBulkDeadlineUserId(assigneeId);
+                                                        setIsBulkDeadlineDialogOpen(true);
+                                                      }}
+                                                    >
+                                                      <Clock className="mr-2 h-4 w-4" />
+                                                      Set Deadline for All Tasks
+                                                    </DropdownMenuItem>
+                                                  </DropdownMenuContent>
+                                                </DropdownMenu>
+                                              </>
+                                            );
+                                          })()}
                                         </div>
                                       </div>
                                     </TableCell>
@@ -1723,10 +1919,33 @@ export function ProjectDetailPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Description</Label>
+                      <div className="flex items-center justify-between">
+                        <Label>Description</Label>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleAiRefactorDescription}
+                          disabled={isAiRefactoring || !editDescription}
+                          className="h-8 gap-2"
+                        >
+                          {isAiRefactoring ? (
+                            <>
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              Refactoring...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="h-3.5 w-3.5" />
+                              AI Generate
+                            </>
+                          )}
+                        </Button>
+                      </div>
                       <Textarea
                         value={editDescription}
                         onChange={(e) => setEditDescription(e.target.value)}
+                        rows={4}
                       />
                     </div>
 
@@ -2413,18 +2632,46 @@ export function ProjectDetailPage() {
         />
 
         {/* Task Assignment Dialog */}
-        <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
+        <Dialog open={isAssignDialogOpen} onOpenChange={(open) => {
+          setIsAssignDialogOpen(open);
+          if (!open) {
+            setIsBulkAssign(false);
+            setTaskToAssign(null);
+            setSelectedAnnotatorId("");
+            setSelectedDeadline(undefined);
+          }
+        }}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Assign Task</DialogTitle>
+              <DialogTitle>
+                {isBulkAssign
+                  ? `Assign ${selectedTasks.length} Tasks`
+                  : 'Assign Task'}
+              </DialogTitle>
               <DialogDescription>
-                Assign this task to an annotator in the project.
+                {isBulkAssign
+                  ? `Assign ${selectedTasks.length} selected tasks to an annotator.`
+                  : 'Assign this task to an annotator in the project.'}
               </DialogDescription>
             </DialogHeader>
 
-            {taskToAssign && (
-              <div className="space-y-4">
-                {/* Task Preview */}
+            <div className="space-y-4">
+              {/* Task Preview - Show for single assign or bulk summary */}
+              {isBulkAssign ? (
+                <div className="flex items-center gap-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="flex items-center justify-center w-16 h-16 rounded bg-blue-100 text-blue-700 font-semibold text-xl">
+                    {selectedTasks.length}
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-medium text-sm text-blue-900">
+                      {selectedTasks.length} Tasks Selected
+                    </div>
+                    <div className="text-xs text-blue-700">
+                      All selected tasks will be assigned to the chosen annotator
+                    </div>
+                  </div>
+                </div>
+              ) : taskToAssign && (
                 <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
                   <div className="w-16 h-16 rounded overflow-hidden bg-gray-100 border">
                     <img
@@ -2453,6 +2700,7 @@ export function ProjectDetailPage() {
                     </Badge>
                   </div>
                 </div>
+              )}
 
                 {/* Annotator Selection */}
                 <div className="space-y-2">
@@ -2518,13 +2766,13 @@ export function ProjectDetailPage() {
                   </p>
                 </div>
               </div>
-            )}
 
             <DialogFooter>
               <Button
                 variant="outline"
                 onClick={() => {
                   setIsAssignDialogOpen(false);
+                  setIsBulkAssign(false);
                   setTaskToAssign(null);
                   setSelectedAnnotatorId("");
                   setSelectedDeadline(undefined);
@@ -2542,6 +2790,8 @@ export function ProjectDetailPage() {
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Assigning...
                   </>
+                ) : isBulkAssign ? (
+                  `Assign ${selectedTasks.length} Tasks`
                 ) : (
                   'Assign Task'
                 )}
@@ -2602,6 +2852,143 @@ export function ProjectDetailPage() {
                   </>
                 ) : (
                   'Unassign Task'
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Delete Tasks Confirmation Dialog */}
+        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Tasks</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete {selectedTasks.length} task{selectedTasks.length > 1 ? 's' : ''}?
+                This will remove the image{selectedTasks.length > 1 ? 's' : ''} from the project and cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+
+            <div className="flex items-center gap-4 p-4 bg-red-50 rounded-lg border border-red-200">
+              <div className="flex items-center justify-center w-16 h-16 rounded bg-red-100 text-red-700">
+                <Trash2 className="h-8 w-8" />
+              </div>
+              <div className="flex-1">
+                <div className="font-medium text-sm text-red-900">
+                  {selectedTasks.length} Task{selectedTasks.length > 1 ? 's' : ''} will be deleted
+                </div>
+                <div className="text-xs text-red-700">
+                  Images will be permanently removed from the project
+                </div>
+              </div>
+            </div>
+
+            <AlertDialogFooter>
+              <AlertDialogCancel
+                onClick={() => {
+                  setIsDeleteDialogOpen(false);
+                }}
+                disabled={isDeleting}
+              >
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteTasks}
+                disabled={isDeleting}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete {selectedTasks.length} Task{selectedTasks.length > 1 ? 's' : ''}
+                  </>
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Bulk Unassign Tasks Confirmation Dialog */}
+        <AlertDialog open={isBulkUnassignDialogOpen} onOpenChange={setIsBulkUnassignDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Unassign Tasks</AlertDialogTitle>
+              <AlertDialogDescription>
+                {bulkUnassignUserId && groupedTasks[bulkUnassignUserId] && (() => {
+                  const userTasks = groupedTasks[bulkUnassignUserId];
+                  const userTaskIds = userTasks.map((t: any) => t.id);
+                  const tasksToUnassign = selectedTasks.filter(id => userTaskIds.includes(id));
+                  return `Are you sure you want to unassign ${tasksToUnassign.length} task${tasksToUnassign.length > 1 ? 's' : ''} from this user?`;
+                })()}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+
+            {bulkUnassignUserId && groupedTasks[bulkUnassignUserId] && (() => {
+              const userTasks = groupedTasks[bulkUnassignUserId];
+              const userTaskIds = userTasks.map((t: any) => t.id);
+              const tasksToUnassign = selectedTasks.filter(id => userTaskIds.includes(id));
+              const firstTask = groupedTasks[bulkUnassignUserId][0];
+              const annotatorAssignment = firstTask.assignments?.find((a: any) => a.annotatorId);
+              const assignee = annotatorAssignment?.annotator;
+
+              return (
+                <div className="flex items-center gap-4 p-4 bg-orange-50 rounded-lg border border-orange-200">
+                  <div className="flex items-center justify-center w-16 h-16 rounded bg-orange-100 text-orange-700">
+                    <UserMinus className="h-8 w-8" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-medium text-sm text-orange-900 flex items-center gap-2">
+                      <Avatar className="h-6 w-6">
+                        <AvatarImage src={assignee?.avatarUrl} alt={assignee?.fullName} />
+                        <AvatarFallback className="text-xs bg-orange-200">
+                          {assignee?.fullName?.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                      {assignee?.fullName || assignee?.email}
+                    </div>
+                    <div className="text-xs text-orange-700 mt-1">
+                      {tasksToUnassign.length} Task{tasksToUnassign.length > 1 ? 's' : ''} will be unassigned
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            <AlertDialogFooter>
+              <AlertDialogCancel
+                onClick={() => {
+                  setIsBulkUnassignDialogOpen(false);
+                  setBulkUnassignUserId(null);
+                }}
+                disabled={isBulkUnassigning}
+              >
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleBulkUnassignTasks}
+                disabled={isBulkUnassigning}
+                className="bg-orange-600 hover:bg-orange-700"
+              >
+                {isBulkUnassigning ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Unassigning...
+                  </>
+                ) : (
+                  <>
+                    <UserMinus className="mr-2 h-4 w-4" />
+                    {bulkUnassignUserId && groupedTasks[bulkUnassignUserId] && (() => {
+                      const userTasks = groupedTasks[bulkUnassignUserId];
+                      const userTaskIds = userTasks.map((t: any) => t.id);
+                      const tasksToUnassign = selectedTasks.filter(id => userTaskIds.includes(id));
+                      return `Unassign ${tasksToUnassign.length} Task${tasksToUnassign.length > 1 ? 's' : ''}`;
+                    })()}
+                  </>
                 )}
               </AlertDialogAction>
             </AlertDialogFooter>
