@@ -178,10 +178,11 @@ export const projectApi = {
     /**
      * Manually assign a task to an annotator
      */
-    assignTask: async (projectId: string, taskId: string, annotatorId: string, deadline?: Date) => {
+    assignTask: async (projectId: string, taskId: string, annotatorId: string, deadline?: Date, reason?: string) => {
         const response = await apiClient.post(`${BASE_URL}/${projectId}/tasks/${taskId}/assign`, {
             annotatorId,
-            ...(deadline && { deadline: deadline.toISOString() })
+            ...(deadline && { deadline: deadline.toISOString() }),
+            ...(reason && { reason })
         });
         return response.data;
     },
@@ -191,6 +192,28 @@ export const projectApi = {
      */
     unassignTask: async (projectId: string, taskId: string) => {
         const response = await apiClient.delete(`${BASE_URL}/${projectId}/tasks/${taskId}/unassign`);
+        return response.data;
+    },
+
+    /**
+     * Bulk assign multiple tasks to an annotator
+     */
+    bulkAssignTasks: async (projectId: string, taskIds: string[], annotatorId: string, deadline?: Date) => {
+        const response = await apiClient.post(`${BASE_URL}/${projectId}/tasks/bulk-assign`, {
+            taskIds,
+            annotatorId,
+            deadline: deadline?.toISOString()
+        });
+        return response.data;
+    },
+
+    /**
+     * Bulk unassign multiple tasks
+     */
+    bulkUnassignTasks: async (projectId: string, taskIds: string[]) => {
+        const response = await apiClient.post(`${BASE_URL}/${projectId}/tasks/bulk-unassign`, {
+            taskIds
+        });
         return response.data;
     },
 

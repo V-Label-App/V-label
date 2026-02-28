@@ -7,61 +7,514 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// =========================================================
-// 1. USER MANAGEMENT
-// =========================================================
-
 model User {
-  id             String       @id @default(uuid()) @db.Uuid
-  email          String       @unique @db.VarChar(255)
-  googleId       String?      @unique @map("google_id") @db.VarChar(255)
-  // Nullable because Google Login users might not have a password
-  passwordHash   String?      @map("password_hash") @db.VarChar(255)
-  provider       AuthProvider @default(LOCAL)
-  
-  fullName       String?      @map("full_name") @db.VarChar(255)
-  avatarUrl      String?      @map("avatar_url") @db.VarChar(512)
-  avatarPublicId String?      @map("avatar_public_id") @db.VarChar(255)
-  phoneNumber    String?      @map("phone_number") @db.VarChar(20)
-  
-  role           UserRole     @default(ANNOTATOR)
-  isActive       Boolean      @default(false) @map("is_active")
-
-  // --- REPUTATION SYSTEM ---
-  reputationScore Float       @default(0) @map("reputation_score")
-  totalTasksDone  Int         @default(0) @map("total_tasks_done")
-
-  createdAt      DateTime     @default(now()) @map("created_at")
-  updatedAt      DateTime     @updatedAt @map("updated_at")
-
-  // Relationships
-  projectsJoined       ProjectMember[]
-  tasksAssigned        TaskAssignment[]       @relation("Annotator")
-  tasksReviewed        TaskAssignment[]       @relation("Reviewer")
-  notifications        Notification[]
-  chatMessagesSent     ChatMessage[]          @relation("ChatSender")
-  passwordResetTokens  PasswordResetToken[]
-
-  // Label Management
-  labelsCreated        Label[]                @relation("LabelCreator")
-  labelRequestsSent    LabelRequest[]         @relation("LabelRequester")
-  labelRequestsReviewed LabelRequest[]        @relation("LabelReviewer")
-
-  // Phase 2: Workflow Relations
-  imagesUploaded       Image[]                @relation("ImageUploader")
-  datasetsUploaded     Dataset[]              @relation("DatasetUploader")
-  exportsGenerated     Export[]               @relation("Exporter")
-  taskAssignmentsGiven TaskAssignment[]       @relation("TaskAssigner")
-  consensusVerified    AnnotationConsensus[]  @relation("ConsensusVerifier")
-  
-  // Reassignment tracking
-  reassignmentsTriggered TaskReassignment[]     @relation("Reassigner")
-  reassignmentsFrom      TaskReassignment[]     @relation("OldAnnotator")
-  reassignmentsTo        TaskReassignment[]     @relation("NewAnnotator")
-
-  workloads            UserWorkload[]
+  id                     String                @id @default(uuid()) @db.Uuid
+  email                  String                @unique @db.VarChar(255)
+  passwordHash           String?               @map("password_hash") @db.VarChar(255)
+  provider               AuthProvider          @default(LOCAL)
+  fullName               String?               @map("full_name") @db.VarChar(255)
+  avatarUrl              String?               @map("avatar_url") @db.VarChar(512)
+  phoneNumber            String?               @map("phone_number") @db.VarChar(20)
+  role                   UserRole              @default(ANNOTATOR)
+  isActive               Boolean               @default(false) @map("is_active")
+  reputationScore        Float                 @default(0) @map("reputation_score")
+  totalTasksDone         Int                   @default(0) @map("total_tasks_done")
+  createdAt              DateTime              @default(now()) @map("created_at")
+  updatedAt              DateTime              @updatedAt @map("updated_at")
+  googleId               String?               @unique @map("google_id") @db.VarChar(255)
+  avatarPublicId         String?               @map("avatar_public_id") @db.VarChar(255)
+  consensusVerified      AnnotationConsensus[] @relation("ConsensusVerifier")
+  chatMessagesSent       ChatMessage[]         @relation("ChatSender")
+  datasetsUploaded       Dataset[]             @relation("DatasetUploader")
+  exportsGenerated       Export[]              @relation("Exporter")
+  imagesUploaded         Image[]               @relation("ImageUploader")
+  labelRequestsSent      LabelRequest[]        @relation("LabelRequester")
+  labelRequestsReviewed  LabelRequest[]        @relation("LabelReviewer")
+  labelsCreated          Label[]               @relation("LabelCreator")
+  notifications          Notification[]
+  passwordResetTokens    PasswordResetToken[]
+  projectsJoined         ProjectMember[]
+  taskActivities         TaskActivity[]
+  tasksAssigned          TaskAssignment[]      @relation("Annotator")
+  taskAssignmentsGiven   TaskAssignment[]      @relation("TaskAssigner")
+  tasksReviewed          TaskAssignment[]      @relation("Reviewer")
+  reassignmentsTo        TaskReassignment[]    @relation("NewAnnotator")
+  reassignmentsFrom      TaskReassignment[]    @relation("OldAnnotator")
+  reassignmentsTriggered TaskReassignment[]    @relation("Reassigner")
+  workloads              UserWorkload[]
 
   @@map("users")
+}
+
+model Project {
+  id                 String           @id @default(uuid()) @db.Uuid
+  name               String           @db.VarChar(255)
+  description        String?
+  labelConfig        Json             @default("[]") @map("label_config")
+  deadline           DateTime?
+  enableAiAssistance Boolean          @default(false) @map("enable_ai_assistance")
+  status             ProjectStatus    @default(ACTIVE)
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+  categoryId         String?          @map("category_id") @db.Uuid
+  qualitySettings    Json?            @map("quality_settings")
+  assignmentRule     AssignmentRule?
+  chatMessages       ChatMessage[]
+  datasets           Dataset[]
+  exports            Export[]
+  images             Image[]
+  labelRequests      LabelRequest[]
+  projectLabels      ProjectLabel[]
+  members            ProjectMember[]
+  category           ProjectCategory? @relation(fields: [categoryId], references: [id])
+  taskActivities     TaskActivity[]
+  tasks              Task[]
+  userWorkloads      UserWorkload[]
+
+  @@map("projects")
+}
+
+model ProjectMember {
+  id          String      @id @default(uuid()) @db.Uuid
+  projectId   String      @map("project_id") @db.Uuid
+  userId      String      @map("user_id") @db.Uuid
+  joinedAt    DateTime    @default(now()) @map("joined_at")
+  projectRole ProjectRole @default(ANNOTATOR) @map("project_role")
+  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([projectRole])
+  @@map("project_members")
+}
+
+model Task {
+  id              String               @id @default(uuid()) @db.Uuid
+  projectId       String               @map("project_id") @db.Uuid
+  imageUrl        String?              @map("image_url")
+  status          TaskStatus           @default(TODO)
+  imageId         String?              @map("image_id") @db.Uuid
+  priority        TaskPriority         @default(MEDIUM)
+  deadline        DateTime?
+  difficultyLevel DifficultyLevel      @default(NORMAL) @map("difficulty_level")
+  consensus       AnnotationConsensus?
+  activities      TaskActivity[]
+  assignments     TaskAssignment[]
+  reassignments   TaskReassignment[]
+  image           Image?               @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  project         Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([imageId])
+  @@index([priority, deadline])
+  @@map("tasks")
+}
+
+model TaskAssignment {
+  id                   String           @id @default(uuid()) @db.Uuid
+  taskId               String           @map("task_id") @db.Uuid
+  annotatorId          String           @map("annotator_id") @db.Uuid
+  reviewerId           String?          @map("reviewer_id") @db.Uuid
+  status               AssignmentStatus @default(ASSIGNED)
+  deadline             DateTime?
+  annotations          Json?
+  isAiGenerated        Boolean          @default(false) @map("is_ai_generated")
+  annotatorNote        String?          @map("annotator_note")
+  reviewScore          Int?             @map("review_score")
+  reviewComment        String?          @map("review_comment")
+  createdAt            DateTime         @default(now()) @map("created_at")
+  updatedAt            DateTime         @updatedAt @map("updated_at")
+  aiModelId            String?          @map("ai_model_id") @db.Uuid
+  aiConfidence         Float?           @map("ai_confidence")
+  rejectionCount       Int              @default(0) @map("rejection_count")
+  maxRejections        Int              @default(3) @map("max_rejections")
+  skipReason           String?          @map("skip_reason")
+  estimatedTimeMinutes Int?             @map("estimated_time_minutes")
+  actualTimeSeconds    Int?             @map("actual_time_seconds")
+  assignedBy           String?          @map("assigned_by") @db.Uuid
+  assignmentMethod     AssignmentMethod @default(MANUAL) @map("assignment_method")
+  aiModel              AiModel?         @relation(fields: [aiModelId], references: [id])
+  annotator            User             @relation("Annotator", fields: [annotatorId], references: [id])
+  assigner             User?            @relation("TaskAssigner", fields: [assignedBy], references: [id])
+  reviewer             User?            @relation("Reviewer", fields: [reviewerId], references: [id])
+  task                 Task             @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([aiModelId])
+  @@map("task_assignments")
+}
+
+model Notification {
+  id        String           @id @default(uuid()) @db.Uuid
+  userId    String           @map("user_id") @db.Uuid
+  type      NotificationType
+  title     String           @db.VarChar(255)
+  message   String
+  metadata  Json?
+  isRead    Boolean          @default(false) @map("is_read")
+  createdAt DateTime         @default(now()) @map("created_at")
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+model ChatMessage {
+  id        String   @id @default(uuid()) @db.Uuid
+  projectId String   @map("project_id") @db.Uuid
+  senderId  String   @map("sender_id") @db.Uuid
+  content   String
+  createdAt DateTime @default(now()) @map("created_at")
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sender    User     @relation("ChatSender", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
+  @@map("chat_messages")
+}
+
+model NotificationTemplate {
+  id              String           @id @default(uuid()) @db.Uuid
+  type            NotificationType @unique
+  titleTemplate   String           @map("title_template") @db.VarChar(255)
+  messageTemplate String           @map("message_template")
+  variables       Json
+  isActive        Boolean          @default(true) @map("is_active")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  @@map("notification_templates")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  action    String   @db.VarChar(255)
+  actorId   String   @map("actor_id") @db.Uuid
+  targetId  String?  @map("target_id") @db.Uuid
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("audit_logs")
+}
+
+model SystemConfig {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+
+  @@map("system_configs")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  token     String   @unique @db.VarChar(255)
+  expiresAt DateTime @map("expires_at")
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@map("password_reset_tokens")
+}
+
+model EmailTemplate {
+  id        String   @id @default(uuid()) @db.Uuid
+  type      String   @unique @db.VarChar(100)
+  subject   String   @db.VarChar(255)
+  htmlBody  String   @map("html_body")
+  textBody  String?  @map("text_body")
+  variables Json
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([type])
+  @@map("email_templates")
+}
+
+model EmailConfig {
+  id        String   @id @default(uuid()) @db.Uuid
+  key       String   @unique @db.VarChar(100)
+  provider  String   @db.VarChar(50)
+  config    Json
+  isActive  Boolean  @default(false) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("email_configs")
+}
+
+model EmailLog {
+  id           String    @id @default(uuid()) @db.Uuid
+  to           String    @db.VarChar(255)
+  from         String    @db.VarChar(255)
+  subject      String    @db.VarChar(255)
+  templateType String?   @map("template_type") @db.VarChar(100)
+  status       String    @db.VarChar(50)
+  error        String?
+  sentAt       DateTime? @map("sent_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  @@index([to])
+  @@index([status])
+  @@index([createdAt])
+  @@map("email_logs")
+}
+
+model Image {
+  id               String   @id @default(uuid()) @db.Uuid
+  projectId        String   @map("project_id") @db.Uuid
+  datasetId        String?  @map("dataset_id") @db.Uuid
+  originalFilename String   @map("original_filename") @db.VarChar(255)
+  storageUrl       String   @map("storage_url")
+  storagePath      String?  @map("storage_path")
+  width            Int
+  height           Int
+  channels         Int      @default(3)
+  fileSizeBytes    BigInt?  @map("file_size_bytes")
+  format           String?  @db.VarChar(10)
+  checksum         String?  @db.VarChar(64)
+  uploadedBy       String?  @map("uploaded_by") @db.Uuid
+  uploadedAt       DateTime @default(now()) @map("uploaded_at")
+  publicId         String?  @map("public_id") @db.VarChar(255)
+  dataset          Dataset? @relation(fields: [datasetId], references: [id])
+  project          Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploader         User?    @relation("ImageUploader", fields: [uploadedBy], references: [id])
+  tasks            Task[]
+
+  @@unique([projectId, checksum])
+  @@index([projectId])
+  @@index([datasetId])
+  @@index([checksum])
+  @@map("images")
+}
+
+model Dataset {
+  id              String   @id @default(uuid()) @db.Uuid
+  projectId       String   @map("project_id") @db.Uuid
+  name            String   @db.VarChar(255)
+  description     String?
+  source          String?  @db.VarChar(100)
+  sourceMetadata  Json?    @map("source_metadata")
+  totalImages     Int      @default(0) @map("total_images")
+  processedImages Int      @default(0) @map("processed_images")
+  uploadedBy      String?  @map("uploaded_by") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploader        User?    @relation("DatasetUploader", fields: [uploadedBy], references: [id])
+  images          Image[]
+
+  @@index([projectId])
+  @@map("datasets")
+}
+
+model AnnotationConsensus {
+  id                  String    @id @default(uuid()) @db.Uuid
+  taskId              String    @unique @map("task_id") @db.Uuid
+  finalAnnotations    Json      @map("final_annotations")
+  consensusMethod     String    @map("consensus_method") @db.VarChar(50)
+  sourceAssignmentIds String[]  @map("source_assignment_ids") @db.Uuid
+  agreementScore      Float?    @map("agreement_score")
+  isVerified          Boolean   @default(false) @map("is_verified")
+  verifiedBy          String?   @map("verified_by") @db.Uuid
+  verifiedAt          DateTime? @map("verified_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+  task                Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  verifier            User?     @relation("ConsensusVerifier", fields: [verifiedBy], references: [id])
+
+  @@index([isVerified])
+  @@map("annotation_consensus")
+}
+
+model Export {
+  id                  String   @id @default(uuid()) @db.Uuid
+  projectId           String   @map("project_id") @db.Uuid
+  format              String   @db.VarChar(50)
+  version             Int      @default(1)
+  splitType           String?  @map("split_type") @db.VarChar(50)
+  splitRatio          Json?    @map("split_ratio")
+  filterCriteria      Json?    @map("filter_criteria")
+  totalImages         Int?     @map("total_images")
+  totalAnnotations    Int?     @map("total_annotations")
+  classDistribution   Json?    @map("class_distribution")
+  fileUrl             String   @map("file_url")
+  fileSizeBytes       BigInt?  @map("file_size_bytes")
+  checksum            String?  @db.VarChar(64)
+  exportedBy          String   @map("exported_by") @db.Uuid
+  downloadCount       Int      @default(0) @map("download_count")
+  createdAt           DateTime @default(now()) @map("created_at")
+  labelConfigSnapshot Json?    @map("label_config_snapshot")
+  exporter            User     @relation("Exporter", fields: [exportedBy], references: [id])
+  project             Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([createdAt])
+  @@index([format])
+  @@map("exports")
+}
+
+model AiModel {
+  id              String           @id @default(uuid()) @db.Uuid
+  name            String           @db.VarChar(100)
+  version         String           @db.VarChar(50)
+  modelType       String           @map("model_type") @db.VarChar(50)
+  config          Json?
+  metrics         Json?
+  isActive        Boolean          @default(true) @map("is_active")
+  endpointUrl     String?          @map("endpoint_url")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  taskAssignments TaskAssignment[]
+
+  @@index([isActive])
+  @@map("ai_models")
+}
+
+model AssignmentRule {
+  id                          String   @id @default(uuid()) @db.Uuid
+  projectId                   String   @unique @map("project_id") @db.Uuid
+  isAutoAssignEnabled         Boolean  @default(false) @map("is_auto_assign_enabled")
+  assignmentStrategy          String   @default("ROUND_ROBIN") @map("assignment_strategy") @db.VarChar(50)
+  autoAssignReviewer          Boolean  @default(true) @map("auto_assign_reviewer")
+  reviewerDelayHours          Int      @default(0) @map("reviewer_delay_hours")
+  maxTasksPerAnnotator        Int      @default(10) @map("max_tasks_per_annotator")
+  maxTasksPerReviewer         Int      @default(20) @map("max_tasks_per_reviewer")
+  minAnnotatorReputation      Float    @default(0) @map("min_annotator_reputation")
+  minReviewerReputation       Float    @default(70) @map("min_reviewer_reputation")
+  maxRejectionsBeforeReassign Int      @default(3) @map("max_rejections_before_reassign")
+  autoReassignOnSkip          Boolean  @default(true) @map("auto_reassign_on_skip")
+  createdAt                   DateTime @default(now()) @map("created_at")
+  updatedAt                   DateTime @updatedAt @map("updated_at")
+  project                     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("assignment_rules")
+}
+
+model UserWorkload {
+  id                 String    @id @default(uuid()) @db.Uuid
+  userId             String    @map("user_id") @db.Uuid
+  projectId          String    @map("project_id") @db.Uuid
+  assignedTasks      Int       @default(0) @map("assigned_tasks")
+  inProgressTasks    Int       @default(0) @map("in_progress_tasks")
+  pendingReviewTasks Int       @default(0) @map("pending_review_tasks")
+  maxConcurrentTasks Int       @default(10) @map("max_concurrent_tasks")
+  availabilityStatus String    @default("AVAILABLE") @map("availability_status") @db.VarChar(50)
+  lastAssignedAt     DateTime? @map("last_assigned_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  project            Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId])
+  @@index([availabilityStatus, assignedTasks])
+  @@map("user_workload")
+}
+
+model TaskReassignment {
+  id             String   @id @default(uuid()) @db.Uuid
+  taskId         String   @map("task_id") @db.Uuid
+  oldAnnotatorId String?  @map("old_annotator_id") @db.Uuid
+  newAnnotatorId String?  @map("new_annotator_id") @db.Uuid
+  reason         String   @db.VarChar(100)
+  reassignedBy   String   @map("reassigned_by") @db.Uuid
+  notes          String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  newAnnotator   User?    @relation("NewAnnotator", fields: [newAnnotatorId], references: [id])
+  oldAnnotator   User?    @relation("OldAnnotator", fields: [oldAnnotatorId], references: [id])
+  reassigner     User     @relation("Reassigner", fields: [reassignedBy], references: [id])
+  task           Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([oldAnnotatorId])
+  @@index([createdAt])
+  @@map("task_reassignments")
+}
+
+model ProjectCategory {
+  id          String    @id @default(uuid()) @db.Uuid
+  name        String    @unique @db.VarChar(100)
+  description String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  projects    Project[]
+
+  @@map("project_categories")
+}
+
+model LabelCategory {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique @db.VarChar(100)
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  color       String?  @db.VarChar(7)
+  labels      Label[]
+
+  @@map("label_categories")
+}
+
+model Label {
+  id            String         @id @default(uuid()) @db.Uuid
+  name          String         @db.VarChar(100)
+  color         String         @db.VarChar(7)
+  isGlobal      Boolean        @default(false) @map("is_global")
+  categoryId    String?        @map("category_id") @db.Uuid
+  createdBy     String?        @map("created_by") @db.Uuid
+  createdAt     DateTime       @default(now()) @map("created_at")
+  category      LabelCategory? @relation(fields: [categoryId], references: [id])
+  creator       User?          @relation("LabelCreator", fields: [createdBy], references: [id])
+  projectLabels ProjectLabel[]
+
+  @@unique([name, categoryId])
+  @@index([isGlobal])
+  @@map("labels")
+}
+
+model ProjectLabel {
+  id        String   @id @default(uuid()) @db.Uuid
+  projectId String   @map("project_id") @db.Uuid
+  labelId   String   @map("label_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  label     Label    @relation(fields: [labelId], references: [id], onDelete: Cascade)
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, labelId])
+  @@map("project_labels")
+}
+
+model LabelRequest {
+  id             String             @id @default(uuid()) @db.Uuid
+  projectId      String             @map("project_id") @db.Uuid
+  requestedBy    String             @map("requested_by") @db.Uuid
+  labelName      String             @map("label_name") @db.VarChar(100)
+  suggestedColor String?            @map("suggested_color") @db.VarChar(7)
+  reason         String?
+  status         LabelRequestStatus @default(PENDING)
+  reviewedBy     String?            @map("reviewed_by") @db.Uuid
+  reviewedAt     DateTime?          @map("reviewed_at")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  project        Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  requester      User               @relation("LabelRequester", fields: [requestedBy], references: [id])
+  reviewer       User?              @relation("LabelReviewer", fields: [reviewedBy], references: [id])
+
+  @@index([projectId, status])
+  @@map("label_requests")
+}
+
+model TaskActivity {
+  id        String     @id @default(uuid()) @db.Uuid
+  taskId    String     @map("task_id") @db.Uuid
+  projectId String     @map("project_id") @db.Uuid
+  userId    String     @map("user_id") @db.Uuid
+  action    TaskAction
+  metadata  Json?
+  createdAt DateTime   @default(now()) @map("created_at")
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task      Task       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([projectId, createdAt])
+  @@index([userId])
+  @@map("task_activities")
 }
 
 enum UserRole {
@@ -76,49 +529,6 @@ enum AuthProvider {
   GOOGLE
 }
 
-// =========================================================
-// 2. PROJECT MANAGEMENT
-// =========================================================
-
-model Project {
-  id                 String        @id @default(uuid()) @db.Uuid
-  name               String        @db.VarChar(255)
-  description        String?       @db.Text
-  
-  // Stores label configuration like [{"id": "car", "color": "red"}]
-  labelConfig        Json          @default("[]") @map("label_config")
-
-  qualitySettings    Json?         @map("quality_settings")
-
-  deadline           DateTime?
-  enableAiAssistance Boolean       @default(false) @map("enable_ai_assistance")
-  status             ProjectStatus @default(ACTIVE)
-
-  categoryId         String?          @map("category_id") @db.Uuid
-  category           ProjectCategory? @relation(fields: [categoryId], references: [id])
-
-  createdAt          DateTime      @default(now()) @map("created_at")
-  updatedAt          DateTime      @updatedAt @map("updated_at")
-
-  // Relationships
-  members       ProjectMember[]
-  tasks         Task[]
-  chatMessages  ChatMessage[]
-
-  // Label Management
-  projectLabels ProjectLabel[]
-  labelRequests LabelRequest[]
-
-  // Phase 2: Workflow Relations
-  images          Image[]
-  datasets        Dataset[]
-  exports         Export[]
-  assignmentRule  AssignmentRule?
-  userWorkloads   UserWorkload[]
-
-  @@map("projects")
-}
-
 enum ProjectStatus {
   DRAFT
   ACTIVE
@@ -127,63 +537,10 @@ enum ProjectStatus {
   ARCHIVED
 }
 
-model ProjectMember {
-  id        String   @id @default(uuid()) @db.Uuid
-  projectId String   @map("project_id") @db.Uuid
-  userId    String   @map("user_id") @db.Uuid
-  joinedAt  DateTime @default(now()) @map("joined_at")
-
-  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  // Phase 2: Project Role
-  projectRole ProjectRole @default(ANNOTATOR) @map("project_role")
-
-  @@unique([projectId, userId])
-  @@index([projectRole])
-  @@map("project_members")
-}
-
 enum ProjectRole {
   MANAGER
   REVIEWER
   ANNOTATOR
-}
-
-
-
-// =========================================================
-// 3. TASK & ASSIGNMENT
-// =========================================================
-
-model Task {
-  id        String     @id @default(uuid()) @db.Uuid
-  projectId String     @map("project_id") @db.Uuid
-  
-  // Phase 2: Enhanced Image Management
-  // Old field - optionally keep for backward compat or remove if migrated
-  imageUrl  String?    @map("image_url") @db.Text 
-  imageId   String?    @map("image_id") @db.Uuid
-  
-  status    TaskStatus @default(TODO)
-
-  // Phase 2: Task Management
-  priority        TaskPriority    @default(MEDIUM)
-  deadline        DateTime?
-  difficultyLevel DifficultyLevel @default(NORMAL) @map("difficulty_level")
-
-  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  image     Image?     @relation(fields: [imageId], references: [id], onDelete: Cascade)
-  
-  assignments TaskAssignment[]
-  
-  // Phase 2: Consensus & Re-assignments
-  consensus               AnnotationConsensus?
-  reassignments           TaskReassignment[]
-
-  @@index([imageId])
-  @@index([priority, deadline])
-  @@map("tasks")
 }
 
 enum TaskPriority {
@@ -206,57 +563,6 @@ enum TaskStatus {
   DONE
 }
 
-model TaskAssignment {
-  id             String           @id @default(uuid()) @db.Uuid
-  taskId         String           @map("task_id") @db.Uuid
-  
-  // Worker
-  annotatorId    String           @map("annotator_id") @db.Uuid
-  // Reviewer (Can be null initially)
-  reviewerId     String?          @map("reviewer_id") @db.Uuid
-
-  status         AssignmentStatus @default(ASSIGNED)
-  deadline       DateTime?
-
-  // Annotation Data (Bounding boxes, Polygons, etc.)
-  annotations    Json?
-  isAiGenerated  Boolean          @default(false) @map("is_ai_generated")
-
-  // Feedback Tracking
-  annotatorNote  String?          @map("annotator_note") @db.Text
-  reviewScore    Int?             @map("review_score")
-  reviewComment  String?          @map("review_comment") @db.Text
-
-  createdAt      DateTime         @default(now()) @map("created_at")
-  updatedAt      DateTime         @updatedAt @map("updated_at")
-
-  task           Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  annotator      User    @relation("Annotator", fields: [annotatorId], references: [id])
-  reviewer       User?   @relation("Reviewer", fields: [reviewerId], references: [id])
-
-  // Phase 2: AI & Workflow
-  aiModelId      String?  @map("ai_model_id") @db.Uuid
-  aiModel        AiModel? @relation(fields: [aiModelId], references: [id])
-  aiConfidence   Float?   @map("ai_confidence")
-
-  // Workflow tracking
-  rejectionCount Int      @default(0) @map("rejection_count")
-  maxRejections  Int      @default(3) @map("max_rejections")
-  skipReason     String?  @map("skip_reason") @db.Text
-  
-  // Time tracking
-  estimatedTimeMinutes Int? @map("estimated_time_minutes")
-  actualTimeSeconds    Int? @map("actual_time_seconds")
-
-  // Assignment metadata
-  assignedBy       String?          @map("assigned_by") @db.Uuid
-  assigner         User?            @relation("TaskAssigner", fields: [assignedBy], references: [id])
-  assignmentMethod AssignmentMethod @default(MANUAL) @map("assignment_method")
-
-  @@index([aiModelId])
-  @@map("task_assignments")
-}
-
 enum AssignmentMethod {
   MANUAL
   AUTO_ROUND_ROBIN
@@ -274,29 +580,6 @@ enum AssignmentStatus {
   SKIPPED
 }
 
-// =========================================================
-// 4. REAL-TIME COMMUNICATION
-// =========================================================
-
-model Notification {
-  id        String           @id @default(uuid()) @db.Uuid
-  userId    String           @map("user_id") @db.Uuid
-  type      NotificationType
-  title     String           @db.VarChar(255)
-  message   String           @db.Text
-  
-  // Contextual data (JSON)
-  metadata  Json?
-  
-  isRead    Boolean          @default(false) @map("is_read")
-  createdAt DateTime         @default(now()) @map("created_at")
-  
-  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  @@index([userId, isRead])
-  @@map("notifications")
-}
-
 enum NotificationType {
   TASK_ASSIGNED
   TASK_SUBMITTED
@@ -304,437 +587,35 @@ enum NotificationType {
   TASK_REJECTED
   DEADLINE_WARNING
   COMMENT_MENTION
-  SYSTEM_ANNOUNCEMENT       // For generic system-wide messages
-  SYSTEM_CHAT_CONFIG        // Specific: AI Chat Widget enabled/disabled
-  SYSTEM_USER_ROLE_CHANGE   // Specific: User role updated
-  LABEL_REQUESTED           // Annotator requests new label
-  LABEL_REQUEST_APPROVED    // Manager approved label request
-  LABEL_REQUEST_REJECTED    // Manager rejected label request
-  LABEL_CREATED             // New label created (system-wide)
-  PROJECT_INVITATION        // User added to a project
-}
-
-model ChatMessage {
-  id        String   @id @default(uuid()) @db.Uuid
-  projectId String   @map("project_id") @db.Uuid
-  senderId  String   @map("sender_id") @db.Uuid
-  content   String   @db.Text
-  createdAt DateTime @default(now()) @map("created_at")
-  
-  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  sender    User     @relation("ChatSender", fields: [senderId], references: [id], onDelete: Cascade)
-  
-  @@index([projectId, createdAt])
-  @@map("chat_messages")
-}
-
-model NotificationTemplate {
-  id              String           @id @default(uuid()) @db.Uuid
-  type            NotificationType @unique
-  titleTemplate   String           @map("title_template") @db.VarChar(255)
-  messageTemplate String           @map("message_template") @db.Text
-  variables       Json             // List of available variables for this type
-  isActive        Boolean          @default(true) @map("is_active")
-  createdAt       DateTime         @default(now()) @map("created_at")
-  updatedAt       DateTime         @updatedAt @map("updated_at")
-
-  @@map("notification_templates")
-}
-
-// =========================================================
-// 5. SYSTEM LOGS
-// =========================================================
-
-model AuditLog {
-  id        String   @id @default(uuid()) @db.Uuid
-  action    String   @db.VarChar(255)
-  actorId   String   @map("actor_id") @db.Uuid
-  targetId  String?  @map("target_id") @db.Uuid
-  metadata  Json?
-  createdAt DateTime @default(now()) @map("created_at")
-
-  // Relations - Commented out to keep User model clean
-  // actor     User     @relation("ActorLogs", fields: [actorId], references: [id])
-  // target    User?    @relation("TargetLogs", fields: [targetId], references: [id])
-
-  @@map("audit_logs")
-}
-
-model SystemConfig {
-  key       String   @id
-  value     Json
-  updatedAt DateTime @updatedAt
-  
-  @@map("system_configs")
-}
-
-// =========================================================
-// PASSWORD RESET
-// =========================================================
-
-model PasswordResetToken {
-  id        String   @id @default(uuid()) @db.Uuid
-  userId    String   @map("user_id") @db.Uuid
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  token     String   @unique @db.VarChar(255)
-  expiresAt DateTime @map("expires_at")
-  used      Boolean  @default(false)
-  createdAt DateTime @default(now()) @map("created_at")
-  
-  @@index([userId])
-  @@index([token])
-  @@map("password_reset_tokens")
-}
-
-// =========================================================
-// EMAIL SERVICE
-// =========================================================
-
-model EmailTemplate {
-  id        String   @id @default(uuid()) @db.Uuid
-  type      String   @unique @db.VarChar(100)
-  subject   String   @db.VarChar(255)
-  htmlBody  String   @map("html_body") @db.Text
-  textBody  String?  @map("text_body") @db.Text
-  variables Json     // Available variables for this template
-  enabled   Boolean  @default(true)
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  
-  @@index([type])
-  @@map("email_templates")
-}
-
-model EmailConfig {
-  id        String   @id @default(uuid()) @db.Uuid
-  key       String   @unique @db.VarChar(100)
-  provider  String   @db.VarChar(50) // 'smtp', 'sendgrid', 'aws_ses'
-  config    Json     // Provider-specific config
-  isActive  Boolean  @default(false) @map("is_active")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  
-  @@map("email_configs")
-}
-
-model EmailLog {
-  id           String    @id @default(uuid()) @db.Uuid
-  to           String    @db.VarChar(255)
-  from         String    @db.VarChar(255)
-  subject      String    @db.VarChar(255)
-  templateType String?   @map("template_type") @db.VarChar(100)
-  status       String    @db.VarChar(50) // 'sent', 'failed', 'pending'
-  error        String?   @db.Text
-  sentAt       DateTime? @map("sent_at")
-  createdAt    DateTime  @default(now()) @map("created_at")
-
-  @@index([to])
-  @@index([status])
-  @@index([createdAt])
-  @@map("email_logs")
-}
-
-// =========================================================
-// PHASE 2: ML EXPORT & ADVANCED WORKFLOW
-// =========================================================
-
-model Image {
-  id               String   @id @default(uuid()) @db.Uuid
-  projectId        String   @map("project_id") @db.Uuid
-  datasetId        String?  @map("dataset_id") @db.Uuid
-
-  originalFilename String   @map("original_filename") @db.VarChar(255)
-  storageUrl       String   @map("storage_url") @db.Text
-  storagePath      String?  @map("storage_path") @db.Text
-  publicId         String?  @map("public_id") @db.VarChar(255)
-
-  // CRITICAL: Dimensions for normalization
-  width            Int
-  height           Int
-  channels         Int      @default(3)
-
-  fileSizeBytes    BigInt?  @map("file_size_bytes")
-  format           String?  @db.VarChar(10)
-  checksum         String?  @db.VarChar(64)
-
-  uploadedBy       String?  @map("uploaded_by") @db.Uuid
-  uploadedAt       DateTime @default(now()) @map("uploaded_at")
-
-  project          Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  dataset          Dataset? @relation(fields: [datasetId], references: [id])
-  uploader         User?    @relation("ImageUploader", fields: [uploadedBy], references: [id])
-  tasks            Task[]
-
-  @@unique([projectId, checksum])
-  @@index([projectId])
-  @@index([datasetId])
-  @@index([checksum])
-  @@map("images")
-}
-
-model Dataset {
-  id              String   @id @default(uuid()) @db.Uuid
-  projectId       String   @map("project_id") @db.Uuid
-  
-  name            String   @db.VarChar(255)
-  description     String?  @db.Text
-  
-  source          String?  @db.VarChar(100)
-  sourceMetadata  Json?    @map("source_metadata")
-  
-  totalImages     Int      @default(0) @map("total_images")
-  processedImages Int      @default(0) @map("processed_images")
-  
-  uploadedBy      String?  @map("uploaded_by") @db.Uuid
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
-
-  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  uploader        User?    @relation("DatasetUploader", fields: [uploadedBy], references: [id])
-  images          Image[]
-
-  @@index([projectId])
-  @@map("datasets")
-}
-
-model AnnotationConsensus {
-  id                  String   @id @default(uuid()) @db.Uuid
-  taskId              String   @unique @map("task_id") @db.Uuid
-  
-  finalAnnotations    Json     @map("final_annotations")
-  
-  consensusMethod     String   @map("consensus_method") @db.VarChar(50)
-  sourceAssignmentIds String[] @map("source_assignment_ids") @db.Uuid
-  agreementScore      Float?   @map("agreement_score")
-  
-  isVerified          Boolean  @default(false) @map("is_verified")
-  verifiedBy          String?  @map("verified_by") @db.Uuid
-  verifiedAt          DateTime? @map("verified_at")
-  
-  createdAt           DateTime @default(now()) @map("created_at")
-  updatedAt           DateTime @updatedAt @map("updated_at")
-
-  task                Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  verifier            User?    @relation("ConsensusVerifier", fields: [verifiedBy], references: [id])
-
-  @@index([isVerified])
-  @@map("annotation_consensus")
-}
-
-model Export {
-  id               String   @id @default(uuid()) @db.Uuid
-  projectId        String   @map("project_id") @db.Uuid
-  
-  format           String   @db.VarChar(50)
-  version          Int      @default(1)
-  
-  splitType        String?  @map("split_type") @db.VarChar(50)
-  splitRatio       Json?    @map("split_ratio")
-  filterCriteria   Json?    @map("filter_criteria")
-  
-  totalImages        Int?   @map("total_images")
-  totalAnnotations   Int?   @map("total_annotations")
-  classDistribution  Json?  @map("class_distribution")
-  
-  fileUrl          String   @map("file_url") @db.Text
-  fileSizeBytes    BigInt?  @map("file_size_bytes")
-  checksum         String?  @db.VarChar(64)
-  
-  exportedBy       String   @map("exported_by") @db.Uuid
-  downloadCount    Int      @default(0) @map("download_count")
-  createdAt        DateTime @default(now()) @map("created_at")
-  
-  labelConfigSnapshot Json? @map("label_config_snapshot")
-
-  project          Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  exporter         User     @relation("Exporter", fields: [exportedBy], references: [id])
-
-  @@index([projectId])
-  @@index([createdAt])
-  @@index([format])
-  @@map("exports")
-}
-
-model AiModel {
-  id          String   @id @default(uuid()) @db.Uuid
-  name        String   @db.VarChar(100)
-  version     String   @db.VarChar(50)
-  modelType   String   @map("model_type") @db.VarChar(50)
-  
-  config      Json?
-  metrics     Json?
-  
-  isActive    Boolean  @default(true) @map("is_active")
-  endpointUrl String?  @map("endpoint_url") @db.Text
-  
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  taskAssignments TaskAssignment[]
-
-  @@index([isActive])
-  @@map("ai_models")
-}
-
-model AssignmentRule {
-  id                String   @id @default(uuid()) @db.Uuid
-  projectId         String   @unique @map("project_id") @db.Uuid
-  
-  isAutoAssignEnabled Boolean @default(false) @map("is_auto_assign_enabled")
-  assignmentStrategy  String  @default("ROUND_ROBIN") @map("assignment_strategy") @db.VarChar(50)
-  
-  autoAssignReviewer  Boolean @default(true) @map("auto_assign_reviewer")
-  reviewerDelayHours  Int     @default(0) @map("reviewer_delay_hours")
-  
-  maxTasksPerAnnotator Int    @default(10) @map("max_tasks_per_annotator")
-  maxTasksPerReviewer  Int    @default(20) @map("max_tasks_per_reviewer")
-  
-  minAnnotatorReputation Float @default(0) @map("min_annotator_reputation")
-  minReviewerReputation  Float @default(70) @map("min_reviewer_reputation")
-  
-  maxRejectionsBeforeReassign Int @default(3) @map("max_rejections_before_reassign")
-  autoReassignOnSkip          Boolean @default(true) @map("auto_reassign_on_skip")
-  
-  createdAt           DateTime @default(now()) @map("created_at")
-  updatedAt           DateTime @updatedAt @map("updated_at")
-
-  project             Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  @@map("assignment_rules")
-}
-
-model UserWorkload {
-  id                String   @id @default(uuid()) @db.Uuid
-  userId            String   @map("user_id") @db.Uuid
-  projectId         String   @map("project_id") @db.Uuid
-  
-  assignedTasks      Int      @default(0) @map("assigned_tasks")
-  inProgressTasks    Int      @default(0) @map("in_progress_tasks")
-  pendingReviewTasks Int      @default(0) @map("pending_review_tasks")
-  
-  maxConcurrentTasks Int      @default(10) @map("max_concurrent_tasks")
-  availabilityStatus String   @default("AVAILABLE") @map("availability_status") @db.VarChar(50)
-  
-  lastAssignedAt     DateTime? @map("last_assigned_at")
-  updatedAt          DateTime  @updatedAt @map("updated_at")
-
-  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  project            Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, projectId])
-  @@index([availabilityStatus, assignedTasks])
-  @@map("user_workload")
-}
-
-model TaskReassignment {
-  id             String   @id @default(uuid()) @db.Uuid
-  taskId         String   @map("task_id") @db.Uuid
-  
-  oldAnnotatorId String?  @map("old_annotator_id") @db.Uuid
-  newAnnotatorId String?  @map("new_annotator_id") @db.Uuid
-  
-  reason         String   @db.VarChar(100)
-  reassignedBy   String   @map("reassigned_by") @db.Uuid
-  notes          String?  @db.Text
-  
-  createdAt      DateTime @default(now()) @map("created_at")
-
-  task           Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  oldAnnotator   User?    @relation("OldAnnotator", fields: [oldAnnotatorId], references: [id])
-  newAnnotator   User?    @relation("NewAnnotator", fields: [newAnnotatorId], references: [id])
-  reassigner     User     @relation("Reassigner", fields: [reassignedBy], references: [id])
-
-  @@index([oldAnnotatorId])
-  @@index([createdAt])
-  @@map("task_reassignments")
-}
-
-// =========================================================
-// LABEL MANAGEMENT SYSTEM
-// =========================================================
-
-model ProjectCategory {
-  id          String    @id @default(uuid()) @db.Uuid
-  name        String    @unique @db.VarChar(100)
-  description String?   @db.Text
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-
-  projects    Project[]
-
-  @@map("project_categories")
-}
-
-model LabelCategory {
-  id          String   @id @default(uuid()) @db.Uuid
-  name        String   @unique @db.VarChar(100)
-  color       String?  @db.VarChar(7) // Hex color code
-  description String?  @db.Text
-  createdAt   DateTime @default(now()) @map("created_at")
-
-  labels      Label[]
-
-  @@map("label_categories")
-}
-
-model Label {
-  id          String    @id @default(uuid()) @db.Uuid
-  name        String    @db.VarChar(100)
-  color       String    @db.VarChar(7)  // Hex color (#FF0000)
-  isGlobal    Boolean   @default(false) @map("is_global")
-
-  categoryId  String?   @map("category_id") @db.Uuid
-  createdBy   String?   @map("created_by") @db.Uuid
-  createdAt   DateTime  @default(now()) @map("created_at")
-
-  category    LabelCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  creator     User?          @relation("LabelCreator", fields: [createdBy], references: [id], onDelete: SetNull)
-
-  projectLabels ProjectLabel[]
-
-  @@unique([name, categoryId])
-  @@index([isGlobal])
-  @@map("labels")
-}
-
-model ProjectLabel {
-  id        String   @id @default(uuid()) @db.Uuid
-  projectId String   @map("project_id") @db.Uuid
-  labelId   String   @map("label_id") @db.Uuid
-  createdAt DateTime @default(now()) @map("created_at")
-
-  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  label     Label    @relation(fields: [labelId], references: [id], onDelete: Cascade)
-
-  @@unique([projectId, labelId])
-  @@map("project_labels")
-}
-
-model LabelRequest {
-  id             String             @id @default(uuid()) @db.Uuid
-  projectId      String             @map("project_id") @db.Uuid
-  requestedBy    String             @map("requested_by") @db.Uuid
-
-  labelName      String             @map("label_name") @db.VarChar(100)
-  suggestedColor String?            @map("suggested_color") @db.VarChar(7)
-  reason         String?            @db.Text
-
-  status         LabelRequestStatus @default(PENDING)
-  reviewedBy     String?            @map("reviewed_by") @db.Uuid
-  reviewedAt     DateTime?          @map("reviewed_at")
-
-  createdAt      DateTime           @default(now()) @map("created_at")
-
-  project        Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  requester      User               @relation("LabelRequester", fields: [requestedBy], references: [id])
-  reviewer       User?              @relation("LabelReviewer", fields: [reviewedBy], references: [id])
-
-  @@index([projectId, status])
-  @@map("label_requests")
+  SYSTEM_ANNOUNCEMENT
+  SYSTEM_CHAT_CONFIG
+  SYSTEM_USER_ROLE_CHANGE
+  LABEL_REQUESTED
+  LABEL_REQUEST_APPROVED
+  LABEL_REQUEST_REJECTED
+  LABEL_CREATED
+  PROJECT_INVITATION
 }
 
 enum LabelRequestStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+enum TaskAction {
+  CREATED
+  ASSIGNED
+  UNASSIGNED
+  REASSIGNED
+  DEADLINE_UPDATED
+  STATUS_CHANGED
+  SUBMITTED
+  APPROVED
+  REJECTED
+  DELETED
+  RESTORED
+  BULK_ASSIGNED
+  BULK_UNASSIGNED
+  BULK_DELETED
 }

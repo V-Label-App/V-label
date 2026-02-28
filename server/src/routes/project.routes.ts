@@ -135,6 +135,18 @@ router.delete( // Unassign Task
     ProjectController.unassignTask
 )
 
+router.post( // Bulk Assign Tasks
+    '/:id/tasks/bulk-assign',
+    requireRole(['ADMIN', 'MANAGER']),
+    ProjectController.bulkAssignTasks
+)
+
+router.post( // Bulk Unassign Tasks
+    '/:id/tasks/bulk-unassign',
+    requireRole(['ADMIN', 'MANAGER']),
+    ProjectController.bulkUnassignTasks
+)
+
 router.patch( // Update Task Deadline
     '/:id/tasks/:taskId/deadline',
     requireRole(['ADMIN', 'MANAGER']),

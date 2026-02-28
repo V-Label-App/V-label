@@ -3,7 +3,8 @@ import { DatasetList } from "../components/DatasetList";
 import { UploadImageDialog } from "../components/UploadImageDialog";
 import { DatasetCreateDialog } from "../components/DatasetCreateDialog";
 import { LabelRequestManager } from "../components/LabelRequestManager";
-import { useParams, useNavigate } from "react-router-dom";
+import { ActivityTab } from "../components/ActivityTab";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "../../../components/ui/button";
 import { Card } from "../../../components/ui/card";
 import {
@@ -125,6 +126,7 @@ import { useDebounce } from "../../../hooks/useDebounce";
 export function ProjectDetailPage() {
   const { projectId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
 
   // Data State
@@ -282,6 +284,7 @@ export function ProjectDetailPage() {
   const [taskToAssign, setTaskToAssign] = useState<any>(null);
   const [selectedAnnotatorId, setSelectedAnnotatorId] = useState<string>("");
   const [selectedDeadline, setSelectedDeadline] = useState<Date | undefined>();
+  const [reassignmentReason, setReassignmentReason] = useState<string>("");
   const [isAssigning, setIsAssigning] = useState(false);
   const [isBulkAssign, setIsBulkAssign] = useState(false);
 
@@ -360,12 +363,8 @@ export function ProjectDetailPage() {
 
       setIsAssigning(true);
       try {
-        // Assign all selected tasks
-        await Promise.all(
-          selectedTasks.map(taskId =>
-            projectApi.assignTask(projectId, taskId, selectedAnnotatorId, selectedDeadline)
-          )
-        );
+        // Use bulk assign endpoint
+        await projectApi.bulkAssignTasks(projectId, selectedTasks, selectedAnnotatorId, selectedDeadline);
         toast.success(`${selectedTasks.length} tasks assigned successfully`);
         setIsAssignDialogOpen(false);
         setSelectedAnnotatorId("");
@@ -386,14 +385,30 @@ export function ProjectDetailPage() {
     // Single assign mode
     if (!taskToAssign) return;
 
+    // Check if it's a reassignment and reason is required
+    const currentAssignment = taskToAssign.assignments?.find((a: any) => a.annotatorId);
+    const isReassignment = currentAssignment && currentAssignment.annotatorId !== selectedAnnotatorId;
+
+    if (isReassignment && !reassignmentReason.trim()) {
+      toast.error('Please provide a reason for reassignment');
+      return;
+    }
+
     setIsAssigning(true);
     try {
-      await projectApi.assignTask(projectId, taskToAssign.id, selectedAnnotatorId, selectedDeadline);
+      await projectApi.assignTask(
+        projectId,
+        taskToAssign.id,
+        selectedAnnotatorId,
+        selectedDeadline,
+        isReassignment ? reassignmentReason : undefined
+      );
       toast.success('Task assigned successfully');
       setIsAssignDialogOpen(false);
       setTaskToAssign(null);
       setSelectedAnnotatorId("");
       setSelectedDeadline(undefined);
+      setReassignmentReason("");
       fetchTasks();
       fetchWorkloads();
     } catch (error: any) {
@@ -508,12 +523,8 @@ export function ProjectDetailPage() {
 
     setIsBulkUnassigning(true);
     try {
-      // Unassign all selected tasks
-      await Promise.all(
-        tasksToUnassign.map(taskId =>
-          projectApi.unassignTask(projectId, taskId)
-        )
-      );
+      // Use bulk unassign endpoint
+      await projectApi.bulkUnassignTasks(projectId, tasksToUnassign);
 
       toast.success(`${tasksToUnassign.length} task${tasksToUnassign.length > 1 ? 's' : ''} unassigned successfully`);
       setIsBulkUnassignDialogOpen(false);
@@ -528,6 +539,14 @@ export function ProjectDetailPage() {
       setIsBulkUnassigning(false);
     }
   };
+
+  // Handle tab query parameter from URL
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam) {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
 
   // Load Project
   useEffect(() => {
@@ -1180,10 +1199,11 @@ export function ProjectDetailPage() {
             </TabsTrigger>
             <TabsTrigger value="team">Team</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
+            <TabsTrigger value="activity">Activity</TabsTrigger>
           </TabsList>
 
           <TabsContent value="health">
-            <ProjectHealthDashboard projectId={project.id} />
+            <ProjectHealthDashboard projectId={project.id} onViewAllActivity={() => setActiveTab('activity')} />
           </TabsContent>
 
           <TabsContent value="tasks" className="space-y-6">
@@ -2315,6 +2335,10 @@ export function ProjectDetailPage() {
               </div>
             </div>
           </TabsContent>
+
+          <TabsContent value="activity" className="space-y-6">
+            <ActivityTab projectId={project.id} />
+          </TabsContent>
         </Tabs>
         {/* Edit Role Dialog */}
         <Dialog open={isEditRoleOpen} onOpenChange={setIsEditRoleOpen}>
@@ -2639,6 +2663,7 @@ export function ProjectDetailPage() {
             setTaskToAssign(null);
             setSelectedAnnotatorId("");
             setSelectedDeadline(undefined);
+            setReassignmentReason("");
           }
         }}>
           <DialogContent>
@@ -2646,12 +2671,20 @@ export function ProjectDetailPage() {
               <DialogTitle>
                 {isBulkAssign
                   ? `Assign ${selectedTasks.length} Tasks`
-                  : 'Assign Task'}
+                  : (() => {
+                      const hasCurrentAssignment = taskToAssign?.assignments?.find((a: any) => a.annotatorId);
+                      return hasCurrentAssignment ? 'Reassign Task' : 'Assign Task';
+                    })()}
               </DialogTitle>
               <DialogDescription>
                 {isBulkAssign
                   ? `Assign ${selectedTasks.length} selected tasks to an annotator.`
-                  : 'Assign this task to an annotator in the project.'}
+                  : (() => {
+                      const hasCurrentAssignment = taskToAssign?.assignments?.find((a: any) => a.annotatorId);
+                      return hasCurrentAssignment
+                        ? 'Reassign this task to a different annotator.'
+                        : 'Assign this task to an annotator in the project.';
+                    })()}
               </DialogDescription>
             </DialogHeader>
 
@@ -2705,6 +2738,18 @@ export function ProjectDetailPage() {
                 {/* Annotator Selection */}
                 <div className="space-y-2">
                   <Label>Select Annotator</Label>
+                  {!isBulkAssign && taskToAssign && (() => {
+                    const currentAssignment = taskToAssign.assignments?.find((a: any) => a.annotatorId);
+                    if (currentAssignment) {
+                      const currentAnnotator = annotators.find((a: any) => a.userId === currentAssignment.annotatorId);
+                      return (
+                        <p className="text-xs text-muted-foreground mb-1">
+                          Currently assigned to: <span className="font-semibold">{currentAnnotator?.user?.fullName || currentAnnotator?.user?.email}</span>
+                        </p>
+                      );
+                    }
+                    return null;
+                  })()}
                   <Select
                     value={selectedAnnotatorId}
                     onValueChange={setSelectedAnnotatorId}
@@ -2765,6 +2810,36 @@ export function ProjectDetailPage() {
                     If not set, deadline will be auto-calculated based on task difficulty
                   </p>
                 </div>
+
+                {/* Reassignment Reason - Only show for reassignments */}
+                {!isBulkAssign && taskToAssign && (() => {
+                  const currentAssignment = taskToAssign.assignments?.find((a: any) => a.annotatorId);
+                  const isReassignment = currentAssignment && selectedAnnotatorId && currentAssignment.annotatorId !== selectedAnnotatorId;
+
+                  if (!isReassignment) return null;
+
+                  const currentAnnotator = annotators.find((a: any) => a.userId === currentAssignment.annotatorId);
+
+                  return (
+                    <div className="space-y-2 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                      <div className="flex items-center gap-2 text-amber-900">
+                        <AlertCircle className="h-4 w-4" />
+                        <Label className="text-sm font-semibold">Reassignment Reason (Required)</Label>
+                      </div>
+                      <p className="text-xs text-amber-700">
+                        This task is currently assigned to {currentAnnotator?.user?.fullName || currentAnnotator?.user?.email}.
+                        Please provide a reason for reassigning to a different annotator.
+                      </p>
+                      <Textarea
+                        placeholder="Explain why this task needs to be reassigned..."
+                        value={reassignmentReason}
+                        onChange={(e) => setReassignmentReason(e.target.value)}
+                        rows={3}
+                        className="bg-white"
+                      />
+                    </div>
+                  );
+                })()}
               </div>
 
             <DialogFooter>
@@ -2776,6 +2851,7 @@ export function ProjectDetailPage() {
                   setTaskToAssign(null);
                   setSelectedAnnotatorId("");
                   setSelectedDeadline(undefined);
+                  setReassignmentReason("");
                 }}
                 disabled={isAssigning}
               >
@@ -2788,13 +2864,17 @@ export function ProjectDetailPage() {
                 {isAssigning ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Assigning...
+                    {(() => {
+                      const hasCurrentAssignment = taskToAssign?.assignments?.find((a: any) => a.annotatorId);
+                      return hasCurrentAssignment ? 'Reassigning...' : 'Assigning...';
+                    })()}
                   </>
                 ) : isBulkAssign ? (
                   `Assign ${selectedTasks.length} Tasks`
-                ) : (
-                  'Assign Task'
-                )}
+                ) : (() => {
+                  const hasCurrentAssignment = taskToAssign?.assignments?.find((a: any) => a.annotatorId);
+                  return hasCurrentAssignment ? 'Reassign Task' : 'Assign Task';
+                })()}
               </Button>
             </DialogFooter>
           </DialogContent>

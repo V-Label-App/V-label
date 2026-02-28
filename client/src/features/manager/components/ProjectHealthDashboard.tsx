@@ -5,12 +5,14 @@ import type { ProjectHealthStats } from '../../../services/project.api';
 import { Card } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { AlertTriangle, CheckCircle, Clock, AlertOctagon, HelpCircle } from 'lucide-react';
+import { ActivityFeed } from './ActivityFeed';
 
 interface ProjectHealthDashboardProps {
     projectId: string;
+    onViewAllActivity?: () => void;
 }
 
-export const ProjectHealthDashboard: React.FC<ProjectHealthDashboardProps> = ({ projectId }) => {
+export const ProjectHealthDashboard: React.FC<ProjectHealthDashboardProps> = ({ projectId, onViewAllActivity }) => {
     const [stats, setStats] = useState<ProjectHealthStats | null>(null);
     const [loading, setLoading] = useState(true);
     const [activeRescueType, setActiveRescueType] = useState<'STUCK' | 'PROBLEMATIC' | 'ORPHANED' | null>(null);
@@ -124,6 +126,9 @@ export const ProjectHealthDashboard: React.FC<ProjectHealthDashboardProps> = ({ 
                     </Button>
                 </Card>
             </div>
+
+            {/* Activity Feed */}
+            <ActivityFeed projectId={projectId} limit={10} onViewAllActivity={onViewAllActivity} />
 
             {activeRescueType && (
                 <div className="mt-8 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
