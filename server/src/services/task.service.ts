@@ -344,6 +344,33 @@ export class TaskService {
                 method,
                 deadline: deadline.toISOString()
             });
+
+            // Log activity
+            try {
+                const { TaskActivityService } = await import('./task-activity.service.js');
+                const { TaskAction } = await import('@prisma/client');
+
+                // Get user info for metadata
+                const assignedUser = await prisma.user.findUnique({
+                    where: { id: userId },
+                    select: { fullName: true, email: true }
+                });
+
+                await TaskActivityService.logActivity({
+                    taskId,
+                    projectId: task.projectId,
+                    userId: assignedBy || userId, // Use assignedBy if manual, otherwise the assigned user
+                    action: TaskAction.ASSIGNED,
+                    metadata: {
+                        targetUserId: userId,
+                        targetUserName: assignedUser?.fullName || assignedUser?.email || 'Unknown',
+                        deadline: deadline.toISOString(),
+                        method: method
+                    }
+                });
+            } catch (activityError) {
+                logger.error('TASK_SERVICE', 'Failed to log task assignment activity', { error: activityError });
+            }
         } catch (error) {
             logger.error('TASK_SERVICE', 'Error creating task assignment', { error, taskId, userId });
             throw error;
@@ -355,7 +382,8 @@ export class TaskService {
      */
     static async createTaskFromImage(
         imageId: string,
-        projectId: string
+        projectId: string,
+        createdBy?: string
     ): Promise<string> {
         try {
             const task = await prisma.task.create({
@@ -373,6 +401,26 @@ export class TaskService {
                 imageId,
                 projectId
             });
+
+            // Log activity
+            if (createdBy) {
+                try {
+                    const { TaskActivityService } = await import('./task-activity.service.js');
+                    const { TaskAction } = await import('@prisma/client');
+
+                    await TaskActivityService.logActivity({
+                        taskId: task.id,
+                        projectId,
+                        userId: createdBy,
+                        action: TaskAction.CREATED,
+                        metadata: {
+                            imageId
+                        }
+                    });
+                } catch (activityError) {
+                    logger.error('TASK_SERVICE', 'Failed to log task creation activity', { error: activityError });
+                }
+            }
 
             return task.id;
         } catch (error) {

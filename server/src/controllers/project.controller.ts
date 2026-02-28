@@ -389,9 +389,10 @@ export class ProjectController {
             // Auto-assign task to annotator if enabled
             try {
                 const { TaskService } = await import('../services/task.service.js')
+                const userId = user.id || user.sub
 
                 // Create task from image
-                const taskId = await TaskService.createTaskFromImage(image.id, id)
+                const taskId = await TaskService.createTaskFromImage(image.id, id, userId)
 
                 // Auto-assign to annotator if enabled
                 await TaskService.autoAssignTask(taskId, id, 'ANNOTATOR')
