@@ -16,6 +16,7 @@ interface TaskDetailDialogProps {
     status?: string;
     deadline?: string | null;
     assignments?: Array<{
+      status?: string;
       annotator?: {
         fullName?: string | null;
         email?: string;

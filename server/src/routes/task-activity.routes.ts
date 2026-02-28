@@ -12,7 +12,7 @@ const router = express.Router();
  */
 router.get('/projects/:projectId/activities', authMiddleware, async (req, res) => {
   try {
-    const { projectId } = req.params;
+    const { projectId } = req.params as { projectId: string };
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;
     const action = req.query.action as TaskAction | undefined;
@@ -21,8 +21,8 @@ router.get('/projects/:projectId/activities', authMiddleware, async (req, res) =
     const result = await TaskActivityService.getProjectActivities(projectId, {
       page,
       limit,
-      action,
-      userId,
+      ...(action && { action }),
+      ...(userId && { userId }),
     });
 
     return res.json(result);
@@ -38,7 +38,7 @@ router.get('/projects/:projectId/activities', authMiddleware, async (req, res) =
  */
 router.get('/projects/:projectId/activities/recent', authMiddleware, async (req, res) => {
   try {
-    const { projectId } = req.params;
+    const { projectId } = req.params as { projectId: string };
     const limit = parseInt(req.query.limit as string) || 10;
 
     const activities = await TaskActivityService.getRecentActivities(projectId, limit);
@@ -56,7 +56,7 @@ router.get('/projects/:projectId/activities/recent', authMiddleware, async (req,
  */
 router.get('/projects/:projectId/activities/stats', authMiddleware, async (req, res) => {
   try {
-    const { projectId } = req.params;
+    const { projectId } = req.params as { projectId: string };
 
     const stats = await TaskActivityService.getActivityStats(projectId);
 
@@ -73,7 +73,7 @@ router.get('/projects/:projectId/activities/stats', authMiddleware, async (req, 
  */
 router.get('/tasks/:taskId/activities', authMiddleware, async (req, res) => {
   try {
-    const { taskId } = req.params;
+    const { taskId } = req.params as { taskId: string };
     const limit = parseInt(req.query.limit as string) || 50;
 
     const activities = await TaskActivityService.getTaskActivities(taskId, limit);

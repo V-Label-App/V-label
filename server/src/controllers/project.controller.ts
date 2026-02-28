@@ -497,6 +497,7 @@ export class ProjectController {
             }
 
             // Log activity before deletion (get task IDs first)
+            const { prisma } = await import('../utils/database.js')
             try {
                 const { TaskActivityService } = await import('../services/task-activity.service.js')
                 const { TaskAction } = await import('@prisma/client')
@@ -709,6 +710,13 @@ export class ProjectController {
                 where: {
                     id: taskId,
                     projectId: id
+                },
+                include: {
+                    image: {
+                        select: {
+                            originalFilename: true
+                        }
+                    }
                 }
             })
 
@@ -998,6 +1006,13 @@ export class ProjectController {
                 where: {
                     id: taskId,
                     projectId: id
+                },
+                include: {
+                    image: {
+                        select: {
+                            originalFilename: true
+                        }
+                    }
                 }
             })
 
@@ -1080,7 +1095,7 @@ export class ProjectController {
                     action: TaskAction.UNASSIGNED,
                     metadata: {
                         targetUserId: previousAnnotatorId,
-                        targetUserName: annotator?.fullName || annotator?.email,
+                        targetUserName: annotator?.fullName || annotator?.email || 'Unknown',
                     }
                 })
             } catch (activityError) {
@@ -1180,7 +1195,19 @@ export class ProjectController {
 
             // Update workload
             const { UserWorkloadService } = await import('../services/user-workload.service.js')
-            await UserWorkloadService.incrementAssignedTasks(annotatorId, id, taskIds.length)
+            await UserWorkloadService.initializeWorkload(annotatorId, id)
+            await prisma.userWorkload.update({
+                where: {
+                    userId_projectId: {
+                        userId: annotatorId,
+                        projectId: id
+                    }
+                },
+                data: {
+                    assignedTasks: { increment: taskIds.length }
+                }
+            })
+            await UserWorkloadService.updateAvailabilityStatus(annotatorId, id)
 
             logger.info('API', `Bulk assigned ${taskIds.length} tasks to ${annotatorId}`, {
                 actorId: userId,
@@ -1203,7 +1230,7 @@ export class ProjectController {
                         count: taskIds.length,
                         targetUserId: annotatorId,
                         targetUserName: annotator.fullName || annotator.email,
-                        deadline: deadlineDate?.toISOString(),
+                        ...(deadlineDate && { deadline: deadlineDate.toISOString() }),
                         taskNames
                     }
                 })
@@ -1309,7 +1336,18 @@ export class ProjectController {
             for (const [annotatorId, { count, hasInProgress }] of annotatorGroups.entries()) {
                 try {
                     // Decrement assigned tasks
-                    await UserWorkloadService.decrementAssignedTasks(annotatorId, id, count)
+                    await prisma.userWorkload.update({
+                        where: {
+                            userId_projectId: {
+                                userId: annotatorId,
+                                projectId: id
+                            }
+                        },
+                        data: {
+                            assignedTasks: { decrement: count }
+                        }
+                    })
+                    await UserWorkloadService.updateAvailabilityStatus(annotatorId, id)
 
                     // If any were in progress, handle that separately
                     if (hasInProgress) {
@@ -1400,6 +1438,13 @@ export class ProjectController {
                 where: {
                     id: taskId,
                     projectId: id
+                },
+                include: {
+                    image: {
+                        select: {
+                            originalFilename: true
+                        }
+                    }
                 }
             })
 

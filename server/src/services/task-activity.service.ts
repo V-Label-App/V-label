@@ -85,10 +85,20 @@ export class TaskActivityService {
     metadata?: TaskActivityMetadata;
   }) {
     try {
+      // Ensure we have at least one task
+      if (!data.taskIds || data.taskIds.length === 0) {
+        throw new Error('No tasks provided for bulk activity logging');
+      }
+
+      const firstTaskId = data.taskIds[0];
+      if (!firstTaskId) {
+        throw new Error('Invalid task ID in bulk activity logging');
+      }
+
       // Create a single activity for the bulk operation using the first task as representative
       const activity = await prisma.taskActivity.create({
         data: {
-          taskId: data.taskIds[0], // Use first task as representative
+          taskId: firstTaskId, // Use first task as representative
           projectId: data.projectId,
           userId: data.userId,
           action: data.action,

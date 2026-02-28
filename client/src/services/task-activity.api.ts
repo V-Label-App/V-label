@@ -1,21 +1,23 @@
 import { apiClient } from './auth.api';
 
-export enum TaskAction {
-  CREATED = 'CREATED',
-  ASSIGNED = 'ASSIGNED',
-  UNASSIGNED = 'UNASSIGNED',
-  REASSIGNED = 'REASSIGNED',
-  DEADLINE_UPDATED = 'DEADLINE_UPDATED',
-  STATUS_CHANGED = 'STATUS_CHANGED',
-  SUBMITTED = 'SUBMITTED',
-  APPROVED = 'APPROVED',
-  REJECTED = 'REJECTED',
-  DELETED = 'DELETED',
-  RESTORED = 'RESTORED',
-  BULK_ASSIGNED = 'BULK_ASSIGNED',
-  BULK_UNASSIGNED = 'BULK_UNASSIGNED',
-  BULK_DELETED = 'BULK_DELETED',
-}
+export const TaskAction = {
+  CREATED: 'CREATED',
+  ASSIGNED: 'ASSIGNED',
+  UNASSIGNED: 'UNASSIGNED',
+  REASSIGNED: 'REASSIGNED',
+  DEADLINE_UPDATED: 'DEADLINE_UPDATED',
+  STATUS_CHANGED: 'STATUS_CHANGED',
+  SUBMITTED: 'SUBMITTED',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+  DELETED: 'DELETED',
+  RESTORED: 'RESTORED',
+  BULK_ASSIGNED: 'BULK_ASSIGNED',
+  BULK_UNASSIGNED: 'BULK_UNASSIGNED',
+  BULK_DELETED: 'BULK_DELETED',
+} as const;
+
+export type TaskAction = typeof TaskAction[keyof typeof TaskAction];
 
 export interface TaskActivity {
   id: string;
@@ -100,6 +102,3 @@ export const taskActivityApi = {
     return response.data;
   },
 };
-
-// Explicit re-export to ensure TypeScript recognizes all exports
-export type { TaskActivity, ProjectActivitiesResponse };

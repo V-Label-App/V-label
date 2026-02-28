@@ -51,40 +51,6 @@ const actionColors: Record<TaskAction, string> = {
   [TaskAction.BULK_DELETED]: 'bg-gray-100 text-gray-700',
 };
 
-const actionBorderColors: Record<TaskAction, string> = {
-  [TaskAction.CREATED]: 'border-blue-500',
-  [TaskAction.ASSIGNED]: 'border-green-500',
-  [TaskAction.UNASSIGNED]: 'border-orange-500',
-  [TaskAction.REASSIGNED]: 'border-purple-500',
-  [TaskAction.DEADLINE_UPDATED]: 'border-yellow-500',
-  [TaskAction.STATUS_CHANGED]: 'border-indigo-500',
-  [TaskAction.SUBMITTED]: 'border-cyan-500',
-  [TaskAction.APPROVED]: 'border-emerald-500',
-  [TaskAction.REJECTED]: 'border-red-500',
-  [TaskAction.DELETED]: 'border-gray-500',
-  [TaskAction.RESTORED]: 'border-teal-500',
-  [TaskAction.BULK_ASSIGNED]: 'border-green-500',
-  [TaskAction.BULK_UNASSIGNED]: 'border-orange-500',
-  [TaskAction.BULK_DELETED]: 'border-gray-500',
-};
-
-const actionBgColors: Record<TaskAction, string> = {
-  [TaskAction.CREATED]: 'bg-blue-50/30',
-  [TaskAction.ASSIGNED]: 'bg-green-50/30',
-  [TaskAction.UNASSIGNED]: 'bg-orange-50/30',
-  [TaskAction.REASSIGNED]: 'bg-purple-50/30',
-  [TaskAction.DEADLINE_UPDATED]: 'bg-yellow-50/30',
-  [TaskAction.STATUS_CHANGED]: 'bg-indigo-50/30',
-  [TaskAction.SUBMITTED]: 'bg-cyan-50/30',
-  [TaskAction.APPROVED]: 'bg-emerald-50/30',
-  [TaskAction.REJECTED]: 'bg-red-50/30',
-  [TaskAction.DELETED]: 'bg-gray-50/30',
-  [TaskAction.RESTORED]: 'bg-teal-50/30',
-  [TaskAction.BULK_ASSIGNED]: 'bg-green-50/30',
-  [TaskAction.BULK_UNASSIGNED]: 'bg-orange-50/30',
-  [TaskAction.BULK_DELETED]: 'bg-gray-50/30',
-};
-
 const actionLabels: Record<TaskAction, string> = {
   [TaskAction.CREATED]: 'Created',
   [TaskAction.ASSIGNED]: 'Assigned',
@@ -103,7 +69,6 @@ const actionLabels: Record<TaskAction, string> = {
 };
 
 function getActivityMessage(activity: TaskActivity): { title: string; details: string } {
-  const userName = activity.user.fullName || activity.user.email.split('@')[0];
   const taskName = activity.task?.image?.originalFilename || `Task #${activity.taskId.substring(0, 6)}`;
   const metadata = activity.metadata || {};
 
