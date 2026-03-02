@@ -8,8 +8,8 @@ import { Button } from '../../../components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
 import { Skeleton } from '../../../components/ui/skeleton';
 import {
-  Clock, User, UserPlus, UserMinus, Trash2, CheckCircle, XCircle,
-  CalendarClock, ArrowRightLeft, FileText, Users, ChevronLeft, ChevronRight, Minus, UserX, Plus
+  Clock, User, UserPlus, CheckCircle, XCircle,
+  CalendarClock, ArrowRightLeft, FileText, ChevronLeft, ChevronRight, Minus, UserX, Plus
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
@@ -298,9 +298,8 @@ export function ActivityTab({ projectId }: ActivityTabProps) {
             </CardContent>
           </Card>
         ) : (
-          activities.map((activity, index) => {
+          activities.map((activity) => {
             const Icon = actionIcons[activity.action];
-            const isLastItem = index === activities.length - 1;
             const { title, details } = getActivityMessage(activity);
 
             return (
