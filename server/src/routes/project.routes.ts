@@ -82,6 +82,8 @@ router.post(
     requireRole(['ADMIN', 'MANAGER']),
     uploadMiddleware.array('images'),
     ProjectController.uploadImagesBatch
+)
+
 // Import Images from ZIP (max 200 images)
 router.post(
     '/:id/images/import-zip',
