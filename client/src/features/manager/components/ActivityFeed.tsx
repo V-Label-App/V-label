@@ -71,8 +71,10 @@ const actionBorderColors: Record<TaskAction, string> = {
 
 function getActivityMessage(activity: TaskActivity): { title: string; description: string } {
   const userName = activity.user.fullName || activity.user.email.split('@')[0];
-  const taskName = activity.task?.image?.originalFilename || `Task #${activity.taskId.substring(0, 6)}`;
   const metadata = activity.metadata || {};
+  // Use task name from metadata if task was deleted, otherwise from task relation
+  const taskName = metadata.taskName || activity.task?.image?.originalFilename ||
+    (activity.taskId ? `Task #${activity.taskId.substring(0, 6)}` : 'Unknown task');
 
   switch (activity.action) {
     case TaskAction.ASSIGNED:

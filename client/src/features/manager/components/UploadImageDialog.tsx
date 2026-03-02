@@ -211,7 +211,10 @@ export function UploadImageDialog({ projectId, datasetId: initialDatasetId, open
         let duplicateCount = 0;
         const totalFiles = files.length;
 
-        // Process sequentially to be safe (or parallel with limit)
+        // Generate a batch session ID
+        const batchSessionId = `batch_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+
+        // Process sequentially for progress tracking
         for (const file of files) {
             setUploadProgress(prev => ({
                 ...prev,
@@ -219,7 +222,7 @@ export function UploadImageDialog({ projectId, datasetId: initialDatasetId, open
             }));
 
             try {
-                await projectApi.uploadImage(projectId, file, targetDatasetId);
+                await projectApi.uploadImage(projectId, file, targetDatasetId, batchSessionId);
 
                 setUploadProgress(prev => ({
                     ...prev,

@@ -186,7 +186,23 @@ export class TaskActivityService {
       const skip = (page - 1) * limit;
 
       const where: any = { projectId };
-      if (action) where.action = action;
+
+      // Map action to include related bulk actions
+      if (action) {
+        const actionGroups: Record<string, TaskAction[]> = {
+          [TaskAction.ASSIGNED]: [TaskAction.ASSIGNED, TaskAction.BULK_ASSIGNED],
+          [TaskAction.UNASSIGNED]: [TaskAction.UNASSIGNED, TaskAction.BULK_UNASSIGNED],
+          [TaskAction.DELETED]: [TaskAction.DELETED, TaskAction.BULK_DELETED],
+        };
+
+        // If action is in groups, use IN filter, otherwise exact match
+        if (actionGroups[action]) {
+          where.action = { in: actionGroups[action] };
+        } else {
+          where.action = action;
+        }
+      }
+
       if (userId) where.userId = userId;
 
       const [activities, total] = await Promise.all([

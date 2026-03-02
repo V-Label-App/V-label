@@ -76,6 +76,13 @@ router.post(
     ProjectController.uploadImage
 )
 
+// Batch Upload Images to Project
+router.post(
+    '/:id/images/batch',
+    requireRole(['ADMIN', 'MANAGER']),
+    uploadMiddleware.array('images'),
+    ProjectController.uploadImagesBatch
+)
 
 router.get(
     '/:id/images',

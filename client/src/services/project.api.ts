@@ -60,6 +60,14 @@ export const projectApi = {
     },
 
     /**
+     * Get all members of a project
+     */
+    getMembers: async (projectId: string) => {
+        const response = await apiClient.get<any[]>(`${BASE_URL}/${projectId}/members`);
+        return response.data;
+    },
+
+    /**
      * Search for potential members to add
      */
     searchPotentialMembers: async (projectId: string, query: string) => {
@@ -98,14 +106,37 @@ export const projectApi = {
     /**
      * Upload an image to the project (and optional dataset)
      */
-    uploadImage: async (projectId: string, file: File, datasetId?: string) => {
+    uploadImage: async (projectId: string, file: File, datasetId?: string, batchSessionId?: string) => {
         const formData = new FormData();
         formData.append('image', file);
         if (datasetId) {
             formData.append('datasetId', datasetId);
         }
+        if (batchSessionId) {
+            formData.append('batchSessionId', batchSessionId);
+        }
 
         const response = await apiClient.post(`${BASE_URL}/${projectId}/images`, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+        return response.data;
+    },
+
+    /**
+     * Batch upload images to the project
+     */
+    uploadImagesBatch: async (projectId: string, files: File[], datasetId?: string) => {
+        const formData = new FormData();
+        files.forEach(file => {
+            formData.append('images', file);
+        });
+        if (datasetId) {
+            formData.append('datasetId', datasetId);
+        }
+
+        const response = await apiClient.post(`${BASE_URL}/${projectId}/images/batch`, formData, {
             headers: {
                 'Content-Type': 'multipart/form-data',
             },
