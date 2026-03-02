@@ -24,6 +24,7 @@ import configRoutes from './routes/config.routes.js'
 import annotatorRoutes from './routes/annotator.routes.js'
 import reviewerRoutes from './routes/reviewer.routes.js'
 import performanceRoutes from './routes/performance.routes.js'
+import taskActivityRoutes from './routes/task-activity.routes.js'
 import { initializeSocketServer } from './websocket/socket.server.js'
 import { EmailTemplateService } from './services/email/template.service.js'
 import { NotificationTemplateService } from './services/notification.template.service.js'
@@ -71,6 +72,7 @@ app.use('/api/v1/project-categories', projectCategoryRoutes)
 app.use('/api/v1/annotator', annotatorRoutes)
 app.use('/api/v1/reviewer', reviewerRoutes)
 app.use('/api/v1/performance', performanceRoutes)
+app.use('/api/v1', taskActivityRoutes) // Task activity routes
 
 // 404 Catch-all
 app.use((req, res, next) => {

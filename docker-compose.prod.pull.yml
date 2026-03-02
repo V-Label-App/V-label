@@ -101,28 +101,29 @@ services:
       - vlabel-network
 
 
-  # Dozzle - Real-time Docker logs viewer
-  dozzle:
-    logging: *default-logging
-    image: amir20/dozzle:latest
-    container_name: vlabel-dozzle
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:8080:8080"  # Localhost only for security
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    environment:
-      - DOZZLE_LEVEL=info
-      - DOZZLE_TAILSIZE=300
-      - DOZZLE_FILTER=name=vlabel-*
-      - DOZZLE_NO_ANALYTICS=true
-    networks:
-      - vlabel-network
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/healthcheck"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+  # Dozzle - Real-time Docker logs viewer (commented out due to Docker Hub timeout)
+  # Uncomment after deployment if needed for log monitoring
+  # dozzle:
+  #   logging: *default-logging
+  #   image: amir20/dozzle:latest
+  #   container_name: vlabel-dozzle
+  #   restart: unless-stopped
+  #   ports:
+  #     - "127.0.0.1:8080:8080"  # Localhost only for security
+  #   volumes:
+  #     - /var/run/docker.sock:/var/run/docker.sock:ro
+  #   environment:
+  #     - DOZZLE_LEVEL=info
+  #     - DOZZLE_TAILSIZE=300
+  #     - DOZZLE_FILTER=name=vlabel-*
+  #     - DOZZLE_NO_ANALYTICS=true
+  #   networks:
+  #     - vlabel-network
+  #   healthcheck:
+  #     test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/healthcheck"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
 
   # Certbot for SSL (optional - run manually)
   certbot:

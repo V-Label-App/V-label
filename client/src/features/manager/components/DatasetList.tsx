@@ -11,6 +11,7 @@ import {
 import { Skeleton } from "../../../components/ui/skeleton";
 import { toast } from 'sonner';
 import { datasetApi, type Dataset } from '../../../services/dataset.api';
+import { projectApi } from '../../../services/project.api';
 import { DatasetCreateDialog } from './DatasetCreateDialog';
 import { UploadImageDialog } from './UploadImageDialog';
 import { ProjectGalleryDialog } from './ProjectGalleryDialog';
@@ -22,6 +23,7 @@ interface DatasetListProps {
 
 export function DatasetList({ projectId }: DatasetListProps) {
     const [datasets, setDatasets] = useState<Dataset[]>([]);
+    const [unorganizedCount, setUnorganizedCount] = useState<number>(0);
     const [isLoading, setIsLoading] = useState(true);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -36,6 +38,14 @@ export function DatasetList({ projectId }: DatasetListProps) {
         try {
             const data = await datasetApi.getProjectDatasets(projectId);
             setDatasets(data);
+
+            // Load unorganized images count
+            const unorganizedData = await projectApi.getImages(projectId, {
+                datasetId: 'null',
+                limit: 1,
+                page: 1
+            });
+            setUnorganizedCount(unorganizedData.meta?.total || 0);
         } catch (error) {
             console.error(error);
             toast.error("Failed to load datasets");
@@ -143,6 +153,14 @@ export function DatasetList({ projectId }: DatasetListProps) {
                                 Images not assigned to any dataset.
                             </CardDescription>
                         </CardHeader>
+                        <CardContent className="pb-3">
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                <div className="flex items-center gap-1">
+                                    <ImageIcon className="w-4 h-4" />
+                                    <span>{unorganizedCount} images</span>
+                                </div>
+                            </div>
+                        </CardContent>
                         <CardFooter className="pt-3 border-t bg-gray-100/50 text-xs text-muted-foreground flex justify-between items-center">
                             <span>General</span>
                             <Button size="sm" variant="ghost" onClick={() => handleViewGallery(null)}>

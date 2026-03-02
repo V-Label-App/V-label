@@ -13,15 +13,16 @@ export interface EmailOptions {
 
 export class EmailService {
     private transporter: any;
+    private initPromise: Promise<void>;
 
     constructor() {
-        this.initializeTransporter();
+        this.initPromise = this.initializeTransporter();
     }
 
     /**
      * Initialize email transporter based on active config or env variables
      */
-    private async initializeTransporter() {
+    private async initializeTransporter(): Promise<void> {
         try {
             // Try to get active config from database
             const activeConfig = await prisma.emailConfig.findFirst({
@@ -77,6 +78,9 @@ export class EmailService {
      */
     async sendEmail(options: EmailOptions): Promise<void> {
         try {
+            // Wait for transporter to be initialized
+            await this.initPromise;
+
             let subject = options.subject;
             let html = options.html;
             let text = options.text;

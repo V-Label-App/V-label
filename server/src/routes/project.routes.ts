@@ -76,6 +76,14 @@ router.post(
     ProjectController.uploadImage
 )
 
+// Batch Upload Images to Project
+router.post(
+    '/:id/images/batch',
+    requireRole(['ADMIN', 'MANAGER']),
+    uploadMiddleware.array('images'),
+    ProjectController.uploadImagesBatch
+)
+
 // Import Images from ZIP (max 200 images)
 router.post(
     '/:id/images/import-zip',
@@ -147,6 +155,18 @@ router.delete( // Unassign Task
     '/:id/tasks/:taskId/unassign',
     requireRole(['ADMIN', 'MANAGER']),
     ProjectController.unassignTask
+)
+
+router.post( // Bulk Assign Tasks
+    '/:id/tasks/bulk-assign',
+    requireRole(['ADMIN', 'MANAGER']),
+    ProjectController.bulkAssignTasks
+)
+
+router.post( // Bulk Unassign Tasks
+    '/:id/tasks/bulk-unassign',
+    requireRole(['ADMIN', 'MANAGER']),
+    ProjectController.bulkUnassignTasks
 )
 
 router.patch( // Update Task Deadline

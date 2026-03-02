@@ -57,6 +57,10 @@ export function UploadImageDialog({ projectId, datasetId: initialDatasetId, open
     const [qualityReviewOpen, setQualityReviewOpen] = useState(false);
     const [reviewedFiles, setReviewedFiles] = useState<FileWithStatus[]>([]); // Files causing the quality alert
 
+    // Folder Confirmation State
+    const [folderConfirmOpen, setFolderConfirmOpen] = useState(false);
+    const [pendingFolderFiles, setPendingFolderFiles] = useState<File[]>([]);
+
     // Hidden input for folder selection
     const folderInputRef = useRef<HTMLInputElement>(null);
 
@@ -134,14 +138,22 @@ export function UploadImageDialog({ projectId, datasetId: initialDatasetId, open
         }
 
         if (imageFiles.length > 0) {
-            processFiles(imageFiles);
-            // toast.success(`Found ${imageFiles.length} images in folder.`);
+            // Show confirmation modal instead of processing immediately
+            setPendingFolderFiles(imageFiles);
+            setFolderConfirmOpen(true);
         } else {
             toast.info("No valid images found in selected folder.");
         }
 
         // Reset input
         if (folderInputRef.current) folderInputRef.current.value = "";
+    };
+
+    // Confirm and process folder files
+    const handleConfirmFolderUpload = () => {
+        processFiles(pendingFolderFiles);
+        setFolderConfirmOpen(false);
+        setPendingFolderFiles([]);
     };
 
     // Reset progress when dialog closes or opens
@@ -199,7 +211,10 @@ export function UploadImageDialog({ projectId, datasetId: initialDatasetId, open
         let duplicateCount = 0;
         const totalFiles = files.length;
 
-        // Process sequentially to be safe (or parallel with limit)
+        // Generate a batch session ID
+        const batchSessionId = `batch_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+
+        // Process sequentially for progress tracking
         for (const file of files) {
             setUploadProgress(prev => ({
                 ...prev,
@@ -207,7 +222,7 @@ export function UploadImageDialog({ projectId, datasetId: initialDatasetId, open
             }));
 
             try {
-                await projectApi.uploadImage(projectId, file, targetDatasetId);
+                await projectApi.uploadImage(projectId, file, targetDatasetId, batchSessionId);
 
                 setUploadProgress(prev => ({
                     ...prev,
@@ -474,8 +489,13 @@ export function UploadImageDialog({ projectId, datasetId: initialDatasetId, open
             </Dialog>
 
             {/* Quality Review Modal (Nested) */}
-            <Dialog open={qualityReviewOpen} onOpenChange={setQualityReviewOpen}>
-                <DialogContent className="sm:max-w-md border-orange-200">
+            <Dialog open={qualityReviewOpen} onOpenChange={(open) => {
+                // Prevent closing by clicking outside or X button
+                // User must choose Keep All or Remove
+                if (!open) return;
+                setQualityReviewOpen(open);
+            }}>
+                <DialogContent className="sm:max-w-md border-orange-200 [&>button]:hidden" onInteractOutside={(e) => e.preventDefault()}>
                     <DialogHeader>
                         <div className="flex items-center gap-3 text-orange-600">
                             <div className="p-2 bg-orange-100 rounded-full">
@@ -540,6 +560,97 @@ export function UploadImageDialog({ projectId, datasetId: initialDatasetId, open
                             }}
                         >
                             Remove {reviewedFiles.length} Images
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Folder Upload Confirmation Modal */}
+            <Dialog open={folderConfirmOpen} onOpenChange={setFolderConfirmOpen}>
+                <DialogContent className="sm:max-w-lg">
+                    <DialogHeader>
+                        <div className="flex items-center gap-3 text-blue-600">
+                            <div className="p-2 bg-blue-100 rounded-full">
+                                <FolderOpen className="w-5 h-5" />
+                            </div>
+                            <DialogTitle className="text-blue-900">Confirm Folder Upload</DialogTitle>
+                        </div>
+                        <DialogDescription>
+                            Review the images found in the selected folder before adding them to the upload queue.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4 mt-4">
+                        {/* Summary Stats */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                                <div className="text-2xl font-bold text-blue-700">
+                                    {pendingFolderFiles.length}
+                                </div>
+                                <div className="text-xs text-blue-600 font-medium">
+                                    Image{pendingFolderFiles.length !== 1 ? 's' : ''} Found
+                                </div>
+                            </div>
+                            <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                                <div className="text-2xl font-bold text-blue-700">
+                                    {(pendingFolderFiles.reduce((acc, f) => acc + f.size, 0) / 1024 / 1024).toFixed(1)} MB
+                                </div>
+                                <div className="text-xs text-blue-600 font-medium">
+                                    Total Size
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* File Preview List */}
+                        {pendingFolderFiles.length > 0 && (
+                            <div className="border rounded-lg p-3 bg-gray-50">
+                                <div className="text-xs font-medium text-gray-600 mb-2">Files to be added:</div>
+                                <ScrollArea className="h-[150px]">
+                                    <div className="space-y-1">
+                                        {pendingFolderFiles.slice(0, 20).map((file, idx) => (
+                                            <div key={idx} className="flex items-center gap-2 text-xs text-gray-700 py-1">
+                                                <FileImage className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                                                <span className="truncate flex-1">{file.name}</span>
+                                                <span className="text-gray-400 flex-shrink-0">
+                                                    {(file.size / 1024 / 1024).toFixed(2)} MB
+                                                </span>
+                                            </div>
+                                        ))}
+                                        {pendingFolderFiles.length > 20 && (
+                                            <div className="text-xs text-gray-500 italic py-1 text-center">
+                                                ... and {pendingFolderFiles.length - 20} more files
+                                            </div>
+                                        )}
+                                    </div>
+                                </ScrollArea>
+                            </div>
+                        )}
+
+                        {/* Info Message */}
+                        <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <AlertTriangle className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                            <p className="text-xs text-blue-700">
+                                These images will be analyzed for quality issues before upload. You can review and remove any flagged images.
+                            </p>
+                        </div>
+                    </div>
+
+                    <DialogFooter className="gap-2 sm:gap-0 mt-4">
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setFolderConfirmOpen(false);
+                                setPendingFolderFiles([]);
+                            }}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleConfirmFolderUpload}
+                            className="bg-blue-600 hover:bg-blue-700"
+                        >
+                            <Upload className="w-4 h-4 mr-2" />
+                            Add {pendingFolderFiles.length} Images
                         </Button>
                     </DialogFooter>
                 </DialogContent>

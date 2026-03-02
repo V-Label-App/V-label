@@ -290,7 +290,8 @@ export class TaskService {
         role: 'ANNOTATOR' | 'REVIEWER',
         method: AssignmentMethod = AssignmentMethod.AUTO_LEAST_BUSY,
         assignedBy?: string,
-        customDeadline?: Date
+        customDeadline?: Date,
+        skipActivity?: boolean
     ): Promise<void> {
         try {
             // Get task to determine difficulty level and projectId
@@ -344,6 +345,35 @@ export class TaskService {
                 method,
                 deadline: deadline.toISOString()
             });
+
+            // Log activity (skip if called from batch operation)
+            if (!skipActivity) {
+                try {
+                    const { TaskActivityService } = await import('./task-activity.service.js');
+                    const { TaskAction } = await import('@prisma/client');
+
+                    // Get user info for metadata
+                    const assignedUser = await prisma.user.findUnique({
+                        where: { id: userId },
+                        select: { fullName: true, email: true }
+                    });
+
+                    await TaskActivityService.logActivity({
+                        taskId,
+                        projectId: task.projectId,
+                        userId: assignedBy || userId, // Use assignedBy if manual, otherwise the assigned user
+                        action: TaskAction.ASSIGNED,
+                        metadata: {
+                            targetUserId: userId,
+                            targetUserName: assignedUser?.fullName || assignedUser?.email || 'Unknown',
+                            deadline: deadline.toISOString(),
+                            method: method
+                        }
+                    });
+                } catch (activityError) {
+                    logger.error('TASK_SERVICE', 'Failed to log task assignment activity', { error: activityError });
+                }
+            }
         } catch (error) {
             logger.error('TASK_SERVICE', 'Error creating task assignment', { error, taskId, userId });
             throw error;
@@ -355,7 +385,9 @@ export class TaskService {
      */
     static async createTaskFromImage(
         imageId: string,
-        projectId: string
+        projectId: string,
+        createdBy?: string,
+        skipActivity?: boolean
     ): Promise<string> {
         try {
             const task = await prisma.task.create({
@@ -374,6 +406,26 @@ export class TaskService {
                 projectId
             });
 
+            // Log activity (skip if called from batch upload)
+            if (createdBy && !skipActivity) {
+                try {
+                    const { TaskActivityService } = await import('./task-activity.service.js');
+                    const { TaskAction } = await import('@prisma/client');
+
+                    await TaskActivityService.logActivity({
+                        taskId: task.id,
+                        projectId,
+                        userId: createdBy,
+                        action: TaskAction.CREATED,
+                        metadata: {
+                            imageId
+                        }
+                    });
+                } catch (activityError) {
+                    logger.error('TASK_SERVICE', 'Failed to log task creation activity', { error: activityError });
+                }
+            }
+
             return task.id;
         } catch (error) {
             logger.error('TASK_SERVICE', 'Error creating task from image', { error, imageId });
@@ -388,7 +440,8 @@ export class TaskService {
         taskId: string,
         projectId: string,
         role: 'ANNOTATOR' | 'REVIEWER',
-        excludeUserId?: string // For conflict of interest (reviewer != annotator)
+        excludeUserId?: string, // For conflict of interest (reviewer != annotator)
+        skipActivity?: boolean // Skip logging activity (for batch operations)
     ): Promise<boolean> {
         try {
             // Get project assignment rules
@@ -446,7 +499,7 @@ export class TaskService {
                     ? AssignmentMethod.AUTO_LEAST_BUSY
                     : AssignmentMethod.AUTO_RANDOM;
 
-            await this.assignToUser(taskId, selectedUserId, role, method);
+            await this.assignToUser(taskId, selectedUserId, role, method, undefined, undefined, skipActivity);
 
             logger.info('TASK_SERVICE', `Task auto-assigned to ${role}`, {
                 taskId,

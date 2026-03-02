@@ -318,7 +318,7 @@ export class ProjectController {
     static async uploadImage(req: Request, res: Response) {
         try {
             const { id } = req.params as { id: string }
-            const { datasetId } = req.body
+            const { datasetId, batchSessionId } = req.body
             const user = (req as any).user
 
             if (!req.file) {
@@ -389,14 +389,34 @@ export class ProjectController {
             // Auto-assign task to annotator if enabled
             try {
                 const { TaskService } = await import('../services/task.service.js')
+                const userId = user.id || user.sub
+                const isBatchUpload = !!batchSessionId
 
-                // Create task from image
-                const taskId = await TaskService.createTaskFromImage(image.id, id)
+                // Create task from image (skip activity if batch upload)
+                const taskId = await TaskService.createTaskFromImage(image.id, id, userId, isBatchUpload)
 
-                // Auto-assign to annotator if enabled
-                await TaskService.autoAssignTask(taskId, id, 'ANNOTATOR')
+                // If batch upload, add to batch session for consolidation
+                if (batchSessionId) {
+                    const { BatchUploadService } = await import('../services/batch-upload.service.js')
+                    BatchUploadService.addTaskToBatch(
+                        batchSessionId,
+                        id,
+                        userId,
+                        taskId,
+                        image.originalFilename
+                    )
+                }
 
-                logger.info('API', `Task created and auto-assigned for image ${image.id}`, { taskId })
+                // Auto-assign to annotator if enabled (skip activity if batch)
+                const wasAssigned = await TaskService.autoAssignTask(taskId, id, 'ANNOTATOR', undefined, isBatchUpload)
+
+                // If batch upload and task was assigned, mark it in batch session
+                if (batchSessionId && wasAssigned) {
+                    const { BatchUploadService } = await import('../services/batch-upload.service.js')
+                    BatchUploadService.markTaskAssigned(batchSessionId, taskId)
+                }
+
+                logger.info('API', `Task created and auto-assigned for image ${image.id}`, { taskId, batchSessionId, wasAssigned })
             } catch (taskError) {
                 // Log error but don't fail the upload
                 logger.error('API', 'Failed to create/assign task for image', {
@@ -416,6 +436,227 @@ export class ProjectController {
             return res.status(500).json({ error: 'Internal server error' })
         }
     }
+
+    /**
+     * POST /api/v1/projects/:id/images/batch
+     * Batch upload images to project
+     */
+    static async uploadImagesBatch(req: Request, res: Response) {
+        try {
+            const { id } = req.params as { id: string }
+            const { datasetId } = req.body
+            const user = (req as any).user
+            const userId = user.id || user.sub
+
+            if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
+                return res.status(400).json({ error: 'No image files uploaded' })
+            }
+
+            const files = req.files as Express.Multer.File[]
+            const crypto = await import('crypto')
+            const { prisma } = await import('../utils/database.js')
+            const { ImageService } = await import('../services/image.service.js')
+            const { TaskService } = await import('../services/task.service.js')
+
+            const results = {
+                successful: [] as any[],
+                duplicates: [] as any[],
+                failed: [] as any[]
+            }
+
+            const uploadedImages: any[] = []
+            const createdTaskIds: string[] = []
+            const folderPath = `v-label/projects/${id}/${datasetId || 'general'}`
+
+            // Process each file
+            for (const file of files) {
+                try {
+                    // Calculate checksum
+                    const checksum = crypto.createHash('md5').update(file.buffer).digest('hex')
+
+                    // Check for duplicate
+                    const existingImage = await prisma.image.findFirst({
+                        where: {
+                            projectId: id,
+                            checksum: checksum
+                        }
+                    })
+
+                    if (existingImage) {
+                        logger.warn('API', `Duplicate image skipped: ${file.originalname}`, { projectId: id })
+                        results.duplicates.push({
+                            filename: file.originalname,
+                            existingImageId: existingImage.id,
+                            existingImageUrl: existingImage.storageUrl
+                        })
+                        continue
+                    }
+
+                    // Upload to Cloudinary
+                    const uploadResult = await ImageService.uploadImage(file.buffer, folderPath)
+
+                    // Save to database
+                    const image = await prisma.image.create({
+                        data: {
+                            projectId: id,
+                            datasetId: datasetId || null,
+                            originalFilename: file.originalname,
+                            storageUrl: uploadResult.secure_url,
+                            publicId: uploadResult.public_id,
+                            width: uploadResult.width,
+                            height: uploadResult.height,
+                            format: uploadResult.format,
+                            fileSizeBytes: BigInt(uploadResult.bytes),
+                            uploadedBy: userId,
+                            checksum: checksum,
+                        }
+                    })
+
+                    uploadedImages.push(image)
+                    results.successful.push({
+                        filename: file.originalname,
+                        imageId: image.id,
+                        url: image.storageUrl
+                    })
+
+                    // Create task from image (skip individual activity logging)
+                    const taskId = await TaskService.createTaskFromImage(image.id, id, userId, true)
+                    createdTaskIds.push(taskId)
+
+                } catch (fileError) {
+                    logger.error('API', `Failed to upload file: ${file.originalname}`, { error: fileError })
+                    results.failed.push({
+                        filename: file.originalname,
+                        error: 'Upload failed'
+                    })
+                }
+            }
+
+            logger.info('API', `Batch upload completed for project ${id}`, {
+                successful: results.successful.length,
+                duplicates: results.duplicates.length,
+                failed: results.failed.length,
+                actorId: userId
+            })
+
+            // Log bulk created activity if tasks were created
+            if (createdTaskIds.length > 0) {
+                try {
+                    const { TaskActivityService } = await import('../services/task-activity.service.js')
+                    const { TaskAction } = await import('@prisma/client')
+
+                    const taskNames = uploadedImages.map(img => img.originalFilename)
+
+                    await TaskActivityService.logBulkActivity({
+                        taskIds: createdTaskIds,
+                        projectId: id,
+                        userId,
+                        action: TaskAction.CREATED,
+                        metadata: {
+                            count: createdTaskIds.length,
+                            taskNames
+                        }
+                    })
+                } catch (activityError) {
+                    logger.error('API', 'Failed to log bulk created activity', { error: activityError })
+                }
+
+                // Auto-assign tasks if enabled and group by annotator
+                try {
+                    const project = await prisma.project.findUnique({
+                        where: { id },
+                        include: { assignmentRule: true }
+                    })
+
+                    if (project?.assignmentRule?.isAutoAssignEnabled) {
+                        // Map to track assignments by annotator
+                        const assignmentsByAnnotator = new Map<string, string[]>()
+
+                        for (const taskId of createdTaskIds) {
+                            const assigned = await TaskService.autoAssignTask(taskId, id, 'ANNOTATOR', undefined, true)
+
+                            if (assigned) {
+                                // Get the assignment to find annotator
+                                const assignment = await prisma.taskAssignment.findFirst({
+                                    where: { taskId },
+                                    orderBy: { createdAt: 'desc' },
+                                    include: {
+                                        annotator: {
+                                            select: { id: true, fullName: true, email: true }
+                                        }
+                                    }
+                                })
+
+                                if (assignment) {
+                                    const annotatorId = assignment.annotatorId
+                                    if (!assignmentsByAnnotator.has(annotatorId)) {
+                                        assignmentsByAnnotator.set(annotatorId, [])
+                                    }
+                                    assignmentsByAnnotator.get(annotatorId)!.push(taskId)
+                                }
+                            }
+                        }
+
+                        // Log bulk assigned activities for each annotator
+                        const { TaskActivityService } = await import('../services/task-activity.service.js')
+                        const { TaskAction } = await import('@prisma/client')
+
+                        for (const [annotatorId, taskIds] of assignmentsByAnnotator.entries()) {
+                            if (taskIds.length === 0) continue
+
+                            const annotator = await prisma.user.findUnique({
+                                where: { id: annotatorId },
+                                select: { fullName: true, email: true }
+                            })
+
+                            // Get task names for these tasks
+                            const tasks = await prisma.task.findMany({
+                                where: { id: { in: taskIds } },
+                                include: { image: { select: { originalFilename: true } } }
+                            })
+                            const taskNames = tasks.map(t => t.image?.originalFilename || `Task #${t.id.substring(0, 6)}`)
+
+                            await TaskActivityService.logBulkActivity({
+                                taskIds,
+                                projectId: id,
+                                userId,
+                                action: TaskAction.BULK_ASSIGNED,
+                                metadata: {
+                                    count: taskIds.length,
+                                    targetUserId: annotatorId,
+                                    targetUserName: annotator?.fullName || annotator?.email || 'Unknown',
+                                    taskNames
+                                }
+                            })
+                        }
+
+                        logger.info('API', `Auto-assigned ${createdTaskIds.length} tasks to annotators`, {
+                            projectId: id,
+                            annotatorCount: assignmentsByAnnotator.size
+                        })
+                    }
+                } catch (assignError) {
+                    logger.error('API', 'Failed to auto-assign tasks', { error: assignError })
+                }
+            }
+
+            return res.status(201).json({
+                message: 'Batch upload completed',
+                results: {
+                    successful: results.successful.length,
+                    duplicates: results.duplicates.length,
+                    failed: results.failed.length,
+                    total: files.length
+                },
+                details: results
+            })
+
+        } catch (error) {
+            logger.error('API', 'Batch image upload failed', { error })
+            return res.status(500).json({ error: 'Internal server error' })
+        }
+    }
+
     /**
      * GET /api/v1/projects/:id/images
      */
@@ -466,10 +707,51 @@ export class ProjectController {
     static async deleteImage(req: Request, res: Response) {
         try {
             const { id, imageId } = req.params as { id: string, imageId: string }
+            const user = (req as any).user
+            const userId = user.sub || user.id
 
+            const { prisma } = await import('../utils/database.js')
+
+            // Get task info BEFORE deletion
+            const task = await prisma.task.findFirst({
+                where: {
+                    imageId: imageId,
+                    projectId: id
+                },
+                select: {
+                    id: true,
+                    image: {
+                        select: {
+                            originalFilename: true
+                        }
+                    }
+                }
+            })
+
+            // Log activity BEFORE deleting (taskId will be set to NULL after deletion)
+            if (task) {
+                try {
+                    const { TaskActivityService } = await import('../services/task-activity.service.js')
+                    const { TaskAction } = await import('@prisma/client')
+
+                    await TaskActivityService.logActivity({
+                        taskId: task.id,
+                        projectId: id,
+                        userId,
+                        action: TaskAction.DELETED,
+                        metadata: {
+                            taskName: task.image?.originalFilename || `Task #${task.id.substring(0, 6)}`
+                        }
+                    })
+                } catch (activityError) {
+                    logger.error('API', 'Failed to log delete activity', { error: activityError })
+                }
+            }
+
+            // Delete image (task will be cascade deleted, taskId in activity will be set to NULL)
             await ProjectService.deleteImage(id, imageId)
 
-            logger.info('API', `Image deleted from project ${id}: ${imageId}`, { actorId: (req as any).user?.id })
+            logger.info('API', `Image deleted from project ${id}: ${imageId}`, { actorId: userId })
 
             return res.json({ message: 'Image deleted successfully' })
         } catch (error) {
@@ -489,14 +771,57 @@ export class ProjectController {
         try {
             const { id } = req.params as { id: string }
             const { imageIds } = req.body
+            const user = (req as any).user
+            const userId = user.sub || user.id
 
             if (!Array.isArray(imageIds) || imageIds.length === 0) {
                 return res.status(400).json({ error: 'imageIds array is required' })
             }
 
+            // Log activity before deletion (get task IDs first)
+            const { prisma } = await import('../utils/database.js')
+            try {
+                const { TaskActivityService } = await import('../services/task-activity.service.js')
+                const { TaskAction } = await import('@prisma/client')
+
+                // Get tasks associated with these images
+                const tasks = await prisma.task.findMany({
+                    where: {
+                        imageId: { in: imageIds },
+                        projectId: id
+                    },
+                    select: {
+                        id: true,
+                        image: {
+                            select: {
+                                originalFilename: true
+                            }
+                        }
+                    }
+                })
+
+                if (tasks.length > 0) {
+                    const taskIds = tasks.map(t => t.id)
+                    const taskNames = tasks.map(t => t.image?.originalFilename || `Task #${t.id.substring(0, 6)}`).filter(Boolean)
+
+                    await TaskActivityService.logBulkActivity({
+                        taskIds,
+                        projectId: id,
+                        userId,
+                        action: TaskAction.BULK_DELETED,
+                        metadata: {
+                            count: taskIds.length,
+                            taskNames
+                        }
+                    })
+                }
+            } catch (activityError) {
+                logger.error('API', 'Failed to log bulk delete activity', { error: activityError })
+            }
+
             const result = await ProjectService.deleteImages(id, imageIds)
 
-            logger.info('API', `Batch images deleted from project ${id}: ${result.count} images`, { actorId: (req as any).user?.id })
+            logger.info('API', `Batch images deleted from project ${id}: ${result.count} images`, { actorId: userId })
 
             return res.json({ message: `Successfully deleted ${result.count} images` })
         } catch (error) {
@@ -651,7 +976,7 @@ export class ProjectController {
     static async assignTask(req: Request, res: Response) {
         try {
             const { id, taskId } = req.params as { id: string; taskId: string }
-            const { annotatorId, deadline } = req.body
+            const { annotatorId, deadline, reason } = req.body
             const user = (req as any).user
             const userId = user.sub || user.id
 
@@ -667,6 +992,13 @@ export class ProjectController {
                 where: {
                     id: taskId,
                     projectId: id
+                },
+                include: {
+                    image: {
+                        select: {
+                            originalFilename: true
+                        }
+                    }
                 }
             })
 
@@ -687,19 +1019,60 @@ export class ProjectController {
                 return res.status(400).json({ error: 'User is not an annotator in this project' })
             }
 
-            // Check if task already has an active assignment for this annotator
+            // Check if task already has an active assignment
             const existingAssignment = await prisma.taskAssignment.findFirst({
                 where: {
                     taskId,
-                    annotatorId,
                     status: {
                         in: [AssignmentStatus.ASSIGNED, AssignmentStatus.IN_PROGRESS]
+                    }
+                },
+                include: {
+                    annotator: {
+                        select: {
+                            id: true,
+                            fullName: true,
+                            email: true
+                        }
                     }
                 }
             })
 
-            if (existingAssignment) {
+            // Check if it's the same annotator
+            if (existingAssignment && existingAssignment.annotatorId === annotatorId) {
                 return res.status(409).json({ error: 'Task already assigned to this annotator' })
+            }
+
+            // Store old assignment info for reassignment logging
+            const isReassignment = !!existingAssignment
+            const oldAnnotator = existingAssignment?.annotator
+
+            // Delete old assignment if reassigning
+            if (existingAssignment) {
+                // Update workload for old annotator
+                const { UserWorkloadService } = await import('../services/user-workload.service.js')
+
+                if (existingAssignment.status === AssignmentStatus.ASSIGNED) {
+                    await UserWorkloadService.decrementAssignedTasks(existingAssignment.annotatorId, id)
+                } else if (existingAssignment.status === AssignmentStatus.IN_PROGRESS) {
+                    await prisma.userWorkload.update({
+                        where: {
+                            userId_projectId: {
+                                userId: existingAssignment.annotatorId,
+                                projectId: id
+                            }
+                        },
+                        data: {
+                            inProgressTasks: { decrement: 1 }
+                        }
+                    })
+                    await UserWorkloadService.updateAvailabilityStatus(existingAssignment.annotatorId, id)
+                }
+
+                // Delete old assignment
+                await prisma.taskAssignment.delete({
+                    where: { id: existingAssignment.id }
+                })
             }
 
             // Use TaskService to create assignment with auto-calculated deadline
@@ -749,6 +1122,146 @@ export class ProjectController {
                 actorId: userId,
                 projectId: id
             })
+
+            // Log activity
+            try {
+                const { TaskActivityService } = await import('../services/task-activity.service.js')
+                const { TaskAction } = await import('@prisma/client')
+
+                const annotator = await prisma.user.findUnique({
+                    where: { id: annotatorId },
+                    select: { fullName: true, email: true }
+                })
+
+                // Determine action based on whether it's a reassignment
+                const action = isReassignment ? TaskAction.REASSIGNED : TaskAction.ASSIGNED
+                const metadata: any = {
+                    targetUserId: annotatorId,
+                    targetUserName: annotator?.fullName || annotator?.email,
+                    deadline: assignment?.deadline?.toISOString(),
+                }
+
+                // Add old assignee info if reassignment
+                if (isReassignment && oldAnnotator) {
+                    metadata.oldAssignee = oldAnnotator.fullName || oldAnnotator.email
+                    metadata.newAssignee = annotator?.fullName || annotator?.email
+                    if (reason) {
+                        metadata.reason = reason
+                    }
+                }
+
+                await TaskActivityService.logActivity({
+                    taskId,
+                    projectId: id,
+                    userId,
+                    action,
+                    metadata
+                })
+            } catch (activityError) {
+                logger.error('API', 'Failed to log task assignment activity', { error: activityError })
+            }
+
+            // Send notification and email to annotator
+            try {
+                const { NotificationType } = await import('@prisma/client')
+                const { NotificationTemplateService } = await import('../services/notification.template.service.js')
+                const { NotificationService } = await import('../services/notification.service.js')
+                const { broadcastService } = await import('../websocket/events/broadcast.service.js')
+                const { SystemEventType } = await import('../websocket/events/types.js')
+                const { EmailService } = await import('../services/email/email.service.js')
+
+                // Get project info
+                const project = await prisma.project.findUnique({
+                    where: { id },
+                    select: { id: true, name: true }
+                })
+
+                // Get annotator info
+                const annotator = await prisma.user.findUnique({
+                    where: { id: annotatorId },
+                    select: { id: true, email: true, fullName: true }
+                })
+
+                if (project && annotator && assignment) {
+                    // Render notification template
+                    const rendered = await NotificationTemplateService.render(
+                        NotificationType.TASK_ASSIGNED,
+                        {
+                            taskId: task.id,
+                            taskName: task.image?.originalFilename || 'Untitled Task',
+                            projectId: project.id,
+                            projectName: project.name
+                        }
+                    )
+
+                    if (rendered) {
+                        // Create notification in DB
+                        const notification = await NotificationService.createNotification({
+                            userId: annotatorId,
+                            type: NotificationType.TASK_ASSIGNED,
+                            title: rendered.title,
+                            message: rendered.message,
+                            metadata: {
+                                taskId: task.id,
+                                projectId: project.id,
+                                projectName: project.name,
+                                deadline: assignment.deadline?.toISOString()
+                            }
+                        })
+
+                        // Broadcast via WebSocket
+                        broadcastService.broadcastToUser(annotatorId, SystemEventType.NOTIFICATION_CREATED, {
+                            notification: {
+                                id: notification.id,
+                                type: notification.type,
+                                title: notification.title,
+                                message: notification.message,
+                                metadata: notification.metadata,
+                                isRead: notification.isRead,
+                                createdAt: notification.createdAt
+                            }
+                        })
+
+                        // Send email
+                        const emailService = new EmailService()
+                        const taskUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/annotator/tasks/${task.id}`
+                        const deadlineFormatted = assignment.deadline
+                            ? new Date(assignment.deadline).toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })
+                            : 'No deadline'
+
+                        await emailService.sendEmail({
+                            to: annotator.email,
+                            templateType: 'TASK_ASSIGNED',
+                            variables: {
+                                userName: annotator.fullName || annotator.email,
+                                projectName: project.name,
+                                taskId: task.id.substring(0, 8),
+                                deadline: deadlineFormatted,
+                                taskUrl
+                            }
+                        })
+
+                        logger.info('API', `Notification and email sent for task assignment`, {
+                            taskId,
+                            annotatorId,
+                            projectId: id
+                        })
+                    }
+                }
+            } catch (notifError) {
+                // Don't fail the whole request if notification fails
+                logger.error('API', 'Failed to send task assignment notification/email', {
+                    error: notifError,
+                    taskId,
+                    annotatorId
+                })
+            }
 
             return res.status(201).json(assignment)
         } catch (error) {
@@ -937,6 +1450,13 @@ export class ProjectController {
                 where: {
                     id: taskId,
                     projectId: id
+                },
+                include: {
+                    image: {
+                        select: {
+                            originalFilename: true
+                        }
+                    }
                 }
             })
 
@@ -1002,9 +1522,339 @@ export class ProjectController {
                 previousAnnotatorId
             })
 
+            // Log activity
+            try {
+                const { TaskActivityService } = await import('../services/task-activity.service.js')
+                const { TaskAction } = await import('@prisma/client')
+
+                const annotator = await prisma.user.findUnique({
+                    where: { id: previousAnnotatorId },
+                    select: { fullName: true, email: true }
+                })
+
+                await TaskActivityService.logActivity({
+                    taskId,
+                    projectId: id,
+                    userId,
+                    action: TaskAction.UNASSIGNED,
+                    metadata: {
+                        targetUserId: previousAnnotatorId,
+                        targetUserName: annotator?.fullName || annotator?.email || 'Unknown',
+                    }
+                })
+            } catch (activityError) {
+                logger.error('API', 'Failed to log task unassignment activity', { error: activityError })
+            }
+
             return res.json({ message: 'Task unassigned successfully' })
         } catch (error) {
             logger.error('API', 'Unassign task failed', { error })
+            return res.status(500).json({ error: 'Internal server error' })
+        }
+    }
+
+    /**
+     * POST /api/v1/projects/:id/tasks/bulk-assign
+     * Assign multiple tasks to an annotator at once
+     */
+    static async bulkAssignTasks(req: Request, res: Response) {
+        try {
+            const { id } = req.params as { id: string }
+            const { taskIds, annotatorId, deadline } = req.body
+            const user = (req as any).user
+            const userId = user.sub || user.id
+
+            if (!taskIds || !Array.isArray(taskIds) || taskIds.length === 0) {
+                return res.status(400).json({ error: 'Task IDs array is required' })
+            }
+
+            if (!annotatorId) {
+                return res.status(400).json({ error: 'Annotator ID is required' })
+            }
+
+            const { prisma } = await import('../utils/database.js')
+            const { TaskAction, AssignmentStatus } = await import('@prisma/client')
+
+            // Verify all tasks belong to this project
+            const tasks = await prisma.task.findMany({
+                where: {
+                    id: { in: taskIds },
+                    projectId: id
+                },
+                include: {
+                    image: {
+                        select: {
+                            originalFilename: true
+                        }
+                    }
+                }
+            })
+
+            if (tasks.length !== taskIds.length) {
+                return res.status(404).json({ error: 'Some tasks not found in this project' })
+            }
+
+            // Check annotator exists and is an ANNOTATOR
+            const annotator = await prisma.user.findUnique({
+                where: { id: annotatorId },
+                select: { id: true, fullName: true, email: true, role: true }
+            })
+
+            if (!annotator) {
+                return res.status(404).json({ error: 'Annotator not found' })
+            }
+
+            if (annotator.role !== 'ANNOTATOR') {
+                return res.status(400).json({ error: 'User is not an annotator' })
+            }
+
+            const deadlineDate = deadline ? new Date(deadline) : null
+
+            // Delete existing assignments for these tasks, then create new ones
+            await prisma.$transaction([
+                // Delete existing assignments for these tasks
+                prisma.taskAssignment.deleteMany({
+                    where: {
+                        taskId: { in: taskIds }
+                    }
+                }),
+                // Create new assignments
+                ...taskIds.map(taskId =>
+                    prisma.taskAssignment.create({
+                        data: {
+                            taskId,
+                            annotatorId,
+                            status: AssignmentStatus.ASSIGNED,
+                            deadline: deadlineDate
+                        }
+                    })
+                )
+            ])
+
+            // Update task deadlines
+            await prisma.task.updateMany({
+                where: { id: { in: taskIds } },
+                data: { deadline: deadlineDate }
+            })
+
+            // Update workload
+            const { UserWorkloadService } = await import('../services/user-workload.service.js')
+            await UserWorkloadService.initializeWorkload(annotatorId, id)
+            await prisma.userWorkload.update({
+                where: {
+                    userId_projectId: {
+                        userId: annotatorId,
+                        projectId: id
+                    }
+                },
+                data: {
+                    assignedTasks: { increment: taskIds.length }
+                }
+            })
+            await UserWorkloadService.updateAvailabilityStatus(annotatorId, id)
+
+            logger.info('API', `Bulk assigned ${taskIds.length} tasks to ${annotatorId}`, {
+                actorId: userId,
+                projectId: id
+            })
+
+            // Log bulk activity
+            try {
+                const { TaskActivityService } = await import('../services/task-activity.service.js')
+
+                // Get task names
+                const taskNames = tasks.map(t => t.image?.originalFilename || `Task #${t.id.substring(0, 6)}`).filter(Boolean)
+
+                await TaskActivityService.logBulkActivity({
+                    taskIds,
+                    projectId: id,
+                    userId,
+                    action: TaskAction.BULK_ASSIGNED,
+                    metadata: {
+                        count: taskIds.length,
+                        targetUserId: annotatorId,
+                        targetUserName: annotator.fullName || annotator.email,
+                        ...(deadlineDate && { deadline: deadlineDate.toISOString() }),
+                        taskNames
+                    }
+                })
+            } catch (activityError) {
+                logger.error('API', 'Failed to log bulk assign activity', { error: activityError })
+            }
+
+            return res.json({
+                message: `Successfully assigned ${taskIds.length} tasks`,
+                count: taskIds.length
+            })
+        } catch (error) {
+            logger.error('API', 'Bulk assign tasks failed', { error })
+            return res.status(500).json({ error: 'Internal server error' })
+        }
+    }
+
+    /**
+     * POST /api/v1/projects/:id/tasks/bulk-unassign
+     * Unassign multiple tasks at once
+     */
+    static async bulkUnassignTasks(req: Request, res: Response) {
+        try {
+            const { id } = req.params as { id: string }
+            const { taskIds } = req.body
+            const user = (req as any).user
+            const userId = user.sub || user.id
+
+            if (!taskIds || !Array.isArray(taskIds) || taskIds.length === 0) {
+                return res.status(400).json({ error: 'Task IDs array is required' })
+            }
+
+            const { prisma } = await import('../utils/database.js')
+            const { TaskAction, AssignmentStatus } = await import('@prisma/client')
+
+            // Verify all tasks belong to this project
+            const tasks = await prisma.task.findMany({
+                where: {
+                    id: { in: taskIds },
+                    projectId: id
+                },
+                include: {
+                    image: {
+                        select: {
+                            originalFilename: true
+                        }
+                    }
+                }
+            })
+
+            if (tasks.length !== taskIds.length) {
+                return res.status(404).json({ error: 'Some tasks not found in this project' })
+            }
+
+            // Find all active assignments for these tasks
+            const assignments = await prisma.taskAssignment.findMany({
+                where: {
+                    taskId: { in: taskIds },
+                    status: {
+                        in: [AssignmentStatus.ASSIGNED, AssignmentStatus.IN_PROGRESS]
+                    }
+                },
+                include: {
+                    annotator: {
+                        select: { id: true, fullName: true, email: true }
+                    }
+                }
+            })
+
+            if (assignments.length === 0) {
+                return res.status(404).json({ error: 'No active assignments found for these tasks' })
+            }
+
+            // Group assignments by annotator for workload updates
+            const annotatorGroups = new Map<string, { count: number; hasInProgress: boolean }>()
+            assignments.forEach(assignment => {
+                const current = annotatorGroups.get(assignment.annotatorId) || { count: 0, hasInProgress: false }
+                current.count++
+                if (assignment.status === AssignmentStatus.IN_PROGRESS) {
+                    current.hasInProgress = true
+                }
+                annotatorGroups.set(assignment.annotatorId, current)
+            })
+
+            // Delete all assignments and clear deadlines in a transaction
+            await prisma.$transaction([
+                prisma.taskAssignment.deleteMany({
+                    where: {
+                        taskId: { in: taskIds },
+                        status: {
+                            in: [AssignmentStatus.ASSIGNED, AssignmentStatus.IN_PROGRESS]
+                        }
+                    }
+                }),
+                prisma.task.updateMany({
+                    where: { id: { in: taskIds } },
+                    data: { deadline: null }
+                })
+            ])
+
+            // Update workload for each affected annotator
+            const { UserWorkloadService } = await import('../services/user-workload.service.js')
+            for (const [annotatorId, { count, hasInProgress }] of annotatorGroups.entries()) {
+                try {
+                    // Decrement assigned tasks
+                    await prisma.userWorkload.update({
+                        where: {
+                            userId_projectId: {
+                                userId: annotatorId,
+                                projectId: id
+                            }
+                        },
+                        data: {
+                            assignedTasks: { decrement: count }
+                        }
+                    })
+                    await UserWorkloadService.updateAvailabilityStatus(annotatorId, id)
+
+                    // If any were in progress, handle that separately
+                    if (hasInProgress) {
+                        const inProgressCount = assignments.filter(
+                            a => a.annotatorId === annotatorId && a.status === AssignmentStatus.IN_PROGRESS
+                        ).length
+
+                        if (inProgressCount > 0) {
+                            await prisma.userWorkload.update({
+                                where: {
+                                    userId_projectId: {
+                                        userId: annotatorId,
+                                        projectId: id
+                                    }
+                                },
+                                data: {
+                                    inProgressTasks: { decrement: inProgressCount }
+                                }
+                            })
+                        }
+                        await UserWorkloadService.updateAvailabilityStatus(annotatorId, id)
+                    }
+                } catch (workloadError) {
+                    logger.error('API', `Failed to update workload for annotator ${annotatorId}`, { error: workloadError })
+                }
+            }
+
+            logger.info('API', `Bulk unassigned ${assignments.length} tasks`, {
+                actorId: userId,
+                projectId: id
+            })
+
+            // Log bulk activity
+            try {
+                const { TaskActivityService } = await import('../services/task-activity.service.js')
+                const targetUserName = assignments[0]?.annotator?.fullName || assignments[0]?.annotator?.email || 'Annotators'
+
+                // Get task names for the unassigned tasks
+                const unassignedTaskIds = assignments.map(a => a.taskId)
+                const unassignedTasks = tasks.filter(t => unassignedTaskIds.includes(t.id))
+                const taskNames = unassignedTasks.map(t => t.image?.originalFilename || `Task #${t.id.substring(0, 6)}`).filter(Boolean)
+
+                await TaskActivityService.logBulkActivity({
+                    taskIds: unassignedTaskIds,
+                    projectId: id,
+                    userId,
+                    action: TaskAction.BULK_UNASSIGNED,
+                    metadata: {
+                        count: assignments.length,
+                        targetUserName,
+                        taskNames
+                    }
+                })
+            } catch (activityError) {
+                logger.error('API', 'Failed to log bulk unassign activity', { error: activityError })
+            }
+
+            return res.json({
+                message: `Successfully unassigned ${assignments.length} tasks`,
+                count: assignments.length
+            })
+        } catch (error) {
+            logger.error('API', 'Bulk unassign tasks failed', { error })
             return res.status(500).json({ error: 'Internal server error' })
         }
     }
@@ -1032,6 +1882,13 @@ export class ProjectController {
                 where: {
                     id: taskId,
                     projectId: id
+                },
+                include: {
+                    image: {
+                        select: {
+                            originalFilename: true
+                        }
+                    }
                 }
             })
 

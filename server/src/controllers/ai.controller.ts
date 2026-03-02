@@ -4,7 +4,7 @@ import { SystemConfigService } from '../services/system.config.service.js';
 import { FunctionRegistry } from '../services/ai/function.registry.js';
 
 export class AIController {
-  
+
   static async chatCompletion(req: Request, res: Response) {
     try {
       const { message, history } = req.body;
@@ -59,10 +59,6 @@ export class AIController {
       // Warning: If no functions available, log it
       if (availableFunctions.length === 0 && allConfigFunctionNames.length > 0) {
         console.warn(`[AI] ⚠️  WARNING: User ${userRole} has NO available functions!`);
-        console.warn(`[AI] This may be because:`);
-        console.warn(`[AI]   1. Functions are disabled in Admin settings`);
-        console.warn(`[AI]   2. Role "${userRole}" is not added to function roles`);
-        console.warn(`[AI]   3. User needs to go to Admin → AI Chat → Tools → Enable functions for their role`);
       }
 
       // 4. Call Gemini with role-based prompt, knowledge base, custom role prompts, and functions
@@ -83,10 +79,10 @@ export class AIController {
 
     } catch (error: any) {
       console.error('[AI] Chat completion error:', error);
-      
+
       // Better error message for model not found
       if (error.message?.includes('404') || error.message?.includes('not found')) {
-         return res.status(400).json({ error: 'The configured AI model was not found. Please contact Admin.' });
+        return res.status(400).json({ error: 'The configured AI model was not found. Please contact Admin.' });
       }
 
       return res.status(500).json({ error: 'Failed to generate response' });
@@ -98,16 +94,16 @@ export class AIController {
    */
   static async getConfig(req: Request, res: Response) {
     try {
-        const config = await SystemConfigService.getChatConfig();
-        // Return only safe fields
-        return res.json({
-            enabled: config.enabled,
-            ui: config.ui
-            // Exclude modelName, systemPrompt, temperature, etc.
-        });
+      const config = await SystemConfigService.getChatConfig();
+      // Return only safe fields
+      return res.json({
+        enabled: config.enabled,
+        ui: config.ui
+        // Exclude modelName, systemPrompt, temperature, etc.
+      });
     } catch (error) {
-        console.error('[AI] Get config error:', error);
-        return res.status(500).json({ error: 'Failed to fetch config' });
+      console.error('[AI] Get config error:', error);
+      return res.status(500).json({ error: 'Failed to fetch config' });
     }
   }
 
@@ -116,11 +112,69 @@ export class AIController {
    */
   static async getRegistry(req: Request, res: Response) {
     try {
-        const definitions = FunctionRegistry.getDefinitions();
-        return res.json(definitions);
+      const definitions = FunctionRegistry.getDefinitions();
+      return res.json(definitions);
     } catch (error) {
-        console.error('[AI] Get registry error:', error);
-        return res.status(500).json({ error: 'Failed to fetch function registry' });
+      console.error('[AI] Get registry error:', error);
+      return res.status(500).json({ error: 'Failed to fetch function registry' });
+    }
+  }
+
+  /**
+   * Refactor/improve text using AI
+   */
+  static async refactorText(req: Request, res: Response) {
+    try {
+      const { text, context } = req.body;
+
+      if (!text || text.trim() === '') {
+        return res.status(400).json({ error: 'Text is required' });
+      }
+
+      // Get AI config
+      const config = await SystemConfigService.getChatConfig();
+
+      // Create a prompt to refactor the text
+      const prompt = context
+        ? `Please refine the following ${context} (e.g., reviewer feedback, annotator note, or labeling guideline). Make it more professional, constructive, and technically precise so the team can take accurate action, while preserving the original meaning:\n\n${text}`
+        : `Please refine the following text for our data labeling workflow. Make it professional, clear, and actionable while preserving the original technical meaning:\n\n${text}`;
+
+      const systemPrompt = `You are an AI Quality Assurance Assistant integrated into VLabel, an enterprise data labeling platform.
+                            Your task is to refine user inputs to make them professional, constructive, clear, and concise.
+                            If it is a Reviewer's rejection comment, make it constructive and actionable without sounding aggressive.
+                            If it is an Annotator's note, make it clear and easy for the Reviewer to understand the issue.
+                            Preserve all original technical details, intent, and object names.
+                            Return ONLY the improved text without any explanations, formatting tags, Quick Replies, or additional commentary.
+                            DO NOT include <<<REPLIES>>> markers in your response.`;
+
+      // Call Gemini with simple prompt
+      let refactoredText = await geminiService.chatCompletion(
+        config.modelName || 'gemini-2.0-flash-exp',
+        systemPrompt,
+        [],
+        prompt,
+        0.7,
+        'MANAGER',
+        undefined,
+        undefined,
+        [],
+        (req as any).user?.sub
+      );
+
+      // Remove Quick Replies if present (format: <<<REPLIES>>>["option1", "option2"]<<<REPLIES>>>)
+      const repliesPattern = /<<<REPLIES>>>.*?<<<REPLIES>>>/gs;
+      refactoredText = refactoredText.replace(repliesPattern, '').trim();
+
+      return res.json({ refactoredText });
+
+    } catch (error: any) {
+      console.error('[AI] Refactor text error:', error);
+
+      if (error.message?.includes('404') || error.message?.includes('not found')) {
+        return res.status(400).json({ error: 'The configured AI model was not found. Please contact Admin.' });
+      }
+
+      return res.status(500).json({ error: 'Failed to refactor text' });
     }
   }
 }
