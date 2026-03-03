@@ -758,6 +758,9 @@ export class ProjectController {
             if (error instanceof Error && error.message === 'Image not found in project') {
                 return res.status(404).json({ error: 'Image not found' })
             }
+            if (error instanceof Error && error.message.includes('Cannot delete image')) {
+                return res.status(409).json({ error: error.message })
+            }
             logger.error('API', 'Delete project image failed', { error })
             return res.status(500).json({ error: 'Internal server error' })
         }
@@ -825,6 +828,9 @@ export class ProjectController {
 
             return res.json({ message: `Successfully deleted ${result.count} images` })
         } catch (error) {
+            if (error instanceof Error && error.message.includes('Cannot delete images')) {
+                return res.status(409).json({ error: error.message })
+            }
             logger.error('API', 'Batch delete project images failed', { error })
             return res.status(500).json({ error: 'Internal server error' })
         }
@@ -1232,7 +1238,7 @@ export class ProjectController {
                                 day: 'numeric',
                                 hour: '2-digit',
                                 minute: '2-digit'
-                              })
+                            })
                             : 'No deadline'
 
                         await emailService.sendEmail({
