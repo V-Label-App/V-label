@@ -28,7 +28,6 @@ import {
 } from "../../../components/ui/tabs";
 import {
   ArrowLeft,
-  FolderOpen,
   Clock,
   CheckCircle2,
   Loader2,
@@ -112,11 +111,26 @@ export function AnnotatorProjectDetailPage() {
 
   const getStatusBadge = (status: string) => {
     const styles = {
-      ASSIGNED: { className: "bg-gray-100 text-gray-700 border-gray-300", label: "Assigned" },
-      SUBMITTED: { className: "bg-blue-100 text-blue-700 border-blue-300", label: "Submitted" },
-      REJECTED: { className: "bg-red-100 text-red-700 border-red-300", label: "REJECTED" },
-      IN_PROGRESS: { className: "bg-yellow-100 text-yellow-700 border-yellow-300", label: "In Progress" },
-      APPROVED: { className: "bg-green-100 text-green-700 border-green-300", label: "Approved" },
+      ASSIGNED: {
+        className: "bg-gray-100 text-gray-700 border-gray-300",
+        label: "Assigned",
+      },
+      SUBMITTED: {
+        className: "bg-blue-100 text-blue-700 border-blue-300",
+        label: "Submitted",
+      },
+      REJECTED: {
+        className: "bg-red-100 text-red-700 border-red-300",
+        label: "REJECTED",
+      },
+      IN_PROGRESS: {
+        className: "bg-yellow-100 text-yellow-700 border-yellow-300",
+        label: "In Progress",
+      },
+      APPROVED: {
+        className: "bg-green-100 text-green-700 border-green-300",
+        label: "Approved",
+      },
     };
     return styles[status as keyof typeof styles] || styles.ASSIGNED;
   };
@@ -124,9 +138,12 @@ export function AnnotatorProjectDetailPage() {
   // Filter tasks based on search and status
   const filteredTasks = tasks.filter((task) => {
     const matchesSearch =
-      task.task.image?.originalFilename.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      task.task.image?.originalFilename
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase()) ||
       task.id.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = filterStatus === "ALL" || task.status === filterStatus;
+    const matchesStatus =
+      filterStatus === "ALL" || task.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
 
@@ -145,16 +162,11 @@ export function AnnotatorProjectDetailPage() {
           </Button>
 
           <div className="flex items-start justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <FolderOpen className="w-6 h-6 text-blue-600" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold">{project.name}</h1>
-                <p className="text-muted-foreground mt-1">
-                  {project.description || "No description"}
-                </p>
-              </div>
+            <div>
+              <h1 className="text-3xl font-bold">{project.name}</h1>
+              <p className="text-muted-foreground mt-1">
+                {project.description || "No description"}
+              </p>
             </div>
 
             {project.category && (
@@ -333,7 +345,9 @@ export function AnnotatorProjectDetailPage() {
                       <TableHead>Name</TableHead>
                       <TableHead className="w-[120px]">Status</TableHead>
                       <TableHead className="w-[140px]">Deadline</TableHead>
-                      <TableHead className="w-[100px] text-right">Actions</TableHead>
+                      <TableHead className="w-[100px] text-right">
+                        Actions
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -366,12 +380,13 @@ export function AnnotatorProjectDetailPage() {
                               <div className="text-xs text-muted-foreground">
                                 ID: {task.id.slice(0, 8)}...
                               </div>
-                              {task.status === "REJECTED" && task.reviewComment && (
-                                <div className="text-xs text-red-600 flex items-center gap-1">
-                                  <AlertTriangle className="w-3 h-3" />
-                                  {task.reviewComment}
-                                </div>
-                              )}
+                              {task.status === "REJECTED" &&
+                                task.reviewComment && (
+                                  <div className="text-xs text-red-600 flex items-center gap-1">
+                                    <AlertTriangle className="w-3 h-3" />
+                                    {task.reviewComment}
+                                  </div>
+                                )}
                             </div>
                           </TableCell>
                           <TableCell>
@@ -385,24 +400,36 @@ export function AnnotatorProjectDetailPage() {
                           <TableCell>
                             {task.deadline ? (
                               <div className="text-sm">
-                                {format(new Date(task.deadline), "MMM dd, yyyy")}
+                                {format(
+                                  new Date(task.deadline),
+                                  "MMM dd, yyyy",
+                                )}
                               </div>
                             ) : (
-                              <span className="text-muted-foreground text-sm">—</span>
+                              <span className="text-muted-foreground text-sm">
+                                —
+                              </span>
                             )}
                           </TableCell>
                           <TableCell className="text-right">
                             <Button
                               size="sm"
-                              variant={task.status === "REJECTED" ? "destructive" : "default"}
-                              onClick={() => navigate(`/workspace/${task.taskId}`)}
+                              variant={
+                                task.status === "REJECTED"
+                                  ? "destructive"
+                                  : "default"
+                              }
+                              onClick={() =>
+                                navigate(`/workspace/${task.taskId}`)
+                              }
                             >
                               {task.status === "REJECTED" ? (
                                 <>
                                   <AlertTriangle className="w-3 h-3 mr-1" />
                                   Fix
                                 </>
-                              ) : task.status === "SUBMITTED" || task.status === "APPROVED" ? (
+                              ) : task.status === "SUBMITTED" ||
+                                task.status === "APPROVED" ? (
                                 <>
                                   <Eye className="w-3 h-3 mr-1" />
                                   View
