@@ -352,7 +352,7 @@ export function ProjectGalleryDialog({ projectId, initialDatasetId, open, onOpen
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-[95vw] !max-w-[95vw] w-[95vw] h-[90vh] flex flex-col">
+            <DialogContent className="!max-w-[95vw] w-[95vw] h-[90vh] flex flex-col">
                 <DialogHeader>
                     <div className="flex items-center justify-between">
                         <div>
@@ -687,7 +687,7 @@ export function ProjectGalleryDialog({ projectId, initialDatasetId, open, onOpen
                         
                         <Button
                             onClick={handleUnassignAndDelete}
-                            disabled={isProcessingAll || isProcessingSelected || isProcessingUnassigned || (assignmentCheckResult && selectedAssignedImages.length !== assignmentCheckResult.assigned.length)}
+                            disabled={isProcessingAll || isProcessingSelected || isProcessingUnassigned || Boolean(assignmentCheckResult && selectedAssignedImages.length !== assignmentCheckResult.assigned.length)}
                             variant="outline"
                             className="gap-2 border-red-300 text-red-600 hover:bg-red-50"
                         >

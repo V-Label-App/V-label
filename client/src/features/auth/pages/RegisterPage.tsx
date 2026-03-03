@@ -99,8 +99,12 @@ export const RegisterPage = () => {
             logger.info('Registration successful');
             toast.success('Account created successfully! Please login.');
             setTimeout(() => navigate('/login'), 1000);
-        } catch (err: any) {
-            const errorMsg = err.response?.data?.error || 'Registration failed. Please try again.';
+        } catch (err: unknown) {
+            let errorMsg = 'Registration failed. Please try again.';
+            if (err && typeof err === 'object' && 'response' in err) {
+                const responseError = err as { response?: { data?: { error?: string } } };
+                errorMsg = responseError.response?.data?.error || errorMsg;
+            }
             setError(errorMsg);
             toast.error(errorMsg);
             logger.error('Registration failed:', errorMsg);
