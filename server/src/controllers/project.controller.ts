@@ -701,6 +701,100 @@ export class ProjectController {
             return res.status(500).json({ error: 'Internal server error' })
         }
     }
+
+    /**
+     * POST /api/v1/projects/:id/images/check-assignments
+     * Check which images have assignments
+     * Body: { imageIds: string[] }
+     */
+    static async checkImageAssignments(req: Request, res: Response) {
+        try {
+            const { id } = req.params as { id: string }
+            const { imageIds } = req.body
+
+            if (!Array.isArray(imageIds) || imageIds.length === 0) {
+                return res.status(400).json({ error: 'imageIds array is required' })
+            }
+
+            const { prisma } = await import('../utils/database.js')
+
+            // Get all tasks for these images with their assignments
+            const tasks = await prisma.task.findMany({
+                where: {
+                    imageId: { in: imageIds },
+                    projectId: id
+                },
+                select: {
+                    id: true,
+                    imageId: true,
+                    image: {
+                        select: {
+                            originalFilename: true,
+                            storageUrl: true
+                        }
+                    },
+                    assignments: {
+                        where: {
+                            status: {
+                                in: ['ASSIGNED', 'IN_PROGRESS', 'SUBMITTED']
+                            }
+                        },
+                        select: {
+                            id: true,
+                            status: true,
+                            annotator: {
+                                select: {
+                                    id: true,
+                                    fullName: true,
+                                    email: true
+                                }
+                            }
+                        }
+                    }
+                }
+            })
+
+            // Separate images into assigned and unassigned
+            const assignedImages: any[] = []
+            const unassignedImages: string[] = []
+
+            const imageTaskMap = new Map<string, any>()
+            tasks.forEach(task => {
+                if (task.imageId) {
+                    imageTaskMap.set(task.imageId, task)
+                }
+            })
+
+            imageIds.forEach(imageId => {
+                const task = imageTaskMap.get(imageId)
+                if (task && task.assignments.length > 0) {
+                    assignedImages.push({
+                        imageId,
+                        taskId: task.id,
+                        filename: task.image?.originalFilename,
+                        storageUrl: task.image?.storageUrl,
+                        assignments: task.assignments.map((a: any) => ({
+                            assignmentId: a.id,
+                            status: a.status,
+                            annotatorId: a.annotator.id,
+                            annotatorName: a.annotator.fullName || a.annotator.email
+                        }))
+                    })
+                } else {
+                    unassignedImages.push(imageId)
+                }
+            })
+
+            return res.json({
+                assigned: assignedImages,
+                unassigned: unassignedImages
+            })
+        } catch (error) {
+            logger.error('API', 'Check image assignments failed', { error })
+            return res.status(500).json({ error: 'Internal server error' })
+        }
+    }
+
     /**
      * DELETE /api/v1/projects/:id/images/:imageId
      */

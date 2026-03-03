@@ -176,6 +176,28 @@ export const projectApi = {
     },
 
     /**
+     * Check which images have assignments
+     */
+    checkImageAssignments: async (projectId: string, imageIds: string[]) => {
+        const response = await apiClient.post<{
+            assigned: Array<{
+                imageId: string;
+                taskId: string;
+                filename: string;
+                storageUrl: string;
+                assignments: Array<{
+                    assignmentId: string;
+                    status: string;
+                    annotatorId: string;
+                    annotatorName: string;
+                }>;
+            }>;
+            unassigned: string[];
+        }>(`${BASE_URL}/${projectId}/images/check-assignments`, { imageIds });
+        return response.data;
+    },
+
+    /**
      * Get Project Health Statistics
      */
     getHealthStats: async (projectId: string) => {
