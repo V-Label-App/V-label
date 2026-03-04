@@ -185,7 +185,6 @@ export function ProjectDetailPage() {
     autoReassignOnSkip: true,
   });
 
-
   const [categories, setCategories] = useState<ProjectCategory[]>([]);
 
   // Member Management State
@@ -294,8 +293,11 @@ export function ProjectDetailPage() {
   const [isUnassigning, setIsUnassigning] = useState(false);
 
   // Bulk Deadline State
-  const [isBulkDeadlineDialogOpen, setIsBulkDeadlineDialogOpen] = useState(false);
-  const [bulkDeadlineUserId, setBulkDeadlineUserId] = useState<string | null>(null);
+  const [isBulkDeadlineDialogOpen, setIsBulkDeadlineDialogOpen] =
+    useState(false);
+  const [bulkDeadlineUserId, setBulkDeadlineUserId] = useState<string | null>(
+    null,
+  );
   const [bulkDeadline, setBulkDeadline] = useState<Date | undefined>();
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
 
@@ -304,9 +306,12 @@ export function ProjectDetailPage() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   // Bulk Unassign State
-  const [isBulkUnassignDialogOpen, setIsBulkUnassignDialogOpen] = useState(false);
+  const [isBulkUnassignDialogOpen, setIsBulkUnassignDialogOpen] =
+    useState(false);
   const [isBulkUnassigning, setIsBulkUnassigning] = useState(false);
-  const [bulkUnassignUserId, setBulkUnassignUserId] = useState<string | null>(null);
+  const [bulkUnassignUserId, setBulkUnassignUserId] = useState<string | null>(
+    null,
+  );
 
   // Fetch tasks function
   const fetchTasks = async () => {
@@ -316,22 +321,22 @@ export function ProjectDetailPage() {
     try {
       const params: any = {
         page: 1,
-        limit: 1000 // Fetch all tasks
+        limit: 1000, // Fetch all tasks
       };
 
-      if (taskFilterStatus && taskFilterStatus !== 'all') {
+      if (taskFilterStatus && taskFilterStatus !== "all") {
         params.status = taskFilterStatus.toUpperCase();
       }
 
-      if (taskFilterAssignee && taskFilterAssignee !== 'all') {
+      if (taskFilterAssignee && taskFilterAssignee !== "all") {
         params.assigneeId = taskFilterAssignee;
       }
 
       const response = await projectApi.getTasks(projectId, params);
       setTasks(response.data || []);
     } catch (error) {
-      console.error('Failed to fetch tasks:', error);
-      toast.error('Failed to load tasks');
+      console.error("Failed to fetch tasks:", error);
+      toast.error("Failed to load tasks");
     } finally {
       setIsTasksLoading(false);
     }
@@ -343,13 +348,16 @@ export function ProjectDetailPage() {
 
     try {
       const workloadsList = await projectApi.getWorkloads(projectId);
-      const workloadsMap = workloadsList.reduce((acc: Record<string, any>, workload: any) => {
-        acc[workload.userId] = workload;
-        return acc;
-      }, {});
+      const workloadsMap = workloadsList.reduce(
+        (acc: Record<string, any>, workload: any) => {
+          acc[workload.userId] = workload;
+          return acc;
+        },
+        {},
+      );
       setWorkloads(workloadsMap);
     } catch (error) {
-      console.error('Failed to fetch workloads:', error);
+      console.error("Failed to fetch workloads:", error);
     }
   };
 
@@ -364,7 +372,12 @@ export function ProjectDetailPage() {
       setIsAssigning(true);
       try {
         // Use bulk assign endpoint
-        await projectApi.bulkAssignTasks(projectId, selectedTasks, selectedAnnotatorId, selectedDeadline);
+        await projectApi.bulkAssignTasks(
+          projectId,
+          selectedTasks,
+          selectedAnnotatorId,
+          selectedDeadline,
+        );
         toast.success(`${selectedTasks.length} tasks assigned successfully`);
         setIsAssignDialogOpen(false);
         setSelectedAnnotatorId("");
@@ -374,8 +387,8 @@ export function ProjectDetailPage() {
         fetchTasks();
         fetchWorkloads();
       } catch (error: any) {
-        console.error('Failed to assign tasks:', error);
-        toast.error(error.response?.data?.error || 'Failed to assign tasks');
+        console.error("Failed to assign tasks:", error);
+        toast.error(error.response?.data?.error || "Failed to assign tasks");
       } finally {
         setIsAssigning(false);
       }
@@ -386,11 +399,15 @@ export function ProjectDetailPage() {
     if (!taskToAssign) return;
 
     // Check if it's a reassignment and reason is required
-    const currentAssignment = taskToAssign.assignments?.find((a: any) => a.annotatorId);
-    const isReassignment = currentAssignment && currentAssignment.annotatorId !== selectedAnnotatorId;
+    const currentAssignment = taskToAssign.assignments?.find(
+      (a: any) => a.annotatorId,
+    );
+    const isReassignment =
+      currentAssignment &&
+      currentAssignment.annotatorId !== selectedAnnotatorId;
 
     if (isReassignment && !reassignmentReason.trim()) {
-      toast.error('Please provide a reason for reassignment');
+      toast.error("Please provide a reason for reassignment");
       return;
     }
 
@@ -401,9 +418,9 @@ export function ProjectDetailPage() {
         taskToAssign.id,
         selectedAnnotatorId,
         selectedDeadline,
-        isReassignment ? reassignmentReason : undefined
+        isReassignment ? reassignmentReason : undefined,
       );
-      toast.success('Task assigned successfully');
+      toast.success("Task assigned successfully");
       setIsAssignDialogOpen(false);
       setTaskToAssign(null);
       setSelectedAnnotatorId("");
@@ -412,8 +429,8 @@ export function ProjectDetailPage() {
       fetchTasks();
       fetchWorkloads();
     } catch (error: any) {
-      console.error('Failed to assign task:', error);
-      toast.error(error.response?.data?.error || 'Failed to assign task');
+      console.error("Failed to assign task:", error);
+      toast.error(error.response?.data?.error || "Failed to assign task");
     } finally {
       setIsAssigning(false);
     }
@@ -426,14 +443,14 @@ export function ProjectDetailPage() {
     setIsUnassigning(true);
     try {
       await projectApi.unassignTask(projectId, taskToUnassign.id);
-      toast.success('Task unassigned successfully');
+      toast.success("Task unassigned successfully");
       setIsUnassignDialogOpen(false);
       setTaskToUnassign(null);
       fetchTasks(); // Refresh tasks
       fetchWorkloads(); // Refresh workloads
     } catch (error: any) {
-      console.error('Failed to unassign task:', error);
-      toast.error(error.response?.data?.error || 'Failed to unassign task');
+      console.error("Failed to unassign task:", error);
+      toast.error(error.response?.data?.error || "Failed to unassign task");
     } finally {
       setIsUnassigning(false);
     }
@@ -454,20 +471,22 @@ export function ProjectDetailPage() {
           return projectApi.updateTaskDeadline(
             projectId,
             task.id,
-            bulkDeadline
+            bulkDeadline,
           );
-        })
+        }),
       );
 
-      toast.success(`Deadline updated for ${userTasks.length} task${userTasks.length > 1 ? 's' : ''}`);
+      toast.success(
+        `Deadline updated for ${userTasks.length} task${userTasks.length > 1 ? "s" : ""}`,
+      );
       setIsBulkDeadlineDialogOpen(false);
       setBulkDeadlineUserId(null);
       setBulkDeadline(undefined);
       fetchTasks(); // Refresh tasks
       fetchWorkloads(); // Refresh workloads
     } catch (error: any) {
-      console.error('Failed to update deadlines:', error);
-      toast.error(error.response?.data?.error || 'Failed to update deadlines');
+      console.error("Failed to update deadlines:", error);
+      toast.error(error.response?.data?.error || "Failed to update deadlines");
     } finally {
       setIsBulkUpdating(false);
     }
@@ -481,28 +500,30 @@ export function ProjectDetailPage() {
     try {
       // Get image IDs from selected tasks
       const imageIds = selectedTasks
-        .map(taskId => {
-          const task = tasks.find(t => t.id === taskId);
+        .map((taskId) => {
+          const task = tasks.find((t) => t.id === taskId);
           return task?.imageId;
         })
         .filter(Boolean) as string[];
 
       if (imageIds.length === 0) {
-        toast.error('No images to delete');
+        toast.error("No images to delete");
         return;
       }
 
       // Delete images (which will also delete associated tasks)
       await projectApi.deleteImages(projectId, imageIds);
 
-      toast.success(`${imageIds.length} task${imageIds.length > 1 ? 's' : ''} deleted successfully`);
+      toast.success(
+        `${imageIds.length} task${imageIds.length > 1 ? "s" : ""} deleted successfully`,
+      );
       setIsDeleteDialogOpen(false);
       setSelectedTasks([]);
       fetchTasks(); // Refresh tasks
       fetchWorkloads(); // Refresh workloads
     } catch (error: any) {
-      console.error('Failed to delete tasks:', error);
-      toast.error(error.response?.data?.error || 'Failed to delete tasks');
+      console.error("Failed to delete tasks:", error);
+      toast.error(error.response?.data?.error || "Failed to delete tasks");
     } finally {
       setIsDeleting(false);
     }
@@ -517,7 +538,9 @@ export function ProjectDetailPage() {
 
     // Get selected tasks from this user
     const userTaskIds = userTasks.map((t: any) => t.id);
-    const tasksToUnassign = selectedTasks.filter(id => userTaskIds.includes(id));
+    const tasksToUnassign = selectedTasks.filter((id) =>
+      userTaskIds.includes(id),
+    );
 
     if (tasksToUnassign.length === 0) return;
 
@@ -526,15 +549,17 @@ export function ProjectDetailPage() {
       // Use bulk unassign endpoint
       await projectApi.bulkUnassignTasks(projectId, tasksToUnassign);
 
-      toast.success(`${tasksToUnassign.length} task${tasksToUnassign.length > 1 ? 's' : ''} unassigned successfully`);
+      toast.success(
+        `${tasksToUnassign.length} task${tasksToUnassign.length > 1 ? "s" : ""} unassigned successfully`,
+      );
       setIsBulkUnassignDialogOpen(false);
       setBulkUnassignUserId(null);
       setSelectedTasks([]);
       fetchTasks();
       fetchWorkloads();
     } catch (error: any) {
-      console.error('Failed to unassign tasks:', error);
-      toast.error(error.response?.data?.error || 'Failed to unassign tasks');
+      console.error("Failed to unassign tasks:", error);
+      toast.error(error.response?.data?.error || "Failed to unassign tasks");
     } finally {
       setIsBulkUnassigning(false);
     }
@@ -542,7 +567,7 @@ export function ProjectDetailPage() {
 
   // Handle tab query parameter from URL
   useEffect(() => {
-    const tabParam = searchParams.get('tab');
+    const tabParam = searchParams.get("tab");
     if (tabParam) {
       setActiveTab(tabParam);
     }
@@ -583,9 +608,12 @@ export function ProjectDetailPage() {
         .catch((err) => console.error("Failed to load all labels", err));
 
       // Load pending label requests count
-      labelRequestApi.getPendingCount(projectId)
-        .then(count => setPendingLabelRequests(count))
-        .catch(err => console.error("Failed to load pending requests count", err));
+      labelRequestApi
+        .getPendingCount(projectId)
+        .then((count) => setPendingLabelRequests(count))
+        .catch((err) =>
+          console.error("Failed to load pending requests count", err),
+        );
     }
   }, [projectId, navigate]);
 
@@ -610,12 +638,11 @@ export function ProjectDetailPage() {
 
   // Fetch tasks when filters change
   useEffect(() => {
-    if (projectId && activeTab === 'tasks') {
+    if (projectId && activeTab === "tasks") {
       fetchTasks();
       fetchWorkloads();
     }
   }, [taskFilterStatus, taskFilterAssignee, debouncedSearchQuery]);
-
 
   // Load available categories
   useEffect(() => {
@@ -655,7 +682,7 @@ export function ProjectDetailPage() {
   // Derived State
   const projectMembers = project.members || [];
   const annotators = projectMembers.filter(
-    (m: any) => m.projectRole === "ANNOTATOR" || m.projectRole === "REVIEWER"
+    (m: any) => m.projectRole === "ANNOTATOR" || m.projectRole === "REVIEWER",
   );
 
   // Client-side filtering is removed/minimized as we use server-side search
@@ -665,8 +692,10 @@ export function ProjectDetailPage() {
 
   // Group tasks by assignee
   const groupedTasks = tasks.reduce((acc: Record<string, any[]>, task: any) => {
-    const annotatorAssignment = task.assignments?.find((a: any) => a.annotatorId);
-    const assigneeId = annotatorAssignment?.annotatorId || 'unassigned';
+    const annotatorAssignment = task.assignments?.find(
+      (a: any) => a.annotatorId,
+    );
+    const assigneeId = annotatorAssignment?.annotatorId || "unassigned";
     if (!acc[assigneeId]) {
       acc[assigneeId] = [];
     }
@@ -675,11 +704,15 @@ export function ProjectDetailPage() {
   }, {});
 
   // Get workload from cached workloads (total active tasks)
-  const workloadMap: Record<string, number> = Object.keys(workloads).reduce((acc: Record<string, number>, userId: string) => {
-    const workload = workloads[userId];
-    acc[userId] = (workload.assignedTasks || 0) + (workload.inProgressTasks || 0);
-    return acc;
-  }, {});
+  const workloadMap: Record<string, number> = Object.keys(workloads).reduce(
+    (acc: Record<string, number>, userId: string) => {
+      const workload = workloads[userId];
+      acc[userId] =
+        (workload.assignedTasks || 0) + (workload.inProgressTasks || 0);
+      return acc;
+    },
+    {},
+  );
 
   // Toggle user expansion
   const toggleUserExpansion = (userId: string) => {
@@ -690,7 +723,7 @@ export function ProjectDetailPage() {
       newExpanded.add(userId);
       // Initialize page 1 for this user if not set
       if (!userPages[userId]) {
-        setUserPages(prev => ({ ...prev, [userId]: 1 }));
+        setUserPages((prev) => ({ ...prev, [userId]: 1 }));
       }
     }
     setExpandedUsers(newExpanded);
@@ -700,7 +733,7 @@ export function ProjectDetailPage() {
   const getUserPage = (userId: string) => userPages[userId] || 1;
 
   const setUserPage = (userId: string, page: number) => {
-    setUserPages(prev => ({ ...prev, [userId]: page }));
+    setUserPages((prev) => ({ ...prev, [userId]: page }));
   };
 
   const getPaginatedUserTasks = (userTasks: any[], userId: string) => {
@@ -716,12 +749,13 @@ export function ProjectDetailPage() {
 
   const approvedTasksCount = tasks.filter((t: any) => {
     const assignment = t.assignments?.find((a: any) => a.annotatorId);
-    return assignment?.status === 'APPROVED';
+    return assignment?.status === "APPROVED";
   }).length;
   const totalTasksCount = project._count?.tasks || 0;
-  const projectProgress = totalTasksCount > 0
-    ? Math.round((approvedTasksCount / totalTasksCount) * 100)
-    : 0;
+  const projectProgress =
+    totalTasksCount > 0
+      ? Math.round((approvedTasksCount / totalTasksCount) * 100)
+      : 0;
 
   // Handlers
   const handleSaveLabels = async () => {
@@ -773,13 +807,15 @@ export function ProjectDetailPage() {
     try {
       const { refactoredText } = await aiApi.refactorText(
         editDescription,
-        "project description"
+        "project description",
       );
       setEditDescription(refactoredText);
       toast.success("Description refactored successfully");
     } catch (error: any) {
       console.error("Failed to refactor description:", error);
-      toast.error(error.response?.data?.error || "Failed to refactor description");
+      toast.error(
+        error.response?.data?.error || "Failed to refactor description",
+      );
     } finally {
       setIsAiRefactoring(false);
     }
@@ -951,7 +987,8 @@ export function ProjectDetailPage() {
       setIsRemoveMemberOpen(false);
     } catch (error: any) {
       console.error(error);
-      const errorMessage = error?.response?.data?.error || "Failed to remove member";
+      const errorMessage =
+        error?.response?.data?.error || "Failed to remove member";
       toast.error(errorMessage);
     }
   };
@@ -1163,12 +1200,17 @@ export function ProjectDetailPage() {
             </div>
 
             {pendingLabelRequests > 0 && (
-              <div className="flex items-center gap-3 p-3 bg-purple-50 rounded-lg cursor-pointer hover:bg-purple-100 transition-colors" onClick={() => setActiveTab("requests")}>
+              <div
+                className="flex items-center gap-3 p-3 bg-purple-50 rounded-lg cursor-pointer hover:bg-purple-100 transition-colors"
+                onClick={() => setActiveTab("requests")}
+              >
                 <div className="w-10 h-10 bg-purple-200 rounded-lg flex items-center justify-center">
                   <Pen className="w-5 h-5 text-purple-600" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Label Requests</p>
+                  <p className="text-xs text-muted-foreground">
+                    Label Requests
+                  </p>
                   <p className="text-xl font-semibold text-purple-700">
                     {pendingLabelRequests} Pending
                   </p>
@@ -1185,7 +1227,10 @@ export function ProjectDetailPage() {
           className="space-y-6"
         >
           <TabsList>
-            <TabsTrigger value="health" className="data-[state=active]:bg-red-50 data-[state=active]:text-red-700">
+            <TabsTrigger
+              value="health"
+              className="data-[state=active]:bg-red-50 data-[state=active]:text-red-700"
+            >
               Health (Rescue)
             </TabsTrigger>
             <TabsTrigger value="tasks">Tasks</TabsTrigger>
@@ -1203,7 +1248,10 @@ export function ProjectDetailPage() {
           </TabsList>
 
           <TabsContent value="health">
-            <ProjectHealthDashboard projectId={project.id} onViewAllActivity={() => setActiveTab('activity')} />
+            <ProjectHealthDashboard
+              projectId={project.id}
+              onViewAllActivity={() => setActiveTab("activity")}
+            />
           </TabsContent>
 
           <TabsContent value="tasks" className="space-y-6">
@@ -1273,10 +1321,10 @@ export function ProjectDetailPage() {
                   <SelectContent>
                     <SelectItem value="all">All Assignees</SelectItem>
                     {annotators
-                      .filter((a: any) => a.projectRole === 'ANNOTATOR')
+                      .filter((a: any) => a.projectRole === "ANNOTATOR")
                       .map((a: any) => (
                         <SelectItem key={a.userId} value={a.userId}>
-                          {a.user?.fullName || a.user?.email || 'Unknown'}
+                          {a.user?.fullName || a.user?.email || "Unknown"}
                         </SelectItem>
                       ))}
                   </SelectContent>
@@ -1285,123 +1333,159 @@ export function ProjectDetailPage() {
             </Card>
 
             <Card className="p-6">
-                  <div className="flex items-center justify-between mb-6">
-                    <div>
-                      <h3 className="text-xl font-semibold">Tasks</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Showing {filteredTasks.length} tasks
-                        {selectedTasks.length > 0 && (
-                          <span className="ml-2 text-blue-600 font-medium">
-                            ({selectedTasks.length} selected)
-                          </span>
-                        )}
-                      </p>
-                    </div>
-                  </div>
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-xl font-semibold">Tasks</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Showing {filteredTasks.length} tasks
+                    {selectedTasks.length > 0 && (
+                      <span className="ml-2 text-blue-600 font-medium">
+                        ({selectedTasks.length} selected)
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
 
-                  <div className="border border-gray-200 rounded-lg overflow-hidden">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-gray-50">
-                          <TableHead className="w-[50px]">
-                            <Checkbox
-                              checked={
-                                filteredTasks.length > 0 &&
-                                selectedTasks.length === filteredTasks.length
-                              }
-                              onCheckedChange={(checked) =>
-                                handleSelectAll(!!checked)
-                              }
-                            />
-                          </TableHead>
-                          <TableHead>User / Task</TableHead>
-                          <TableHead className="w-[100px] text-right">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {isTasksLoading ? (
-                          <TableRow>
-                            <TableCell colSpan={3} className="text-center py-8">
-                              <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" />
-                              <p className="text-sm text-muted-foreground mt-2">
-                                Loading tasks...
-                              </p>
-                            </TableCell>
-                          </TableRow>
-                        ) : filteredTasks.length === 0 ? (
-                          <TableRow>
-                            <TableCell
-                              colSpan={7}
-                              className="text-center py-8 text-muted-foreground"
-                            >
-                              No tasks found
-                            </TableCell>
-                          </TableRow>
-                        ) : (
-                          <>
-                            {Object.entries(groupedTasks).map(([assigneeId, userTasks]) => {
-                              const firstTask = userTasks[0];
-                              const annotatorAssignment = firstTask.assignments?.find((a: any) => a.annotatorId);
-                              const assignee = annotatorAssignment?.annotator;
-                              const isExpanded = expandedUsers.has(assigneeId);
-                              const taskCount = userTasks.length;
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-gray-50">
+                      <TableHead className="w-[50px]">
+                        <Checkbox
+                          checked={
+                            filteredTasks.length > 0 &&
+                            selectedTasks.length === filteredTasks.length
+                          }
+                          onCheckedChange={(checked) =>
+                            handleSelectAll(!!checked)
+                          }
+                        />
+                      </TableHead>
+                      <TableHead>User / Task</TableHead>
+                      <TableHead className="w-[100px] text-right">
+                        Actions
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {isTasksLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={3} className="text-center py-8">
+                          <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" />
+                          <p className="text-sm text-muted-foreground mt-2">
+                            Loading tasks...
+                          </p>
+                        </TableCell>
+                      </TableRow>
+                    ) : filteredTasks.length === 0 ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={7}
+                          className="text-center py-8 text-muted-foreground"
+                        >
+                          No tasks found
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      <>
+                        {Object.entries(groupedTasks).map(
+                          ([assigneeId, userTasks]) => {
+                            const firstTask = userTasks[0];
+                            const annotatorAssignment =
+                              firstTask.assignments?.find(
+                                (a: any) => a.annotatorId,
+                              );
+                            const assignee = annotatorAssignment?.annotator;
+                            const isExpanded = expandedUsers.has(assigneeId);
+                            const taskCount = userTasks.length;
 
-                              return (
-                                <React.Fragment key={`group-${assigneeId}`}>
-                                  {/* User Group Row */}
-                                  <TableRow
-                                    className="bg-gradient-to-r from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-200 cursor-pointer border-b-2 border-gray-300"
-                                    onClick={() => toggleUserExpansion(assigneeId)}
-                                  >
-                                    <TableCell className="py-4">
-                                      <Checkbox
-                                        checked={userTasks.every((t: any) => selectedTasks.includes(t.id))}
-                                        onCheckedChange={(checked) => {
-                                          userTasks.forEach((t: any) => handleSelectTask(t.id, !!checked));
-                                        }}
+                            return (
+                              <React.Fragment key={`group-${assigneeId}`}>
+                                {/* User Group Row */}
+                                <TableRow
+                                  className="bg-gradient-to-r from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-200 cursor-pointer border-b-2 border-gray-300"
+                                  onClick={() =>
+                                    toggleUserExpansion(assigneeId)
+                                  }
+                                >
+                                  <TableCell className="py-4">
+                                    <Checkbox
+                                      checked={userTasks.every((t: any) =>
+                                        selectedTasks.includes(t.id),
+                                      )}
+                                      onCheckedChange={(checked) => {
+                                        userTasks.forEach((t: any) =>
+                                          handleSelectTask(t.id, !!checked),
+                                        );
+                                      }}
+                                      onClick={(e) => e.stopPropagation()}
+                                    />
+                                  </TableCell>
+                                  <TableCell colSpan={2} className="py-4">
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-3">
+                                        {isExpanded ? (
+                                          <ChevronDown className="h-5 w-5 text-gray-700 flex-shrink-0" />
+                                        ) : (
+                                          <ChevronRight className="h-5 w-5 text-gray-700 flex-shrink-0" />
+                                        )}
+                                        {assignee ? (
+                                          <div className="flex items-center gap-3">
+                                            <Avatar className="h-10 w-10 ring-2 ring-white shadow-sm">
+                                              <AvatarImage
+                                                src={assignee.avatarUrl}
+                                                alt={assignee.fullName}
+                                              />
+                                              <AvatarFallback className="text-sm font-semibold bg-gradient-to-br from-blue-400 to-blue-600 text-white">
+                                                {assignee.fullName
+                                                  ?.charAt(0)
+                                                  .toUpperCase() || "U"}
+                                              </AvatarFallback>
+                                            </Avatar>
+                                            <div>
+                                              <div className="text-base font-semibold text-gray-900">
+                                                {assignee.fullName}
+                                              </div>
+                                              <div className="text-xs text-gray-600">
+                                                {assignee.email}
+                                              </div>
+                                            </div>
+                                          </div>
+                                        ) : (
+                                          <div className="flex items-center gap-3">
+                                            <div className="h-10 w-10 rounded-full bg-gray-400 flex items-center justify-center ring-2 ring-white shadow-sm">
+                                              <Users className="h-5 w-5 text-white" />
+                                            </div>
+                                            <span className="text-base font-semibold text-gray-800">
+                                              Unassigned Tasks
+                                            </span>
+                                          </div>
+                                        )}
+                                        <Badge
+                                          variant="secondary"
+                                          className="ml-2 text-sm font-semibold px-3 py-1"
+                                        >
+                                          {taskCount}{" "}
+                                          {taskCount === 1 ? "task" : "tasks"}
+                                        </Badge>
+                                      </div>
+                                      <div
                                         onClick={(e) => e.stopPropagation()}
-                                      />
-                                    </TableCell>
-                                    <TableCell colSpan={2} className="py-4">
-                                      <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                          {isExpanded ? (
-                                            <ChevronDown className="h-5 w-5 text-gray-700 flex-shrink-0" />
-                                          ) : (
-                                            <ChevronRight className="h-5 w-5 text-gray-700 flex-shrink-0" />
-                                          )}
-                                          {assignee ? (
-                                            <div className="flex items-center gap-3">
-                                              <Avatar className="h-10 w-10 ring-2 ring-white shadow-sm">
-                                                <AvatarImage src={assignee.avatarUrl} alt={assignee.fullName} />
-                                                <AvatarFallback className="text-sm font-semibold bg-gradient-to-br from-blue-400 to-blue-600 text-white">
-                                                  {assignee.fullName?.charAt(0).toUpperCase() || 'U'}
-                                                </AvatarFallback>
-                                              </Avatar>
-                                              <div>
-                                                <div className="text-base font-semibold text-gray-900">{assignee.fullName}</div>
-                                                <div className="text-xs text-gray-600">{assignee.email}</div>
-                                              </div>
-                                            </div>
-                                          ) : (
-                                            <div className="flex items-center gap-3">
-                                              <div className="h-10 w-10 rounded-full bg-gray-400 flex items-center justify-center ring-2 ring-white shadow-sm">
-                                                <Users className="h-5 w-5 text-white" />
-                                              </div>
-                                              <span className="text-base font-semibold text-gray-800">Unassigned Tasks</span>
-                                            </div>
-                                          )}
-                                          <Badge variant="secondary" className="ml-2 text-sm font-semibold px-3 py-1">
-                                            {taskCount} {taskCount === 1 ? 'task' : 'tasks'}
-                                          </Badge>
-                                        </div>
-                                        <div onClick={(e) => e.stopPropagation()} className="flex items-center gap-2">
-                                          {!assignee && (() => {
+                                        className="flex items-center gap-2"
+                                      >
+                                        {!assignee &&
+                                          (() => {
                                             // Count how many selected tasks are from unassigned section
-                                            const unassignedTaskIds = userTasks.map((t: any) => t.id);
-                                            const selectedUnassignedCount = selectedTasks.filter(id => unassignedTaskIds.includes(id)).length;
+                                            const unassignedTaskIds =
+                                              userTasks.map((t: any) => t.id);
+                                            const selectedUnassignedCount =
+                                              selectedTasks.filter((id) =>
+                                                unassignedTaskIds.includes(id),
+                                              ).length;
 
-                                            return selectedUnassignedCount > 0 ? (
+                                            return selectedUnassignedCount >
+                                              0 ? (
                                               <>
                                                 <Button
                                                   onClick={() => {
@@ -1412,52 +1496,84 @@ export function ProjectDetailPage() {
                                                   className="gap-2"
                                                 >
                                                   <Users className="h-4 w-4" />
-                                                  Assign {selectedUnassignedCount} Task{selectedUnassignedCount > 1 ? 's' : ''}
+                                                  Assign{" "}
+                                                  {selectedUnassignedCount} Task
+                                                  {selectedUnassignedCount > 1
+                                                    ? "s"
+                                                    : ""}
                                                 </Button>
                                                 <Button
-                                                  onClick={() => setIsDeleteDialogOpen(true)}
+                                                  onClick={() =>
+                                                    setIsDeleteDialogOpen(true)
+                                                  }
                                                   size="sm"
                                                   variant="destructive"
                                                   className="gap-2"
                                                 >
                                                   <Trash2 className="h-4 w-4" />
-                                                  Delete {selectedUnassignedCount} Task{selectedUnassignedCount > 1 ? 's' : ''}
+                                                  Delete{" "}
+                                                  {selectedUnassignedCount} Task
+                                                  {selectedUnassignedCount > 1
+                                                    ? "s"
+                                                    : ""}
                                                 </Button>
                                               </>
                                             ) : null;
                                           })()}
-                                          {assignee && (() => {
+                                        {assignee &&
+                                          (() => {
                                             // Count how many selected tasks are from this assigned user's section
-                                            const assignedUserTaskIds = userTasks.map((t: any) => t.id);
-                                            const selectedAssignedCount = selectedTasks.filter(id => assignedUserTaskIds.includes(id)).length;
+                                            const assignedUserTaskIds =
+                                              userTasks.map((t: any) => t.id);
+                                            const selectedAssignedCount =
+                                              selectedTasks.filter((id) =>
+                                                assignedUserTaskIds.includes(
+                                                  id,
+                                                ),
+                                              ).length;
 
                                             return (
                                               <>
                                                 {selectedAssignedCount > 0 && (
                                                   <Button
                                                     onClick={() => {
-                                                      setBulkUnassignUserId(assigneeId);
-                                                      setIsBulkUnassignDialogOpen(true);
+                                                      setBulkUnassignUserId(
+                                                        assigneeId,
+                                                      );
+                                                      setIsBulkUnassignDialogOpen(
+                                                        true,
+                                                      );
                                                     }}
                                                     size="sm"
                                                     variant="outline"
                                                     className="gap-2"
                                                   >
                                                     <UserMinus className="h-4 w-4" />
-                                                    Unassign {selectedAssignedCount} Task{selectedAssignedCount > 1 ? 's' : ''}
+                                                    Unassign{" "}
+                                                    {selectedAssignedCount} Task
+                                                    {selectedAssignedCount > 1
+                                                      ? "s"
+                                                      : ""}
                                                   </Button>
                                                 )}
                                                 <DropdownMenu>
                                                   <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" size="sm">
+                                                    <Button
+                                                      variant="ghost"
+                                                      size="sm"
+                                                    >
                                                       <MoreVertical className="h-4 w-4" />
                                                     </Button>
                                                   </DropdownMenuTrigger>
                                                   <DropdownMenuContent align="end">
                                                     <DropdownMenuItem
                                                       onClick={() => {
-                                                        setBulkDeadlineUserId(assigneeId);
-                                                        setIsBulkDeadlineDialogOpen(true);
+                                                        setBulkDeadlineUserId(
+                                                          assigneeId,
+                                                        );
+                                                        setIsBulkDeadlineDialogOpen(
+                                                          true,
+                                                        );
                                                       }}
                                                     >
                                                       <Clock className="mr-2 h-4 w-4" />
@@ -1468,23 +1584,39 @@ export function ProjectDetailPage() {
                                               </>
                                             );
                                           })()}
-                                        </div>
                                       </div>
-                                    </TableCell>
-                                  </TableRow>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
 
-                                  {/* Expanded Task Rows */}
-                                  {isExpanded && getPaginatedUserTasks(userTasks, assigneeId).map((task: any, i: number) => {
-                                    const taskAssignment = task.assignments?.find((a: any) => a.annotatorId);
-                                    const status = taskAssignment?.status || 'UNASSIGNED';
+                                {/* Expanded Task Rows */}
+                                {isExpanded &&
+                                  getPaginatedUserTasks(
+                                    userTasks,
+                                    assigneeId,
+                                  ).map((task: any, i: number) => {
+                                    const taskAssignment =
+                                      task.assignments?.find(
+                                        (a: any) => a.annotatorId,
+                                      );
+                                    const status =
+                                      taskAssignment?.status || "UNASSIGNED";
 
                                     return (
-                                      <TableRow key={task.id || i} className="bg-white hover:bg-gray-50 border-b border-gray-100">
+                                      <TableRow
+                                        key={task.id || i}
+                                        className="bg-white hover:bg-gray-50 border-b border-gray-100"
+                                      >
                                         <TableCell className="py-3">
                                           <Checkbox
-                                            checked={selectedTasks.includes(task.id)}
+                                            checked={selectedTasks.includes(
+                                              task.id,
+                                            )}
                                             onCheckedChange={(checked) =>
-                                              handleSelectTask(task.id, !!checked)
+                                              handleSelectTask(
+                                                task.id,
+                                                !!checked,
+                                              )
                                             }
                                           />
                                         </TableCell>
@@ -1493,14 +1625,19 @@ export function ProjectDetailPage() {
                                             <div className="w-14 h-14 rounded overflow-hidden bg-gray-100 border flex-shrink-0">
                                               <img
                                                 src={task.image?.storageUrl}
-                                                alt={task.image?.originalFilename || 'Task image'}
+                                                alt={
+                                                  task.image
+                                                    ?.originalFilename ||
+                                                  "Task image"
+                                                }
                                                 className="w-full h-full object-cover"
                                                 loading="lazy"
                                               />
                                             </div>
                                             <div className="min-w-0 flex-1 space-y-1.5">
                                               <div className="font-medium text-sm truncate">
-                                                {task.image?.originalFilename || 'Untitled'}
+                                                {task.image?.originalFilename ||
+                                                  "Untitled"}
                                               </div>
                                               <div className="text-xs text-muted-foreground font-mono">
                                                 ID: {task.id.slice(0, 8)}...
@@ -1508,26 +1645,43 @@ export function ProjectDetailPage() {
                                               <div className="flex items-center gap-2 flex-wrap">
                                                 <Badge
                                                   variant={
-                                                    status === 'REJECTED' ? 'destructive' : 'outline'
+                                                    status === "REJECTED"
+                                                      ? "destructive"
+                                                      : "outline"
                                                   }
                                                   className={`font-normal capitalize text-xs ${
-                                                    status === 'APPROVED' ? 'bg-green-100 text-green-800 border-green-300' :
-                                                    status === 'SUBMITTED' ? 'bg-purple-100 text-purple-800 border-purple-300' :
-                                                    status === 'IN_PROGRESS' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' :
-                                                    status === 'ASSIGNED' ? 'bg-blue-100 text-blue-800 border-blue-300' :
-                                                    status === 'UNASSIGNED' ? 'bg-gray-100 text-gray-600 border-gray-300' :
-                                                    ''
+                                                    status === "APPROVED"
+                                                      ? "bg-green-100 text-green-800 border-green-300"
+                                                      : status === "SUBMITTED"
+                                                        ? "bg-purple-100 text-purple-800 border-purple-300"
+                                                        : status ===
+                                                            "IN_PROGRESS"
+                                                          ? "bg-yellow-100 text-yellow-800 border-yellow-300"
+                                                          : status ===
+                                                              "ASSIGNED"
+                                                            ? "bg-blue-100 text-blue-800 border-blue-300"
+                                                            : status ===
+                                                                "UNASSIGNED"
+                                                              ? "bg-gray-100 text-gray-600 border-gray-300"
+                                                              : ""
                                                   }`}
                                                 >
-                                                  {status.toLowerCase().replace('_', ' ')}
+                                                  {status
+                                                    .toLowerCase()
+                                                    .replace("_", " ")}
                                                 </Badge>
                                                 {taskAssignment?.deadline && (
                                                   <div className="flex items-center gap-1 text-xs text-muted-foreground">
                                                     <Clock className="h-3 w-3" />
                                                     <span>
-                                                      {new Date(taskAssignment.deadline).toLocaleDateString()} {new Date(taskAssignment.deadline).toLocaleTimeString([], {
-                                                        hour: '2-digit',
-                                                        minute: '2-digit'
+                                                      {new Date(
+                                                        taskAssignment.deadline,
+                                                      ).toLocaleDateString()}{" "}
+                                                      {new Date(
+                                                        taskAssignment.deadline,
+                                                      ).toLocaleTimeString([], {
+                                                        hour: "2-digit",
+                                                        minute: "2-digit",
                                                       })}
                                                     </span>
                                                   </div>
@@ -1540,7 +1694,10 @@ export function ProjectDetailPage() {
                                           {assignee ? (
                                             <DropdownMenu>
                                               <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="sm">
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                >
                                                   <MoreVertical className="h-4 w-4" />
                                                 </Button>
                                               </DropdownMenuTrigger>
@@ -1548,7 +1705,10 @@ export function ProjectDetailPage() {
                                                 <DropdownMenuItem
                                                   onClick={() => {
                                                     setTaskToAssign(task);
-                                                    setSelectedAnnotatorId(taskAssignment?.annotatorId || "");
+                                                    setSelectedAnnotatorId(
+                                                      taskAssignment?.annotatorId ||
+                                                        "",
+                                                    );
                                                     setIsAssignDialogOpen(true);
                                                   }}
                                                 >
@@ -1559,7 +1719,9 @@ export function ProjectDetailPage() {
                                                 <DropdownMenuItem
                                                   onClick={() => {
                                                     setTaskToUnassign(task);
-                                                    setIsUnassignDialogOpen(true);
+                                                    setIsUnassignDialogOpen(
+                                                      true,
+                                                    );
                                                   }}
                                                   className="text-red-600"
                                                 >
@@ -1586,13 +1748,15 @@ export function ProjectDetailPage() {
                                     );
                                   })}
 
-                                  {/* Per-User Pagination Controls */}
-                                  {isExpanded && getUserTotalPages(userTasks) > 1 && (
+                                {/* Per-User Pagination Controls */}
+                                {isExpanded &&
+                                  getUserTotalPages(userTasks) > 1 && (
                                     <TableRow className="bg-gray-50">
                                       <TableCell colSpan={3} className="py-3">
                                         <div className="flex items-center justify-between px-8">
                                           <div className="text-sm text-muted-foreground">
-                                            Page {getUserPage(assigneeId)} of {getUserTotalPages(userTasks)}
+                                            Page {getUserPage(assigneeId)} of{" "}
+                                            {getUserTotalPages(userTasks)}
                                           </div>
                                           <div className="flex items-center gap-2">
                                             <Button
@@ -1602,7 +1766,9 @@ export function ProjectDetailPage() {
                                                 e.stopPropagation();
                                                 setUserPage(assigneeId, 1);
                                               }}
-                                              disabled={getUserPage(assigneeId) === 1}
+                                              disabled={
+                                                getUserPage(assigneeId) === 1
+                                              }
                                             >
                                               <ChevronsLeft className="w-4 h-4" />
                                             </Button>
@@ -1611,9 +1777,17 @@ export function ProjectDetailPage() {
                                               size="icon"
                                               onClick={(e) => {
                                                 e.stopPropagation();
-                                                setUserPage(assigneeId, Math.max(1, getUserPage(assigneeId) - 1));
+                                                setUserPage(
+                                                  assigneeId,
+                                                  Math.max(
+                                                    1,
+                                                    getUserPage(assigneeId) - 1,
+                                                  ),
+                                                );
                                               }}
-                                              disabled={getUserPage(assigneeId) === 1}
+                                              disabled={
+                                                getUserPage(assigneeId) === 1
+                                              }
                                             >
                                               <ChevronLeft className="w-4 h-4" />
                                             </Button>
@@ -1622,9 +1796,20 @@ export function ProjectDetailPage() {
                                               size="icon"
                                               onClick={(e) => {
                                                 e.stopPropagation();
-                                                setUserPage(assigneeId, Math.min(getUserTotalPages(userTasks), getUserPage(assigneeId) + 1));
+                                                setUserPage(
+                                                  assigneeId,
+                                                  Math.min(
+                                                    getUserTotalPages(
+                                                      userTasks,
+                                                    ),
+                                                    getUserPage(assigneeId) + 1,
+                                                  ),
+                                                );
                                               }}
-                                              disabled={getUserPage(assigneeId) === getUserTotalPages(userTasks)}
+                                              disabled={
+                                                getUserPage(assigneeId) ===
+                                                getUserTotalPages(userTasks)
+                                              }
                                             >
                                               <ChevronRight className="w-4 h-4" />
                                             </Button>
@@ -1633,9 +1818,15 @@ export function ProjectDetailPage() {
                                               size="icon"
                                               onClick={(e) => {
                                                 e.stopPropagation();
-                                                setUserPage(assigneeId, getUserTotalPages(userTasks));
+                                                setUserPage(
+                                                  assigneeId,
+                                                  getUserTotalPages(userTasks),
+                                                );
                                               }}
-                                              disabled={getUserPage(assigneeId) === getUserTotalPages(userTasks)}
+                                              disabled={
+                                                getUserPage(assigneeId) ===
+                                                getUserTotalPages(userTasks)
+                                              }
                                             >
                                               <ChevronsRight className="w-4 h-4" />
                                             </Button>
@@ -1644,15 +1835,16 @@ export function ProjectDetailPage() {
                                       </TableCell>
                                     </TableRow>
                                   )}
-                                </React.Fragment>
-                              );
-                            })}
-                          </>
+                              </React.Fragment>
+                            );
+                          },
                         )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </Card>
+                      </>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </Card>
           </TabsContent>
 
           <TabsContent value="resources" className="space-y-6">
@@ -1699,7 +1891,7 @@ export function ProjectDetailPage() {
                     projectId={project.id}
                     selectedLabelIds={selectedLabelIds}
                     onSelectionChange={setSelectedLabelIds}
-                    allowCreateLabel={true}
+                    allowCreateLabel={false}
                   />
                 </Card>
 
@@ -1790,7 +1982,10 @@ export function ProjectDetailPage() {
                         <div>
                           <h4 className="text-lg font-semibold flex items-center gap-2">
                             {group.title}
-                            <Badge variant="secondary" className="ml-2 font-normal">
+                            <Badge
+                              variant="secondary"
+                              className="ml-2 font-normal"
+                            >
                               {groupMembers.length}
                             </Badge>
                           </h4>
@@ -1810,7 +2005,9 @@ export function ProjectDetailPage() {
                             <TableRow>
                               <TableHead>User</TableHead>
                               <TableHead>Joined</TableHead>
-                              <TableHead className="text-right">Actions</TableHead>
+                              <TableHead className="text-right">
+                                Actions
+                              </TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -1854,7 +2051,9 @@ export function ProjectDetailPage() {
                                       variant="ghost"
                                       size="sm"
                                       className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                      onClick={() => confirmRemoveMember(member)}
+                                      onClick={() =>
+                                        confirmRemoveMember(member)
+                                      }
                                     >
                                       Remove
                                     </Button>
@@ -1918,14 +2117,19 @@ export function ProjectDetailPage() {
                           <SelectContent>
                             {Object.values(ProjectStatus).map((s) => {
                               const isCompleted = s === ProjectStatus.COMPLETED;
-                              const isDisabled = isCompleted && projectProgress < 100;
+                              const isDisabled =
+                                isCompleted && projectProgress < 100;
 
                               return (
                                 <SelectItem
                                   key={s}
                                   value={s}
                                   disabled={isDisabled}
-                                  title={isDisabled ? "Project progress must be 100% to complete" : undefined}
+                                  title={
+                                    isDisabled
+                                      ? "Project progress must be 100% to complete"
+                                      : undefined
+                                  }
                                 >
                                   {s}
                                   {isDisabled && " (100% required)"}
@@ -2056,7 +2260,9 @@ export function ProjectDetailPage() {
                                 </PopoverTrigger>
                                 <PopoverContent className="w-80">
                                   <p className="text-sm">
-                                    Automatically distribute new image uploads to available annotators based on the selected strategy.
+                                    Automatically distribute new image uploads
+                                    to available annotators based on the
+                                    selected strategy.
                                   </p>
                                 </PopoverContent>
                               </Popover>
@@ -2111,7 +2317,9 @@ export function ProjectDetailPage() {
                                   </PopoverTrigger>
                                   <PopoverContent className="w-80">
                                     <p className="text-sm">
-                                      Automatically assign a reviewer when an annotator submits a task (prevents conflict of interest).
+                                      Automatically assign a reviewer when an
+                                      annotator submits a task (prevents
+                                      conflict of interest).
                                     </p>
                                   </PopoverContent>
                                 </Popover>
@@ -2140,13 +2348,15 @@ export function ProjectDetailPage() {
                               onChange={(e) =>
                                 setEditAssignmentRule((p) => ({
                                   ...p,
-                                  reviewerDelayHours: parseInt(e.target.value) || 0,
+                                  reviewerDelayHours:
+                                    parseInt(e.target.value) || 0,
                                 }))
                               }
                               disabled={!editAssignmentRule.autoAssignReviewer}
                             />
                             <p className="text-xs text-muted-foreground">
-                              Optional delay before assigning reviewer (0 = immediate)
+                              Optional delay before assigning reviewer (0 =
+                              immediate)
                             </p>
                           </div>
                         </div>
@@ -2168,7 +2378,8 @@ export function ProjectDetailPage() {
                             onChange={(e) =>
                               setEditAssignmentRule((p) => ({
                                 ...p,
-                                maxTasksPerAnnotator: parseInt(e.target.value) || 1,
+                                maxTasksPerAnnotator:
+                                  parseInt(e.target.value) || 1,
                               }))
                             }
                           />
@@ -2186,7 +2397,8 @@ export function ProjectDetailPage() {
                             onChange={(e) =>
                               setEditAssignmentRule((p) => ({
                                 ...p,
-                                maxTasksPerReviewer: parseInt(e.target.value) || 1,
+                                maxTasksPerReviewer:
+                                  parseInt(e.target.value) || 1,
                               }))
                             }
                           />
@@ -2213,7 +2425,8 @@ export function ProjectDetailPage() {
                             onChange={(e) =>
                               setEditAssignmentRule((p) => ({
                                 ...p,
-                                minAnnotatorReputation: parseInt(e.target.value) || 0,
+                                minAnnotatorReputation:
+                                  parseInt(e.target.value) || 0,
                               }))
                             }
                           />
@@ -2232,7 +2445,8 @@ export function ProjectDetailPage() {
                             onChange={(e) =>
                               setEditAssignmentRule((p) => ({
                                 ...p,
-                                minReviewerReputation: parseInt(e.target.value) || 0,
+                                minReviewerReputation:
+                                  parseInt(e.target.value) || 0,
                               }))
                             }
                           />
@@ -2254,16 +2468,20 @@ export function ProjectDetailPage() {
                           <Input
                             type="number"
                             min="1"
-                            value={editAssignmentRule.maxRejectionsBeforeReassign}
+                            value={
+                              editAssignmentRule.maxRejectionsBeforeReassign
+                            }
                             onChange={(e) =>
                               setEditAssignmentRule((p) => ({
                                 ...p,
-                                maxRejectionsBeforeReassign: parseInt(e.target.value) || 1,
+                                maxRejectionsBeforeReassign:
+                                  parseInt(e.target.value) || 1,
                               }))
                             }
                           />
                           <p className="text-xs text-muted-foreground">
-                            Reassign task to another annotator after this many rejections
+                            Reassign task to another annotator after this many
+                            rejections
                           </p>
                         </div>
 
@@ -2277,7 +2495,9 @@ export function ProjectDetailPage() {
                                 </PopoverTrigger>
                                 <PopoverContent className="w-80">
                                   <p className="text-sm">
-                                    If an annotator skips a task, it will be automatically reassigned to another annotator.
+                                    If an annotator skips a task, it will be
+                                    automatically reassigned to another
+                                    annotator.
                                   </p>
                                 </PopoverContent>
                               </Popover>
@@ -2298,7 +2518,6 @@ export function ProjectDetailPage() {
                         </div>
                       </div>
                     </div>
-
                   </div>
                 </Card>
 
@@ -2639,8 +2858,8 @@ export function ProjectDetailPage() {
         <DatasetCreateDialog
           projectId={project.id}
           open={false}
-          onOpenChange={() => { }}
-          onSuccess={() => { }}
+          onOpenChange={() => {}}
+          onSuccess={() => {}}
         />
 
         <UploadImageDialog
@@ -2655,34 +2874,45 @@ export function ProjectDetailPage() {
         />
 
         {/* Task Assignment Dialog */}
-        <Dialog open={isAssignDialogOpen} onOpenChange={(open) => {
-          setIsAssignDialogOpen(open);
-          if (!open) {
-            setIsBulkAssign(false);
-            setTaskToAssign(null);
-            setSelectedAnnotatorId("");
-            setSelectedDeadline(undefined);
-            setReassignmentReason("");
-          }
-        }}>
+        <Dialog
+          open={isAssignDialogOpen}
+          onOpenChange={(open) => {
+            setIsAssignDialogOpen(open);
+            if (!open) {
+              setIsBulkAssign(false);
+              setTaskToAssign(null);
+              setSelectedAnnotatorId("");
+              setSelectedDeadline(undefined);
+              setReassignmentReason("");
+            }
+          }}
+        >
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
                 {isBulkAssign
                   ? `Assign ${selectedTasks.length} Tasks`
                   : (() => {
-                      const hasCurrentAssignment = taskToAssign?.assignments?.find((a: any) => a.annotatorId);
-                      return hasCurrentAssignment ? 'Reassign Task' : 'Assign Task';
+                      const hasCurrentAssignment =
+                        taskToAssign?.assignments?.find(
+                          (a: any) => a.annotatorId,
+                        );
+                      return hasCurrentAssignment
+                        ? "Reassign Task"
+                        : "Assign Task";
                     })()}
               </DialogTitle>
               <DialogDescription>
                 {isBulkAssign
                   ? `Assign ${selectedTasks.length} selected tasks to an annotator.`
                   : (() => {
-                      const hasCurrentAssignment = taskToAssign?.assignments?.find((a: any) => a.annotatorId);
+                      const hasCurrentAssignment =
+                        taskToAssign?.assignments?.find(
+                          (a: any) => a.annotatorId,
+                        );
                       return hasCurrentAssignment
-                        ? 'Reassign this task to a different annotator.'
-                        : 'Assign this task to an annotator in the project.';
+                        ? "Reassign this task to a different annotator."
+                        : "Assign this task to an annotator in the project.";
                     })()}
               </DialogDescription>
             </DialogHeader>
@@ -2699,135 +2929,175 @@ export function ProjectDetailPage() {
                       {selectedTasks.length} Tasks Selected
                     </div>
                     <div className="text-xs text-blue-700">
-                      All selected tasks will be assigned to the chosen annotator
+                      All selected tasks will be assigned to the chosen
+                      annotator
                     </div>
                   </div>
                 </div>
-              ) : taskToAssign && (
-                <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
-                  <div className="w-16 h-16 rounded overflow-hidden bg-gray-100 border">
-                    <img
-                      src={taskToAssign.image?.storageUrl}
-                      alt={taskToAssign.image?.originalFilename || 'Task'}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-medium text-sm">
-                      {taskToAssign.image?.originalFilename || 'Untitled'}
+              ) : (
+                taskToAssign && (
+                  <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
+                    <div className="w-16 h-16 rounded overflow-hidden bg-gray-100 border">
+                      <img
+                        src={taskToAssign.image?.storageUrl}
+                        alt={taskToAssign.image?.originalFilename || "Task"}
+                        className="w-full h-full object-cover"
+                      />
                     </div>
-                    <div className="text-xs text-muted-foreground">
-                      ID: {taskToAssign.id.slice(0, 8)}...
+                    <div className="flex-1">
+                      <div className="font-medium text-sm">
+                        {taskToAssign.image?.originalFilename || "Untitled"}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        ID: {taskToAssign.id.slice(0, 8)}...
+                      </div>
+                      <Badge
+                        variant={
+                          taskToAssign.difficultyLevel === "EASY"
+                            ? "default"
+                            : taskToAssign.difficultyLevel === "NORMAL"
+                              ? "secondary"
+                              : taskToAssign.difficultyLevel === "HARD"
+                                ? "destructive"
+                                : "outline"
+                        }
+                        className="mt-1"
+                      >
+                        {taskToAssign.difficultyLevel || "NORMAL"}
+                      </Badge>
                     </div>
-                    <Badge
-                      variant={
-                        taskToAssign.difficultyLevel === 'EASY' ? 'default' :
-                        taskToAssign.difficultyLevel === 'NORMAL' ? 'secondary' :
-                        taskToAssign.difficultyLevel === 'HARD' ? 'destructive' :
-                        'outline'
-                      }
-                      className="mt-1"
-                    >
-                      {taskToAssign.difficultyLevel || 'NORMAL'}
-                    </Badge>
                   </div>
-                </div>
+                )
               )}
 
-                {/* Annotator Selection */}
-                <div className="space-y-2">
-                  <Label>Select Annotator</Label>
-                  {!isBulkAssign && taskToAssign && (() => {
-                    const currentAssignment = taskToAssign.assignments?.find((a: any) => a.annotatorId);
+              {/* Annotator Selection */}
+              <div className="space-y-2">
+                <Label>Select Annotator</Label>
+                {!isBulkAssign &&
+                  taskToAssign &&
+                  (() => {
+                    const currentAssignment = taskToAssign.assignments?.find(
+                      (a: any) => a.annotatorId,
+                    );
                     if (currentAssignment) {
-                      const currentAnnotator = annotators.find((a: any) => a.userId === currentAssignment.annotatorId);
+                      const currentAnnotator = annotators.find(
+                        (a: any) => a.userId === currentAssignment.annotatorId,
+                      );
                       return (
                         <p className="text-xs text-muted-foreground mb-1">
-                          Currently assigned to: <span className="font-semibold">{currentAnnotator?.user?.fullName || currentAnnotator?.user?.email}</span>
+                          Currently assigned to:{" "}
+                          <span className="font-semibold">
+                            {currentAnnotator?.user?.fullName ||
+                              currentAnnotator?.user?.email}
+                          </span>
                         </p>
                       );
                     }
                     return null;
                   })()}
-                  <Select
-                    value={selectedAnnotatorId}
-                    onValueChange={setSelectedAnnotatorId}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose an annotator..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {annotators
-                        .filter((a: any) => a.projectRole === 'ANNOTATOR')
-                        .map((annotator: any) => {
-                          const taskCount = workloadMap[annotator.userId] || 0;
-                          return (
-                            <SelectItem key={annotator.userId} value={annotator.userId}>
-                              <div className="flex items-center justify-between w-full">
-                                <span>{annotator.user?.fullName || annotator.user?.email}</span>
-                                <Badge variant="secondary" className="ml-2 text-xs">
-                                  {taskCount} tasks
-                                </Badge>
-                              </div>
-                            </SelectItem>
-                          );
-                        })}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <Select
+                  value={selectedAnnotatorId}
+                  onValueChange={setSelectedAnnotatorId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose an annotator..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {annotators
+                      .filter((a: any) => a.projectRole === "ANNOTATOR")
+                      .map((annotator: any) => {
+                        const taskCount = workloadMap[annotator.userId] || 0;
+                        return (
+                          <SelectItem
+                            key={annotator.userId}
+                            value={annotator.userId}
+                          >
+                            <div className="flex items-center justify-between w-full">
+                              <span>
+                                {annotator.user?.fullName ||
+                                  annotator.user?.email}
+                              </span>
+                              <Badge
+                                variant="secondary"
+                                className="ml-2 text-xs"
+                              >
+                                {taskCount} tasks
+                              </Badge>
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
+                  </SelectContent>
+                </Select>
+              </div>
 
-                {/* Deadline Selection */}
-                <div className="space-y-2">
-                  <Label>Deadline (Optional)</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start text-left font-normal"
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {selectedDeadline ? (
-                          format(selectedDeadline, "PPP")
-                        ) : (
-                          <span className="text-muted-foreground">
-                            Select a deadline
-                          </span>
-                        )}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                      <Calendar
-                        mode="single"
-                        selected={selectedDeadline}
-                        onSelect={setSelectedDeadline}
-                        initialFocus
-                        disabled={(date) => date < new Date()}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <p className="text-xs text-muted-foreground">
-                    If not set, deadline will be auto-calculated based on task difficulty
-                  </p>
-                </div>
+              {/* Deadline Selection */}
+              <div className="space-y-2">
+                <Label>Deadline (Optional)</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start text-left font-normal"
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {selectedDeadline ? (
+                        format(selectedDeadline, "PPP")
+                      ) : (
+                        <span className="text-muted-foreground">
+                          Select a deadline
+                        </span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDeadline}
+                      onSelect={setSelectedDeadline}
+                      initialFocus
+                      disabled={(date) => date < new Date()}
+                    />
+                  </PopoverContent>
+                </Popover>
+                <p className="text-xs text-muted-foreground">
+                  If not set, deadline will be auto-calculated based on task
+                  difficulty
+                </p>
+              </div>
 
-                {/* Reassignment Reason - Only show for reassignments */}
-                {!isBulkAssign && taskToAssign && (() => {
-                  const currentAssignment = taskToAssign.assignments?.find((a: any) => a.annotatorId);
-                  const isReassignment = currentAssignment && selectedAnnotatorId && currentAssignment.annotatorId !== selectedAnnotatorId;
+              {/* Reassignment Reason - Only show for reassignments */}
+              {!isBulkAssign &&
+                taskToAssign &&
+                (() => {
+                  const currentAssignment = taskToAssign.assignments?.find(
+                    (a: any) => a.annotatorId,
+                  );
+                  const isReassignment =
+                    currentAssignment &&
+                    selectedAnnotatorId &&
+                    currentAssignment.annotatorId !== selectedAnnotatorId;
 
                   if (!isReassignment) return null;
 
-                  const currentAnnotator = annotators.find((a: any) => a.userId === currentAssignment.annotatorId);
+                  const currentAnnotator = annotators.find(
+                    (a: any) => a.userId === currentAssignment.annotatorId,
+                  );
 
                   return (
                     <div className="space-y-2 p-4 bg-amber-50 border border-amber-200 rounded-lg">
                       <div className="flex items-center gap-2 text-amber-900">
                         <AlertCircle className="h-4 w-4" />
-                        <Label className="text-sm font-semibold">Reassignment Reason (Required)</Label>
+                        <Label className="text-sm font-semibold">
+                          Reassignment Reason (Required)
+                        </Label>
                       </div>
                       <p className="text-xs text-amber-700">
-                        This task is currently assigned to {currentAnnotator?.user?.fullName || currentAnnotator?.user?.email}.
-                        Please provide a reason for reassigning to a different annotator.
+                        This task is currently assigned to{" "}
+                        {currentAnnotator?.user?.fullName ||
+                          currentAnnotator?.user?.email}
+                        . Please provide a reason for reassigning to a different
+                        annotator.
                       </p>
                       <Textarea
                         placeholder="Explain why this task needs to be reassigned..."
@@ -2839,7 +3109,7 @@ export function ProjectDetailPage() {
                     </div>
                   );
                 })()}
-              </div>
+            </div>
 
             <DialogFooter>
               <Button
@@ -2864,28 +3134,44 @@ export function ProjectDetailPage() {
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     {(() => {
-                      const hasCurrentAssignment = taskToAssign?.assignments?.find((a: any) => a.annotatorId);
-                      return hasCurrentAssignment ? 'Reassigning...' : 'Assigning...';
+                      const hasCurrentAssignment =
+                        taskToAssign?.assignments?.find(
+                          (a: any) => a.annotatorId,
+                        );
+                      return hasCurrentAssignment
+                        ? "Reassigning..."
+                        : "Assigning...";
                     })()}
                   </>
                 ) : isBulkAssign ? (
                   `Assign ${selectedTasks.length} Tasks`
-                ) : (() => {
-                  const hasCurrentAssignment = taskToAssign?.assignments?.find((a: any) => a.annotatorId);
-                  return hasCurrentAssignment ? 'Reassign Task' : 'Assign Task';
-                })()}
+                ) : (
+                  (() => {
+                    const hasCurrentAssignment =
+                      taskToAssign?.assignments?.find(
+                        (a: any) => a.annotatorId,
+                      );
+                    return hasCurrentAssignment
+                      ? "Reassign Task"
+                      : "Assign Task";
+                  })()
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
 
         {/* Task Unassign Confirmation Dialog */}
-        <AlertDialog open={isUnassignDialogOpen} onOpenChange={setIsUnassignDialogOpen}>
+        <AlertDialog
+          open={isUnassignDialogOpen}
+          onOpenChange={setIsUnassignDialogOpen}
+        >
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Unassign Task</AlertDialogTitle>
               <AlertDialogDescription>
-                Are you sure you want to unassign this task? The annotator will lose access to this task.
+                Are you sure you want to unassign this task? The annotator will
+                lose access to this task.
               </AlertDialogDescription>
             </AlertDialogHeader>
 
@@ -2894,13 +3180,13 @@ export function ProjectDetailPage() {
                 <div className="w-16 h-16 rounded overflow-hidden bg-gray-100 border">
                   <img
                     src={taskToUnassign.image?.storageUrl}
-                    alt={taskToUnassign.image?.originalFilename || 'Task'}
+                    alt={taskToUnassign.image?.originalFilename || "Task"}
                     className="w-full h-full object-cover"
                   />
                 </div>
                 <div>
                   <div className="font-medium text-sm">
-                    {taskToUnassign.image?.originalFilename || 'Untitled'}
+                    {taskToUnassign.image?.originalFilename || "Untitled"}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     ID: {taskToUnassign.id.slice(0, 8)}...
@@ -2930,7 +3216,7 @@ export function ProjectDetailPage() {
                     Unassigning...
                   </>
                 ) : (
-                  'Unassign Task'
+                  "Unassign Task"
                 )}
               </AlertDialogAction>
             </AlertDialogFooter>
@@ -2938,13 +3224,18 @@ export function ProjectDetailPage() {
         </AlertDialog>
 
         {/* Delete Tasks Confirmation Dialog */}
-        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialog
+          open={isDeleteDialogOpen}
+          onOpenChange={setIsDeleteDialogOpen}
+        >
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Delete Tasks</AlertDialogTitle>
               <AlertDialogDescription>
-                Are you sure you want to delete {selectedTasks.length} task{selectedTasks.length > 1 ? 's' : ''}?
-                This will remove the image{selectedTasks.length > 1 ? 's' : ''} from the project and cannot be undone.
+                Are you sure you want to delete {selectedTasks.length} task
+                {selectedTasks.length > 1 ? "s" : ""}? This will remove the
+                image{selectedTasks.length > 1 ? "s" : ""} from the project and
+                cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
 
@@ -2954,7 +3245,8 @@ export function ProjectDetailPage() {
               </div>
               <div className="flex-1">
                 <div className="font-medium text-sm text-red-900">
-                  {selectedTasks.length} Task{selectedTasks.length > 1 ? 's' : ''} will be deleted
+                  {selectedTasks.length} Task
+                  {selectedTasks.length > 1 ? "s" : ""} will be deleted
                 </div>
                 <div className="text-xs text-red-700">
                   Images will be permanently removed from the project
@@ -2984,7 +3276,8 @@ export function ProjectDetailPage() {
                 ) : (
                   <>
                     <Trash2 className="mr-2 h-4 w-4" />
-                    Delete {selectedTasks.length} Task{selectedTasks.length > 1 ? 's' : ''}
+                    Delete {selectedTasks.length} Task
+                    {selectedTasks.length > 1 ? "s" : ""}
                   </>
                 )}
               </AlertDialogAction>
@@ -2993,50 +3286,68 @@ export function ProjectDetailPage() {
         </AlertDialog>
 
         {/* Bulk Unassign Tasks Confirmation Dialog */}
-        <AlertDialog open={isBulkUnassignDialogOpen} onOpenChange={setIsBulkUnassignDialogOpen}>
+        <AlertDialog
+          open={isBulkUnassignDialogOpen}
+          onOpenChange={setIsBulkUnassignDialogOpen}
+        >
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Unassign Tasks</AlertDialogTitle>
               <AlertDialogDescription>
-                {bulkUnassignUserId && groupedTasks[bulkUnassignUserId] && (() => {
-                  const userTasks = groupedTasks[bulkUnassignUserId];
-                  const userTaskIds = userTasks.map((t: any) => t.id);
-                  const tasksToUnassign = selectedTasks.filter(id => userTaskIds.includes(id));
-                  return `Are you sure you want to unassign ${tasksToUnassign.length} task${tasksToUnassign.length > 1 ? 's' : ''} from this user?`;
-                })()}
+                {bulkUnassignUserId &&
+                  groupedTasks[bulkUnassignUserId] &&
+                  (() => {
+                    const userTasks = groupedTasks[bulkUnassignUserId];
+                    const userTaskIds = userTasks.map((t: any) => t.id);
+                    const tasksToUnassign = selectedTasks.filter((id) =>
+                      userTaskIds.includes(id),
+                    );
+                    return `Are you sure you want to unassign ${tasksToUnassign.length} task${tasksToUnassign.length > 1 ? "s" : ""} from this user?`;
+                  })()}
               </AlertDialogDescription>
             </AlertDialogHeader>
 
-            {bulkUnassignUserId && groupedTasks[bulkUnassignUserId] && (() => {
-              const userTasks = groupedTasks[bulkUnassignUserId];
-              const userTaskIds = userTasks.map((t: any) => t.id);
-              const tasksToUnassign = selectedTasks.filter(id => userTaskIds.includes(id));
-              const firstTask = groupedTasks[bulkUnassignUserId][0];
-              const annotatorAssignment = firstTask.assignments?.find((a: any) => a.annotatorId);
-              const assignee = annotatorAssignment?.annotator;
+            {bulkUnassignUserId &&
+              groupedTasks[bulkUnassignUserId] &&
+              (() => {
+                const userTasks = groupedTasks[bulkUnassignUserId];
+                const userTaskIds = userTasks.map((t: any) => t.id);
+                const tasksToUnassign = selectedTasks.filter((id) =>
+                  userTaskIds.includes(id),
+                );
+                const firstTask = groupedTasks[bulkUnassignUserId][0];
+                const annotatorAssignment = firstTask.assignments?.find(
+                  (a: any) => a.annotatorId,
+                );
+                const assignee = annotatorAssignment?.annotator;
 
-              return (
-                <div className="flex items-center gap-4 p-4 bg-orange-50 rounded-lg border border-orange-200">
-                  <div className="flex items-center justify-center w-16 h-16 rounded bg-orange-100 text-orange-700">
-                    <UserMinus className="h-8 w-8" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-medium text-sm text-orange-900 flex items-center gap-2">
-                      <Avatar className="h-6 w-6">
-                        <AvatarImage src={assignee?.avatarUrl} alt={assignee?.fullName} />
-                        <AvatarFallback className="text-xs bg-orange-200">
-                          {assignee?.fullName?.charAt(0)}
-                        </AvatarFallback>
-                      </Avatar>
-                      {assignee?.fullName || assignee?.email}
+                return (
+                  <div className="flex items-center gap-4 p-4 bg-orange-50 rounded-lg border border-orange-200">
+                    <div className="flex items-center justify-center w-16 h-16 rounded bg-orange-100 text-orange-700">
+                      <UserMinus className="h-8 w-8" />
                     </div>
-                    <div className="text-xs text-orange-700 mt-1">
-                      {tasksToUnassign.length} Task{tasksToUnassign.length > 1 ? 's' : ''} will be unassigned
+                    <div className="flex-1">
+                      <div className="font-medium text-sm text-orange-900 flex items-center gap-2">
+                        <Avatar className="h-6 w-6">
+                          <AvatarImage
+                            src={assignee?.avatarUrl}
+                            alt={assignee?.fullName}
+                          />
+                          <AvatarFallback className="text-xs bg-orange-200">
+                            {assignee?.fullName?.charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
+                        {assignee?.fullName || assignee?.email}
+                      </div>
+                      <div className="text-xs text-orange-700 mt-1">
+                        {tasksToUnassign.length} Task
+                        {tasksToUnassign.length > 1 ? "s" : ""} will be
+                        unassigned
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })()}
+                );
+              })()}
 
             <AlertDialogFooter>
               <AlertDialogCancel
@@ -3061,12 +3372,16 @@ export function ProjectDetailPage() {
                 ) : (
                   <>
                     <UserMinus className="mr-2 h-4 w-4" />
-                    {bulkUnassignUserId && groupedTasks[bulkUnassignUserId] && (() => {
-                      const userTasks = groupedTasks[bulkUnassignUserId];
-                      const userTaskIds = userTasks.map((t: any) => t.id);
-                      const tasksToUnassign = selectedTasks.filter(id => userTaskIds.includes(id));
-                      return `Unassign ${tasksToUnassign.length} Task${tasksToUnassign.length > 1 ? 's' : ''}`;
-                    })()}
+                    {bulkUnassignUserId &&
+                      groupedTasks[bulkUnassignUserId] &&
+                      (() => {
+                        const userTasks = groupedTasks[bulkUnassignUserId];
+                        const userTaskIds = userTasks.map((t: any) => t.id);
+                        const tasksToUnassign = selectedTasks.filter((id) =>
+                          userTaskIds.includes(id),
+                        );
+                        return `Unassign ${tasksToUnassign.length} Task${tasksToUnassign.length > 1 ? "s" : ""}`;
+                      })()}
                   </>
                 )}
               </AlertDialogAction>
@@ -3075,7 +3390,10 @@ export function ProjectDetailPage() {
         </AlertDialog>
 
         {/* Bulk Deadline Dialog */}
-        <Dialog open={isBulkDeadlineDialogOpen} onOpenChange={setIsBulkDeadlineDialogOpen}>
+        <Dialog
+          open={isBulkDeadlineDialogOpen}
+          onOpenChange={setIsBulkDeadlineDialogOpen}
+        >
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Set Deadline for All Tasks</DialogTitle>
@@ -3090,23 +3408,32 @@ export function ProjectDetailPage() {
                 <div className="p-4 bg-gray-50 rounded-lg">
                   {(() => {
                     const firstTask = groupedTasks[bulkDeadlineUserId][0];
-                    const annotatorAssignment = firstTask.assignments?.find((a: any) => a.annotatorId);
+                    const annotatorAssignment = firstTask.assignments?.find(
+                      (a: any) => a.annotatorId,
+                    );
                     const assignee = annotatorAssignment?.annotator;
                     const taskCount = groupedTasks[bulkDeadlineUserId].length;
 
                     return (
                       <div className="flex items-center gap-3">
                         <Avatar className="h-10 w-10">
-                          <AvatarImage src={assignee?.avatarUrl} alt={assignee?.fullName} />
+                          <AvatarImage
+                            src={assignee?.avatarUrl}
+                            alt={assignee?.fullName}
+                          />
                           <AvatarFallback className="text-sm">
-                            {assignee?.fullName?.charAt(0).toUpperCase() || 'U'}
+                            {assignee?.fullName?.charAt(0).toUpperCase() || "U"}
                           </AvatarFallback>
                         </Avatar>
                         <div>
-                          <div className="font-medium text-sm">{assignee?.fullName || 'Unknown'}</div>
-                          <div className="text-xs text-muted-foreground">{assignee?.email || ''}</div>
+                          <div className="font-medium text-sm">
+                            {assignee?.fullName || "Unknown"}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {assignee?.email || ""}
+                          </div>
                           <Badge variant="secondary" className="mt-1 text-xs">
-                            {taskCount} {taskCount === 1 ? 'task' : 'tasks'}
+                            {taskCount} {taskCount === 1 ? "task" : "tasks"}
                           </Badge>
                         </div>
                       </div>
@@ -3168,7 +3495,7 @@ export function ProjectDetailPage() {
                     Updating...
                   </>
                 ) : (
-                  'Set Deadline'
+                  "Set Deadline"
                 )}
               </Button>
             </DialogFooter>
