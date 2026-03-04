@@ -127,6 +127,7 @@ export function AdminPanel() {
   >("ANNOTATOR");
   const [emailError, setEmailError] = useState("");
   const [phoneError, setPhoneError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
 
   const fetchUsers = async () => {
     try {
@@ -167,6 +168,15 @@ export function AdminPanel() {
     }
   }, [activeTab]);
 
+  // Reset errors when dialog closes
+  useEffect(() => {
+    if (!isAddUserOpen) {
+      setEmailError("");
+      setPhoneError("");
+      setPasswordError("");
+    }
+  }, [isAddUserOpen]);
+
   const validateEmail = (email: string) => {
     if (!email) {
       setEmailError("");
@@ -201,6 +211,46 @@ export function AdminPanel() {
     return true;
   };
 
+  const validatePassword = (password: string) => {
+    if (!password) {
+      setPasswordError("Password is required");
+      return false;
+    }
+    
+    // Min 8 characters
+    if (password.length < 8) {
+      setPasswordError("Password must be at least 8 characters");
+      return false;
+    }
+    
+    // At least one uppercase letter
+    if (!/[A-Z]/.test(password)) {
+      setPasswordError("Password must contain at least one uppercase letter");
+      return false;
+    }
+    
+    // At least one lowercase letter
+    if (!/[a-z]/.test(password)) {
+      setPasswordError("Password must contain at least one lowercase letter");
+      return false;
+    }
+    
+    // At least one number
+    if (!/[0-9]/.test(password)) {
+      setPasswordError("Password must contain at least one number");
+      return false;
+    }
+    
+    // At least one special character
+    if (!/[\W_]/.test(password)) {
+      setPasswordError("Password must contain at least one special character (!@#$%^&*)");
+      return false;
+    }
+    
+    setPasswordError("");
+    return true;
+  };
+
   const handleCreateUser = async () => {
     if (!newName || !newEmail || !newPassword || !newPhone) {
       toast.error("Please fill in all required fields");
@@ -209,6 +259,11 @@ export function AdminPanel() {
 
     // Validate email
     if (!validateEmail(newEmail)) {
+      return;
+    }
+
+    // Validate password
+    if (!validatePassword(newPassword)) {
       return;
     }
 
@@ -235,6 +290,7 @@ export function AdminPanel() {
       setNewRole("ANNOTATOR");
       setEmailError("");
       setPhoneError("");
+      setPasswordError("");
       fetchUsers();
     } catch (error: unknown) {
       console.error("Failed to create user", error);
@@ -515,15 +571,7 @@ export function AdminPanel() {
                               }`}
                             placeholder="user@gmail.com"
                             value={newEmail}
-                            onChange={(e) => {
-                              setNewEmail(e.target.value);
-                              // If there's already an error, validate immediately
-                              if (emailError && e.target.value) {
-                                validateEmail(e.target.value);
-                              } else if (!e.target.value) {
-                                setEmailError("");
-                              }
-                            }}
+                            onChange={(e) => setNewEmail(e.target.value)}
                           />
                           {emailError && (
                             <p className="text-sm text-red-600 flex items-center gap-1">
@@ -536,11 +584,21 @@ export function AdminPanel() {
                           <Label>Password</Label>
                           <input
                             type="password"
-                            className="w-full px-4 py-2 rounded-md border border-gray-300"
-                            placeholder="••••••••"
+                            className={`w-full px-4 py-2 rounded-md border ${
+                              passwordError
+                                ? "border-red-500 focus:ring-red-500 focus:border-red-500"
+                                : "border-gray-300"
+                            }`}
+                            placeholder="Min 8 chars, uppercase, lowercase, number, special char"
                             value={newPassword}
                             onChange={(e) => setNewPassword(e.target.value)}
                           />
+                          {passwordError && (
+                            <p className="text-sm text-red-600 flex items-center gap-1">
+                              <span>⚠</span>
+                              {passwordError}
+                            </p>
+                          )}
                         </div>
                         <div className="space-y-2">
                           <Label>Phone Number</Label>
@@ -552,15 +610,7 @@ export function AdminPanel() {
                               }`}
                             placeholder="0123456789"
                             value={newPhone}
-                            onChange={(e) => {
-                              setNewPhone(e.target.value);
-                              // If there's already an error, validate immediately
-                              if (phoneError && e.target.value) {
-                                validatePhone(e.target.value);
-                              } else if (!e.target.value) {
-                                setPhoneError("");
-                              }
-                            }}
+                            onChange={(e) => setNewPhone(e.target.value)}
                           />
                           {phoneError && (
                             <p className="text-sm text-red-600 flex items-center gap-1">

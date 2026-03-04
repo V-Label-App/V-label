@@ -25,6 +25,9 @@ export const RegisterPage = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [error, setError] = useState('');
+    const [emailError, setEmailError] = useState('');
+    const [passwordError, setPasswordError] = useState('');
+    const [confirmPasswordError, setConfirmPasswordError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
     // Redirect if already logged in
@@ -37,15 +40,55 @@ export const RegisterPage = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
+        setEmailError('');
+        setPasswordError('');
+        setConfirmPasswordError('');
 
-        // Client-side validation
-        if (password.length < 3) { // Adjusted to match backend relaxed policy
-            setError('Password must be at least 3 characters long');
-            return;
+        let hasError = false;
+
+        // Validate email (Gmail only)
+        if (!email) {
+            setEmailError('Email is required');
+            hasError = true;
+        } else if (!/^[a-zA-Z0-9._%+-]+@gmail\.com$/.test(email)) {
+            setEmailError('Please enter a valid email address (e.g., user@gmail.com)');
+            hasError = true;
         }
 
+        // Client-side password validation
+        // Min 8 characters
+        if (password.length < 8) {
+            setPasswordError('Password must be at least 8 characters');
+            hasError = true;
+        }
+        // At least one uppercase letter
+        else if (!/[A-Z]/.test(password)) {
+            setPasswordError('Password must contain at least one uppercase letter');
+            hasError = true;
+        }
+        // At least one lowercase letter
+        else if (!/[a-z]/.test(password)) {
+            setPasswordError('Password must contain at least one lowercase letter');
+            hasError = true;
+        }
+        // At least one number
+        else if (!/[0-9]/.test(password)) {
+            setPasswordError('Password must contain at least one number');
+            hasError = true;
+        }
+        // At least one special character
+        else if (!/[\W_]/.test(password)) {
+            setPasswordError('Password must contain at least one special character (!@#$%^&*)');
+            hasError = true;
+        }
+
+        // Validate confirm password
         if (password !== confirmPassword) {
-            setError('Passwords do not match');
+            setConfirmPasswordError('Passwords do not match');
+            hasError = true;
+        }
+
+        if (hasError) {
             return;
         }
 
@@ -56,8 +99,12 @@ export const RegisterPage = () => {
             logger.info('Registration successful');
             toast.success('Account created successfully! Please login.');
             setTimeout(() => navigate('/login'), 1000);
-        } catch (err: any) {
-            const errorMsg = err.response?.data?.error || 'Registration failed. Please try again.';
+        } catch (err: unknown) {
+            let errorMsg = 'Registration failed. Please try again.';
+            if (err && typeof err === 'object' && 'response' in err) {
+                const responseError = err as { response?: { data?: { error?: string } } };
+                errorMsg = responseError.response?.data?.error || errorMsg;
+            }
             setError(errorMsg);
             toast.error(errorMsg);
             logger.error('Registration failed:', errorMsg);
@@ -245,8 +292,16 @@ export const RegisterPage = () => {
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
                                 disabled={isLoading}
-                                className="h-11 bg-white border-slate-300 focus:border-blue-500"
+                                className={`h-11 bg-white focus:border-blue-500 ${
+                                    emailError ? 'border-red-500 focus:border-red-500' : 'border-slate-300'
+                                }`}
                             />
+                            {emailError && (
+                                <p className="text-sm text-red-600 flex items-center gap-1">
+                                    <AlertCircle className="w-4 h-4" />
+                                    {emailError}
+                                </p>
+                            )}
                         </div>
 
                         {/* Password Input */}
@@ -261,7 +316,9 @@ export const RegisterPage = () => {
                                     onChange={(e) => setPassword(e.target.value)}
                                     required
                                     disabled={isLoading}
-                                    className="h-11 bg-white border-slate-300 focus:border-blue-500 pr-10"
+                                    className={`h-11 bg-white focus:border-blue-500 pr-10 ${
+                                        passwordError ? 'border-red-500 focus:border-red-500' : 'border-slate-300'
+                                    }`}
                                 />
                                 <button
                                     type="button"
@@ -271,7 +328,14 @@ export const RegisterPage = () => {
                                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                                 </button>
                             </div>
-                            <p className="text-xs text-slate-500">Minimum 3 characters (Dev Mode)</p>
+                            {passwordError ? (
+                                <p className="text-sm text-red-600 flex items-center gap-1">
+                                    <AlertCircle className="w-4 h-4" />
+                                    {passwordError}
+                                </p>
+                            ) : (
+                                <p className="text-xs text-slate-500">Min 8 chars with uppercase, lowercase, number & special character</p>
+                            )}
                         </div>
 
                         {/* Confirm Password Input */}
@@ -286,7 +350,9 @@ export const RegisterPage = () => {
                                     onChange={(e) => setConfirmPassword(e.target.value)}
                                     required
                                     disabled={isLoading}
-                                    className="h-11 bg-white border-slate-300 focus:border-blue-500 pr-10"
+                                    className={`h-11 bg-white focus:border-blue-500 pr-10 ${
+                                        confirmPasswordError ? 'border-red-500 focus:border-red-500' : 'border-slate-300'
+                                    }`}
                                 />
                                 <button
                                     type="button"
@@ -296,6 +362,12 @@ export const RegisterPage = () => {
                                     {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                                 </button>
                             </div>
+                            {confirmPasswordError && (
+                                <p className="text-sm text-red-600 flex items-center gap-1">
+                                    <AlertCircle className="w-4 h-4" />
+                                    {confirmPasswordError}
+                                </p>
+                            )}
                         </div>
 
                         {/* Submit Button */}
