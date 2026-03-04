@@ -42,6 +42,24 @@ interface ImageRecord {
     uploadedAt: string;
 }
 
+interface AssignmentInfo {
+    imageId: string;
+    taskId: string;
+    filename: string;
+    storageUrl: string;
+    assignments: Array<{
+        assignmentId: string;
+        status: string;
+        annotatorId: string;
+        annotatorName: string;
+    }>;
+}
+
+interface AssignmentCheckResult {
+    assigned: AssignmentInfo[];
+    unassigned: string[];
+}
+
 export function ProjectGalleryDialog({ projectId, initialDatasetId, open, onOpenChange }: ProjectGalleryDialogProps) {
     const [images, setImages] = useState<ImageRecord[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -67,6 +85,14 @@ export function ProjectGalleryDialog({ projectId, initialDatasetId, open, onOpen
     // Confirmation
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
     const [imageToDelete, setImageToDelete] = useState<string | null>(null); // If null, means bulk delete
+
+    // Assignment Check Dialog
+    const [isAssignmentDialogOpen, setIsAssignmentDialogOpen] = useState(false);
+    const [assignmentCheckResult, setAssignmentCheckResult] = useState<AssignmentCheckResult | null>(null);
+    const [isProcessingSelected, setIsProcessingSelected] = useState(false);
+    const [isProcessingAll, setIsProcessingAll] = useState(false);
+    const [isProcessingUnassigned, setIsProcessingUnassigned] = useState(false);
+    const [selectedAssignedImages, setSelectedAssignedImages] = useState<string[]>([]); // Track which assigned images to unassign & delete
 
     // Initialize Filter from props
     useEffect(() => {
@@ -113,13 +139,35 @@ export function ProjectGalleryDialog({ projectId, initialDatasetId, open, onOpen
         setPage(1);
     }, [selectedFilter]);
 
-    const confirmDelete = (imageId?: string) => {
-        if (imageId) {
-            setImageToDelete(imageId);
-        } else {
-            setImageToDelete(null); // Bulk
+    const confirmDelete = async (imageId?: string) => {
+        const imageIds = imageId ? [imageId] : selectedImages;
+        
+        if (imageIds.length === 0) return;
+
+        try {
+            // Check which images have assignments
+            const result = await projectApi.checkImageAssignments(projectId, imageIds);
+            
+            if (result.assigned.length === 0) {
+                // No assignments, proceed with normal deletion
+                if (imageId) {
+                    setImageToDelete(imageId);
+                } else {
+                    setImageToDelete(null); // Bulk
+                }
+                setIsDeleteConfirmOpen(true);
+            } else {
+                // Has assignments, show assignment dialog
+                setAssignmentCheckResult(result);
+                setImageToDelete(imageId || null);
+                // Pre-select all assigned images by default
+                setSelectedAssignedImages(result.assigned.map(a => a.imageId));
+                setIsAssignmentDialogOpen(true);
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed to check image assignments");
         }
-        setIsDeleteConfirmOpen(true);
     };
 
     const handleDelete = async () => {
@@ -147,6 +195,139 @@ export function ProjectGalleryDialog({ projectId, initialDatasetId, open, onOpen
         }
     };
 
+    // Handle unassign and delete all assigned images
+    const handleUnassignAndDelete = async () => {
+        if (!assignmentCheckResult) return;
+        
+        setIsProcessingAll(true);
+        try {
+            // First, unassign all tasks
+            const taskIds = assignmentCheckResult.assigned.map(a => a.taskId);
+            await projectApi.bulkUnassignTasks(projectId, taskIds);
+            
+            // Then delete all images (assigned + unassigned)
+            const allImageIds = [
+                ...assignmentCheckResult.assigned.map(a => a.imageId),
+                ...assignmentCheckResult.unassigned
+            ];
+            await projectApi.deleteImages(projectId, allImageIds);
+            
+            // Update UI
+            setImages(prev => prev.filter(img => !allImageIds.includes(img.id)));
+            if (previewImage && allImageIds.includes(previewImage.id)) setPreviewImage(null);
+            setSelectedImages([]);
+            
+            toast.success(`Unassigned and deleted ${allImageIds.length} image(s) successfully`);
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed to unassign and delete images");
+        } finally {
+            setIsProcessingAll(false);
+            setIsAssignmentDialogOpen(false);
+            setAssignmentCheckResult(null);
+            setImageToDelete(null);
+            setSelectedAssignedImages([]);
+        }
+    };
+
+    // Handle unassign and delete selected assigned images
+    const handleUnassignSelectedAndDelete = async () => {
+        if (!assignmentCheckResult) return;
+        
+        if (selectedAssignedImages.length === 0 && assignmentCheckResult.unassigned.length === 0) {
+            toast.info("Please select at least one image");
+            return;
+        }
+        
+        setIsProcessingSelected(true);
+        try {
+            // Get task IDs for selected assigned images
+            const tasksToUnassign = assignmentCheckResult.assigned
+                .filter(a => selectedAssignedImages.includes(a.imageId))
+                .map(a => a.taskId);
+            
+            // Unassign selected tasks
+            if (tasksToUnassign.length > 0) {
+                await projectApi.bulkUnassignTasks(projectId, tasksToUnassign);
+            }
+            
+            // Delete selected assigned images + all unassigned images
+            const imagesToDelete = [
+                ...selectedAssignedImages,
+                ...assignmentCheckResult.unassigned
+            ];
+            
+            if (imagesToDelete.length > 0) {
+                await projectApi.deleteImages(projectId, imagesToDelete);
+            }
+            
+            // Update UI
+            setImages(prev => prev.filter(img => !imagesToDelete.includes(img.id)));
+            if (previewImage && imagesToDelete.includes(previewImage.id)) setPreviewImage(null);
+            setSelectedImages([]);
+            
+            const unassignCount = selectedAssignedImages.length;
+            const totalCount = imagesToDelete.length;
+            toast.success(`Unassigned ${unassignCount} and deleted ${totalCount} image(s) successfully`);
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed to unassign and delete images");
+        } finally {
+            setIsProcessingSelected(false);
+            setIsAssignmentDialogOpen(false);
+            setAssignmentCheckResult(null);
+            setImageToDelete(null);
+            setSelectedAssignedImages([]);
+        }
+    };
+
+    // Handle delete only unassigned images
+    const handleDeleteUnassignedOnly = async () => {
+        if (!assignmentCheckResult) return;
+        
+        setIsProcessingUnassigned(true);
+        try {
+            if (assignmentCheckResult.unassigned.length === 0) {
+                toast.info("No unassigned images to delete");
+                return;
+            }
+            
+            // Delete only unassigned images
+            await projectApi.deleteImages(projectId, assignmentCheckResult.unassigned);
+            
+            // Update UI
+            setImages(prev => prev.filter(img => !assignmentCheckResult.unassigned.includes(img.id)));
+            if (previewImage && assignmentCheckResult.unassigned.includes(previewImage.id)) setPreviewImage(null);
+            setSelectedImages(prev => prev.filter(id => !assignmentCheckResult.unassigned.includes(id)));
+            
+            toast.success(`Deleted ${assignmentCheckResult.unassigned.length} unassigned image(s)`);
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed to delete unassigned images");
+        } finally {
+            setIsProcessingUnassigned(false);
+            setIsAssignmentDialogOpen(false);
+            setAssignmentCheckResult(null);
+            setImageToDelete(null);
+            setSelectedAssignedImages([]);
+        }
+    };
+
+    const toggleAssignedImage = (imageId: string) => {
+        setSelectedAssignedImages(prev =>
+            prev.includes(imageId) ? prev.filter(id => id !== imageId) : [...prev, imageId]
+        );
+    };
+
+    const toggleSelectAllAssigned = () => {
+        if (!assignmentCheckResult) return;
+        if (selectedAssignedImages.length === assignmentCheckResult.assigned.length) {
+            setSelectedAssignedImages([]);
+        } else {
+            setSelectedAssignedImages(assignmentCheckResult.assigned.map(a => a.imageId));
+        }
+    };
+
     const toggleSelectAll = () => {
         if (selectedImages.length === images.length && images.length > 0) {
             setSelectedImages([]);
@@ -171,7 +352,7 @@ export function ProjectGalleryDialog({ projectId, initialDatasetId, open, onOpen
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-[95vw] !max-w-[95vw] w-[95vw] h-[90vh] flex flex-col">
+            <DialogContent className="!max-w-[95vw] w-[95vw] h-[90vh] flex flex-col">
                 <DialogHeader>
                     <div className="flex items-center justify-between">
                         <div>
@@ -348,7 +529,7 @@ export function ProjectGalleryDialog({ projectId, initialDatasetId, open, onOpen
                     </div>
                 )}
             </DialogContent>
-            {/* Confirmation Dialog */}
+            {/* Delete Confirmation Dialog */}
             <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
@@ -364,6 +545,164 @@ export function ProjectGalleryDialog({ projectId, initialDatasetId, open, onOpen
                         <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                             Delete
                         </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Assignment Warning Dialog */}
+            <AlertDialog open={isAssignmentDialogOpen} onOpenChange={setIsAssignmentDialogOpen}>
+                <AlertDialogContent className="!max-w-7xl w-[50vw]">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Images Are Assigned</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {assignmentCheckResult && (
+                                <>
+                                    {assignmentCheckResult.assigned.length === 1 && assignmentCheckResult.unassigned.length === 0 ? (
+                                        <span>This image is currently assigned to an annotator and cannot be deleted directly.</span>
+                                    ) : assignmentCheckResult.unassigned.length === 0 ? (
+                                        <span>{assignmentCheckResult.assigned.length} images are currently assigned to annotators and cannot be deleted directly.</span>
+                                    ) : (
+                                        <span>
+                                            {assignmentCheckResult.assigned.length} image(s) are assigned to annotators and {assignmentCheckResult.unassigned.length} image(s) are unassigned.
+                                        </span>
+                                    )}
+                                </>
+                            )}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+
+                    {/* Show assigned images details */}
+                    {assignmentCheckResult && assignmentCheckResult.assigned.length > 0 && (
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded">
+                                <Checkbox
+                                    checked={selectedAssignedImages.length === assignmentCheckResult.assigned.length}
+                                    onCheckedChange={toggleSelectAllAssigned}
+                                    id="select-all-assigned"
+                                />
+                                <label htmlFor="select-all-assigned" className="text-sm font-medium cursor-pointer select-none">
+                                    Select all assigned images ({assignmentCheckResult.assigned.length})
+                                </label>
+                            </div>
+                            <div className="max-h-[300px] overflow-y-auto border rounded-md p-4 space-y-3 bg-gray-50">
+                                {assignmentCheckResult.assigned.map((item) => (
+                                    <div key={item.imageId} className="flex items-start gap-3 p-3 bg-white rounded border hover:border-blue-300 transition-colors">
+                                        <Checkbox
+                                            checked={selectedAssignedImages.includes(item.imageId)}
+                                            onCheckedChange={() => toggleAssignedImage(item.imageId)}
+                                            className="mt-1"
+                                        />
+                                        <div className="w-16 h-16 rounded overflow-hidden bg-gray-100 border flex-shrink-0">
+                                            <img
+                                                src={item.storageUrl}
+                                                alt={item.filename}
+                                                className="w-full h-full object-cover"
+                                            />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-medium text-sm truncate">{item.filename}</p>
+                                            <div className="mt-1 space-y-1">
+                                                {item.assignments.map((assignment, idx) => (
+                                                    <p key={idx} className="text-xs text-muted-foreground">
+                                                        <span className="font-medium">Assigned to:</span> {assignment.annotatorName}
+                                                        <span className="ml-2 text-blue-600">({assignment.status})</span>
+                                                    </p>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="text-sm text-muted-foreground mt-2 p-3 bg-blue-50 border border-blue-200 rounded">
+                        {assignmentCheckResult && (
+                            <>
+                                {assignmentCheckResult.unassigned.length > 0 && (
+                                    <p className="mb-2">
+                                        ✓ <strong>{assignmentCheckResult.unassigned.length}</strong> unassigned image(s) will be deleted
+                                    </p>
+                                )}
+                                <p>
+                                    {selectedAssignedImages.length === 0 ? (
+                                        <span>⚠️ No assigned images selected. Select images above to unassign and delete them.</span>
+                                    ) : (
+                                        <span>✓ <strong>{selectedAssignedImages.length}</strong> assigned image(s) will be unassigned and deleted</span>
+                                    )}
+                                </p>
+                            </>
+                        )}
+                    </div>
+
+                    <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+                        <AlertDialogCancel 
+                            onClick={() => {
+                                setIsAssignmentDialogOpen(false);
+                                setAssignmentCheckResult(null);
+                                setImageToDelete(null);
+                                setSelectedAssignedImages([]);
+                            }}
+                            disabled={isProcessingSelected || isProcessingAll || isProcessingUnassigned}
+                        >
+                            Cancel
+                        </AlertDialogCancel>
+                        
+                        {assignmentCheckResult && assignmentCheckResult.unassigned.length > 0 && selectedAssignedImages.length === 0 && (
+                            <Button
+                                onClick={handleDeleteUnassignedOnly}
+                                disabled={isProcessingUnassigned || isProcessingSelected || isProcessingAll}
+                                variant="outline"
+                                className="gap-2"
+                            >
+                                {isProcessingUnassigned ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        Processing...
+                                    </>
+                                ) : (
+                                    <>Delete Only Unassigned ({assignmentCheckResult.unassigned.length})</>
+                                )}
+                            </Button>
+                        )}
+
+                        <Button
+                            onClick={handleUnassignSelectedAndDelete}
+                            disabled={isProcessingSelected || isProcessingAll || isProcessingUnassigned || (selectedAssignedImages.length === 0 && (!assignmentCheckResult || assignmentCheckResult.unassigned.length === 0))}
+                            variant="destructive"
+                            className="gap-2"
+                        >
+                            {isProcessingSelected ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Processing...
+                                </>
+                            ) : (
+                                <>
+                                    Unassign & Delete Selected
+                                    {assignmentCheckResult && ` (${selectedAssignedImages.length + assignmentCheckResult.unassigned.length})`}
+                                </>
+                            )}
+                        </Button>
+                        
+                        <Button
+                            onClick={handleUnassignAndDelete}
+                            disabled={isProcessingAll || isProcessingSelected || isProcessingUnassigned || Boolean(assignmentCheckResult && selectedAssignedImages.length !== assignmentCheckResult.assigned.length)}
+                            variant="outline"
+                            className="gap-2 border-red-300 text-red-600 hover:bg-red-50"
+                        >
+                            {isProcessingAll ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Processing...
+                                </>
+                            ) : (
+                                <>
+                                    Unassign & Delete All
+                                    {assignmentCheckResult && ` (${assignmentCheckResult.assigned.length + assignmentCheckResult.unassigned.length})`}
+                                </>
+                            )}
+                        </Button>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>

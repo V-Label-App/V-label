@@ -720,7 +720,34 @@ export class ProjectService {
                 throw new Error('Image not found in project')
             }
 
-            // 2. Delete from DB
+            // 2. Check if any task for this image has assignments
+            const assignedTask = await prisma.task.findFirst({
+                where: {
+                    imageId: imageId,
+                    assignments: {
+                        some: {}
+                    }
+                },
+                select: {
+                    id: true,
+                    assignments: {
+                        select: {
+                            annotator: {
+                                select: { fullName: true, email: true }
+                            }
+                        },
+                        take: 1
+                    }
+                }
+            })
+
+            if (assignedTask) {
+                const assignee = assignedTask.assignments[0]?.annotator
+                const assigneeName = assignee?.fullName || assignee?.email || 'unknown'
+                throw new Error(`Cannot delete image: task is already assigned to ${assigneeName}`)
+            }
+
+            // 3. Delete from DB
             await prisma.image.delete({
                 where: { id: imageId }
             })
@@ -755,9 +782,31 @@ export class ProjectService {
                 return { count: 0 }
             }
 
+            // 2. Check if any tasks for these images have assignments
+            const assignedTasks = await prisma.task.findMany({
+                where: {
+                    imageId: { in: imageIds },
+                    assignments: {
+                        some: {}
+                    }
+                },
+                select: {
+                    id: true,
+                    image: {
+                        select: { originalFilename: true }
+                    }
+                }
+            })
+
+            if (assignedTasks.length > 0) {
+                const assignedImageNames = assignedTasks
+                    .map(t => t.image?.originalFilename || `Task #${t.id.substring(0, 6)}`)
+                throw new Error(`Cannot delete images: ${assignedTasks.length} image(s) have assigned tasks (${assignedImageNames.join(', ')})`)
+            }
+
             const publicIds = images.map(img => img.publicId).filter(id => id !== null) as string[]
 
-            // 2. Delete from DB
+            // 3. Delete from DB
             await prisma.image.deleteMany({
                 where: {
                     id: { in: imageIds },

@@ -104,6 +104,12 @@ router.get(
     ProjectController.getImages
 )
 
+router.post(
+    '/:id/images/check-assignments',
+    requireRole(['ADMIN', 'MANAGER']),
+    ProjectController.checkImageAssignments
+)
+
 router.delete(
     '/:id/images/batch',
     requireRole(['ADMIN', 'MANAGER']),

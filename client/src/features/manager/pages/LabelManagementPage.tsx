@@ -2386,6 +2386,24 @@ Animals,Living creatures,Dog,#F59E0B,false`}
                   const assignedLabelIds = projectLabels[project.id] || [];
                   const selectedLabels =
                     selectedLabelsPerProject[project.id] || assignedLabelIds;
+                  
+                  // Filter assigned labels based on current filters (global/local and search)
+                  const filteredAssignedLabels = labels.filter(label => {
+                    // Must be assigned to this project
+                    if (!assignedLabelIds.includes(label.id)) return false;
+                    
+                    // Match search query
+                    const matchesSearch = label.name.toLowerCase().includes(searchQuery.toLowerCase());
+                    
+                    // Match global filter
+                    const matchesGlobal =
+                      filterGlobal === "all" ||
+                      (filterGlobal === "global" && label.isGlobal) ||
+                      (filterGlobal === "local" && !label.isGlobal);
+                    
+                    return matchesSearch && matchesGlobal;
+                  });
+                  
                   // const hasChanges =
                   //   JSON.stringify(selectedLabels.sort()) !==
                   //   JSON.stringify(assignedLabelIds.sort());
@@ -2406,13 +2424,15 @@ Animals,Living creatures,Dog,#F59E0B,false`}
                             <div className="font-semibold">{project.name}</div>
                             {project.description && (
                               <div className="text-sm text-muted-foreground">
-                                {project.description}
+                                {project.description.length > 25 
+                                  ? `${project.description.substring(0, 25)}...` 
+                                  : project.description}
                               </div>
                             )}
                           </div>
                         </div>
                         <Badge variant="secondary">
-                          {assignedLabelIds.length} labels
+                          {filteredAssignedLabels.length} labels
                         </Badge>
                       </div>
 
