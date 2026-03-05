@@ -3,7 +3,7 @@ import { AuthService } from '../services/auth.service.js'
 import { z } from 'zod'
 import { UserRole } from '@prisma/client'
 
-import { registerSchema, formatZodError } from '../utils/validation.js'
+import { registerSchema, forgotPasswordSchema, resetPasswordSchema, passwordSchema, formatZodError } from '../utils/validation.js'
 
 // Validation schemas (Login stays simple for now, or can be upgraded too)
 const loginSchema = z.object({
@@ -268,11 +268,7 @@ export class AuthController {
    */
   static async forgotPassword(req: Request, res: Response) {
     try {
-      const { email } = req.body;
-
-      if (!email || typeof email !== 'string') {
-        return res.status(400).json({ error: 'Email is required' });
-      }
+      const { email } = forgotPasswordSchema.parse(req.body);
 
       const { PasswordResetService } = await import('../services/password-reset.service.js');
       const service = new PasswordResetService();
@@ -280,6 +276,10 @@ export class AuthController {
 
       return res.status(200).json(result);
     } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        const validationErrors = formatZodError(error)
+        return res.status(400).json({ error: 'Validation failed', details: validationErrors })
+      }
       console.error('[AUTH] Forgot password error:', error);
       return res.status(500).json({ error: error.message || 'Failed to process request' });
     }
@@ -315,15 +315,7 @@ export class AuthController {
    */
   static async resetPassword(req: Request, res: Response) {
     try {
-      const { token, newPassword } = req.body;
-
-      if (!token || !newPassword) {
-        return res.status(400).json({ error: 'Token and new password are required' });
-      }
-
-      if (newPassword.length < 3) {
-        return res.status(400).json({ error: 'Password must be at least 3 characters long' });
-      }
+      const { token, newPassword } = resetPasswordSchema.parse(req.body);
 
       const { PasswordResetService } = await import('../services/password-reset.service.js');
       const service = new PasswordResetService();
@@ -331,6 +323,10 @@ export class AuthController {
 
       return res.status(200).json(result);
     } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        const validationErrors = formatZodError(error)
+        return res.status(400).json({ error: 'Validation failed', details: validationErrors })
+      }
       console.error('[AUTH] Reset password error:', error);
       return res.status(400).json({ error: error.message || 'Failed to reset password' });
     }
