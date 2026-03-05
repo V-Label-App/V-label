@@ -45,6 +45,9 @@ export class LabelCategoryService {
                 _count: {
                     select: { labels: true },
                 },
+                creator: {
+                    select: { id: true, fullName: true, email: true },
+                },
             },
             orderBy: { name: 'asc' },
         });
@@ -57,6 +60,9 @@ export class LabelCategoryService {
         return await prisma.labelCategory.findUnique({
             where: { id },
             include: {
+                creator: {
+                    select: { id: true, fullName: true, email: true },
+                },
                 labels: {
                     include: {
                         creator: {
@@ -71,11 +77,17 @@ export class LabelCategoryService {
     /**
      * Create a new category
      */
-    static async create(data: { name: string; description?: string }) {
+    static async create(data: { name: string; description?: string; createdBy?: string }) {
         return await prisma.labelCategory.create({
             data: {
                 name: data.name,
                 description: data.description ?? null,
+                createdBy: data.createdBy ?? null,
+            },
+            include: {
+                creator: {
+                    select: { id: true, fullName: true, email: true },
+                },
             },
         });
     }
