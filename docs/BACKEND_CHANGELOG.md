@@ -161,3 +161,41 @@
 | `PUT /api/v1/users/me` (Update profile) | ⚠️ Khuyến nghị | Handle error `details[]` nếu chưa có |
 | `POST /api/v1/auth/forgot-password` | ❌ Không | Không ảnh hưởng |
 | `GET /api/v1/users` (Pagination) | ⚠️ Khuyến nghị | Gửi `?page=&limit=` + hiển thị pagination UI |
+
+---
+
+### 6. Thêm cột `createdBy` vào LabelCategory
+
+**Files changed:**
+- `server/prisma/schema.prisma` — Thêm field `createdBy` (UUID, optional, FK → `users.id`) và relation `creator` vào model `LabelCategory`. Thêm reverse relation `labelCategoriesCreated` vào model `User`.
+- `server/prisma/migrations/20260305164813_add_created_by_to_label_category/migration.sql` — Migration thêm cột `created_by` và foreign key.
+- `server/src/services/label.service.ts` — Sửa `LabelCategoryService`:
+  - `getAll()`: include thêm `creator { id, fullName, email }`
+  - `getById()`: include thêm `creator { id, fullName, email }`
+  - `create()`: nhận thêm param `createdBy`, trả về kèm `creator`
+- `server/src/controllers/label.controller.ts` — Hàm `create()`: lấy `userId` từ `req.user.sub` truyền vào `createdBy`.
+
+**Chi tiết:**
+- Trước: `LabelCategory` chỉ có `id`, `name`, `description`, `color`, `createdAt`. Không biết ai tạo category.
+- Sau: Thêm field `createdBy` (optional, reference → `User`). Khi tạo category mới, hệ thống tự gắn ID user đang đăng nhập.
+- Các API GET trả thêm thông tin người tạo:
+  ```json
+  {
+    "id": "...",
+    "name": "Category A",
+    "description": "...",
+    "color": "#FF0000",
+    "createdAt": "2026-03-05T...",
+    "createdBy": "user-uuid",
+    "creator": {
+      "id": "user-uuid",
+      "fullName": "Nguyễn Văn A",
+      "email": "a@example.com"
+    }
+  }
+  ```
+- Field `createdBy` là optional (`String?`) nên các category cũ không bị ảnh hưởng (giá trị `null`).
+
+**FE cần làm:**
+- Cập nhật màn hình **Label Category Management**: hiển thị thêm cột "Người tạo" (`creator.fullName` hoặc `creator.email`).
+- Không cần gửi thêm gì khi tạo category — backend tự lấy từ token.
