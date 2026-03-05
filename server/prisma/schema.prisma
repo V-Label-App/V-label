@@ -282,7 +282,7 @@ model Image {
   uploader         User?    @relation("ImageUploader", fields: [uploadedBy], references: [id])
   tasks            Task[]
 
-  @@unique([projectId, checksum])
+  @@unique([projectId, datasetId, checksum])
   @@index([projectId])
   @@index([datasetId])
   @@index([checksum])
