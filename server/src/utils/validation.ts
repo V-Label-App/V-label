@@ -31,9 +31,24 @@ export const userCreateSchema = z.object({
 
 export const userUpdateSchema = z.object({
     fullName: fullNameSchema.optional(),
+    email: z.string().email('Invalid email address').optional(),
     phoneNumber: phoneSchema,
     role: z.nativeEnum(UserRole).optional(),
     isActive: z.boolean().optional(),
+});
+
+export const updateProfileSchema = z.object({
+    fullName: fullNameSchema.optional(),
+    phoneNumber: phoneSchema,
+});
+
+export const forgotPasswordSchema = z.object({
+    email: z.string().email('Invalid email address'),
+});
+
+export const resetPasswordSchema = z.object({
+    token: z.string().min(1, 'Token is required'),
+    newPassword: passwordSchema,
 });
 
 export const registerSchema = z.object({

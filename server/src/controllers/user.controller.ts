@@ -2,7 +2,7 @@ import { Request, Response } from 'express'
 import { prisma } from '../utils/database.js'
 import logger from '../utils/logger.js'
 import { hashPassword } from '../utils/password.utils.js'
-import { userCreateSchema, userUpdateSchema, formatZodError } from '../utils/validation.js'
+import { userCreateSchema, userUpdateSchema, updateProfileSchema, formatZodError } from '../utils/validation.js'
 import { z } from 'zod'
 import { ImageService } from '../services/image.service.js'
 import { PerformanceService } from '../services/performance.service.js'
@@ -133,19 +133,18 @@ export class UserController {
     try {
       const userPayload = req.user as any
       const userId = userPayload?.id || userPayload?.sub
-      const { fullName, phoneNumber } = req.body
 
       if (!userId) {
         return res.status(401).json({ error: 'Unauthorized' })
       }
 
-      // Simple validation could be added here or via middleware
+      const { fullName, phoneNumber } = updateProfileSchema.parse(req.body)
 
       const updatedUser = await prisma.user.update({
         where: { id: userId },
         data: {
-          fullName,
-          phoneNumber,
+          ...(fullName !== undefined && { fullName }),
+          ...(phoneNumber !== undefined && { phoneNumber: phoneNumber || null }),
         },
         select: {
           id: true,
@@ -164,6 +163,10 @@ export class UserController {
       logger.info('USER', `User updated profile: ${userId}`)
       return res.json(updatedUser)
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        const validationErrors = formatZodError(error)
+        return res.status(400).json({ error: 'Validation failed', details: validationErrors })
+      }
       console.error('Update profile error:', error)
       return res.status(500).json({ error: 'Internal server error' })
     }
@@ -172,22 +175,55 @@ export class UserController {
   /**
    * GET /api/v1/users
    * Get all users (Admin only)
+   * Supports pagination via query params: ?page=1&limit=10
+   * If no params provided, returns all users (backward compatible)
    */
   static async getAllUsers(req: Request, res: Response) {
     try {
+      const page = req.query.page ? parseInt(req.query.page as string, 10) : undefined
+      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined
+
+      const selectFields = {
+        id: true,
+        email: true,
+        fullName: true,
+        avatarUrl: true,
+        role: true,
+        reputationScore: true,
+        totalTasksDone: true,
+        createdAt: true,
+        isActive: true,
+        phoneNumber: true,
+      } as const
+
+      // If pagination params provided, return paginated response
+      if (page && limit && page > 0 && limit > 0) {
+        const skip = (page - 1) * limit
+
+        const [users, total] = await Promise.all([
+          prisma.user.findMany({
+            select: selectFields,
+            orderBy: { createdAt: 'desc' },
+            skip,
+            take: limit,
+          }),
+          prisma.user.count(),
+        ])
+
+        return res.json({
+          data: users,
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit),
+          },
+        })
+      }
+
+      // No pagination params → return all (backward compatible with FE)
       const users = await prisma.user.findMany({
-        select: {
-          id: true,
-          email: true,
-          fullName: true,
-          avatarUrl: true,
-          role: true,
-          reputationScore: true,
-          totalTasksDone: true,
-          createdAt: true,
-          isActive: true,
-          phoneNumber: true,
-        },
+        select: selectFields,
         orderBy: { createdAt: 'desc' },
       })
 
@@ -262,12 +298,27 @@ export class UserController {
   static async updateUser(req: Request, res: Response) {
     try {
       const { id } = req.params as { id: string }
-      const { fullName, role, isActive, phoneNumber } = userUpdateSchema.parse(req.body)
+      const { fullName, email, role, isActive, phoneNumber } = userUpdateSchema.parse(req.body)
+
+      // Check for duplicate email if email is being updated
+      if (email !== undefined) {
+        const existingUser = await prisma.user.findFirst({
+          where: {
+            email,
+            id: { not: id },
+          },
+          select: { id: true },
+        })
+        if (existingUser) {
+          return res.status(409).json({ error: 'Email already in use by another user' })
+        }
+      }
 
       const updatedUser = await prisma.user.update({
         where: { id },
         data: {
           ...(fullName !== undefined && { fullName }),
+          ...(email !== undefined && { email }),
           ...(role !== undefined && { role }),
           ...(isActive !== undefined && { isActive }),
           ...(phoneNumber !== undefined && { phoneNumber: phoneNumber || null }),
