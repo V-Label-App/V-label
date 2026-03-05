@@ -2,6 +2,33 @@
 
 ---
 
+## 📅 2026-03-06
+
+### 1. Fix: 2 dataset khác nhau vẫn có thể trùng hình — Duplicate Detection theo Dataset
+
+**Files changed:**
+- `server/prisma/schema.prisma` — Đổi unique constraint trên model `Image`
+- `server/src/controllers/project.controller.ts` — Sửa logic check trùng lặp trong `uploadImage()`
+- `server/prisma/migrations/20260305171034_allow_duplicate_images_across_datasets/migration.sql` — Migration mới
+
+**Hiện trạng trước khi fix:**
+- Unique constraint: `@@unique([projectId, checksum])` → trong cùng 1 project, 2 dataset khác nhau **không thể** upload ảnh trùng checksum.
+- Controller check trùng chỉ dựa trên `projectId + checksum`, bỏ qua `datasetId`.
+
+**Sau khi fix:**
+- Unique constraint: `@@unique([projectId, datasetId, checksum])` → 2 dataset khác nhau **có thể** chứa cùng 1 ảnh.
+- Controller check trùng theo 2 trường hợp:
+  - **Có `datasetId`**: check `projectId + datasetId + checksum` → chỉ chặn trùng trong cùng dataset.
+  - **Không có `datasetId` (null)**: check `projectId + datasetId: null + checksum` → vẫn chặn trùng cho ảnh không thuộc dataset nào.
+
+**Lưu ý PostgreSQL:**
+- PostgreSQL coi `NULL != NULL` trong unique constraint. Nghĩa là nếu `datasetId = null`, 2 ảnh cùng checksum vẫn pass constraint ở tầng DB. Logic chặn trùng cho trường hợp `null` được xử lý ở tầng application (controller `findFirst` với `datasetId: null`).
+
+**FE cần làm:**
+- Không cần thay đổi gì. Response 409 vẫn giữ nguyên format, chỉ thay đổi `message` từ "...already exists in this project" thành "...already exists in this dataset" (hoặc "...project" nếu không có dataset).
+
+---
+
 ## 📅 2026-03-05
 
 ### 1. Change Password API — `POST /api/v1/auth/change-password`

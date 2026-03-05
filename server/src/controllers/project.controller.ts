@@ -331,19 +331,21 @@ export class ProjectController {
 
             const { prisma } = await import('../utils/database.js')
 
-            // Check for existing duplicate in this project
+            // Check for existing duplicate in same dataset (or project-wide if no dataset)
+            const duplicateWhere = datasetId
+                ? { projectId: id, datasetId, checksum }
+                : { projectId: id, datasetId: null, checksum }
+
             const existingImage = await prisma.image.findFirst({
-                where: {
-                    projectId: id,
-                    checksum: checksum
-                }
+                where: duplicateWhere
             })
 
             if (existingImage) {
-                logger.warn('API', `Duplicate image skipped: ${req.file.originalname}`, { projectId: id, checksum })
+                const scope = datasetId ? 'dataset' : 'project'
+                logger.warn('API', `Duplicate image skipped: ${req.file.originalname}`, { projectId: id, datasetId, checksum })
                 return res.status(409).json({
                     error: 'Duplicate image detected',
-                    message: `The image "${req.file.originalname}" already exists in this project.`,
+                    message: `The image "${req.file.originalname}" already exists in this ${scope}.`,
                     existingImageId: existingImage.id,
                     existingImageUrl: existingImage.storageUrl,
                     existingImageName: existingImage.originalFilename
