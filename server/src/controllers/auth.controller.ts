@@ -3,7 +3,7 @@ import { AuthService } from '../services/auth.service.js'
 import { z } from 'zod'
 import { UserRole } from '@prisma/client'
 
-import { registerSchema, forgotPasswordSchema, resetPasswordSchema, passwordSchema, formatZodError } from '../utils/validation.js'
+import { registerSchema, forgotPasswordSchema, resetPasswordSchema, changePasswordSchema, passwordSchema, formatZodError } from '../utils/validation.js'
 
 // Validation schemas (Login stays simple for now, or can be upgraded too)
 const loginSchema = z.object({
@@ -258,6 +258,47 @@ export class AuthController {
       return res.status(200).json(logs)
     } catch (error) {
       console.error('[AUTH] Get logs error:', error)
+      return res.status(500).json({ error: 'Internal server error' })
+    }
+  }
+
+  /**
+   * POST /api/v1/auth/change-password
+   * Change password for authenticated user
+   */
+  static async changePassword(req: Request, res: Response) {
+    try {
+      const { oldPassword, newPassword } = changePasswordSchema.parse(req.body)
+
+      const user = (req as any).user
+      const userId = user?.sub || user?.id
+
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' })
+      }
+
+      const result = await AuthService.changePassword(userId, oldPassword, newPassword)
+
+      return res.status(200).json(result)
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        const validationErrors = formatZodError(error)
+        return res.status(400).json({ error: 'Validation failed', details: validationErrors })
+      }
+
+      if (error.message === 'Current password is incorrect') {
+        return res.status(400).json({ error: error.message })
+      }
+
+      if (error.message === 'Password change is not available for Google accounts') {
+        return res.status(400).json({ error: error.message })
+      }
+
+      if (error.message === 'User not found') {
+        return res.status(404).json({ error: error.message })
+      }
+
+      console.error('[AUTH] Change password error:', error)
       return res.status(500).json({ error: 'Internal server error' })
     }
   }
