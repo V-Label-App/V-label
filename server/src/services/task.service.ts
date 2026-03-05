@@ -94,6 +94,27 @@ export class TaskService {
     }
 
     /**
+     * Helper: Get active task count for a user by role
+     */
+    static async getActiveTaskCount(
+        userId: string,
+        role: 'ANNOTATOR' | 'REVIEWER'
+    ): Promise<number> {
+        const where = role === 'ANNOTATOR'
+            ? { annotatorId: userId }
+            : { reviewerId: userId };
+
+        return prisma.taskAssignment.count({
+            where: {
+                ...where,
+                status: {
+                    in: [AssignmentStatus.ASSIGNED, AssignmentStatus.IN_PROGRESS]
+                }
+            }
+        });
+    }
+
+    /**
      * Helper: Check if user has reached workload limit
      */
     static async checkWorkloadLimits(
@@ -102,18 +123,7 @@ export class TaskService {
         role: 'ANNOTATOR' | 'REVIEWER'
     ): Promise<boolean> {
         try {
-            const where = role === 'ANNOTATOR'
-                ? { annotatorId: userId }
-                : { reviewerId: userId };
-
-            const activeTaskCount = await prisma.taskAssignment.count({
-                where: {
-                    ...where,
-                    status: {
-                        in: [AssignmentStatus.ASSIGNED, AssignmentStatus.IN_PROGRESS]
-                    }
-                }
-            });
+            const activeTaskCount = await this.getActiveTaskCount(userId, role);
 
             const isUnderLimit = activeTaskCount < maxTasks;
 

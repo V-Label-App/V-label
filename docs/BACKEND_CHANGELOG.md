@@ -29,6 +29,56 @@
 
 ---
 
+### 2. Thêm giới hạn số task cho Annotator khi Manual/Bulk Assign
+
+**Files changed:**
+- `server/src/services/task.service.ts` — Thêm method `getActiveTaskCount()`, refactor `checkWorkloadLimits()` dùng helper mới
+- `server/src/controllers/project.controller.ts` — Thêm workload limit check vào `assignTask()` và `bulkAssignTasks()`
+
+**Hiện trạng trước khi fix:**
+- Auto-Assign (`autoAssignTask`) đã có check `maxTasksPerAnnotator` qua `checkWorkloadLimits()`.
+- Manual Assign (`POST /projects/:id/tasks/:taskId/assign`) — **KHÔNG check limit**, Manager assign thoải mái.
+- Bulk Assign (`POST /projects/:id/tasks/bulk-assign`) — **KHÔNG check limit**, Manager giao hàng loạt không giới hạn.
+
+**Sau khi fix — Soft block + `force: true` override:**
+
+**Manual Assign** (`POST /projects/:id/tasks/:taskId/assign`):
+- Mặc định check `maxTasksPerAnnotator` từ `AssignmentRule` của project.
+- Nếu annotator đã đạt limit → trả `400`:
+  ```json
+  {
+    "error": "Workload limit exceeded",
+    "currentTasks": 10,
+    "maxTasks": 10,
+    "message": "Annotator has reached the maximum task limit (10/10). Send force: true to override."
+  }
+  ```
+- Manager gửi `force: true` trong body → bypass limit, assign bình thường.
+- Reassignment cũng bị check (annotator mới phải còn slot).
+
+**Bulk Assign** (`POST /projects/:id/tasks/bulk-assign`):
+- Check `currentTasks + requestedTasks > maxTasks`.
+- Nếu vượt → reject **toàn bộ batch**, trả `400`:
+  ```json
+  {
+    "error": "Workload limit exceeded",
+    "currentTasks": 8,
+    "maxTasks": 10,
+    "requestedTasks": 5,
+    "remainingSlots": 2,
+    "message": "Annotator has 8/10 active tasks. Cannot assign 5 more (only 2 slots available). Send force: true to override."
+  }
+  ```
+- Manager gửi `force: true` → bypass, assign toàn bộ batch.
+
+**FE cần làm:**
+- Khi gọi Manual Assign hoặc Bulk Assign mà nhận `400` với `error: "Workload limit exceeded"`:
+  - Hiển thị dialog xác nhận: "Annotator đã đạt giới hạn X/Y tasks. Bạn có muốn vẫn giao việc không?"
+  - Nếu Manager confirm → gửi lại request với `force: true` trong body.
+- Đọc các field `currentTasks`, `maxTasks`, `remainingSlots` (nếu có) để hiển thị thông tin chi tiết.
+
+---
+
 ## 📅 2026-03-05
 
 ### 1. Change Password API — `POST /api/v1/auth/change-password`
