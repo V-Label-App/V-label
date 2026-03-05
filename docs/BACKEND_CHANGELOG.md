@@ -4,7 +4,33 @@
 
 ## 📅 2026-03-05
 
-### 1. Admin sửa email user — `PUT /api/v1/users/:id`
+### 1. Change Password API — `POST /api/v1/auth/change-password`
+
+**Files changed:**
+- `server/src/utils/validation.ts` — Thêm `changePasswordSchema`
+- `server/src/services/auth.service.ts` — Thêm method `changePassword()`
+- `server/src/controllers/auth.controller.ts` — Thêm handler `changePassword()`
+- `server/src/routes/auth.routes.ts` — Thêm route `POST /change-password` (yêu cầu auth)
+
+**Chi tiết:**
+- Cho phép user đang đăng nhập (có Bearer token) tự đổi mật khẩu.
+- Yêu cầu gửi `oldPassword` (xác minh chính chủ), `newPassword` (phải đáp ứng password policy: ≥8 ký tự, có uppercase, lowercase, số, ký tự đặc biệt), và `confirmNewPassword` (phải khớp với `newPassword`).
+- Zod schema validate `confirmNewPassword === newPassword` ở tầng controller. Nếu không khớp → trả `400` ngay, không gọi xuống service. Nếu khớp → controller chỉ truyền `oldPassword` và `newPassword` xuống service.
+- Không cho phép đổi password nếu tài khoản đăng nhập bằng Google (provider !== LOCAL).
+- Response:
+  - `200` — `{ success: true, message: "Password changed successfully" }`
+  - `400` — `Current password is incorrect` / `Validation failed` / `Password change is not available for Google accounts`
+  - `401` — `Unauthorized` (chưa đăng nhập)
+  - `404` — `User not found`
+
+**FE cần làm:**
+- Tạo form **Đổi mật khẩu** (trong trang Profile hoặc Settings) với 3 field: `oldPassword`, `newPassword`, `confirmNewPassword`.
+- Gửi `POST /api/v1/auth/change-password` với body `{ oldPassword, newPassword, confirmNewPassword }` kèm Bearer token.
+- Xử lý các status code: 200 (thành công), 400 (sai mật khẩu cũ / validation / passwords không khớp), 401 (chưa login).
+
+---
+
+### 2. Admin sửa email user — `PUT /api/v1/users/:id`
 
 **Files changed:**
 - `server/src/utils/validation.ts` — Thêm field `email` vào `userUpdateSchema`
@@ -25,7 +51,7 @@
 
 ---
 
-### 2. Reset password validation — `POST /api/v1/auth/reset-password`
+### 3. Reset password validation — `POST /api/v1/auth/reset-password`
 
 **Files changed:**
 - `server/src/utils/validation.ts` — Thêm `resetPasswordSchema`

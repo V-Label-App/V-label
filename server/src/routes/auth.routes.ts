@@ -22,6 +22,9 @@ import { requireRole } from '../middlewares/role.middleware.js'
 router.post('/impersonate/:userId', authMiddleware, requireRole(['ADMIN']), AuthController.impersonate)
 router.get('/logs', authMiddleware, requireRole(['ADMIN']), AuthController.getLogs)
 
+// Change Password (authenticated)
+router.post('/change-password', authMiddleware, AuthController.changePassword)
+
 // Password Reset
 router.post('/forgot-password', AuthController.forgotPassword)
 router.get('/verify-reset-token/:token', AuthController.verifyResetToken)
