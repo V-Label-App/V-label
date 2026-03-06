@@ -317,6 +317,25 @@ export function AdminPanel() {
     setIsEditUserOpen(true);
   };
 
+  const handleEditSubmit = async () => {
+    if (!editingUser) return;
+    try {
+      if (!validateEmail(editEmail)) return;
+
+      await authApi.updateUser(editingUser.id, {
+        fullName: editName,
+        email: editEmail,
+      });
+
+      toast.success("User updated successfully");
+      setIsEditUserOpen(false);
+      fetchUsers();
+    } catch (error: any) {
+      console.error("Failed to update user", error);
+      toast.error("Failed to update user");
+    }
+  };
+
   const initToggleUserActive = (user: User) => {
     setTimeout(() => {
       setConfirmation({
@@ -994,7 +1013,10 @@ export function AdminPanel() {
               />
             </div>
             {/* Phone removed as we don't have it in table list simply */}
-            <Button className="w-full bg-orange-600 hover:bg-orange-700">
+            <Button
+              className="w-full bg-orange-600 hover:bg-orange-700"
+              onClick={handleEditSubmit}
+            >
               Save Changes
             </Button>
           </div>
