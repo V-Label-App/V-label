@@ -106,6 +106,9 @@ export function AdminPanel() {
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
   // V-Label: State for Edit User feature
   const [isEditUserOpen, setIsEditUserOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
 
   // Sync state with URL if needed
   useEffect(() => {
@@ -304,6 +307,14 @@ export function AdminPanel() {
           ?.error || "Failed to create user";
       toast.error(errorMessage);
     }
+  };
+
+  const initEditUser = (user: User) => {
+    setEditingUser(user);
+    setEditName(user.name);
+    setEditEmail(user.email);
+    // Note: Phone is not currently retrieved in the brief user fetch, so we skip it or fetch detail
+    setIsEditUserOpen(true);
   };
 
   const initToggleUserActive = (user: User) => {
@@ -868,9 +879,7 @@ export function AdminPanel() {
                                   variant="ghost"
                                   size="icon"
                                   className="h-8 w-8 text-orange-500 hover:text-orange-600 hover:bg-orange-50"
-                                  onClick={() => {
-                                    // TODO: open edit dialog
-                                  }}
+                                  onClick={() => initEditUser(user)}
                                   title="Edit User"
                                 >
                                   <Pencil className="w-4 h-4" />
@@ -970,6 +979,8 @@ export function AdminPanel() {
               <input
                 className="w-full px-4 py-2 rounded-md border border-gray-300"
                 placeholder="User Name"
+                value={editName}
+                readOnly
               />
             </div>
             <div className="space-y-2">
@@ -978,16 +989,11 @@ export function AdminPanel() {
                 type="email"
                 className="w-full px-4 py-2 rounded-md border border-gray-300"
                 placeholder="user@example.com"
+                value={editEmail}
+                readOnly
               />
             </div>
-            <div className="space-y-2">
-              <Label>Phone Number</Label>
-              <input
-                type="tel"
-                className="w-full px-4 py-2 rounded-md border border-gray-300"
-                placeholder="0123456789"
-              />
-            </div>
+            {/* Phone removed as we don't have it in table list simply */}
             <Button className="w-full bg-orange-600 hover:bg-orange-700">
               Save Changes
             </Button>
