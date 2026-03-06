@@ -306,7 +306,14 @@ export function AdminPanel() {
       const errorMessage =
         (error as { response?: { data?: { error?: string } } })?.response?.data
           ?.error || "Failed to create user";
-      toast.error(errorMessage);
+      if (
+        errorMessage === "User already exists" ||
+        (error as any).response?.status === 409
+      ) {
+        toast.error("Email đã được sử dụng bởi user khác");
+      } else {
+        toast.error(errorMessage);
+      }
     }
   };
 
@@ -1017,11 +1024,24 @@ export function AdminPanel() {
               <Label>Email</Label>
               <input
                 type="email"
-                className="w-full px-4 py-2 rounded-md border border-gray-300"
+                className={`w-full px-4 py-2 rounded-md border ${
+                  emailError
+                    ? "border-red-500 focus:ring-red-500 focus:border-red-500"
+                    : "border-gray-300"
+                }`}
                 placeholder="user@example.com"
                 value={editEmail}
-                onChange={(e) => setEditEmail(e.target.value)}
+                onChange={(e) => {
+                  setEditEmail(e.target.value);
+                  if (emailError) validateEmail(e.target.value);
+                }}
               />
+              {emailError && (
+                <p className="text-sm text-red-600 flex items-center gap-1">
+                  <span>⚠</span>
+                  {emailError}
+                </p>
+              )}
             </div>
             {/* Phone removed as we don't have it in table list simply */}
             <Button
