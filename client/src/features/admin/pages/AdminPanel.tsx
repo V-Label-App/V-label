@@ -109,6 +109,7 @@ export function AdminPanel() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
 
   // Sync state with URL if needed
   useEffect(() => {
@@ -319,8 +320,12 @@ export function AdminPanel() {
 
   const handleEditSubmit = async () => {
     if (!editingUser) return;
+    setIsEditing(true);
     try {
-      if (!validateEmail(editEmail)) return;
+      if (!validateEmail(editEmail)) {
+        setIsEditing(false);
+        return;
+      }
 
       await authApi.updateUser(editingUser.id, {
         fullName: editName,
@@ -337,6 +342,8 @@ export function AdminPanel() {
       } else {
         toast.error("Failed to update user");
       }
+    } finally {
+      setIsEditing(false);
     }
   };
 
@@ -1020,8 +1027,9 @@ export function AdminPanel() {
             <Button
               className="w-full bg-orange-600 hover:bg-orange-700"
               onClick={handleEditSubmit}
+              disabled={isEditing}
             >
-              Save Changes
+              {isEditing ? "Saving..." : "Save Changes"}
             </Button>
           </div>
         </DialogContent>
