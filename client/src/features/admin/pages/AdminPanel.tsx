@@ -104,6 +104,8 @@ export function AdminPanel() {
 
   const [activeTab, setActiveTab] = useState(getActiveTabFromPath());
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
+  // V-Label: State for Edit User feature
+  const [isEditUserOpen, setIsEditUserOpen] = useState(false);
 
   // Sync state with URL if needed
   useEffect(() => {
@@ -951,6 +953,45 @@ export function AdminPanel() {
               Confirm
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* V-Label: Edit User Dialog UI */}
+      <Dialog open={isEditUserOpen} onOpenChange={setIsEditUserOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit User Profile</DialogTitle>
+            <DialogDescription>Update user details below.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            {/* UI Placeholder for Inputs */}
+            <div className="space-y-2">
+              <Label>Full Name</Label>
+              <input
+                className="w-full px-4 py-2 rounded-md border border-gray-300"
+                placeholder="User Name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <input
+                type="email"
+                className="w-full px-4 py-2 rounded-md border border-gray-300"
+                placeholder="user@example.com"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Phone Number</Label>
+              <input
+                type="tel"
+                className="w-full px-4 py-2 rounded-md border border-gray-300"
+                placeholder="0123456789"
+              />
+            </div>
+            <Button className="w-full bg-orange-600 hover:bg-orange-700">
+              Save Changes
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </motion.div>
