@@ -404,7 +404,25 @@ export function ProjectDetailPage() {
         fetchWorkloads();
       } catch (error: any) {
         console.error("Failed to assign tasks:", error);
-        toast.error(error.response?.data?.error || "Failed to assign tasks");
+        if (
+          error.response?.status === 400 &&
+          error.response?.data?.error === "Workload limit exceeded"
+        ) {
+          setIsAssignDialogOpen(false);
+          setForceAssignData({
+            currentTasks: error.response.data.currentTasks,
+            maxTasks: error.response.data.maxTasks,
+            requestedTasks: error.response.data.requestedTasks,
+            remainingSlots: error.response.data.remainingSlots,
+            mode: "bulk",
+            taskIds: selectedTasks,
+            annotatorId: selectedAnnotatorId,
+            deadline: selectedDeadline,
+          });
+          setIsForceAssignDialogOpen(true);
+        } else {
+          toast.error(error.response?.data?.error || "Failed to assign tasks");
+        }
       } finally {
         setIsAssigning(false);
       }
@@ -446,7 +464,24 @@ export function ProjectDetailPage() {
       fetchWorkloads();
     } catch (error: any) {
       console.error("Failed to assign task:", error);
-      toast.error(error.response?.data?.error || "Failed to assign task");
+      if (
+        error.response?.status === 400 &&
+        error.response?.data?.error === "Workload limit exceeded"
+      ) {
+        setIsAssignDialogOpen(false);
+        setForceAssignData({
+          currentTasks: error.response.data.currentTasks,
+          maxTasks: error.response.data.maxTasks,
+          mode: "manual",
+          taskId: taskToAssign.id,
+          annotatorId: selectedAnnotatorId,
+          deadline: selectedDeadline,
+          reason: isReassignment ? reassignmentReason : undefined,
+        });
+        setIsForceAssignDialogOpen(true);
+      } else {
+        toast.error(error.response?.data?.error || "Failed to assign task");
+      }
     } finally {
       setIsAssigning(false);
     }
@@ -3584,10 +3619,7 @@ export function ProjectDetailPage() {
             </Button>
             <Button
               variant="destructive"
-              onClick={() => {
-                // Implement handleForceAssign in the next commit
-                setIsForceAssignDialogOpen(false);
-              }}
+              onClick={handleForceAssign}
               disabled={isAssigning}
             >
               {isAssigning ? "Assigning..." : "Force Assign"}
