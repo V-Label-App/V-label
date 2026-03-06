@@ -980,7 +980,7 @@ export function AdminPanel() {
                 className="w-full px-4 py-2 rounded-md border border-gray-300"
                 placeholder="User Name"
                 value={editName}
-                readOnly
+                onChange={(e) => setEditName(e.target.value)}
               />
             </div>
             <div className="space-y-2">
@@ -990,7 +990,7 @@ export function AdminPanel() {
                 className="w-full px-4 py-2 rounded-md border border-gray-300"
                 placeholder="user@example.com"
                 value={editEmail}
-                readOnly
+                onChange={(e) => setEditEmail(e.target.value)}
               />
             </div>
             {/* Phone removed as we don't have it in table list simply */}
