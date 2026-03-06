@@ -90,6 +90,7 @@ import {
   CheckCircle2,
   Sparkles,
   UserMinus,
+  AlertTriangle,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -286,6 +287,21 @@ export function ProjectDetailPage() {
   const [reassignmentReason, setReassignmentReason] = useState<string>("");
   const [isAssigning, setIsAssigning] = useState(false);
   const [isBulkAssign, setIsBulkAssign] = useState(false);
+
+  // Force Assign State
+  const [isForceAssignDialogOpen, setIsForceAssignDialogOpen] = useState(false);
+  const [forceAssignData, setForceAssignData] = useState<{
+    currentTasks: number;
+    maxTasks: number;
+    requestedTasks?: number;
+    remainingSlots?: number;
+    mode: "manual" | "bulk";
+    taskId?: string;
+    taskIds?: string[];
+    annotatorId: string;
+    deadline?: Date;
+    reason?: string;
+  } | null>(null);
 
   // Task Unassign State
   const [isUnassignDialogOpen, setIsUnassignDialogOpen] = useState(false);
@@ -3502,6 +3518,83 @@ export function ProjectDetailPage() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Force Assign Dialog */}
+      <Dialog
+        open={isForceAssignDialogOpen}
+        onOpenChange={(open) => {
+          setIsForceAssignDialogOpen(open);
+          if (!open) {
+            setForceAssignData(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-destructive flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-500" />
+              Workload Limit Exceeded
+            </DialogTitle>
+            <DialogDescription asChild>
+              <div className="space-y-4 pt-4">
+                {forceAssignData?.mode === "bulk" ? (
+                  <p>
+                    This annotator currently has{" "}
+                    <span className="font-bold">
+                      {forceAssignData.currentTasks}
+                    </span>{" "}
+                    active tasks (Limit: {forceAssignData.maxTasks}). You are
+                    trying to assign{" "}
+                    <span className="font-bold">
+                      {forceAssignData.requestedTasks}
+                    </span>{" "}
+                    more tasks, but they only have space for{" "}
+                    <span className="font-bold">
+                      {forceAssignData.remainingSlots}
+                    </span>
+                    .
+                  </p>
+                ) : (
+                  <p>
+                    This annotator has reached their maximum active task limit (
+                    <span className="font-bold">
+                      {forceAssignData?.currentTasks}/
+                      {forceAssignData?.maxTasks}
+                    </span>
+                    ).
+                  </p>
+                )}
+                <p>
+                  Do you still want to force assign{" "}
+                  {forceAssignData?.mode === "bulk"
+                    ? "these tasks"
+                    : "this task"}{" "}
+                  to them?
+                </p>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsForceAssignDialogOpen(false)}
+              disabled={isAssigning}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                // Implement handleForceAssign in the next commit
+                setIsForceAssignDialogOpen(false);
+              }}
+              disabled={isAssigning}
+            >
+              {isAssigning ? "Assigning..." : "Force Assign"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
