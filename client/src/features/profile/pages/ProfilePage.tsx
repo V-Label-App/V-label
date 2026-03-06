@@ -10,7 +10,7 @@ import {
     BarChart, Bar, XAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
     PieChart, Pie, Cell, AreaChart, Area
 } from 'recharts';
-import { Trophy, Upload, Loader2 } from "lucide-react";
+import { Trophy, Upload, Loader2, Eye, EyeOff } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "../../../components/ui/dialog"
 import { Input } from "../../../components/ui/input"
 import { Label } from "../../../components/ui/label"
@@ -45,6 +45,11 @@ export default function ProfilePage() {
         confirmNewPassword?: string
     }>({})
     const [isChangingPassword, setIsChangingPassword] = useState(false)
+    const [showPasswords, setShowPasswords] = useState({
+        oldPassword: false,
+        newPassword: false,
+        confirmNewPassword: false
+    })
 
     const handleSaveProfile = async () => {
         if (!formData.fullName.trim()) {
@@ -412,6 +417,11 @@ export default function ProfilePage() {
                                                     confirmNewPassword: ''
                                                 })
                                                 setPasswordErrors({})
+                                                setShowPasswords({
+                                                    oldPassword: false,
+                                                    newPassword: false,
+                                                    confirmNewPassword: false
+                                                })
                                             }}
                                         >
                                             Change
@@ -428,13 +438,29 @@ export default function ProfilePage() {
                                         <div className="space-y-4 py-4">
                                             <div className="space-y-2">
                                                 <Label htmlFor="oldPassword">Current Password</Label>
-                                                <Input
-                                                    id="oldPassword"
-                                                    type="password"
-                                                    placeholder="Enter current password"
-                                                    value={passwordData.oldPassword}
-                                                    onChange={(e) => setPasswordData({ ...passwordData, oldPassword: e.target.value })}
-                                                />
+                                                <div className="relative">
+                                                    <Input
+                                                        id="oldPassword"
+                                                        type={showPasswords.oldPassword ? "text" : "password"}
+                                                        placeholder="Enter current password"
+                                                        value={passwordData.oldPassword}
+                                                        onChange={(e) => setPasswordData({ ...passwordData, oldPassword: e.target.value })}
+                                                        className="pr-10"
+                                                    />
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                                                        onClick={() => setShowPasswords({ ...showPasswords, oldPassword: !showPasswords.oldPassword })}
+                                                    >
+                                                        {showPasswords.oldPassword ? (
+                                                            <EyeOff className="h-4 w-4 text-muted-foreground" />
+                                                        ) : (
+                                                            <Eye className="h-4 w-4 text-muted-foreground" />
+                                                        )}
+                                                    </Button>
+                                                </div>
                                                 {passwordErrors.oldPassword && (
                                                     <p className="text-sm text-red-500">{passwordErrors.oldPassword}</p>
                                                 )}
@@ -442,13 +468,29 @@ export default function ProfilePage() {
 
                                             <div className="space-y-2">
                                                 <Label htmlFor="newPassword">New Password</Label>
-                                                <Input
-                                                    id="newPassword"
-                                                    type="password"
-                                                    placeholder="Enter new password"
-                                                    value={passwordData.newPassword}
-                                                    onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                                                />
+                                                <div className="relative">
+                                                    <Input
+                                                        id="newPassword"
+                                                        type={showPasswords.newPassword ? "text" : "password"}
+                                                        placeholder="Enter new password"
+                                                        value={passwordData.newPassword}
+                                                        onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                                                        className="pr-10"
+                                                    />
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                                                        onClick={() => setShowPasswords({ ...showPasswords, newPassword: !showPasswords.newPassword })}
+                                                    >
+                                                        {showPasswords.newPassword ? (
+                                                            <EyeOff className="h-4 w-4 text-muted-foreground" />
+                                                        ) : (
+                                                            <Eye className="h-4 w-4 text-muted-foreground" />
+                                                        )}
+                                                    </Button>
+                                                </div>
                                                 {passwordErrors.newPassword && (
                                                     <p className="text-sm text-red-500">{passwordErrors.newPassword}</p>
                                                 )}
@@ -459,13 +501,29 @@ export default function ProfilePage() {
 
                                             <div className="space-y-2">
                                                 <Label htmlFor="confirmNewPassword">Confirm New Password</Label>
-                                                <Input
-                                                    id="confirmNewPassword"
-                                                    type="password"
-                                                    placeholder="Re-enter new password"
-                                                    value={passwordData.confirmNewPassword}
-                                                    onChange={(e) => setPasswordData({ ...passwordData, confirmNewPassword: e.target.value })}
-                                                />
+                                                <div className="relative">
+                                                    <Input
+                                                        id="confirmNewPassword"
+                                                        type={showPasswords.confirmNewPassword ? "text" : "password"}
+                                                        placeholder="Re-enter new password"
+                                                        value={passwordData.confirmNewPassword}
+                                                        onChange={(e) => setPasswordData({ ...passwordData, confirmNewPassword: e.target.value })}
+                                                        className="pr-10"
+                                                    />
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                                                        onClick={() => setShowPasswords({ ...showPasswords, confirmNewPassword: !showPasswords.confirmNewPassword })}
+                                                    >
+                                                        {showPasswords.confirmNewPassword ? (
+                                                            <EyeOff className="h-4 w-4 text-muted-foreground" />
+                                                        ) : (
+                                                            <Eye className="h-4 w-4 text-muted-foreground" />
+                                                        )}
+                                                    </Button>
+                                                </div>
                                                 {passwordErrors.confirmNewPassword && (
                                                     <p className="text-sm text-red-500">{passwordErrors.confirmNewPassword}</p>
                                                 )}
