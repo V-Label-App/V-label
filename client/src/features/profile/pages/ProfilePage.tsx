@@ -71,23 +71,26 @@ export default function ProfilePage() {
         }
     }
 
-    const validatePassword = (password: string): string | undefined => {
+    const validatePassword = (password: string): string[] => {
+        const errors: string[] = []
+        
         if (password.length < 8) {
-            return "Password must be at least 8 characters"
+            errors.push("Password must be at least 8 characters")
         }
         if (!/[A-Z]/.test(password)) {
-            return "Password must contain at least one uppercase letter"
+            errors.push("Password must contain at least one uppercase letter")
         }
         if (!/[a-z]/.test(password)) {
-            return "Password must contain at least one lowercase letter"
+            errors.push("Password must contain at least one lowercase letter")
         }
         if (!/[0-9]/.test(password)) {
-            return "Password must contain at least one number"
+            errors.push("Password must contain at least one number")
         }
         if (!/[!@#$%^&*]/.test(password)) {
-            return "Password must contain at least one special character (!@#$%^&*)"
+            errors.push("Password must contain at least one special character (!@#$%^&*)")
         }
-        return undefined
+        
+        return errors
     }
 
     const handleChangePassword = async () => {
@@ -104,9 +107,9 @@ export default function ProfilePage() {
         if (!passwordData.newPassword) {
             errors.newPassword = "New password is required"
         } else {
-            const passwordError = validatePassword(passwordData.newPassword)
-            if (passwordError) {
-                errors.newPassword = passwordError
+            const passwordErrors = validatePassword(passwordData.newPassword)
+            if (passwordErrors.length > 0) {
+                errors.newPassword = passwordErrors.join("\n")
             }
         }
 
@@ -492,7 +495,14 @@ export default function ProfilePage() {
                                                     </Button>
                                                 </div>
                                                 {passwordErrors.newPassword && (
-                                                    <p className="text-sm text-red-500">{passwordErrors.newPassword}</p>
+                                                    <div className="space-y-1">
+                                                        {passwordErrors.newPassword.split('\n').map((error, idx) => (
+                                                            <p key={idx} className="text-sm text-red-500 flex items-start gap-1">
+                                                                <span className="text-red-500">•</span>
+                                                                <span>{error}</span>
+                                                            </p>
+                                                        ))}
+                                                    </div>
                                                 )}
                                                 <p className="text-xs text-muted-foreground">
                                                     Must be at least 8 characters with uppercase, lowercase, number, and special character (!@#$%^&*)
