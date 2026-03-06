@@ -51,6 +51,7 @@ import {
   ArrowUp,
   ArrowDown,
   Eye,
+  Pencil, // V-Label: Added Pencil icon for Edit feature
 } from "lucide-react";
 import { useLocation } from "react-router-dom";
 
@@ -216,37 +217,39 @@ export function AdminPanel() {
       setPasswordError("Password is required");
       return false;
     }
-    
+
     // Min 8 characters
     if (password.length < 8) {
       setPasswordError("Password must be at least 8 characters");
       return false;
     }
-    
+
     // At least one uppercase letter
     if (!/[A-Z]/.test(password)) {
       setPasswordError("Password must contain at least one uppercase letter");
       return false;
     }
-    
+
     // At least one lowercase letter
     if (!/[a-z]/.test(password)) {
       setPasswordError("Password must contain at least one lowercase letter");
       return false;
     }
-    
+
     // At least one number
     if (!/[0-9]/.test(password)) {
       setPasswordError("Password must contain at least one number");
       return false;
     }
-    
+
     // At least one special character
     if (!/[\W_]/.test(password)) {
-      setPasswordError("Password must contain at least one special character (!@#$%^&*)");
+      setPasswordError(
+        "Password must contain at least one special character (!@#$%^&*)",
+      );
       return false;
     }
-    
+
     setPasswordError("");
     return true;
   };
@@ -434,10 +437,10 @@ export function AdminPanel() {
   const getInitials = (name: string) => {
     return name
       ? name
-        .split(" ")
-        .map((n) => n[0])
-        .join("")
-        .toUpperCase()
+          .split(" ")
+          .map((n) => n[0])
+          .join("")
+          .toUpperCase()
       : "??";
   };
 
@@ -480,15 +483,15 @@ export function AdminPanel() {
                 {
                   icon: Activity,
                   label: "Active Users",
-                  value: users.filter(u => u.is_active).length,
-                  trend: `${Math.round((users.filter(u => u.is_active).length / (users.length || 1)) * 100)}% active rate`,
+                  value: users.filter((u) => u.is_active).length,
+                  trend: `${Math.round((users.filter((u) => u.is_active).length / (users.length || 1)) * 100)}% active rate`,
                   color: "purple",
                 },
                 {
                   icon: Database,
                   label: "User Roles",
-                  value: `${users.filter(u => u.role === 'ANNOTATOR').length} Annotators`,
-                  trend: `Mg: ${users.filter(u => u.role === 'MANAGER').length} | Rev: ${users.filter(u => u.role === 'REVIEWER').length} | Adm: ${users.filter(u => u.role === 'ADMIN').length}`,
+                  value: `${users.filter((u) => u.role === "ANNOTATOR").length} Annotators`,
+                  trend: `Mg: ${users.filter((u) => u.role === "MANAGER").length} | Rev: ${users.filter((u) => u.role === "REVIEWER").length} | Adm: ${users.filter((u) => u.role === "ADMIN").length}`,
                   color: "green",
                   isMuted: false,
                 },
@@ -565,10 +568,11 @@ export function AdminPanel() {
                           <Label>Email</Label>
                           <input
                             type="email"
-                            className={`w-full px-4 py-2 rounded-md border ${emailError
-                              ? "border-red-500 focus:ring-red-500 focus:border-red-500"
-                              : "border-gray-300"
-                              }`}
+                            className={`w-full px-4 py-2 rounded-md border ${
+                              emailError
+                                ? "border-red-500 focus:ring-red-500 focus:border-red-500"
+                                : "border-gray-300"
+                            }`}
                             placeholder="user@gmail.com"
                             value={newEmail}
                             onChange={(e) => setNewEmail(e.target.value)}
@@ -604,10 +608,11 @@ export function AdminPanel() {
                           <Label>Phone Number</Label>
                           <input
                             type="tel"
-                            className={`w-full px-4 py-2 rounded-md border ${phoneError
-                              ? "border-red-500 focus:ring-red-500 focus:border-red-500"
-                              : "border-gray-300"
-                              }`}
+                            className={`w-full px-4 py-2 rounded-md border ${
+                              phoneError
+                                ? "border-red-500 focus:ring-red-500 focus:border-red-500"
+                                : "border-gray-300"
+                            }`}
                             placeholder="0123456789"
                             value={newPhone}
                             onChange={(e) => setNewPhone(e.target.value)}
@@ -825,7 +830,7 @@ export function AdminPanel() {
                               </div>
                             </TableCell>
                             <TableCell>
-                              {user.role === 'ANNOTATOR' ? (
+                              {user.role === "ANNOTATOR" ? (
                                 <div className="flex items-center gap-1">
                                   <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
                                   <span className="font-medium">
@@ -833,7 +838,9 @@ export function AdminPanel() {
                                   </span>
                                 </div>
                               ) : (
-                                <span className="text-muted-foreground text-xs">-</span>
+                                <span className="text-muted-foreground text-xs">
+                                  -
+                                </span>
                               )}
                             </TableCell>
                             <TableCell className="text-right">
@@ -853,6 +860,18 @@ export function AdminPanel() {
                                   title="View Details"
                                 >
                                   <Eye className="w-4 h-4" />
+                                </Button>
+                                {/* V-Label: Added Edit button to actions */}
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-orange-500 hover:text-orange-600 hover:bg-orange-50"
+                                  onClick={() => {
+                                    // TODO: open edit dialog
+                                  }}
+                                  title="Edit User"
+                                >
+                                  <Pencil className="w-4 h-4" />
                                 </Button>
                                 <Button
                                   variant="ghost"
