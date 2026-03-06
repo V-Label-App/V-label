@@ -487,6 +487,53 @@ export function ProjectDetailPage() {
     }
   };
 
+  // Handle force assign when workload limit implies
+  const handleForceAssign = async () => {
+    if (!forceAssignData || !projectId) return;
+
+    setIsAssigning(true);
+    try {
+      if (forceAssignData.mode === "bulk" && forceAssignData.taskIds) {
+        await projectApi.bulkAssignTasks(
+          projectId,
+          forceAssignData.taskIds,
+          forceAssignData.annotatorId,
+          forceAssignData.deadline,
+          true,
+        );
+        toast.success(
+          `${forceAssignData.taskIds.length} tasks force assigned successfully`,
+        );
+        setSelectedTasks([]);
+        setIsBulkAssign(false);
+      } else if (forceAssignData.mode === "manual" && forceAssignData.taskId) {
+        await projectApi.assignTask(
+          projectId,
+          forceAssignData.taskId,
+          forceAssignData.annotatorId,
+          forceAssignData.deadline,
+          forceAssignData.reason,
+          true,
+        );
+        toast.success("Task force assigned successfully");
+        setTaskToAssign(null);
+        setReassignmentReason("");
+      }
+      setIsForceAssignDialogOpen(false);
+      setSelectedAnnotatorId("");
+      setSelectedDeadline(undefined);
+      fetchTasks();
+      fetchWorkloads();
+    } catch (error: any) {
+      console.error("Failed to force assign:", error);
+      toast.error(
+        error.response?.data?.error || "Failed to force assign tasks",
+      );
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
   // Handle task unassignment
   const handleUnassignTask = async () => {
     if (!projectId || !taskToUnassign) return;
