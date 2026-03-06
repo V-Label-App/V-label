@@ -332,7 +332,11 @@ export function AdminPanel() {
       fetchUsers();
     } catch (error: any) {
       console.error("Failed to update user", error);
-      toast.error("Failed to update user");
+      if (error.response?.status === 409) {
+        toast.error("Email đã được sử dụng bởi user khác");
+      } else {
+        toast.error("Failed to update user");
+      }
     }
   };
 
