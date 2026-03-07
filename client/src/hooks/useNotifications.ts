@@ -168,8 +168,8 @@ export function useNotifications() {
           case "notification:created": {
             console.log(
               "[Notifications] Handling notification created:",
-              event.data,
-            );
+                event.data,
+              );
 
             if (event.data.notification) {
               const newNotification: Notification = {

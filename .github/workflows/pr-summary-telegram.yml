@@ -1,0 +1,172 @@
+name: PR Summary to Telegram
+
+on:
+  pull_request:
+    branches: [develop]
+    types: [opened, reopened, synchronize]
+
+jobs:
+  summarize-and-notify:
+    name: Summarize PR & Notify Telegram
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get PR diff
+        id: diff
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          REPO=${{ github.repository }}
+
+          # Get list of changed files
+          FILES=$(gh pr view $PR_NUMBER --repo $REPO --json files --jq '.files[].path' | head -30 | tr '\n' ', ')
+
+          # Get the diff (limit to 6000 chars to avoid token overflow)
+          DIFF=$(gh pr diff $PR_NUMBER --repo $REPO 2>/dev/null | head -c 6000)
+
+          # Save to files to avoid env var size limits
+          echo "$FILES" > /tmp/pr_files.txt
+          echo "$DIFF" > /tmp/pr_diff.txt
+
+          echo "files=$FILES" >> $GITHUB_OUTPUT
+
+      - name: Summarize with Gemini AI
+        id: summary
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          PR_BODY="${{ github.event.pull_request.body }}"
+          PR_AUTHOR="${{ github.event.pull_request.user.login }}"
+          BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
+          HEAD_BRANCH="${{ github.event.pull_request.head.ref }}"
+
+          FILES=$(cat /tmp/pr_files.txt)
+          DIFF=$(cat /tmp/pr_diff.txt)
+
+          # Build prompt
+          PROMPT="Ban la mot senior developer. Hay tom tat Pull Request nay bang tieng Viet, ngan gon, ro rang.
+
+PR Title: $PR_TITLE
+Author: $PR_AUTHOR
+Branch: $HEAD_BRANCH -> $BASE_BRANCH
+Description: $PR_BODY
+
+Changed files: $FILES
+
+Diff (partial):
+$DIFF
+
+Hay tra loi theo format:
+- Muc dich chinh cua PR nay la gi?
+- Nhung thay doi chinh (liet ke ngan gon tung diem)
+- Co diem gi can chu y khong? (security, performance, logic, ...)
+
+Tra loi ngan gon, toi da 250 tu."
+
+          # Call Gemini API
+          RESPONSE=$(curl -s -X POST \
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$GEMINI_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"contents\": [{
+                \"parts\": [{
+                  \"text\": $(echo "$PROMPT" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')
+                }]
+              }],
+              \"generationConfig\": {
+                \"maxOutputTokens\": 512,
+                \"temperature\": 0.3
+              }
+            }")
+
+          SUMMARY=$(echo "$RESPONSE" | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+try:
+    text = data['candidates'][0]['content']['parts'][0]['text']
+    print(text)
+except Exception as e:
+    print('Khong the tao tom tat: ' + str(e))
+    print('Response: ' + json.dumps(data)[:300])
+")
+
+          echo "$SUMMARY" > /tmp/pr_summary.txt
+          echo "done=true" >> $GITHUB_OUTPUT
+
+      - name: Send to Telegram
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          PR_AUTHOR="${{ github.event.pull_request.user.login }}"
+          PR_URL="${{ github.event.pull_request.html_url }}"
+          HEAD_BRANCH="${{ github.event.pull_request.head.ref }}"
+          BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
+          EVENT="${{ github.event.action }}"
+          REPO="${{ github.repository }}"
+
+          SUMMARY=$(cat /tmp/pr_summary.txt)
+
+          # Map event to label
+          case "$EVENT" in
+            opened)    EVENT_LABEL="Moi tao" ;;
+            reopened)  EVENT_LABEL="Mo lai" ;;
+            synchronize) EVENT_LABEL="Cap nhat" ;;
+            *)         EVENT_LABEL="$EVENT" ;;
+          esac
+
+          MESSAGE="PR #$PR_NUMBER [$EVENT_LABEL] - $REPO
+
+Tieu de: $PR_TITLE
+Tac gia: @$PR_AUTHOR
+Nhanh: $HEAD_BRANCH -> $BASE_BRANCH
+Link: $PR_URL
+
+--- Tom tat (AI) ---
+$SUMMARY"
+
+          python3 -c "
+import urllib.request, urllib.parse, json, sys
+
+token = '$TELEGRAM_BOT_TOKEN'
+chat_id = '$TELEGRAM_CHAT_ID'
+message = open('/tmp/pr_summary.txt').read()
+
+full_message = '''PR #$PR_NUMBER [$EVENT_LABEL] - $REPO
+
+Tieu de: $PR_TITLE
+Tac gia: @$PR_AUTHOR
+Nhanh: $HEAD_BRANCH -> $BASE_BRANCH
+Link: $PR_URL
+
+--- Tom tat (AI) ---
+''' + message
+
+url = f'https://api.telegram.org/bot{token}/sendMessage'
+data = json.dumps({
+    'chat_id': chat_id,
+    'text': full_message[:4096],
+    'parse_mode': 'HTML',
+    'disable_web_page_preview': True
+}).encode()
+
+req = urllib.request.Request(url, data=data, headers={'Content-Type': 'application/json'})
+try:
+    res = urllib.request.urlopen(req)
+    print('Telegram OK:', res.status)
+except Exception as e:
+    print('Telegram Error:', e)
+    sys.exit(1)
+"
