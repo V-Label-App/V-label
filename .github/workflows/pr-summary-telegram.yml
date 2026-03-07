@@ -65,20 +65,28 @@ jobs:
           event_label = {"opened": "Moi tao", "reopened": "Mo lai", "synchronize": "Cap nhat"}.get(pr_event, pr_event)
 
           prompt = "\n".join([
-              "Ban la Senior Engineer. Review PR nay bang tieng Viet, NGAN GON toi da 150 tu, KHONG chao hoi, KHONG giai thich dai dong.",
+              "Ban la Senior Engineer. Review PR nay bang tieng Viet.",
+              "KHONG chao hoi. KHONG giai thich. Chi tra loi theo format duoi day.",
               "",
-              "PR: " + pr_title + " | " + pr_author + " | " + head_br + " -> " + base_br,
-              "Mo ta: " + pr_body,
-              "Files thay doi: " + files,
+              "=== Information ===",
+              "Title: " + pr_title,
+              "Author: " + pr_author,
+              "Branch: " + head_br + " -> " + base_br,
+              "Description: " + (pr_body if pr_body else "Khong co"),
+              "Files changed: " + files,
               "",
-              "Diff:",
+              "=== DIFF ===",
               diff,
               "",
-              "Tra loi CHINH XAC theo format (moi muc 1-2 dong ngan):",
-              "MUC DICH: ...",
-              "THAY DOI: ...",
-              "CANH BAO: ... (neu khong co -> ghi 'Khong co')",
-              "DE XUAT: ... (neu khong co -> ghi 'Khong co')",
+              "=== Request ===",
+              "Tra loi CHINH XAC theo format sau:",
+              "",
+              "MUC DICH: [PR nay lam gi, tai sao can thiet]",
+              "THAY DOI: [Liet ke ngan gon nhung thay doi chinh, dung gach dau dong]",
+              "CANH BAO: [Bug, security, performance, logic sai - neu khong co ghi: Khong co]",
+              "DE XUAT: [Goi y cai thien neu co - neu khong co ghi: Khong co]",
+              "",
+              "QUAN TRONG: Khong them bat ky noi dung nao ngoai 4 muc tren.",
           ])
 
           gemini_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + gemini_key
