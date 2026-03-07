@@ -85,7 +85,7 @@ jobs:
               "Tra loi ngan gon, toi da 250 tu.",
           ])
 
-          gemini_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + gemini_key
+          gemini_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-exp-03-25:generateContent?key=" + gemini_key
           gemini_body = json.dumps({
               "contents": [{"parts": [{"text": prompt}]}],
               "generationConfig": {"maxOutputTokens": 512, "temperature": 0.3}
