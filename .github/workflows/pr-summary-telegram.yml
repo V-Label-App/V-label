@@ -104,7 +104,7 @@ jobs:
               "Giu trong khoang 300 tu. Neu khong co van de gi thi noi ro la code tot.",
           ])
 
-          gemini_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent?key=" + gemini_key
+          gemini_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + gemini_key
           gemini_body = json.dumps({
               "contents": [{"parts": [{"text": prompt}]}],
               "generationConfig": {"maxOutputTokens": 1024, "temperature": 0.2}
