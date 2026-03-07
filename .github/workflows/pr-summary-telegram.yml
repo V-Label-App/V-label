@@ -81,17 +81,17 @@ jobs:
               "=== Request ===",
               "Tra loi CHINH XAC theo format sau:",
               "",
-              "MUC DICH: [PR nay lam gi, tai sao can thiet]",
-              "THAY DOI: [Liet ke ngan gon nhung thay doi chinh, dung gach dau dong]",
-              "CANH BAO: [Bug, security, performance, logic sai - neu khong co ghi: Khong co]",
-              "DE XUAT: [Goi y cai thien neu co - neu khong co ghi: Khong co]",
+              "Purpose: [PR nay lam gi, tai sao can thiet]",
+              "Changes: [Liet ke ngan gon nhung thay doi chinh, dung gach dau dong]",
+              "Warning: [Bug, security, performance, logic sai - neu khong co ghi: Khong co]",
+              "Suggestion: [Goi y cai thien neu co - neu khong co ghi: Khong co]",
               "",
-              "QUAN TRONG: Khong them bat ky noi dung nao ngoai 4 muc tren.",
+              "IMPORTANT: Khong them bat ky noi dung nao ngoai 4 muc tren.",
           ])
 
           gemini_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + gemini_key
           gemini_body = json.dumps({
-              "contents": [{"parts": [{"text": prompt}]}],
+              "contents": [{"parts": [{"text": prompt}] }],
               "generationConfig": {"maxOutputTokens": 8192, "temperature": 0.2}
           }).encode()
 
