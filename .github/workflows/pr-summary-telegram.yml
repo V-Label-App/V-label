@@ -65,49 +65,26 @@ jobs:
           event_label = {"opened": "Moi tao", "reopened": "Mo lai", "synchronize": "Cap nhat"}.get(pr_event, pr_event)
 
           prompt = "\n".join([
-              "Ban la mot Senior Software Engineer co kinh nghiem review code. Nhiem vu cua ban la phan tich Pull Request duoi day mot cach sau sac va chinh xac.",
+              "Ban la Senior Engineer. Review PR nay bang tieng Viet, NGAN GON toi da 150 tu, KHONG chao hoi, KHONG giai thich dai dong.",
               "",
-              "=== THONG TIN PULL REQUEST ===",
-              "Tieu de: " + pr_title,
-              "Tac gia: " + pr_author,
-              "Nhanh: " + head_br + " -> " + base_br,
+              "PR: " + pr_title + " | " + pr_author + " | " + head_br + " -> " + base_br,
               "Mo ta: " + pr_body,
+              "Files thay doi: " + files,
               "",
-              "=== CAC FILE THAY DOI ===",
-              files,
-              "",
-              "=== NOI DUNG THAY DOI (DIFF) ===",
+              "Diff:",
               diff,
               "",
-              "=== YEU CAU PHAN TICH ===",
-              "Hay phan tich theo cau truc sau (bang tieng Viet, ro rang, chi tiet):",
-              "",
-              "1. MUC DICH: PR nay giai quyet van de gi? (1-2 cau)",
-              "",
-              "2. THAY DOI CHINH:",
-              "   - Liet ke cac thay doi quan trong theo tung file/chuc nang",
-              "   - Mo ta ro logic thay doi",
-              "",
-              "3. CHAT LUONG CODE:",
-              "   - Code co ro rang, de hieu khong?",
-              "   - Co vi pham naming convention, best practices khong?",
-              "   - Co logic nao dang nghi khong?",
-              "",
-              "4. CANH BAO (neu co):",
-              "   - Bug tiem an hoac edge case chua xu ly",
-              "   - Van de bao mat (SQL injection, XSS, lo thong tin...)",
-              "   - Van de hieu nang (N+1 query, thieu index...)",
-              "   - Missing error handling",
-              "",
-              "5. DE XUAT: Goi y cai tien ngan gon (neu co)",
-              "",
-              "Giu trong khoang 300 tu. Neu khong co van de gi thi noi ro la code tot.",
+              "Tra loi CHINH XAC theo format (moi muc 1-2 dong ngan):",
+              "MUC DICH: ...",
+              "THAY DOI: ...",
+              "CANH BAO: ... (neu khong co -> ghi 'Khong co')",
+              "DE XUAT: ... (neu khong co -> ghi 'Khong co')",
           ])
 
           gemini_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + gemini_key
           gemini_body = json.dumps({
               "contents": [{"parts": [{"text": prompt}]}],
-              "generationConfig": {"maxOutputTokens": 1024, "temperature": 0.2}
+              "generationConfig": {"maxOutputTokens": 400, "temperature": 0.2}
           }).encode()
 
           req = urllib.request.Request(gemini_url, data=gemini_body, headers={"Content-Type": "application/json"})
@@ -133,24 +110,16 @@ jobs:
               summary,
           ])
 
-          def send_telegram(token, chat_id, text):
-              url = "https://api.telegram.org/bot" + token + "/sendMessage"
-              body = json.dumps({
-                  "chat_id": chat_id,
-                  "text": text,
-                  "disable_web_page_preview": True
-              }).encode()
-              req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
-              res = urllib.request.urlopen(req)
-              return res.status
-
-          # Split message into chunks of 4096 chars
-          chunk_size = 4096
-          chunks = [message[i:i+chunk_size] for i in range(0, len(message), chunk_size)]
+          tg_url = "https://api.telegram.org/bot" + tg_token + "/sendMessage"
+          tg_body = json.dumps({
+              "chat_id": tg_chat,
+              "text": message[:4096],
+              "disable_web_page_preview": True
+          }).encode()
+          req2 = urllib.request.Request(tg_url, data=tg_body, headers={"Content-Type": "application/json"})
           try:
-              for chunk in chunks:
-                  status = send_telegram(tg_token, tg_chat, chunk)
-                  print("Telegram OK:", status)
+              res2 = urllib.request.urlopen(req2)
+              print("Telegram OK:", res2.status)
           except Exception as e:
               print("Telegram Error:", e)
               raise
