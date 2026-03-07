@@ -133,17 +133,24 @@ jobs:
               summary,
           ])
 
-          tg_url = "https://api.telegram.org/bot" + tg_token + "/sendMessage"
-          tg_body = json.dumps({
-              "chat_id": tg_chat,
-              "text": message[:4096],
-              "disable_web_page_preview": True
-          }).encode()
+          def send_telegram(token, chat_id, text):
+              url = "https://api.telegram.org/bot" + token + "/sendMessage"
+              body = json.dumps({
+                  "chat_id": chat_id,
+                  "text": text,
+                  "disable_web_page_preview": True
+              }).encode()
+              req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
+              res = urllib.request.urlopen(req)
+              return res.status
 
-          req2 = urllib.request.Request(tg_url, data=tg_body, headers={"Content-Type": "application/json"})
+          # Split message into chunks of 4096 chars
+          chunk_size = 4096
+          chunks = [message[i:i+chunk_size] for i in range(0, len(message), chunk_size)]
           try:
-              res2 = urllib.request.urlopen(req2)
-              print("Telegram OK:", res2.status)
+              for chunk in chunks:
+                  status = send_telegram(tg_token, tg_chat, chunk)
+                  print("Telegram OK:", status)
           except Exception as e:
               print("Telegram Error:", e)
               raise
