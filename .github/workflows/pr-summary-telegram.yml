@@ -84,7 +84,7 @@ jobs:
           gemini_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + gemini_key
           gemini_body = json.dumps({
               "contents": [{"parts": [{"text": prompt}]}],
-              "generationConfig": {"maxOutputTokens": 400, "temperature": 0.2}
+              "generationConfig": {"maxOutputTokens": 8192, "temperature": 0.2}
           }).encode()
 
           req = urllib.request.Request(gemini_url, data=gemini_body, headers={"Content-Type": "application/json"})
@@ -110,16 +110,16 @@ jobs:
               summary,
           ])
 
-          tg_url = "https://api.telegram.org/bot" + tg_token + "/sendMessage"
-          tg_body = json.dumps({
-              "chat_id": tg_chat,
-              "text": message[:4096],
-              "disable_web_page_preview": True
-          }).encode()
-          req2 = urllib.request.Request(tg_url, data=tg_body, headers={"Content-Type": "application/json"})
+          def send_tg(text):
+              url = "https://api.telegram.org/bot" + tg_token + "/sendMessage"
+              body = json.dumps({"chat_id": tg_chat, "text": text, "disable_web_page_preview": True}).encode()
+              req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
+              urllib.request.urlopen(req)
+
           try:
-              res2 = urllib.request.urlopen(req2)
-              print("Telegram OK:", res2.status)
+              for i in range(0, len(message), 4096):
+                  send_tg(message[i:i+4096])
+              print("Telegram OK")
           except Exception as e:
               print("Telegram Error:", e)
               raise
