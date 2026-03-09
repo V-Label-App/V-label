@@ -2,6 +2,37 @@
 
 ---
 
+## 📅 2026-03-09
+
+### Cải thiện luồng Annotator & Fix bug logic kẹt Workload
+
+**Files changed:**
+- `server/src/routes/annotator.routes.ts` — Thêm endpoint API Save Draft
+- `server/src/controllers/annotator.controller.ts` — Thêm thuộc tính validation `actualTimeSeconds` và method `saveDraft`
+- `server/src/services/annotator.service.ts` — Cập nhật `updateTaskAssignment` để xử lý Workload, Emit event, và lưu tham số. Thêm `saveDraft`
+- `server/src/utils/events.ts` — Thêm Local Event Emitter `appEvents`
+- `server/src/services/task.service.ts` — Lắng nghe event `appEvents` để trigger Reassign và Assign Reviewer thay vì gọi trực tiếp.
+
+**Hiện trạng trước khi fix:**
+- Kín/kẹt workload: Chữ ký chuyển state (vd: `ASSIGNED` -> `IN_PROGRESS`) không gọi update Workload.
+- Lỗi Bỏ qua (Skip): Skip Task không trừ slot Workload cho Annotator và không trigger Auto Assign cho Annotator khác (kể cả khi `autoReassignOnSkip` được bật).
+- `actualTimeSeconds` chưa được Backend hỗ trợ map từ Payload xuống schema Database.
+- Save Draft: Không có API riêng để lưu tạm thời Annotations, mỗi lần Update task phải check flow Submission hay Reviewing rất cồng kềnh.
+- Lỗi Circular Dependency: `AnnotatorService` import ngược `TaskService` để bắt auto-assign reviewer.
+
+**Sau khi fix:**
+- Mở khóa Workload: State Update giờ sẽ gọi các hàm tương ứng trong `UserWorkloadService` (`taskStarted`, `taskSubmitted`, `decrementAssignedTasks`) để real-time slot của tài khoản làm việc.
+- Hoàn thiện Skip Flow: Cập nhật lại Task Status, Trừ Workload đang dở và kích hoạt Auto-Assign cho Assignee mới (nếu setting cho phép).
+- Bổ sung trường `actualTimeSeconds` vào Schema Validator của API Update Task.
+- Thêm đường dẫn PUT `/api/v1/annotator/tasks/:assignmentId/draft` cho phép lưu mượt mà không gây side-effect hay validate flow ngặt nghèo. Tự động chuyển từ `ASSIGNED` sang `IN_PROGRESS` nếu mới Start lần đầu.
+- Gỡ bỏ hoàn toàn Dependency Cycle (Circular Hook) bằng cách dùng Event Emitter nội bộ Node (`utils/events.ts`). File `TaskService.ts` đóng vai trò Listener nghe sự kiện độc lập.
+
+**FE cần làm:**
+- Cập nhật Payload: Thêm trường `actualTimeSeconds` (Number) khi gọi API Update status hay Save Draft.
+- Nút "Lưu Nháp" (Save Draft): Sử dụng API `PUT /api/v1/annotator/tasks/:assignmentId/draft` kèm `{ annotations, annotatorNote, actualTimeSeconds }`. API này sẽ tự động lưu và chuyển state thành In-Progress nếu cần mà không Trigger Review.
+
+---
+
 ## 📅 2026-03-06
 
 ### 1. Fix: 2 dataset khác nhau vẫn có thể trùng hình — Duplicate Detection theo Dataset

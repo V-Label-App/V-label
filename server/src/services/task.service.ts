@@ -561,3 +561,24 @@ export class TaskService {
         }
     }
 }
+
+// ==== Event Listeners ====
+import { appEvents } from '../utils/events.js';
+
+appEvents.on('TASK_SUBMITTED_AUTO_REVIEWER', async ({ taskId, projectId, annotatorId, assignmentId }) => {
+    try {
+        await TaskService.autoAssignTask(taskId, projectId, 'REVIEWER', annotatorId);
+        logger.info('TASK_SERVICE', 'Handled auto-reviewer event', { taskId, assignmentId });
+    } catch (error) {
+        logger.error('TASK_SERVICE', 'Failed to handle auto-reviewer event', { error, taskId, assignmentId });
+    }
+});
+
+appEvents.on('TASK_SKIPPED_REASSIGN', async ({ taskId, projectId }) => {
+    try {
+        await TaskService.autoAssignTask(taskId, projectId, 'ANNOTATOR');
+        logger.info('TASK_SERVICE', 'Handled auto-reassign event via skip', { taskId, projectId });
+    } catch (error) {
+        logger.error('TASK_SERVICE', 'Failed to handle auto-reassign event', { error, taskId, projectId });
+    }
+});

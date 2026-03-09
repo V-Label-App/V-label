@@ -21,4 +21,7 @@ router.get('/tasks/:assignmentId', AnnotatorController.getTaskAssignment);
 // Update task assignment (submit, add note, etc.)
 router.patch('/tasks/:assignmentId', AnnotatorController.updateTaskAssignment);
 
+// Save draft task assignment
+router.put('/tasks/:assignmentId/draft', AnnotatorController.saveDraft);
+
 export default router;
