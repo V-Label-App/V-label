@@ -3,7 +3,7 @@ name: PR Summary to Telegram
 on:
   pull_request:
     branches: [develop]
-    types: [opened, reopened, synchronize]
+    types: [opened, reopened, synchronize, closed]
 
 jobs:
   summarize-and-notify:
@@ -41,6 +41,8 @@ jobs:
           BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
           HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
           PR_EVENT: ${{ github.event.action }}
+          PR_MERGED: ${{ github.event.pull_request.merged }}
+          MERGER: ${{ github.event.pull_request.merged_by.login }}
           REPO: ${{ github.repository }}
         run: |
           cat > /tmp/run_summary.py << 'PYEOF'
@@ -58,11 +60,38 @@ jobs:
           head_br    = os.environ.get("HEAD_BRANCH", "")
           pr_event   = os.environ.get("PR_EVENT", "")
           repo       = os.environ.get("REPO", "")
+          pr_merged  = os.environ.get("PR_MERGED", "false")
+          merger     = os.environ.get("MERGER", "")
 
           diff  = open("/tmp/pr_diff.txt").read() or "(khong co diff)"
           files = open("/tmp/pr_files.txt").read() or "(khong ro)"
 
-          event_label = {"opened": "Moi tao", "reopened": "Mo lai", "synchronize": "Cap nhat"}.get(pr_event, pr_event)
+          event_label = {"opened": "Moi tao", "reopened": "Mo lai", "synchronize": "Cap nhat", "closed": "Da dong"}.get(pr_event, pr_event)
+
+          # Neu la merged thi gui thong bao don gian, khong can AI
+          if pr_event == "closed" and pr_merged == "true":
+              message = "\n".join([
+                  "[Da Merge] PR #" + pr_number + " - " + repo,
+                  "",
+                  "Tieu de: " + pr_title,
+                  "Tac gia: @" + pr_author,
+                  "Merge boi: @" + merger,
+                  "Nhanh: " + head_br + " -> " + base_br,
+                  "Link: " + pr_url,
+              ])
+              def send_tg(text):
+                  url = "https://api.telegram.org/bot" + tg_token + "/sendMessage"
+                  body = json.dumps({"chat_id": tg_chat, "text": text, "disable_web_page_preview": True}).encode()
+                  req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
+                  urllib.request.urlopen(req)
+              send_tg(message)
+              print("Merge notification sent")
+              exit(0)
+
+          # Neu la closed ma khong merge (bi tu choi) thi bo qua
+          if pr_event == "closed" and pr_merged != "true":
+              print("PR closed without merge, skipping")
+              exit(0)
 
           prompt = "\n".join([
               "Ban la Senior Engineer. Review PR nay bang tieng Viet.",
