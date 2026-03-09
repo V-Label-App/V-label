@@ -8,7 +8,14 @@ import logger from '../utils/logger.js';
 const updateAssignmentSchema = z.object({
     status: z.nativeEnum(AssignmentStatus).optional(),
     annotations: z.any().optional(),
-    annotatorNote: z.string().max(1000).optional()
+    annotatorNote: z.string().max(1000).optional(),
+    actualTimeSeconds: z.number().int().nonnegative().optional()
+});
+
+const saveDraftSchema = z.object({
+    annotations: z.any().optional(),
+    annotatorNote: z.string().max(1000).optional(),
+    actualTimeSeconds: z.number().int().nonnegative().optional()
 });
 
 export class AnnotatorController {
@@ -101,6 +108,7 @@ export class AnnotatorController {
                 status?: AssignmentStatus;
                 annotations?: any;
                 annotatorNote?: string;
+                actualTimeSeconds?: number;
             } = {};
 
             if (validatedData.status !== undefined) {
@@ -111,6 +119,9 @@ export class AnnotatorController {
             }
             if (validatedData.annotatorNote !== undefined) {
                 updateData.annotatorNote = validatedData.annotatorNote;
+            }
+            if (validatedData.actualTimeSeconds !== undefined) {
+                updateData.actualTimeSeconds = validatedData.actualTimeSeconds;
             }
 
             const updated = await AnnotatorService.updateTaskAssignment(
@@ -136,6 +147,63 @@ export class AnnotatorController {
 
             logger.error('API', 'Update task assignment failed', { error });
             return res.status(500).json({ error: 'Failed to update task assignment' });
+        }
+    }
+
+    /**
+     * PUT /api/v1/annotator/tasks/:assignmentId/draft
+     * Save draft annotations without transitioning to SUBMITTED
+     */
+    static async saveDraft(req: Request, res: Response) {
+        try {
+            const userId = (req as any).user.sub || (req as any).user.id;
+            const assignmentId = req.params.assignmentId as string;
+
+            if (!assignmentId) {
+                return res.status(400).json({ error: 'Assignment ID is required' });
+            }
+
+            const validatedData = saveDraftSchema.parse(req.body);
+
+            const draftData: {
+                annotations?: any;
+                annotatorNote?: string;
+                actualTimeSeconds?: number;
+            } = {};
+
+            if (validatedData.annotations !== undefined) {
+                draftData.annotations = validatedData.annotations;
+            }
+            if (validatedData.annotatorNote !== undefined) {
+                draftData.annotatorNote = validatedData.annotatorNote;
+            }
+            if (validatedData.actualTimeSeconds !== undefined) {
+                draftData.actualTimeSeconds = validatedData.actualTimeSeconds;
+            }
+
+            const updated = await AnnotatorService.saveDraft(
+                assignmentId,
+                userId,
+                draftData
+            );
+
+            logger.info('API', `Task draft saved: ${assignmentId}`, { userId });
+            return res.json(updated);
+        } catch (error) {
+            if (error instanceof z.ZodError) {
+                return res.status(400).json({ error: 'Validation failed', details: error.issues });
+            }
+
+            const message = error instanceof Error ? error.message : 'Unknown error';
+            if (message.includes('not found') || message.includes('access denied')) {
+                return res.status(404).json({ error: 'Task assignment not found' });
+            }
+            if (message.includes('Cannot save draft when task is')) {
+                return res.status(400).json({ error: message });
+            }
+
+            logger.error('API', 'Save task draft failed', { error });
+            return res.status(500).json({ error: 'Failed to save task draft' });
         }
     }
 }

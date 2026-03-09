@@ -228,6 +228,7 @@ export class AnnotatorService {
             status?: AssignmentStatus;
             annotations?: any;
             annotatorNote?: string;
+            actualTimeSeconds?: number;
         }
     ) {
         try {
@@ -277,36 +278,107 @@ export class AnnotatorService {
             });
 
             logger.info('SERVICE', 'Task assignment updated', { assignmentId, userId, status: updates.status });
+            // Handle Workload and Post-Update Logic (Auto Reassign/Reviewer)
+            if (updates.status) {
+                const projectId = updated.task.projectId;
+                const taskId = updated.taskId;
+                const annotatorId = userId;
 
-            // Auto-assign reviewer when task is submitted
-            if (updates.status === AssignmentStatus.SUBMITTED) {
-                try {
-                    const { TaskService } = await import('./task.service.js');
+                if (updates.status === AssignmentStatus.IN_PROGRESS && existing.status === AssignmentStatus.ASSIGNED) {
+                    const { UserWorkloadService } = await import('./user-workload.service.js');
+                    await UserWorkloadService.taskStarted(userId, projectId);
+                } else if (updates.status === AssignmentStatus.SUBMITTED) {
+                    const { UserWorkloadService } = await import('./user-workload.service.js');
+                    await UserWorkloadService.taskSubmitted(userId, projectId);
 
-                    const projectId = updated.task.projectId;
-                    const taskId = updated.taskId;
-                    const annotatorId = userId;
+                    try {
+                        const { appEvents } = await import('../utils/events.js');
+                        appEvents.emit('TASK_SUBMITTED_AUTO_REVIEWER', { taskId, projectId, annotatorId, assignmentId });
+                        logger.info('SERVICE', 'Emitted auto-reviewer event after submission', { taskId, assignmentId });
+                    } catch (reviewerError) {
+                        logger.error('SERVICE', 'Failed to emit auto-assign reviewer event', { error: reviewerError, assignmentId });
+                    }
+                } else if (updates.status === AssignmentStatus.SKIPPED) {
+                    const { UserWorkloadService } = await import('./user-workload.service.js');
+                    if (existing.status === AssignmentStatus.ASSIGNED || existing.status === AssignmentStatus.IN_PROGRESS) {
+                        await UserWorkloadService.decrementAssignedTasks(userId, projectId);
+                    }
 
-                    // Auto-assign reviewer (excluding the annotator to prevent conflict of interest)
-                    await TaskService.autoAssignTask(taskId, projectId, 'REVIEWER', annotatorId);
-
-                    logger.info('SERVICE', 'Auto-assigned reviewer after submission', {
-                        taskId,
-                        assignmentId,
-                        annotatorId
+                    const project = await prisma.project.findUnique({
+                        where: { id: projectId },
+                        include: { assignmentRule: true }
                     });
-                } catch (reviewerError) {
-                    // Log error but don't fail the submission
-                    logger.error('SERVICE', 'Failed to auto-assign reviewer', {
-                        error: reviewerError,
-                        assignmentId
-                    });
+                    const rules = project?.assignmentRule;
+                    if (rules?.autoReassignOnSkip) {
+                        const { appEvents } = await import('../utils/events.js');
+                        appEvents.emit('TASK_SKIPPED_REASSIGN', { taskId, projectId });
+                        logger.info('SERVICE', 'Emitted auto-reassign event after skip', { taskId, assignmentId });
+                    }
                 }
             }
 
             return updated;
         } catch (error) {
             logger.error('SERVICE', 'Error updating task assignment', { error, assignmentId, userId });
+            throw error;
+        }
+    }
+
+    /**
+     * Save draft annotations
+     */
+    static async saveDraft(
+        assignmentId: string,
+        userId: string,
+        draft: {
+            annotations?: any;
+            annotatorNote?: string;
+            actualTimeSeconds?: number;
+        }
+    ) {
+        try {
+            const existing = await prisma.taskAssignment.findFirst({
+                where: { id: assignmentId, annotatorId: userId },
+                include: { task: true }
+            });
+
+            if (!existing) {
+                throw new Error('Task assignment not found or access denied');
+            }
+
+            const invalidStates: AssignmentStatus[] = [
+                AssignmentStatus.SUBMITTED,
+                AssignmentStatus.APPROVED,
+                AssignmentStatus.REJECTED,
+                AssignmentStatus.SKIPPED
+            ];
+
+            if (invalidStates.includes(existing.status)) {
+                throw new Error(`Cannot save draft when task is: ${existing.status}`);
+            }
+
+            let newStatus = existing.status;
+            if (existing.status === AssignmentStatus.ASSIGNED) {
+                newStatus = AssignmentStatus.IN_PROGRESS;
+            }
+
+            const updated = await prisma.taskAssignment.update({
+                where: { id: assignmentId },
+                data: {
+                    status: newStatus,
+                    ...draft,
+                    updatedAt: new Date()
+                }
+            });
+
+            if (existing.status === AssignmentStatus.ASSIGNED) {
+                const { UserWorkloadService } = await import('./user-workload.service.js');
+                await UserWorkloadService.taskStarted(userId, existing.task.projectId);
+            }
+
+            return updated;
+        } catch (error) {
+            logger.error('SERVICE', 'Error saving draft', { error, assignmentId, userId });
             throw error;
         }
     }
