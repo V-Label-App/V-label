@@ -1533,6 +1533,11 @@ export function LabelManagementPage() {
                                     <span className="font-medium">
                                       {category.name}
                                     </span>
+                                    {category.creator?.fullName && (
+                                      <span className="text-sm font-normal text-muted-foreground">
+                                        ({category.creator.fullName})
+                                      </span>
+                                    )}
                                     <Badge variant="secondary" className="ml-1">
                                       {categoryLabels.length}
                                     </Badge>
@@ -1812,6 +1817,11 @@ export function LabelManagementPage() {
                               {category.description && (
                                 <p className="text-sm text-gray-500 mt-1 line-clamp-2">
                                   {category.description}
+                                </p>
+                              )}
+                              {category.creator?.fullName && (
+                                <p className="text-sm text-gray-500 mt-1">
+                                  Created by: {category.creator.fullName}
                                 </p>
                               )}
                             </div>
@@ -2386,24 +2396,26 @@ Animals,Living creatures,Dog,#F59E0B,false`}
                   const assignedLabelIds = projectLabels[project.id] || [];
                   const selectedLabels =
                     selectedLabelsPerProject[project.id] || assignedLabelIds;
-                  
+
                   // Filter assigned labels based on current filters (global/local and search)
-                  const filteredAssignedLabels = labels.filter(label => {
+                  const filteredAssignedLabels = labels.filter((label) => {
                     // Must be assigned to this project
                     if (!assignedLabelIds.includes(label.id)) return false;
-                    
+
                     // Match search query
-                    const matchesSearch = label.name.toLowerCase().includes(searchQuery.toLowerCase());
-                    
+                    const matchesSearch = label.name
+                      .toLowerCase()
+                      .includes(searchQuery.toLowerCase());
+
                     // Match global filter
                     const matchesGlobal =
                       filterGlobal === "all" ||
                       (filterGlobal === "global" && label.isGlobal) ||
                       (filterGlobal === "local" && !label.isGlobal);
-                    
+
                     return matchesSearch && matchesGlobal;
                   });
-                  
+
                   // const hasChanges =
                   //   JSON.stringify(selectedLabels.sort()) !==
                   //   JSON.stringify(assignedLabelIds.sort());
@@ -2424,8 +2436,8 @@ Animals,Living creatures,Dog,#F59E0B,false`}
                             <div className="font-semibold">{project.name}</div>
                             {project.description && (
                               <div className="text-sm text-muted-foreground">
-                                {project.description.length > 25 
-                                  ? `${project.description.substring(0, 25)}...` 
+                                {project.description.length > 25
+                                  ? `${project.description.substring(0, 25)}...`
                                   : project.description}
                               </div>
                             )}
