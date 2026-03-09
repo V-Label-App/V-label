@@ -90,6 +90,7 @@ import {
   CheckCircle2,
   Sparkles,
   UserMinus,
+  AlertTriangle,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -287,6 +288,21 @@ export function ProjectDetailPage() {
   const [isAssigning, setIsAssigning] = useState(false);
   const [isBulkAssign, setIsBulkAssign] = useState(false);
 
+  // Force Assign State
+  const [isForceAssignDialogOpen, setIsForceAssignDialogOpen] = useState(false);
+  const [forceAssignData, setForceAssignData] = useState<{
+    currentTasks: number;
+    maxTasks: number;
+    requestedTasks?: number;
+    remainingSlots?: number;
+    mode: "manual" | "bulk";
+    taskId?: string;
+    taskIds?: string[];
+    annotatorId: string;
+    deadline?: Date;
+    reason?: string;
+  } | null>(null);
+
   // Task Unassign State
   const [isUnassignDialogOpen, setIsUnassignDialogOpen] = useState(false);
   const [taskToUnassign, setTaskToUnassign] = useState<any>(null);
@@ -388,7 +404,25 @@ export function ProjectDetailPage() {
         fetchWorkloads();
       } catch (error: any) {
         console.error("Failed to assign tasks:", error);
-        toast.error(error.response?.data?.error || "Failed to assign tasks");
+        if (
+          error.response?.status === 400 &&
+          error.response?.data?.error === "Workload limit exceeded"
+        ) {
+          setIsAssignDialogOpen(false);
+          setForceAssignData({
+            currentTasks: error.response.data.currentTasks,
+            maxTasks: error.response.data.maxTasks,
+            requestedTasks: error.response.data.requestedTasks,
+            remainingSlots: error.response.data.remainingSlots,
+            mode: "bulk",
+            taskIds: selectedTasks,
+            annotatorId: selectedAnnotatorId,
+            deadline: selectedDeadline,
+          });
+          setIsForceAssignDialogOpen(true);
+        } else {
+          toast.error(error.response?.data?.error || "Failed to assign tasks");
+        }
       } finally {
         setIsAssigning(false);
       }
@@ -430,7 +464,71 @@ export function ProjectDetailPage() {
       fetchWorkloads();
     } catch (error: any) {
       console.error("Failed to assign task:", error);
-      toast.error(error.response?.data?.error || "Failed to assign task");
+      if (
+        error.response?.status === 400 &&
+        error.response?.data?.error === "Workload limit exceeded"
+      ) {
+        setIsAssignDialogOpen(false);
+        setForceAssignData({
+          currentTasks: error.response.data.currentTasks,
+          maxTasks: error.response.data.maxTasks,
+          mode: "manual",
+          taskId: taskToAssign.id,
+          annotatorId: selectedAnnotatorId,
+          deadline: selectedDeadline,
+          reason: isReassignment ? reassignmentReason : undefined,
+        });
+        setIsForceAssignDialogOpen(true);
+      } else {
+        toast.error(error.response?.data?.error || "Failed to assign task");
+      }
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
+  // Handle force assign when workload limit implies
+  const handleForceAssign = async () => {
+    if (!forceAssignData || !projectId) return;
+
+    setIsAssigning(true);
+    try {
+      if (forceAssignData.mode === "bulk" && forceAssignData.taskIds) {
+        await projectApi.bulkAssignTasks(
+          projectId,
+          forceAssignData.taskIds,
+          forceAssignData.annotatorId,
+          forceAssignData.deadline,
+          true,
+        );
+        toast.success(
+          `${forceAssignData.taskIds.length} tasks force assigned successfully`,
+        );
+        setSelectedTasks([]);
+        setIsBulkAssign(false);
+      } else if (forceAssignData.mode === "manual" && forceAssignData.taskId) {
+        await projectApi.assignTask(
+          projectId,
+          forceAssignData.taskId,
+          forceAssignData.annotatorId,
+          forceAssignData.deadline,
+          forceAssignData.reason,
+          true,
+        );
+        toast.success("Task force assigned successfully");
+        setTaskToAssign(null);
+        setReassignmentReason("");
+      }
+      setIsForceAssignDialogOpen(false);
+      setSelectedAnnotatorId("");
+      setSelectedDeadline(undefined);
+      fetchTasks();
+      fetchWorkloads();
+    } catch (error: any) {
+      console.error("Failed to force assign:", error);
+      toast.error(
+        error.response?.data?.error || "Failed to force assign tasks",
+      );
     } finally {
       setIsAssigning(false);
     }
@@ -3502,6 +3600,80 @@ export function ProjectDetailPage() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Force Assign Dialog */}
+      <Dialog
+        open={isForceAssignDialogOpen}
+        onOpenChange={(open) => {
+          setIsForceAssignDialogOpen(open);
+          if (!open) {
+            setForceAssignData(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-destructive flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-500" />
+              Workload Limit Exceeded
+            </DialogTitle>
+            <DialogDescription asChild>
+              <div className="space-y-4 pt-4">
+                {forceAssignData?.mode === "bulk" ? (
+                  <p>
+                    This annotator currently has{" "}
+                    <span className="font-bold">
+                      {forceAssignData.currentTasks}
+                    </span>{" "}
+                    active tasks (Limit: {forceAssignData.maxTasks}). You are
+                    trying to assign{" "}
+                    <span className="font-bold">
+                      {forceAssignData.requestedTasks}
+                    </span>{" "}
+                    more tasks, but they only have space for{" "}
+                    <span className="font-bold">
+                      {forceAssignData.remainingSlots}
+                    </span>
+                    .
+                  </p>
+                ) : (
+                  <p>
+                    This annotator has reached their maximum active task limit (
+                    <span className="font-bold">
+                      {forceAssignData?.currentTasks}/
+                      {forceAssignData?.maxTasks}
+                    </span>
+                    ).
+                  </p>
+                )}
+                <p>
+                  Do you still want to force assign{" "}
+                  {forceAssignData?.mode === "bulk"
+                    ? "these tasks"
+                    : "this task"}{" "}
+                  to them?
+                </p>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsForceAssignDialogOpen(false)}
+              disabled={isAssigning}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleForceAssign}
+              disabled={isAssigning}
+            >
+              {isAssigning ? "Assigning..." : "Force Assign"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

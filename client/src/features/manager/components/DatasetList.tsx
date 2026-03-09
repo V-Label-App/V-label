@@ -234,7 +234,7 @@ export function DatasetList({ projectId }: DatasetListProps) {
               <div className="flex flex-col">
                 <span>{dataset.source || "Unknown Source"}</span>
                 <span>
-                  {format(new Date(dataset.createdAt), "MMM dd, yyyy")}
+                  {format(new Date(dataset.createdAt), "MMM dd, yyyy HH:mm")}
                 </span>
               </div>
               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
