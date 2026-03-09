@@ -223,36 +223,36 @@ export function AdminPanel() {
       setPasswordError("Password is required");
       return false;
     }
-
+    
+    const errors: string[] = [];
+    
     // Min 8 characters
     if (password.length < 8) {
-      setPasswordError("Password must be at least 8 characters");
-      return false;
+      errors.push("Password must be at least 8 characters");
     }
 
     // At least one uppercase letter
     if (!/[A-Z]/.test(password)) {
-      setPasswordError("Password must contain at least one uppercase letter");
-      return false;
+      errors.push("Password must contain at least one uppercase letter");
     }
 
     // At least one lowercase letter
     if (!/[a-z]/.test(password)) {
-      setPasswordError("Password must contain at least one lowercase letter");
-      return false;
+      errors.push("Password must contain at least one lowercase letter");
     }
 
     // At least one number
     if (!/[0-9]/.test(password)) {
-      setPasswordError("Password must contain at least one number");
-      return false;
+      errors.push("Password must contain at least one number");
     }
 
     // At least one special character
     if (!/[\W_]/.test(password)) {
-      setPasswordError(
-        "Password must contain at least one special character (!@#$%^&*)",
-      );
+      errors.push("Password must contain at least one special character (!@#$%^&*)");
+    }
+    
+    if (errors.length > 0) {
+      setPasswordError(errors.join("\n"));
       return false;
     }
 
@@ -648,10 +648,14 @@ export function AdminPanel() {
                             onChange={(e) => setNewPassword(e.target.value)}
                           />
                           {passwordError && (
-                            <p className="text-sm text-red-600 flex items-center gap-1">
-                              <span>⚠</span>
-                              {passwordError}
-                            </p>
+                            <div className="space-y-1">
+                              {passwordError.split('\n').map((error, idx) => (
+                                <p key={idx} className="text-sm text-red-600 flex items-start gap-1">
+                                  <span>⚠</span>
+                                  <span>{error}</span>
+                                </p>
+                              ))}
+                            </div>
                           )}
                         </div>
                         <div className="space-y-2">

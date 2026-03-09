@@ -10,7 +10,7 @@ import {
     BarChart, Bar, XAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
     PieChart, Pie, Cell, AreaChart, Area
 } from 'recharts';
-import { Trophy, Upload, Loader2 } from "lucide-react";
+import { Trophy, Upload, Loader2, Eye, EyeOff } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "../../../components/ui/dialog"
 import { Input } from "../../../components/ui/input"
 import { Label } from "../../../components/ui/label"
@@ -30,6 +30,25 @@ export default function ProfilePage() {
     const [formData, setFormData] = useState({
         fullName: user?.fullName || '',
         phoneNumber: (user as any)?.phoneNumber || ''
+    })
+
+    // Change Password states
+    const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false)
+    const [passwordData, setPasswordData] = useState({
+        oldPassword: '',
+        newPassword: '',
+        confirmNewPassword: ''
+    })
+    const [passwordErrors, setPasswordErrors] = useState<{
+        oldPassword?: string
+        newPassword?: string
+        confirmNewPassword?: string
+    }>({})
+    const [isChangingPassword, setIsChangingPassword] = useState(false)
+    const [showPasswords, setShowPasswords] = useState({
+        oldPassword: false,
+        newPassword: false,
+        confirmNewPassword: false
     })
 
     const handleSaveProfile = async () => {
@@ -52,20 +71,85 @@ export default function ProfilePage() {
         }
     }
 
-    if (!user) return <div className="p-8 text-center">Loading profile...</div>
+    const validatePassword = (password: string): string[] => {
+        const errors: string[] = []
+        
+        if (password.length < 8) {
+            errors.push("Password must be at least 8 characters")
+        }
+        if (!/[A-Z]/.test(password)) {
+            errors.push("Password must contain at least one uppercase letter")
+        }
+        if (!/[a-z]/.test(password)) {
+            errors.push("Password must contain at least one lowercase letter")
+        }
+        if (!/[0-9]/.test(password)) {
+            errors.push("Password must contain at least one number")
+        }
+        if (!/[!@#$%^&*]/.test(password)) {
+            errors.push("Password must contain at least one special character (!@#$%^&*)")
+        }
+        
+        return errors
+    }
 
-    const initials = user.fullName
-        ? user.fullName.split(" ").map((n) => n[0]).join("").toUpperCase().substring(0, 2)
-        : user.email.substring(0, 2).toUpperCase()
+    const handleChangePassword = async () => {
+        // Reset errors
+        setPasswordErrors({})
 
-    // Role-specific colors or content
-    const getRoleColor = (role: string) => {
-        switch (role) {
-            case 'ADMIN': return 'bg-red-500/10 text-red-500 border-red-500/20'
-            case 'MANAGER': return 'bg-blue-500/10 text-blue-500 border-blue-500/20'
-            case 'REVIEWER': return 'bg-purple-500/10 text-purple-500 border-purple-500/20'
-            case 'ANNOTATOR': return 'bg-green-500/10 text-green-500 border-green-500/20'
-            default: return 'bg-muted text-muted-foreground'
+        // Validate fields
+        const errors: typeof passwordErrors = {}
+
+        if (!passwordData.oldPassword) {
+            errors.oldPassword = "Current password is required"
+        }
+
+        if (!passwordData.newPassword) {
+            errors.newPassword = "New password is required"
+        } else {
+            const passwordErrors = validatePassword(passwordData.newPassword)
+            if (passwordErrors.length > 0) {
+                errors.newPassword = passwordErrors.join("\n")
+            }
+        }
+
+        if (!passwordData.confirmNewPassword) {
+            errors.confirmNewPassword = "Please confirm your new password"
+        } else if (passwordData.newPassword !== passwordData.confirmNewPassword) {
+            errors.confirmNewPassword = "Passwords do not match"
+        }
+
+        // Show errors if any
+        if (Object.keys(errors).length > 0) {
+            setPasswordErrors(errors)
+            return
+        }
+
+        // Call API
+        try {
+            setIsChangingPassword(true)
+            const result = await authApi.changePassword(passwordData)
+            toast.success(result.message || "Password changed successfully")
+            setIsChangePasswordOpen(false)
+            // Reset form
+            setPasswordData({
+                oldPassword: '',
+                newPassword: '',
+                confirmNewPassword: ''
+            })
+            setPasswordErrors({})
+        } catch (error) {
+            const errorMessage = (error as { response?: { data?: { error?: string; message?: string } } }).response?.data?.error 
+                || (error as { response?: { data?: { message?: string } } }).response?.data?.message 
+                || "Failed to change password"
+            toast.error(errorMessage)
+            
+            // If old password is incorrect, show error on that field
+            if (errorMessage.includes("Current password is incorrect")) {
+                setPasswordErrors({ oldPassword: "Current password is incorrect" })
+            }
+        } finally {
+            setIsChangingPassword(false)
         }
     }
 
@@ -84,6 +168,23 @@ export default function ProfilePage() {
             fetchStats()
         }
     }, [user])
+
+    if (!user) return <div className="p-8 text-center">Loading profile...</div>
+
+    const initials = user.fullName
+        ? user.fullName.split(" ").map((n) => n[0]).join("").toUpperCase().substring(0, 2)
+        : user.email.substring(0, 2).toUpperCase()
+
+    // Role-specific colors or content
+    const getRoleColor = (role: string) => {
+        switch (role) {
+            case 'ADMIN': return 'bg-red-500/10 text-red-500 border-red-500/20'
+            case 'MANAGER': return 'bg-blue-500/10 text-blue-500 border-blue-500/20'
+            case 'REVIEWER': return 'bg-purple-500/10 text-purple-500 border-purple-500/20'
+            case 'ANNOTATOR': return 'bg-green-500/10 text-green-500 border-green-500/20'
+            default: return 'bg-muted text-muted-foreground'
+        }
+    }
 
     const weeklyActivityData = performanceStats?.weeklyActivity || []
     const taskDistributionData = performanceStats?.taskDistribution || []
@@ -307,7 +408,156 @@ export default function ProfilePage() {
                                     <p className="font-medium">Password</p>
                                     <p className="text-sm text-muted-foreground">Currently set securely</p>
                                 </div>
-                                <Button variant="outline" size="sm">Change</Button>
+                                <Dialog open={isChangePasswordOpen} onOpenChange={setIsChangePasswordOpen}>
+                                    <DialogTrigger asChild>
+                                        <Button 
+                                            variant="outline" 
+                                            size="sm"
+                                            onClick={() => {
+                                                setPasswordData({
+                                                    oldPassword: '',
+                                                    newPassword: '',
+                                                    confirmNewPassword: ''
+                                                })
+                                                setPasswordErrors({})
+                                                setShowPasswords({
+                                                    oldPassword: false,
+                                                    newPassword: false,
+                                                    confirmNewPassword: false
+                                                })
+                                            }}
+                                        >
+                                            Change
+                                        </Button>
+                                    </DialogTrigger>
+                                    <DialogContent>
+                                        <DialogHeader>
+                                            <DialogTitle>Change Password</DialogTitle>
+                                            <DialogDescription>
+                                                Enter your current password and choose a new secure password.
+                                            </DialogDescription>
+                                        </DialogHeader>
+
+                                        <div className="space-y-4 py-4">
+                                            <div className="space-y-2">
+                                                <Label htmlFor="oldPassword">Current Password</Label>
+                                                <div className="relative">
+                                                    <Input
+                                                        id="oldPassword"
+                                                        type={showPasswords.oldPassword ? "text" : "password"}
+                                                        placeholder="Enter current password"
+                                                        value={passwordData.oldPassword}
+                                                        onChange={(e) => setPasswordData({ ...passwordData, oldPassword: e.target.value })}
+                                                        className="pr-10"
+                                                    />
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                                                        onClick={() => setShowPasswords({ ...showPasswords, oldPassword: !showPasswords.oldPassword })}
+                                                    >
+                                                        {showPasswords.oldPassword ? (
+                                                            <EyeOff className="h-4 w-4 text-muted-foreground" />
+                                                        ) : (
+                                                            <Eye className="h-4 w-4 text-muted-foreground" />
+                                                        )}
+                                                    </Button>
+                                                </div>
+                                                {passwordErrors.oldPassword && (
+                                                    <p className="text-sm text-red-500">{passwordErrors.oldPassword}</p>
+                                                )}
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <Label htmlFor="newPassword">New Password</Label>
+                                                <div className="relative">
+                                                    <Input
+                                                        id="newPassword"
+                                                        type={showPasswords.newPassword ? "text" : "password"}
+                                                        placeholder="Enter new password"
+                                                        value={passwordData.newPassword}
+                                                        onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                                                        className="pr-10"
+                                                    />
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                                                        onClick={() => setShowPasswords({ ...showPasswords, newPassword: !showPasswords.newPassword })}
+                                                    >
+                                                        {showPasswords.newPassword ? (
+                                                            <EyeOff className="h-4 w-4 text-muted-foreground" />
+                                                        ) : (
+                                                            <Eye className="h-4 w-4 text-muted-foreground" />
+                                                        )}
+                                                    </Button>
+                                                </div>
+                                                {passwordErrors.newPassword && (
+                                                    <div className="space-y-1">
+                                                        {passwordErrors.newPassword.split('\n').map((error, idx) => (
+                                                            <p key={idx} className="text-sm text-red-500 flex items-start gap-1">
+                                                                <span className="text-red-500">•</span>
+                                                                <span>{error}</span>
+                                                            </p>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                <p className="text-xs text-muted-foreground">
+                                                    Must be at least 8 characters with uppercase, lowercase, number, and special character (!@#$%^&*)
+                                                </p>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <Label htmlFor="confirmNewPassword">Confirm New Password</Label>
+                                                <div className="relative">
+                                                    <Input
+                                                        id="confirmNewPassword"
+                                                        type={showPasswords.confirmNewPassword ? "text" : "password"}
+                                                        placeholder="Re-enter new password"
+                                                        value={passwordData.confirmNewPassword}
+                                                        onChange={(e) => setPasswordData({ ...passwordData, confirmNewPassword: e.target.value })}
+                                                        className="pr-10"
+                                                    />
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                                                        onClick={() => setShowPasswords({ ...showPasswords, confirmNewPassword: !showPasswords.confirmNewPassword })}
+                                                    >
+                                                        {showPasswords.confirmNewPassword ? (
+                                                            <EyeOff className="h-4 w-4 text-muted-foreground" />
+                                                        ) : (
+                                                            <Eye className="h-4 w-4 text-muted-foreground" />
+                                                        )}
+                                                    </Button>
+                                                </div>
+                                                {passwordErrors.confirmNewPassword && (
+                                                    <p className="text-sm text-red-500">{passwordErrors.confirmNewPassword}</p>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <DialogFooter>
+                                            <Button 
+                                                variant="outline" 
+                                                onClick={() => setIsChangePasswordOpen(false)}
+                                                disabled={isChangingPassword}
+                                            >
+                                                Cancel
+                                            </Button>
+                                            <Button 
+                                                onClick={handleChangePassword} 
+                                                disabled={isChangingPassword}
+                                            >
+                                                {isChangingPassword && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                                Change Password
+                                            </Button>
+                                        </DialogFooter>
+                                    </DialogContent>
+                                </Dialog>
                             </div>
                         </CardContent>
                     </Card>

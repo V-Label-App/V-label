@@ -259,4 +259,16 @@ export const authApi = {
     const response = await apiClient.get<PerformanceStats>('/users/me/performance')
     return response.data
   },
+
+  /**
+   * Change password
+   */
+  changePassword: async (data: {
+    oldPassword: string
+    newPassword: string
+    confirmNewPassword: string
+  }): Promise<{ success: boolean; message: string }> => {
+    const response = await apiClient.post<{ success: boolean; message: string }>('/auth/change-password', data)
+    return response.data
+  },
 }

@@ -55,30 +55,32 @@ export const RegisterPage = () => {
             hasError = true;
         }
 
-        // Client-side password validation
+        // Client-side password validation - collect all errors
+        const passwordErrors: string[] = [];
+        
         // Min 8 characters
         if (password.length < 8) {
-            setPasswordError('Password must be at least 8 characters');
-            hasError = true;
+            passwordErrors.push('Password must be at least 8 characters');
         }
         // At least one uppercase letter
-        else if (!/[A-Z]/.test(password)) {
-            setPasswordError('Password must contain at least one uppercase letter');
-            hasError = true;
+        if (!/[A-Z]/.test(password)) {
+            passwordErrors.push('Password must contain at least one uppercase letter');
         }
         // At least one lowercase letter
-        else if (!/[a-z]/.test(password)) {
-            setPasswordError('Password must contain at least one lowercase letter');
-            hasError = true;
+        if (!/[a-z]/.test(password)) {
+            passwordErrors.push('Password must contain at least one lowercase letter');
         }
         // At least one number
-        else if (!/[0-9]/.test(password)) {
-            setPasswordError('Password must contain at least one number');
-            hasError = true;
+        if (!/[0-9]/.test(password)) {
+            passwordErrors.push('Password must contain at least one number');
         }
         // At least one special character
-        else if (!/[\W_]/.test(password)) {
-            setPasswordError('Password must contain at least one special character (!@#$%^&*)');
+        if (!/[\W_]/.test(password)) {
+            passwordErrors.push('Password must contain at least one special character (!@#$%^&*)');
+        }
+        
+        if (passwordErrors.length > 0) {
+            setPasswordError(passwordErrors.join('\n'));
             hasError = true;
         }
 
@@ -329,10 +331,14 @@ export const RegisterPage = () => {
                                 </button>
                             </div>
                             {passwordError ? (
-                                <p className="text-sm text-red-600 flex items-center gap-1">
-                                    <AlertCircle className="w-4 h-4" />
-                                    {passwordError}
-                                </p>
+                                <div className="space-y-1">
+                                    {passwordError.split('\n').map((error, idx) => (
+                                        <p key={idx} className="text-sm text-red-600 flex items-start gap-1">
+                                            <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                                            <span>{error}</span>
+                                        </p>
+                                    ))}
+                                </div>
                             ) : (
                                 <p className="text-xs text-slate-500">Min 8 chars with uppercase, lowercase, number & special character</p>
                             )}
