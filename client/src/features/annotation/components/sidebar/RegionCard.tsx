@@ -1,11 +1,10 @@
 import { Card } from '../../../../components/ui/card';
 import { Button } from '../../../../components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select';
-import { Badge } from '../../../../components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger } from '../../../../components/ui/select';
 import { Eye, EyeOff, Trash2 } from 'lucide-react';
-import { useAnnotationStore } from '../../stores';
+import { useAnnotationStore, useLabelStore } from '../../stores';
 import type { Annotation } from '../../stores';
-import { labelColors, availableLabels } from '../../constants';
+import { getLabelColor } from '../../constants';
 import { cn } from '../../../../components/ui/utils';
 
 interface RegionCardProps {
@@ -22,9 +21,10 @@ export function RegionCard({ annotation, index, isReadOnly = false }: RegionCard
         deleteAnnotation,
         toggleVisibility,
     } = useAnnotationStore();
+    
+    const { labels } = useLabelStore();
 
     const isSelected = selectedAnnotationId === annotation.id;
-    const colors = labelColors[annotation.label];
 
     return (
         <Card
@@ -48,16 +48,40 @@ export function RegionCard({ annotation, index, isReadOnly = false }: RegionCard
                                 onValueChange={(value: string) => updateAnnotation(annotation.id, { label: value })}
                             >
                                 <SelectTrigger className="h-8 bg-slate-800 border-slate-600 text-white">
-                                    <SelectValue />
+                                    <div className="flex items-center gap-2">
+                                        <div 
+                                            className="w-3 h-3 rounded-full flex-shrink-0" 
+                                            style={{ backgroundColor: getLabelColor(annotation.label) }}
+                                        />
+                                        <span className="text-white">
+                                            {annotation.label}
+                                        </span>
+                                    </div>
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {availableLabels.map(label => (
-                                        <SelectItem key={label} value={label}>{label}</SelectItem>
+                                    {labels.map(label => (
+                                        <SelectItem key={label.id} value={label.name}>
+                                            <div className="flex items-center gap-2">
+                                                <div 
+                                                    className="w-3 h-3 rounded-full flex-shrink-0" 
+                                                    style={{ backgroundColor: label.color }}
+                                                />
+                                                <span>{label.name}</span>
+                                            </div>
+                                        </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
                         ) : (
-                            <Badge className={colors.bg}>{annotation.label}</Badge>
+                            <div className="flex items-center gap-2">
+                                <div 
+                                    className="w-3 h-3 rounded-full flex-shrink-0" 
+                                    style={{ backgroundColor: getLabelColor(annotation.label) }}
+                                />
+                                <span className="text-white font-normal">
+                                    {annotation.label}
+                                </span>
+                            </div>
                         )}
                     </div>
                 </div>

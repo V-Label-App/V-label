@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { WorkspaceHeader } from '../components/workspace/WorkspaceHeader';
@@ -6,7 +6,7 @@ import { WorkspaceToolbar } from '../components/workspace/WorkspaceToolbar';
 import { WorkspaceCanvas } from '../components/canvas/WorkspaceCanvas';
 import { WorkspaceSidebar } from '../components/workspace/WorkspaceSidebar';
 import { ImageNavigator } from '../components/workspace/ImageNavigator';
-import { useImageStore, useAnnotationStore } from '../stores';
+import { useImageStore, useAnnotationStore, useLabelStore } from '../stores';
 import type { ImageTask } from '../stores';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useWorkspaceData } from '../hooks/useWorkspaceData';
@@ -24,7 +24,7 @@ export function WorkspacePage({
     const navigate = useNavigate();
     const { setImages, getCurrentImage } = useImageStore();
     const { clearAnnotations, setAnnotations, annotations } = useAnnotationStore();
-    const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
+    const { setLabels } = useLabelStore();
 
     // Validate taskId
     if (!taskId) {
@@ -55,6 +55,11 @@ export function WorkspacePage({
             // Set images in store
             setImages([imageTask]);
 
+            // Set labels from project
+            if (taskData.labels && Array.isArray(taskData.labels)) {
+                setLabels(taskData.labels);
+            }
+
             // Load existing annotations if any
             if (taskData.annotations && Array.isArray(taskData.annotations)) {
                 setAnnotations(taskData.annotations);
@@ -62,18 +67,10 @@ export function WorkspacePage({
                 clearAnnotations();
             }
         }
-    }, [taskData, setImages, setAnnotations, clearAnnotations]);
+    }, [taskData, setImages, setLabels, setAnnotations, clearAnnotations]);
 
     // TODO: Auto-save will be implemented by another team member
-
-    // Timer for tracking work time
-    useEffect(() => {
-        const interval = setInterval(() => {
-            setElapsedSeconds(prev => prev + 1);
-        }, 1000);
-
-        return () => clearInterval(interval);
-    }, []);
+    // TODO: Timer for tracking work time will be implemented by another team member
 
     const currentImage = getCurrentImage();
 

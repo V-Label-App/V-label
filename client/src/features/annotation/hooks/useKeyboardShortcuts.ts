@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
-import { useCanvasStore, useAnnotationStore } from '../stores';
-import { availableLabels } from '../constants';
+import { useCanvasStore, useAnnotationStore, useLabelStore } from '../stores';
 
 export function useKeyboardShortcuts(isReadOnly: boolean = false) {
     const { setTool } = useCanvasStore();
@@ -13,6 +12,7 @@ export function useKeyboardShortcuts(isReadOnly: boolean = false) {
         canUndo,
         canRedo,
     } = useAnnotationStore();
+    const { labels } = useLabelStore();
 
     useEffect(() => {
         if (isReadOnly) return;
@@ -55,9 +55,9 @@ export function useKeyboardShortcuts(isReadOnly: boolean = false) {
             // Quick label assignment (1-9)
             if (selectedAnnotationId && e.key >= '1' && e.key <= '9') {
                 const index = parseInt(e.key) - 1;
-                if (index < availableLabels.length) {
+                if (index < labels.length) {
                     e.preventDefault();
-                    updateAnnotation(selectedAnnotationId, { label: availableLabels[index] });
+                    updateAnnotation(selectedAnnotationId, { label: labels[index].name });
                 }
             }
 
@@ -80,5 +80,6 @@ export function useKeyboardShortcuts(isReadOnly: boolean = false) {
         redo,
         canUndo,
         canRedo,
+        labels,
     ]);
 }

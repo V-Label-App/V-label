@@ -5,3 +5,5 @@ export { useAnnotationStore } from './useAnnotationStore';
 export type { Annotation } from './useAnnotationStore';
 export { useImageStore } from './useImageStore';
 export type { ImageTask } from './useImageStore';
+export { useLabelStore } from './useLabelStore';
+export type { Label } from './useLabelStore';

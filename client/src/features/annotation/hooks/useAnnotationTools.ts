@@ -1,12 +1,13 @@
 import { useState, useCallback } from 'react';
 import Konva from 'konva';
-import { useCanvasStore, useAnnotationStore } from '../stores';
+import { useCanvasStore, useAnnotationStore, useLabelStore } from '../stores';
 import type { Annotation } from '../stores';
-import { generateId, availableLabels } from '../constants';
+import { generateId } from '../constants';
 
 export function useAnnotationTools() {
     const { tool } = useCanvasStore();
     const { addAnnotation } = useAnnotationStore();
+    const { labels } = useLabelStore();
 
     const [isDrawing, setIsDrawing] = useState(false);
     const [drawStart, setDrawStart] = useState<{ x: number; y: number } | null>(null);
@@ -62,7 +63,7 @@ export function useAnnotationTools() {
 
         const newAnnotation: Annotation = {
             id: generateId(),
-            label: availableLabels[0], // Default to first label
+            label: labels[0]?.name || 'Unlabeled', // Default to first label from project
             type: 'rectangle',
             x: tempRect.x,
             y: tempRect.y,
