@@ -190,8 +190,10 @@ export function WorkspacePage({
       await submitTask(annotations);
       alert("Task submitted successfully!");
       navigate(-1);
-    } catch {
-      alert("Failed to submit task. Please try again.");
+    } catch (error) {
+      console.error("Submit error:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      alert(`Failed to submit task: ${errorMessage}`);
     }
   };
 
@@ -278,6 +280,7 @@ export function WorkspacePage({
         onReject={handleReject}
         onClose={handleClose}
         actualTimeSeconds={actualTimeSeconds}
+        projectName={taskData.projectName}
       />
 
       {/* Main Content */}
