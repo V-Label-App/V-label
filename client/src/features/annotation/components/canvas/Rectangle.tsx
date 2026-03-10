@@ -22,13 +22,8 @@ export function Rectangle({
   const trRef = useRef<Konva.Transformer>(null);
   const { updateAnnotation } = useAnnotationStore();
 
-  const borderColor = annotation.color || getLabelColor(annotation.label);
-  const fillColor = annotation.color
-    ? `${annotation.color}33` // Add 20% opacity (33 in hex) to custom color
-    : getLabelColor(annotation.label, 0.2);
-
-  const strokeWidth = annotation.strokeWidth || (isSelected ? 3 : 2);
-  const opacity = annotation.opacity !== undefined ? annotation.opacity : 1;
+  const borderColor = getLabelColor(annotation.label);
+  const fillAlpha = isSelected ? 0.3 : 0.1;
 
   // Attach transformer to selected annotation
   useEffect(() => {
@@ -75,10 +70,10 @@ export function Rectangle({
         y={annotation.y}
         width={annotation.width}
         height={annotation.height}
-        fill={fillColor}
+        fill={borderColor}
         stroke={borderColor}
-        strokeWidth={strokeWidth}
-        opacity={opacity}
+        strokeWidth={2}
+        opacity={fillAlpha}
         draggable={!isReadOnly}
         onClick={onSelect}
         onTap={onSelect}

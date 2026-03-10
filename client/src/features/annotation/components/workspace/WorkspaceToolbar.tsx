@@ -1,15 +1,8 @@
 import { Button } from "../../../../components/ui/button";
-import { MousePointer, Square, Move, Undo, Redo, Pencil } from "lucide-react";
+import { MousePointer, Square, Move, Undo, Redo } from "lucide-react";
 import { useCanvasStore, useAnnotationStore } from "../../stores";
 import type { Tool } from "../../stores";
 import { cn } from "../../../../components/ui/utils";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "../../../../components/ui/popover";
-import { Slider } from "../../../../components/ui/slider";
-import { HexColorPicker } from "react-colorful";
 
 interface ToolButtonProps {
   icon: React.ElementType;
@@ -55,20 +48,10 @@ interface WorkspaceToolbarProps {
   isReadOnly?: boolean;
 }
 
-// Drawing settings are now handled via HexColorPicker
-
 export function WorkspaceToolbar({
   isReadOnly = false,
 }: WorkspaceToolbarProps) {
-  const {
-    tool,
-    setTool,
-    zoom,
-    zoomIn,
-    zoomOut,
-    drawingSettings,
-    setDrawingSettings,
-  } = useCanvasStore();
+  const { tool, setTool, zoom, zoomIn, zoomOut } = useCanvasStore();
   const { undo, redo, canUndo, canRedo } = useAnnotationStore();
 
   const handleToolChange = (newTool: Tool) => {
@@ -86,171 +69,13 @@ export function WorkspaceToolbar({
         disabled={isReadOnly}
       />
 
-      <Popover>
-        <PopoverTrigger asChild>
-          <div>
-            <ToolButton
-              icon={Square}
-              active={tool === "rectangle"}
-              onClick={() => handleToolChange("rectangle")}
-              tooltip="Rectangle (R)"
-              disabled={isReadOnly}
-              showIndicator={true}
-            />
-          </div>
-        </PopoverTrigger>
-        <PopoverContent
-          side="right"
-          sideOffset={10}
-          className="w-72 bg-slate-800 border-slate-700 text-white p-4 shadow-xl z-50"
-        >
-          <div className="space-y-4">
-            <div>
-              <label className="text-xs text-slate-400 mb-2 block uppercase tracking-wider">
-                Drawing Color
-              </label>
-              <div className="flex justify-center py-2 bg-slate-900 rounded-lg">
-                <HexColorPicker
-                  color={drawingSettings.color}
-                  onChange={(c) => setDrawingSettings({ color: c })}
-                />
-              </div>
-              <div className="flex items-center gap-2 mt-2">
-                <div
-                  className="w-6 h-6 rounded border border-slate-600"
-                  style={{ backgroundColor: drawingSettings.color }}
-                />
-                <span className="text-xs font-mono text-slate-300 uppercase">
-                  {drawingSettings.color}
-                </span>
-              </div>
-            </div>
-
-            <div>
-              <div className="flex justify-between mb-2">
-                <label className="text-xs text-slate-400 uppercase tracking-wider">
-                  Thickness
-                </label>
-                <span className="text-xs text-blue-400">
-                  {drawingSettings.strokeWidth}px
-                </span>
-              </div>
-              <Slider
-                value={[drawingSettings.strokeWidth]}
-                min={1}
-                max={20}
-                step={1}
-                onValueChange={([v]) => setDrawingSettings({ strokeWidth: v })}
-                className="cursor-pointer"
-              />
-            </div>
-
-            <div>
-              <div className="flex justify-between mb-2">
-                <label className="text-xs text-slate-400 uppercase tracking-wider">
-                  Opacity
-                </label>
-                <span className="text-xs text-blue-400">
-                  {Math.round(drawingSettings.opacity * 100)}%
-                </span>
-              </div>
-              <Slider
-                value={[drawingSettings.opacity * 100]}
-                min={5}
-                max={100}
-                step={5}
-                onValueChange={([v]) =>
-                  setDrawingSettings({ opacity: v / 100 })
-                }
-                className="cursor-pointer"
-              />
-            </div>
-          </div>
-        </PopoverContent>
-      </Popover>
-
-      <Popover>
-        <PopoverTrigger asChild>
-          <div>
-            <ToolButton
-              icon={Pencil}
-              active={tool === "brush"}
-              onClick={() => handleToolChange("brush")}
-              tooltip="Brush (B)"
-              disabled={isReadOnly}
-              showIndicator={true}
-            />
-          </div>
-        </PopoverTrigger>
-        <PopoverContent
-          side="right"
-          sideOffset={10}
-          className="w-72 bg-slate-800 border-slate-700 text-white p-4 shadow-xl z-50"
-        >
-          <div className="space-y-4">
-            <div>
-              <label className="text-xs text-slate-400 mb-2 block uppercase tracking-wider">
-                Drawing Color
-              </label>
-              <div className="flex justify-center py-2 bg-slate-900 rounded-lg">
-                <HexColorPicker
-                  color={drawingSettings.color}
-                  onChange={(c) => setDrawingSettings({ color: c })}
-                />
-              </div>
-              <div className="flex items-center gap-2 mt-2">
-                <div
-                  className="w-6 h-6 rounded border border-slate-600"
-                  style={{ backgroundColor: drawingSettings.color }}
-                />
-                <span className="text-xs font-mono text-slate-300 uppercase">
-                  {drawingSettings.color}
-                </span>
-              </div>
-            </div>
-
-            <div>
-              <div className="flex justify-between mb-2">
-                <label className="text-xs text-slate-400 uppercase tracking-wider">
-                  Thickness
-                </label>
-                <span className="text-xs text-blue-400">
-                  {drawingSettings.strokeWidth}px
-                </span>
-              </div>
-              <Slider
-                value={[drawingSettings.strokeWidth]}
-                min={1}
-                max={20}
-                step={1}
-                onValueChange={([v]) => setDrawingSettings({ strokeWidth: v })}
-                className="cursor-pointer"
-              />
-            </div>
-
-            <div>
-              <div className="flex justify-between mb-2">
-                <label className="text-xs text-slate-400 uppercase tracking-wider">
-                  Opacity
-                </label>
-                <span className="text-xs text-blue-400">
-                  {Math.round(drawingSettings.opacity * 100)}%
-                </span>
-              </div>
-              <Slider
-                value={[drawingSettings.opacity * 100]}
-                min={5}
-                max={100}
-                step={5}
-                onValueChange={([v]) =>
-                  setDrawingSettings({ opacity: v / 100 })
-                }
-                className="cursor-pointer"
-              />
-            </div>
-          </div>
-        </PopoverContent>
-      </Popover>
+      <ToolButton
+        icon={Square}
+        active={tool === "rectangle"}
+        onClick={() => handleToolChange("rectangle")}
+        tooltip="Rectangle (R)"
+        disabled={isReadOnly}
+      />
 
       <ToolButton
         icon={Move}

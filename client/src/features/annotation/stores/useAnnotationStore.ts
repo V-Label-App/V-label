@@ -3,7 +3,7 @@ import { create } from "zustand";
 export interface Annotation {
   id: string;
   label: string; // "Normal", "Abnormal", "Uncertain"
-  type: "rectangle" | "brush"; // Future: 'polygon', 'point'
+  type: "rectangle"; // Future: 'polygon', 'point'
   x: number; // Pixel coordinates
   y: number;
   width: number;
@@ -12,10 +12,7 @@ export interface Annotation {
   createdBy?: string;
   createdAt: Date;
   aiSuggested?: boolean; // Flag if AI suggested this box
-  color?: string; // Custom color
-  strokeWidth?: number; // Custom stroke thickness
   opacity?: number; // Custom opacity
-  points?: number[]; // For freehand brush strokes [x1, y1, x2, y2, ...]
 }
 
 interface AnnotationState {
