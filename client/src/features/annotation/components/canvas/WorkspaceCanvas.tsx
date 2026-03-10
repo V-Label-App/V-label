@@ -14,7 +14,7 @@ export function WorkspaceCanvas({
   imageUrl,
   isReadOnly = false,
 }: WorkspaceCanvasProps) {
-  const { zoom, pan, tool, setPan } = useCanvasStore();
+  const { pan, setPan } = useCanvasStore();
   const stageRef = useRef<Konva.Stage>(null);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [imageLoading, setImageLoading] = useState(true);
@@ -69,38 +69,23 @@ export function WorkspaceCanvas({
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Handle wheel zoom
-  const handleWheel = (e: Konva.KonvaEventObject<WheelEvent>) => {
-    e.evt.preventDefault();
+  // Calculate scale to fit image in stage
+  const calculateFitScale = () => {
+    if (!image || imageSize.width === 0 || stageSize.width === 0) return 1;
 
-    if (!e.evt.ctrlKey && !e.evt.metaKey) return;
+    // Add some padding (e.g., 40px)
+    const padding = 40;
+    const availableWidth = stageSize.width - padding;
+    const availableHeight = stageSize.height - padding;
 
-    const stage = stageRef.current;
-    if (!stage) return;
+    const scaleX = availableWidth / imageSize.width;
+    const scaleY = availableHeight / imageSize.height;
 
-    const oldScale = stage.scaleX();
-    const pointer = stage.getPointerPosition();
-    if (!pointer) return;
-
-    const mousePointTo = {
-      x: (pointer.x - stage.x()) / oldScale,
-      y: (pointer.y - stage.y()) / oldScale,
-    };
-
-    const newScale = e.evt.deltaY > 0 ? oldScale * 0.9 : oldScale * 1.1;
-    const clampedScale = Math.max(0.5, Math.min(5, newScale));
-
-    const newPos = {
-      x: pointer.x - mousePointTo.x * clampedScale,
-      y: pointer.y - mousePointTo.y * clampedScale,
-    };
-
-    stage.scale({ x: clampedScale, y: clampedScale });
-    stage.position(newPos);
-    setPan(newPos);
+    // Use the smaller scale to ensure the image fits both ways
+    return Math.min(scaleX, scaleY, 1); // Don't scale up beyond 100%
   };
 
-  const scale = zoom / 100;
+  const scale = calculateFitScale();
 
   // Center image on load or stage resize
   useEffect(() => {
@@ -109,8 +94,7 @@ export function WorkspaceCanvas({
       const y = (stageSize.height - imageSize.height * scale) / 2;
       setPan({ x, y });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [image, imageSize, stageSize, scale]);
+  }, [image, imageSize, stageSize, scale, setPan]);
 
   return (
     <div className="w-full h-full bg-slate-900 flex items-center justify-center overflow-hidden relative">
@@ -146,11 +130,7 @@ export function WorkspaceCanvas({
         scaleY={scale}
         x={pan.x}
         y={pan.y}
-        draggable={tool === "hand"}
-        onWheel={handleWheel}
-        onDragEnd={(e) => {
-          setPan({ x: e.target.x(), y: e.target.y() });
-        }}
+        draggable={false}
         onMouseDown={!isReadOnly ? handleMouseDown : undefined}
         onMouseMove={!isReadOnly ? handleMouseMove : undefined}
         onMouseUp={!isReadOnly ? handleMouseUp : undefined}

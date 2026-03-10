@@ -1,5 +1,5 @@
 import { Button } from "../../../../components/ui/button";
-import { MousePointer, Square, Move, Undo, Redo } from "lucide-react";
+import { MousePointer, Square, Undo, Redo } from "lucide-react";
 import { useCanvasStore, useAnnotationStore } from "../../stores";
 import type { Tool } from "../../stores";
 import { cn } from "../../../../components/ui/utils";
@@ -51,7 +51,7 @@ interface WorkspaceToolbarProps {
 export function WorkspaceToolbar({
   isReadOnly = false,
 }: WorkspaceToolbarProps) {
-  const { tool, setTool, zoom, zoomIn, zoomOut } = useCanvasStore();
+  const { tool, setTool } = useCanvasStore();
   const { undo, redo, canUndo, canRedo } = useAnnotationStore();
 
   const handleToolChange = (newTool: Tool) => {
@@ -77,13 +77,6 @@ export function WorkspaceToolbar({
         disabled={isReadOnly}
       />
 
-      <ToolButton
-        icon={Move}
-        active={tool === "hand"}
-        onClick={() => handleToolChange("hand")}
-        tooltip="Hand (H)"
-      />
-
       <div className="w-10 h-px bg-slate-700 my-2"></div>
 
       {/* History */}
@@ -101,27 +94,6 @@ export function WorkspaceToolbar({
       />
 
       <div className="flex-1"></div>
-
-      {/* Zoom Controls */}
-      <div className="flex flex-col gap-1 mb-2">
-        <Button
-          size="sm"
-          onClick={zoomIn}
-          className="w-10 h-8 bg-slate-700 hover:bg-slate-600 text-white p-0"
-        >
-          +
-        </Button>
-        <div className="text-xs text-slate-400 text-center font-mono px-1">
-          {zoom}%
-        </div>
-        <Button
-          size="sm"
-          onClick={zoomOut}
-          className="w-10 h-8 bg-slate-700 hover:bg-slate-600 text-white p-0"
-        >
-          −
-        </Button>
-      </div>
     </div>
   );
 }
