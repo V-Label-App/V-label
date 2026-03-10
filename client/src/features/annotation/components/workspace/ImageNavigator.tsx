@@ -39,9 +39,17 @@ export function ImageNavigator() {
                         title={image.filename}
                     >
                         {/* Thumbnail */}
-                        <div className="w-full h-full bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center text-2xl">
-                            {image.thumbnail}
-                        </div>
+                        {image.url ? (
+                            <img 
+                                src={image.url} 
+                                alt={image.filename}
+                                className="w-full h-full object-cover"
+                            />
+                        ) : (
+                            <div className="w-full h-full bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center text-2xl">
+                                {image.thumbnail}
+                            </div>
+                        )}
 
                         {/* Status Indicator */}
                         <div className={cn(

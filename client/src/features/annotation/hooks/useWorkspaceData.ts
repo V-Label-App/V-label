@@ -6,6 +6,7 @@ import type { Annotation } from '../stores';
 export interface WorkspaceTaskData {
     assignmentId: string;
     taskId: string;
+    projectId: string;
     status: string;
     image: {
         id: string;
@@ -68,6 +69,7 @@ export const useWorkspaceData = (assignmentId: string): UseWorkspaceDataReturn =
         return {
             assignmentId: assignment.id,
             taskId: assignment.taskId,
+            projectId: assignment.task.project.id,
             status: assignment.status,
             image: {
                 id: image.id,

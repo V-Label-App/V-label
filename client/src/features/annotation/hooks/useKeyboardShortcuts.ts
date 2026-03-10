@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useCanvasStore, useAnnotationStore, useLabelStore } from '../stores';
+import { useCanvasStore, useAnnotationStore, useLabelStore, useImageStore } from '../stores';
 
 export function useKeyboardShortcuts(isReadOnly: boolean = false) {
     const { setTool } = useCanvasStore();
@@ -13,6 +13,7 @@ export function useKeyboardShortcuts(isReadOnly: boolean = false) {
         canRedo,
     } = useAnnotationStore();
     const { labels } = useLabelStore();
+    const { goToNext, goToPrevious, hasNext, hasPrevious } = useImageStore();
 
     useEffect(() => {
         if (isReadOnly) return;
@@ -66,6 +67,16 @@ export function useKeyboardShortcuts(isReadOnly: boolean = false) {
                 e.preventDefault();
                 useAnnotationStore.getState().selectAnnotation(null);
             }
+
+            // Navigate between tasks (Alt + Arrow keys)
+            if (e.altKey && e.key === 'ArrowLeft' && hasPrevious()) {
+                e.preventDefault();
+                goToPrevious();
+            }
+            if (e.altKey && e.key === 'ArrowRight' && hasNext()) {
+                e.preventDefault();
+                goToNext();
+            }
         };
 
         window.addEventListener('keydown', handleKeyDown);
@@ -81,5 +92,9 @@ export function useKeyboardShortcuts(isReadOnly: boolean = false) {
         canUndo,
         canRedo,
         labels,
+        goToNext,
+        goToPrevious,
+        hasNext,
+        hasPrevious,
     ]);
 }

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { WorkspaceHeader } from '../components/workspace/WorkspaceHeader';
@@ -7,9 +7,9 @@ import { WorkspaceCanvas } from '../components/canvas/WorkspaceCanvas';
 import { WorkspaceSidebar } from '../components/workspace/WorkspaceSidebar';
 import { ImageNavigator } from '../components/workspace/ImageNavigator';
 import { useImageStore, useAnnotationStore, useLabelStore } from '../stores';
-import type { ImageTask } from '../stores';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useWorkspaceData } from '../hooks/useWorkspaceData';
+import { useProjectTasks } from '../hooks/useProjectTasks';
 
 interface WorkspacePageProps {
     mode?: 'annotate' | 'review';
@@ -22,9 +22,12 @@ export function WorkspacePage({
 }: WorkspacePageProps) {
     const { taskId } = useParams<{ taskId: string }>();
     const navigate = useNavigate();
-    const { setImages, getCurrentImage } = useImageStore();
+    const { updateImages, getCurrentImage, currentIndex, jumpToImage } = useImageStore();
     const { clearAnnotations, setAnnotations, annotations } = useAnnotationStore();
     const { setLabels } = useLabelStore();
+    
+    // Ref to prevent navigation loop
+    const isUpdatingFromURL = useRef(false);
 
     // Validate taskId
     if (!taskId) {
@@ -33,6 +36,12 @@ export function WorkspacePage({
 
     // Load task data from API
     const { loading, error, taskData } = useWorkspaceData(taskId);
+    
+    // Extract projectId from taskData for loading other tasks
+    const projectId = taskData?.projectId;
+    
+    // Load all tasks in the project for navigation
+    const { imageTasks, findTaskIndex } = useProjectTasks(projectId);
 
     const isReadOnly = taskStatus === 'approved' || mode === 'review';
 
@@ -42,20 +51,7 @@ export function WorkspacePage({
     // Load task data into stores when available
     useEffect(() => {
         if (taskData) {
-            // Convert task data to ImageTask format
-            const imageTask: ImageTask = {
-                id: taskData.taskId,
-                filename: taskData.image.filename,
-                status: taskData.status.toLowerCase() as ImageTask['status'],
-                url: taskData.image.url,
-                thumbnail: taskData.image.url,
-                annotationCount: taskData.annotations.length
-            };
-
-            // Set images in store
-            setImages([imageTask]);
-
-            // Set labels from project
+            // Set labels from project (shared across all tasks)
             if (taskData.labels && Array.isArray(taskData.labels)) {
                 setLabels(taskData.labels);
             }
@@ -67,7 +63,52 @@ export function WorkspacePage({
                 clearAnnotations();
             }
         }
-    }, [taskData, setImages, setLabels, setAnnotations, clearAnnotations]);
+    }, [taskData, setLabels, setAnnotations, clearAnnotations]);
+
+    // Update image tasks list and current index when project tasks are loaded
+    useEffect(() => {
+        if (imageTasks.length > 0 && taskId) {
+            // Mark that we're updating from URL to prevent navigation loop
+            isUpdatingFromURL.current = true;
+            
+            // Update images without resetting currentIndex
+            updateImages(imageTasks);
+            
+            // Always set current index based on taskId when taskId changes
+            const targetIndex = findTaskIndex(taskId);
+            if (targetIndex >= 0) {
+                const store = useImageStore.getState();
+                if (store.currentIndex !== targetIndex) {
+                    jumpToImage(targetIndex);
+                }
+            }
+            
+            // Reset flag after state updates
+            setTimeout(() => {
+                isUpdatingFromURL.current = false;
+            }, 0);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [imageTasks, taskId]);
+
+    // Handle navigation between tasks (user clicked or used keyboard)
+    useEffect(() => {
+        // Don't navigate if we're updating from URL change
+        if (isUpdatingFromURL.current) {
+            return;
+        }
+        
+        if (imageTasks.length > 0 && currentIndex >= 0 && currentIndex < imageTasks.length) {
+            const newTaskId = imageTasks[currentIndex].id;
+            
+            // Only navigate if taskId changed (user clicked on different task)
+            if (newTaskId !== taskId) {
+                // Update URL without page reload - this will trigger useWorkspaceData to reload
+                navigate(`/workspace/${newTaskId}`, { replace: true });
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentIndex]); // Only watch currentIndex to avoid loops
 
     // TODO: Auto-save will be implemented by another team member
     // TODO: Timer for tracking work time will be implemented by another team member
