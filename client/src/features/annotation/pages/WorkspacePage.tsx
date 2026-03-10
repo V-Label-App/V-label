@@ -159,14 +159,11 @@ export function WorkspacePage({
     }
 
     try {
-      setAutoSaveStatus("saving");
       await submitTask(annotations);
-      setAutoSaveStatus("saved");
       alert("Task submitted successfully!");
       navigate(-1);
     } catch {
       alert("Failed to submit task. Please try again.");
-      setAutoSaveStatus("unsaved");
     }
   };
 
