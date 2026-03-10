@@ -33,9 +33,7 @@ interface AnnotationState {
   // Notes
   annotatorNote: string;
   reviewComment: string;
-  draftNotes: Record<string, string>;
   setAnnotatorNote: (note: string) => void;
-  syncDraftNote: (taskId: string, note: string) => void;
   setReviewComment: (comment: string) => void;
 
   // History
@@ -55,14 +53,8 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
   // Notes
   annotatorNote: "",
   reviewComment: "",
-  draftNotes: {},
 
   setAnnotatorNote: (note) => set({ annotatorNote: note }),
-  syncDraftNote: (taskId, note) =>
-    set((state) => ({
-      annotatorNote: note,
-      draftNotes: { ...state.draftNotes, [taskId]: note },
-    })),
   setReviewComment: (comment) => set({ reviewComment: comment }),
 
   addAnnotation: (annotation) => {

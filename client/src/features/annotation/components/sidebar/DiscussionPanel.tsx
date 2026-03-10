@@ -1,4 +1,3 @@
-import { useParams } from "react-router-dom";
 import { useAnnotationStore } from "../../stores";
 import { Textarea } from "../../../../components/ui/textarea";
 import { Label } from "../../../../components/ui/label";
@@ -8,8 +7,8 @@ interface DiscussionPanelProps {
 }
 
 export function DiscussionPanel({ isReadOnly = false }: DiscussionPanelProps) {
-  const { taskId } = useParams<{ taskId: string }>();
-  const { annotatorNote, syncDraftNote, reviewComment } = useAnnotationStore();
+  const { annotatorNote, setAnnotatorNote, reviewComment } =
+    useAnnotationStore();
 
   return (
     <div className="space-y-4 overflow-y-auto max-h-full">
@@ -18,11 +17,7 @@ export function DiscussionPanel({ isReadOnly = false }: DiscussionPanelProps) {
         <Label className="text-slate-300 mb-2 block">Annotator Notes</Label>
         <Textarea
           value={annotatorNote}
-          onChange={(e) => {
-            if (taskId) {
-              syncDraftNote(taskId, e.target.value);
-            }
-          }}
+          onChange={(e) => setAnnotatorNote(e.target.value)}
           placeholder="Add notes about this annotation task..."
           className="bg-slate-900 border-slate-700 text-white min-h-[120px] resize-none"
           disabled={isReadOnly}

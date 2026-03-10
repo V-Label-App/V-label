@@ -37,7 +37,6 @@ export function WorkspacePage({
     annotations,
     setAnnotatorNote,
     setReviewComment,
-    draftNotes,
   } = useAnnotationStore();
   const { setLabels } = useLabelStore();
 
@@ -97,18 +96,11 @@ export function WorkspacePage({
         clearAnnotations();
       }
 
-      // Load annotator note - prioritize local draft cache if it exists for this task
-      if (taskId && draftNotes[taskId] !== undefined) {
-        setAnnotatorNote(draftNotes[taskId]);
-      } else {
-        setAnnotatorNote(taskData.annotatorNote || "");
-      }
+      setAnnotatorNote(taskData.annotatorNote || "");
       setReviewComment(taskData.reviewComment || "");
     }
   }, [
     taskData,
-    taskId,
-    draftNotes,
     setLabels,
     setAnnotations,
     clearAnnotations,
