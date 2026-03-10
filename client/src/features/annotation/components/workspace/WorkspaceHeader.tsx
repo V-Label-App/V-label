@@ -19,11 +19,13 @@ interface WorkspaceHeaderProps {
     | "in_progress"
     | "submitted"
     | "rejected"
-    | "approved";
+    | "approved"
+    | "skipped";
   onSubmit?: () => void;
   onSkip?: () => void;
   onApprove?: () => void;
   onReject?: () => void;
+  onResume?: () => void;
   onClose?: () => void;
   actualTimeSeconds?: number;
   projectName?: string;
@@ -36,6 +38,7 @@ export function WorkspaceHeader({
   onSkip,
   onApprove,
   onReject,
+  onResume,
   onClose,
   actualTimeSeconds = 0,
   projectName,
@@ -43,9 +46,12 @@ export function WorkspaceHeader({
   const { getCurrentImage, autoSaveStatus } = useImageStore();
   const currentImage = getCurrentImage();
   const isReadOnly =
-    taskStatus === "approved" ||
-    taskStatus === "submitted" ||
+    taskStatus.toLowerCase() === "approved" || // Ensure case-insensitive comparison
+    taskStatus.toLowerCase() === "submitted" || // Ensure case-insensitive comparison
     mode === "review";
+
+  const isSkipped = taskStatus.toLowerCase() === "skipped";
+  // We trust the taskStatus prop more as it's directly sync'd with taskData in the page
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -70,6 +76,9 @@ export function WorkspaceHeader({
           <Badge className="ml-3 bg-green-600 text-white">
             APPROVED (Read-Only)
           </Badge>
+        )}
+        {isSkipped && (
+          <Badge className="ml-3 bg-indigo-600 text-white">SKIPPED</Badge>
         )}
       </div>
 
@@ -104,23 +113,37 @@ export function WorkspaceHeader({
         {/* Actions */}
         {mode === "annotate" && !isReadOnly && (
           <>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onSkip}
-              className="bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600"
-            >
-              <SkipForward className="w-4 h-4 mr-2" />
-              Skip
-            </Button>
-            <Button
-              size="sm"
-              onClick={onSubmit}
-              className="bg-blue-500 hover:bg-blue-600 text-white"
-            >
-              <Send className="w-4 h-4 mr-2" />
-              {taskStatus === "rejected" ? "Re-Submit" : "Submit"}
-            </Button>
+            {isSkipped ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onResume}
+                className="bg-indigo-600 border-indigo-500 text-white hover:bg-indigo-700"
+              >
+                <Clock className="w-4 h-4 mr-2" />
+                Resume Annotation
+              </Button>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onSkip}
+                  className="bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600"
+                >
+                  <SkipForward className="w-4 h-4 mr-2" />
+                  Skip
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={onSubmit}
+                  className="bg-blue-500 hover:bg-blue-600 text-white"
+                >
+                  <Send className="w-4 h-4 mr-2" />
+                  {taskStatus === "rejected" ? "Re-Submit" : "Submit"}
+                </Button>
+              </>
+            )}
           </>
         )}
         {mode === "review" && (

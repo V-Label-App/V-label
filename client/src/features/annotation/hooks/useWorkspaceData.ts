@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import type { TaskAssignmentListItem } from "../../../services/annotator.api";
 import { annotatorApi } from "../../../services/annotator.api";
+import { useImageStore } from "../stores";
 import type { Annotation } from "../stores";
+import { toast } from "sonner";
 
 export interface WorkspaceTaskData {
   assignmentId: string;
@@ -26,6 +28,7 @@ export interface WorkspaceTaskData {
   reviewComment?: string;
   reviewScore?: number;
   projectName: string;
+  actualTimeSeconds?: number;
 }
 
 export interface UseWorkspaceDataReturn {
@@ -38,8 +41,13 @@ export interface UseWorkspaceDataReturn {
     note?: string,
     timeSeconds?: number,
   ) => Promise<void>;
-  submitTask: (annotations: Annotation[], note?: string) => Promise<void>;
-  skipTask: () => Promise<void>;
+  submitTask: (
+    annotations: Annotation[],
+    note?: string,
+    timeSeconds?: number,
+  ) => Promise<void>;
+  skipTask: (reason?: string, timeSeconds?: number) => Promise<void>;
+  resumeTask: () => Promise<void>;
 }
 
 /**
@@ -53,6 +61,7 @@ export const useWorkspaceData = (
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
   const [taskData, setTaskData] = useState<WorkspaceTaskData | null>(null);
+  const updateImageStatus = useImageStore((state) => state.updateImageStatus);
 
   /**
    * Transform API response to internal workspace format
@@ -92,6 +101,7 @@ export const useWorkspaceData = (
         reviewComment: assignment.reviewComment,
         reviewScore: assignment.reviewScore,
         projectName: assignment.task.project.name,
+        actualTimeSeconds: assignment.actualTimeSeconds,
       };
     },
     [],
@@ -146,34 +156,82 @@ export const useWorkspaceData = (
    * Submit task for review
    */
   const submitTask = useCallback(
-    async (annotations: Annotation[], note?: string) => {
+    async (annotations: Annotation[], note?: string, timeSeconds?: number) => {
       try {
+        // Backend rejects direct ASSIGNED -> SUBMITTED transition
+        // We ensure it's IN_PROGRESS first if it's currently ASSIGNED
+        if (taskData?.status === "ASSIGNED") {
+          await annotatorApi.updateTaskAssignment(assignmentId, {
+            status: "IN_PROGRESS",
+          });
+        }
+
         await annotatorApi.updateTaskAssignment(assignmentId, {
           status: "SUBMITTED",
           annotations,
           annotatorNote: note,
+          actualTimeSeconds: timeSeconds,
         });
-      } catch (err) {
+        updateImageStatus(assignmentId, "submitted");
+        setTaskData((prev) => (prev ? { ...prev, status: "SUBMITTED" } : null));
+      } catch (err: any) {
         console.error("Failed to submit task:", err);
+        if (err.response) {
+          console.error("Server error response:", err.response.data);
+        }
         throw err;
       }
     },
-    [assignmentId],
+    [assignmentId, taskData?.status, updateImageStatus],
   );
 
   /**
-   * Skip current task
+   * Skip current task with a mandatory reason
    */
-  const skipTask = useCallback(async () => {
+  const skipTask = useCallback(
+    async (reason?: string, timeSeconds?: number) => {
+      try {
+        await annotatorApi.updateTaskAssignment(assignmentId, {
+          status: "SKIPPED",
+          annotatorNote: reason,
+          actualTimeSeconds: timeSeconds,
+        });
+        updateImageStatus(assignmentId, "skipped");
+        setTaskData((prev) => (prev ? { ...prev, status: "SKIPPED" } : null));
+        // Reloader after status change to get fresh state
+        await loadData();
+      } catch (err: any) {
+        console.error("Failed to skip task:", err);
+        if (err.response) {
+          console.error("Server error response:", err.response.data);
+        }
+        throw err;
+      }
+    },
+    [assignmentId, loadData, updateImageStatus],
+  );
+
+  /**
+   * Resume a skipped or submitted task back to IN_PROGRESS
+   */
+  const resumeTask = useCallback(async () => {
     try {
       await annotatorApi.updateTaskAssignment(assignmentId, {
-        status: "SKIPPED",
+        status: "IN_PROGRESS",
       });
-    } catch (err) {
-      console.error("Failed to skip task:", err);
+      updateImageStatus(assignmentId, "in_progress");
+      setTaskData((prev) => (prev ? { ...prev, status: "IN_PROGRESS" } : null));
+      // Refresh local data to reflect status change
+      await loadData();
+      toast.success("Task resumed. You can now continue annotating.");
+    } catch (err: any) {
+      console.error("Failed to resume task:", err);
+      if (err.response) {
+        console.error("Server error response:", err.response.data);
+      }
       throw err;
     }
-  }, [assignmentId]);
+  }, [assignmentId, loadData]);
 
   // Load data on mount
   useEffect(() => {
@@ -190,5 +248,6 @@ export const useWorkspaceData = (
     saveDraft,
     submitTask,
     skipTask,
+    resumeTask,
   };
 };

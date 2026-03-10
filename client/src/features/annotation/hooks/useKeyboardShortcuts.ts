@@ -27,6 +27,16 @@ export function useKeyboardShortcuts(isReadOnly: boolean = false) {
       const { isModalOpen } = useCanvasStore.getState();
       if (isModalOpen) return;
 
+      // Don't trigger shortcuts if user is typing in an input or textarea
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+
       // Tool shortcuts
       if (e.key === "v" || e.key === "V") {
         e.preventDefault();

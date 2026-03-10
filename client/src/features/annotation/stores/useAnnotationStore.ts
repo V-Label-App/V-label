@@ -36,6 +36,12 @@ interface AnnotationState {
   setDefaultOpacity: (opacity: number) => void;
   setDefaultStrokeWidth: (width: number) => void;
 
+  // Notes
+  annotatorNote: string;
+  reviewComment: string;
+  setAnnotatorNote: (note: string) => void;
+  setReviewComment: (comment: string) => void;
+
   // History
   undo: () => void;
   redo: () => void;
@@ -51,6 +57,13 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
   historyIndex: 0,
   defaultOpacity: 0.1,
   defaultStrokeWidth: 2,
+
+  // Notes
+  annotatorNote: "",
+  reviewComment: "",
+
+  setAnnotatorNote: (note) => set({ annotatorNote: note }),
+  setReviewComment: (comment) => set({ reviewComment: comment }),
 
   addAnnotation: (annotation) => {
     const newAnnotations = [...get().annotations, annotation];
@@ -92,6 +105,8 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
       selectedAnnotationId: null,
       history: [[]],
       historyIndex: 0,
+      annotatorNote: "",
+      reviewComment: "",
     });
   },
 
