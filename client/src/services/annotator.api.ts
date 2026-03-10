@@ -9,6 +9,7 @@ export interface TaskAssignmentListItem {
   reviewComment?: string;
   reviewScore?: number;
   annotations?: any;
+  actualTimeSeconds?: number;
   task: {
     id: string;
     priority: string;
@@ -120,6 +121,7 @@ export const annotatorApi = {
       status?: string;
       annotations?: any;
       annotatorNote?: string;
+      actualTimeSeconds?: number;
     },
   ) => {
     const response = await apiClient.patch<TaskAssignmentListItem>(

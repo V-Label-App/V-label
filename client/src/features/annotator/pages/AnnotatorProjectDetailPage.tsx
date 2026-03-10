@@ -131,6 +131,10 @@ export function AnnotatorProjectDetailPage() {
         className: "bg-green-100 text-green-700 border-green-300",
         label: "Approved",
       },
+      SKIPPED: {
+        className: "bg-indigo-100 text-indigo-700 border-indigo-300",
+        label: "Skipped",
+      },
     };
     return styles[status as keyof typeof styles] || styles.ASSIGNED;
   };
@@ -419,9 +423,7 @@ export function AnnotatorProjectDetailPage() {
                                   ? "destructive"
                                   : "default"
                               }
-                              onClick={() =>
-                                navigate(`/workspace/${task.id}`)
-                              }
+                              onClick={() => navigate(`/workspace/${task.id}`)}
                             >
                               {task.status === "REJECTED" ? (
                                 <>

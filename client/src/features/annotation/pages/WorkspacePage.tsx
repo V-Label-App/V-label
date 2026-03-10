@@ -12,6 +12,9 @@ import { useWorkspaceData } from "../hooks/useWorkspaceData";
 import { useProjectTasks } from "../hooks/useProjectTasks";
 import { useAutoSave } from "../hooks/useAutoSave";
 import { useState } from "react";
+import { SkipReasonModal } from "../components/workspace/SkipReasonModal";
+import { WorkspaceAlertModal } from "../components/workspace/WorkspaceAlertModal";
+import { toast } from "sonner";
 
 interface WorkspacePageProps {
   mode?: "annotate" | "review";
@@ -31,11 +34,39 @@ export function WorkspacePage({
   const navigate = useNavigate();
   const { updateImages, getCurrentImage, currentIndex, jumpToImage } =
     useImageStore();
-  const { clearAnnotations, setAnnotations, annotations } =
-    useAnnotationStore();
+  const {
+    clearAnnotations,
+    setAnnotations,
+    annotations,
+    setAnnotatorNote,
+    setReviewComment,
+    annotatorNote,
+  } = useAnnotationStore();
   const { setLabels } = useLabelStore();
 
   const [actualTimeSeconds, setActualTimeSeconds] = useState(0);
+  const [isSkipModalOpen, setIsSkipModalOpen] = useState(false);
+
+  // Alert Modal State
+  const [alertConfig, setAlertConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    variant: "default" | "destructive" | "success";
+  }>({
+    isOpen: false,
+    title: "",
+    description: "",
+    variant: "default",
+  });
+
+  const showAlert = (
+    title: string,
+    description: string,
+    variant: "default" | "destructive" | "success" = "default",
+  ) => {
+    setAlertConfig({ isOpen: true, title, description, variant });
+  };
 
   // Ref to prevent navigation loop
   const isUpdatingFromURL = useRef(false);
@@ -46,12 +77,22 @@ export function WorkspacePage({
   }
 
   // Load task data from API
-  const { loading, error, taskData, submitTask, skipTask, saveDraft } =
-    useWorkspaceData(taskId);
+  const {
+    loading,
+    error,
+    taskData,
+    submitTask,
+    skipTask,
+    resumeTask,
+    saveDraft,
+  } = useWorkspaceData(taskId);
 
   const isReadOnly =
     taskStatus === "approved" ||
     taskStatus === "submitted" ||
+    taskData?.status === "SUBMITTED" ||
+    taskData?.status === "APPROVED" ||
+    taskData?.status === "SKIPPED" ||
     mode === "review";
 
   // Work Timer - pauses when tab/window is not visible
@@ -99,7 +140,8 @@ export function WorkspacePage({
   const projectId = taskData?.projectId;
 
   // Load all tasks in the project for navigation
-  const { imageTasks, findTaskIndex } = useProjectTasks(projectId);
+  const projectTasks = useProjectTasks(projectId);
+  const { imageTasks } = projectTasks;
 
   // Initialize keyboard shortcuts
   useKeyboardShortcuts(isReadOnly);
@@ -118,8 +160,23 @@ export function WorkspacePage({
       } else {
         clearAnnotations();
       }
+
+      setAnnotatorNote(taskData.annotatorNote || "");
+      setReviewComment(taskData.reviewComment || "");
+
+      // Initialize time from server if available
+      if (taskData.actualTimeSeconds !== undefined) {
+        setActualTimeSeconds(taskData.actualTimeSeconds);
+      }
     }
-  }, [taskData, setLabels, setAnnotations, clearAnnotations]);
+  }, [
+    taskData,
+    setLabels,
+    setAnnotations,
+    clearAnnotations,
+    setAnnotatorNote,
+    setReviewComment,
+  ]);
 
   // Update image tasks list and current index when project tasks are loaded
   useEffect(() => {
@@ -131,7 +188,7 @@ export function WorkspacePage({
       updateImages(imageTasks);
 
       // Always set current index based on taskId when taskId changes
-      const targetIndex = findTaskIndex(taskId);
+      const targetIndex = projectTasks.findTaskIndex(taskId);
       if (targetIndex >= 0) {
         const store = useImageStore.getState();
         if (store.currentIndex !== targetIndex) {
@@ -175,55 +232,115 @@ export function WorkspacePage({
   const handleSubmit = async () => {
     // Validate before submit
     if (annotations.length === 0) {
-      alert("Please add at least one annotation before submitting");
+      showAlert(
+        "Missing Annotations",
+        "Please add at least one annotation before submitting",
+        "destructive",
+      );
       return;
     }
 
     // Check if all annotations have labels
     const hasUnlabeledAnnotations = annotations.some((ann) => !ann.label);
     if (hasUnlabeledAnnotations) {
-      alert("Please assign labels to all annotations before submitting");
+      showAlert(
+        "Missing Labels",
+        "Please assign labels to all annotations before submitting",
+        "destructive",
+      );
+      return;
+    }
+
+    // Prevent duplicate submission if already submitted or approved
+    if (taskData?.status === "SUBMITTED" || taskData?.status === "APPROVED") {
+      toast.info("Task already submitted. Moving to next...");
+      handleNextAutoNav();
       return;
     }
 
     try {
-      await submitTask(annotations);
-      alert("Task submitted successfully!");
-      navigate(-1);
-    } catch (error) {
-      console.error("Submit error:", error);
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      alert(`Failed to submit task: ${errorMessage}`);
+      await submitTask(annotations, annotatorNote, actualTimeSeconds);
+      toast.success("Task submitted successfully! Moving to next image...");
+      handleNextAutoNav();
+    } catch (err: any) {
+      const errorMsg =
+        err.response?.data?.error || "Failed to submit task. Please try again.";
+      showAlert("Error", errorMsg, "destructive");
     }
   };
 
-  const handleSkip = async () => {
-    if (confirm("Are you sure you want to skip this task?")) {
-      try {
-        await skipTask();
-        alert("Task skipped");
+  // Helper for auto-navigation to avoid code duplication
+  const handleNextAutoNav = () => {
+    const currentIndexInProject = imageTasks.findIndex((t) => t.id === taskId);
+    const nextTask =
+      currentIndexInProject >= 0 &&
+      currentIndexInProject < imageTasks.length - 1
+        ? imageTasks[currentIndexInProject + 1]
+        : null;
+
+    setTimeout(() => {
+      if (nextTask) {
+        navigate(`/workspace/${nextTask.id}`, { replace: true });
+      } else {
         navigate(-1);
-      } catch {
-        alert("Failed to skip task");
       }
+    }, 2000);
+  };
+
+  const handleSkip = () => {
+    setIsSkipModalOpen(true);
+  };
+
+  const handleConfirmSkip = async (reason: string) => {
+    // Prevent duplicate skip or skip on already submitted task
+    const isSkipped =
+      taskStatus.toLowerCase() === "skipped" ||
+      (currentImage as { status?: string })?.status?.toUpperCase() ===
+        "SKIPPED";
+    if (isSkipped) {
+      toast.info("Task already skipped. Moving to next...");
+      setIsSkipModalOpen(false);
+      handleNextAutoNav();
+      return;
+    }
+
+    try {
+      // In medical imaging, skip reason is often stored in the annotatorNote field
+      // We pass the reason to skipTask which will call the PATCH API
+      await skipTask(reason, actualTimeSeconds);
+      setIsSkipModalOpen(false);
+      toast.info("Task skipped. Moving to next image...");
+      handleNextAutoNav();
+    } catch (err: any) {
+      const errorMsg =
+        err.response?.data?.error || "Failed to skip task. Please try again.";
+      showAlert("Error", errorMsg, "destructive");
+    }
+  };
+
+  const handleResume = async () => {
+    try {
+      await resumeTask();
+    } catch {
+      showAlert(
+        "Error",
+        "Failed to resume task. Please try again.",
+        "destructive",
+      );
     }
   };
 
   const handleApprove = () => {
-    alert("Task approved!");
-    navigate(-1);
+    toast.success("Task approved!");
+    setTimeout(() => navigate(-1), 1500);
   };
 
   const handleReject = () => {
-    const reason = prompt("Please provide a rejection reason:");
-    if (reason && reason.trim()) {
-      alert(`Task rejected. Reason: ${reason}`);
-      navigate(-1);
-    }
-  };
-
-  const handleClose = () => {
-    navigate(-1);
+    showAlert(
+      "Feature Not Implemented",
+      "Reject function is coming soon",
+      "default",
+    );
   };
 
   // Loading state
@@ -273,12 +390,13 @@ export function WorkspacePage({
       {/* Header */}
       <WorkspaceHeader
         mode={mode}
-        taskStatus={taskStatus}
+        taskStatus={taskData?.status?.toLowerCase() as any}
         onSubmit={handleSubmit}
         onSkip={handleSkip}
+        onResume={handleResume}
         onApprove={handleApprove}
         onReject={handleReject}
-        onClose={handleClose}
+        onClose={() => navigate(-1)}
         actualTimeSeconds={actualTimeSeconds}
         projectName={taskData.projectName}
       />
@@ -305,6 +423,21 @@ export function WorkspacePage({
           initialTab={taskStatus === "rejected" ? "discussion" : "regions"}
         />
       </div>
+
+      {/* Modals */}
+      <SkipReasonModal
+        isOpen={isSkipModalOpen}
+        onClose={() => setIsSkipModalOpen(false)}
+        onConfirm={handleConfirmSkip}
+      />
+
+      <WorkspaceAlertModal
+        isOpen={alertConfig.isOpen}
+        title={alertConfig.title}
+        description={alertConfig.description}
+        variant={alertConfig.variant}
+        onClose={() => setAlertConfig((prev) => ({ ...prev, isOpen: false }))}
+      />
     </motion.div>
   );
 }
