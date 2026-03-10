@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Stage, Layer, Image as KonvaImage, Rect } from "react-konva";
 import Konva from "konva";
-import { useCanvasStore } from "../../stores";
+import { useCanvasStore, useAnnotationStore } from "../../stores";
 import { AnnotationLayer } from "./AnnotationLayer";
 import { useAnnotationTools } from "../../hooks/useAnnotationTools";
 
@@ -14,13 +14,22 @@ export function WorkspaceCanvas({
   imageUrl,
   isReadOnly = false,
 }: WorkspaceCanvasProps) {
-  const { pan, setPan } = useCanvasStore();
+  const {
+    pan,
+    setPan,
+    zoom,
+    setZoom,
+    tool,
+    fitTrigger,
+    imageSize,
+    setImageSize,
+  } = useCanvasStore();
+  const { defaultOpacity, defaultStrokeWidth } = useAnnotationStore();
   const stageRef = useRef<Konva.Stage>(null);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [imageLoading, setImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
   const [stageSize, setStageSize] = useState({ width: 800, height: 600 });
-  const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
 
   // Drawing tool
   const { tempRect, handleMouseDown, handleMouseMove, handleMouseUp } =
@@ -47,7 +56,7 @@ export function WorkspaceCanvas({
       setImageError(true);
       setImageLoading(false);
     };
-  }, [imageUrl]);
+  }, [imageUrl, setImageSize]);
 
   // Handle window resize
   useEffect(() => {
@@ -87,14 +96,45 @@ export function WorkspaceCanvas({
 
   const scale = calculateFitScale();
 
-  // Center image on load or stage resize
+  // Center image on load or stage resize or fitTrigger
   useEffect(() => {
     if (image && imageSize.width > 0 && stageSize.width > 0) {
       const x = (stageSize.width - imageSize.width * scale) / 2;
       const y = (stageSize.height - imageSize.height * scale) / 2;
       setPan({ x, y });
+      setZoom(Math.round(scale * 100));
     }
-  }, [image, imageSize, stageSize, scale, setPan]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [image, imageSize, stageSize, scale, fitTrigger]);
+
+  // Scroll to zoom
+  const handleWheel = useCallback(
+    (e: Konva.KonvaEventObject<WheelEvent>) => {
+      e.evt.preventDefault();
+      const direction = e.evt.deltaY > 0 ? -1 : 1;
+      const newZoom = Math.max(50, Math.min(500, zoom + direction * 10));
+      setZoom(newZoom);
+    },
+    [zoom, setZoom],
+  );
+
+  // Drag end: sync pan store with stage position
+  const handleDragEnd = useCallback(
+    (e: Konva.KonvaEventObject<DragEvent>) => {
+      setPan({ x: e.target.x(), y: e.target.y() });
+    },
+    [setPan],
+  );
+
+  // Combined move handler: drawing only
+  const handleMouseMoveOnStage = useCallback(
+    (e: Konva.KonvaEventObject<MouseEvent>) => {
+      if (!isReadOnly && tool !== "hand") handleMouseMove(e);
+    },
+    [isReadOnly, tool, handleMouseMove],
+  );
+
+  const displayScale = zoom / 100;
 
   return (
     <div className="w-full h-full bg-slate-900 flex items-center justify-center overflow-hidden relative">
@@ -126,14 +166,18 @@ export function WorkspaceCanvas({
         ref={stageRef}
         width={stageSize.width}
         height={stageSize.height}
-        scaleX={scale}
-        scaleY={scale}
+        scaleX={displayScale}
+        scaleY={displayScale}
         x={pan.x}
         y={pan.y}
-        draggable={false}
-        onMouseDown={!isReadOnly ? handleMouseDown : undefined}
-        onMouseMove={!isReadOnly ? handleMouseMove : undefined}
-        onMouseUp={!isReadOnly ? handleMouseUp : undefined}
+        draggable={tool === "hand"}
+        onDragEnd={handleDragEnd}
+        onWheel={handleWheel}
+        onMouseDown={
+          !isReadOnly && tool !== "hand" ? handleMouseDown : undefined
+        }
+        onMouseMove={handleMouseMoveOnStage}
+        onMouseUp={!isReadOnly && tool !== "hand" ? handleMouseUp : undefined}
       >
         <Layer>
           {/* Background Image */}
@@ -158,9 +202,9 @@ export function WorkspaceCanvas({
               width={tempRect.width}
               height={tempRect.height}
               stroke="#3b82f6"
-              strokeWidth={2 / scale}
-              opacity={0.5}
-              dash={[4 / scale, 4 / scale]}
+              fill={`rgba(59, 130, 246, ${defaultOpacity})`}
+              strokeWidth={defaultStrokeWidth / displayScale}
+              dash={[4 / displayScale, 4 / displayScale]}
               listening={false}
             />
           )}

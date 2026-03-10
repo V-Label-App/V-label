@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Rect, Transformer, Text } from "react-konva";
 import Konva from "konva";
-import { useAnnotationStore } from "../../stores";
+import { useAnnotationStore, useCanvasStore } from "../../stores";
 import type { Annotation } from "../../stores";
 import { getLabelColor } from "../../constants";
 
@@ -20,10 +20,14 @@ export function Rectangle({
 }: RectangleProps) {
   const shapeRef = useRef<Konva.Rect>(null);
   const trRef = useRef<Konva.Transformer>(null);
-  const { updateAnnotation } = useAnnotationStore();
+  const { updateAnnotation, defaultOpacity, defaultStrokeWidth } =
+    useAnnotationStore();
 
   const borderColor = getLabelColor(annotation.label);
-  const fillAlpha = isSelected ? 0.3 : 0.1;
+  const strokeW = annotation.strokeWidth ?? defaultStrokeWidth;
+  const opacityVal = annotation.opacity ?? defaultOpacity;
+  const fillAlpha = isSelected ? Math.min(1, opacityVal + 0.2) : opacityVal;
+  const fillColor = getLabelColor(annotation.label, fillAlpha);
 
   // Attach transformer to selected annotation
   useEffect(() => {
@@ -40,6 +44,28 @@ export function Rectangle({
       x: e.target.x(),
       y: e.target.y(),
     });
+  };
+
+  const dragBoundFunc = (pos: Konva.Vector2d) => {
+    const { pan, zoom, imageSize } = useCanvasStore.getState();
+    const scale = zoom / 100;
+
+    const rX = (pos.x - pan.x) / scale;
+    const rY = (pos.y - pan.y) / scale;
+
+    const clampedRx = Math.max(
+      0,
+      Math.min(rX, imageSize.width - annotation.width),
+    );
+    const clampedRy = Math.max(
+      0,
+      Math.min(rY, imageSize.height - annotation.height),
+    );
+
+    return {
+      x: pan.x + clampedRx * scale,
+      y: pan.y + clampedRy * scale,
+    };
   };
 
   const handleTransformEnd = () => {
@@ -70,11 +96,11 @@ export function Rectangle({
         y={annotation.y}
         width={annotation.width}
         height={annotation.height}
-        fill={borderColor}
+        fill={fillColor}
         stroke={borderColor}
-        strokeWidth={2}
-        opacity={fillAlpha}
+        strokeWidth={strokeW}
         draggable={!isReadOnly}
+        dragBoundFunc={dragBoundFunc}
         onClick={onSelect}
         onTap={onSelect}
         onDragEnd={handleDragEnd}
@@ -104,6 +130,13 @@ export function Rectangle({
           ref={trRef}
           flipEnabled={false}
           boundBoxFunc={(oldBox, newBox) => {
+            const { imageSize } = useCanvasStore.getState();
+
+            // Constrain to image bounds
+            if (newBox.x < 0 || newBox.y < 0) return oldBox;
+            if (newBox.x + newBox.width > imageSize.width) return oldBox;
+            if (newBox.y + newBox.height > imageSize.height) return oldBox;
+
             // Limit resize to minimum 5x5
             if (Math.abs(newBox.width) < 5 || Math.abs(newBox.height) < 5) {
               return oldBox;

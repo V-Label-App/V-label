@@ -24,6 +24,9 @@ export function useKeyboardShortcuts(isReadOnly: boolean = false) {
     if (isReadOnly) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      const { isModalOpen } = useCanvasStore.getState();
+      if (isModalOpen) return;
+
       // Don't trigger shortcuts if user is typing in an input or textarea
       const target = e.target as HTMLElement;
       if (
