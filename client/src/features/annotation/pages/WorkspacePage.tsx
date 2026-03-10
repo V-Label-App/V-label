@@ -14,6 +14,7 @@ import { useAutoSave } from "../hooks/useAutoSave";
 import { useState } from "react";
 import { SkipReasonModal } from "../components/workspace/SkipReasonModal";
 import { WorkspaceAlertModal } from "../components/workspace/WorkspaceAlertModal";
+import { toast } from "sonner";
 
 interface WorkspacePageProps {
   mode?: "annotate" | "review";
@@ -208,7 +209,7 @@ export function WorkspacePage({
 
     try {
       await submitTask(annotations, annotatorNote, actualTimeSeconds);
-      showAlert("Success", "Task submitted successfully!", "success");
+      toast.success("Task submitted successfully! Moving to next image...");
 
       // Auto-navigate to next task if available
       const currentIndexInProject = imageTasks.findIndex(
@@ -222,7 +223,7 @@ export function WorkspacePage({
         } else {
           navigate(-1);
         }
-      }, 1500);
+      }, 2000);
     } catch {
       showAlert(
         "Error",
@@ -242,7 +243,7 @@ export function WorkspacePage({
       // We pass the reason to skipTask which will call the PATCH API
       await skipTask(reason, actualTimeSeconds);
       setIsSkipModalOpen(false);
-      showAlert("Skipped", "Task skipped successfully", "default");
+      toast.info("Task skipped. Moving to next image...");
 
       // Auto-navigate to next task if available
       const currentIndexInProject = imageTasks.findIndex(
@@ -256,7 +257,7 @@ export function WorkspacePage({
         } else {
           navigate(-1);
         }
-      }, 1000);
+      }, 2000);
     } catch {
       showAlert(
         "Error",
@@ -267,8 +268,8 @@ export function WorkspacePage({
   };
 
   const handleApprove = () => {
-    showAlert("Approved", "Task approved successfully!", "success");
-    setTimeout(() => navigate(-1), 1000);
+    toast.success("Task approved!");
+    setTimeout(() => navigate(-1), 1500);
   };
 
   const handleReject = () => {
