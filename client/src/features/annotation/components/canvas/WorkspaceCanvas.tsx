@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Stage, Layer, Image as KonvaImage, Rect } from "react-konva";
+import { Stage, Layer, Image as KonvaImage, Rect, Line } from "react-konva";
 import Konva from "konva";
 import { useCanvasStore } from "../../stores";
 import { AnnotationLayer } from "./AnnotationLayer";
@@ -14,7 +14,7 @@ export function WorkspaceCanvas({
   imageUrl,
   isReadOnly = false,
 }: WorkspaceCanvasProps) {
-  const { zoom, pan, tool, setPan } = useCanvasStore();
+  const { zoom, pan, tool, setPan, drawingSettings } = useCanvasStore();
   const stageRef = useRef<Konva.Stage>(null);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [imageLoading, setImageLoading] = useState(true);
@@ -23,8 +23,13 @@ export function WorkspaceCanvas({
   const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
 
   // Drawing tool
-  const { tempRect, handleMouseDown, handleMouseMove, handleMouseUp } =
-    useAnnotationTools();
+  const {
+    tempRect,
+    tempPoints,
+    handleMouseDown,
+    handleMouseMove,
+    handleMouseUp,
+  } = useAnnotationTools();
 
   // Load image
   useEffect(() => {
@@ -177,9 +182,24 @@ export function WorkspaceCanvas({
               y={tempRect.y}
               width={tempRect.width}
               height={tempRect.height}
-              stroke="#3b82f6"
-              strokeWidth={2 / scale}
+              stroke={drawingSettings.color}
+              strokeWidth={drawingSettings.strokeWidth / scale}
+              opacity={drawingSettings.opacity}
               dash={[4 / scale, 4 / scale]}
+              listening={false}
+            />
+          )}
+
+          {/* Temporary drawing brush stroke */}
+          {tempPoints && (
+            <Line
+              points={tempPoints}
+              stroke={drawingSettings.color}
+              strokeWidth={drawingSettings.strokeWidth / scale}
+              opacity={drawingSettings.opacity}
+              lineCap="round"
+              lineJoin="round"
+              tension={0.5}
               listening={false}
             />
           )}
