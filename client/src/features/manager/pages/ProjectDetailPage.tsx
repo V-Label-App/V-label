@@ -1467,18 +1467,6 @@ export function ProjectDetailPage() {
                         In Progress
                       </div>
                     </SelectItem>
-                    <SelectItem value="submitted">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-purple-500"></div>
-                        Submitted
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="approved">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                        Approved
-                      </div>
-                    </SelectItem>
                     <SelectItem value="rejected">
                       <div className="flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full bg-red-500"></div>
