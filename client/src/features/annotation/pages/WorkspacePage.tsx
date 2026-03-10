@@ -13,6 +13,7 @@ import { useProjectTasks } from "../hooks/useProjectTasks";
 import { useAutoSave } from "../hooks/useAutoSave";
 import { useState } from "react";
 import { SkipReasonModal } from "../components/workspace/SkipReasonModal";
+import { WorkspaceAlertModal } from "../components/workspace/WorkspaceAlertModal";
 
 interface WorkspacePageProps {
   mode?: "annotate" | "review";
@@ -38,11 +39,33 @@ export function WorkspacePage({
     annotations,
     setAnnotatorNote,
     setReviewComment,
+    annotatorNote,
   } = useAnnotationStore();
   const { setLabels } = useLabelStore();
 
   const [actualTimeSeconds, setActualTimeSeconds] = useState(0);
   const [isSkipModalOpen, setIsSkipModalOpen] = useState(false);
+
+  // Alert Modal State
+  const [alertConfig, setAlertConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    variant: "default" | "destructive" | "success";
+  }>({
+    isOpen: false,
+    title: "",
+    description: "",
+    variant: "default",
+  });
+
+  const showAlert = (
+    title: string,
+    description: string,
+    variant: "default" | "destructive" | "success" = "default",
+  ) => {
+    setAlertConfig({ isOpen: true, title, description, variant });
+  };
 
   // Ref to prevent navigation loop
   const isUpdatingFromURL = useRef(false);
@@ -164,23 +187,35 @@ export function WorkspacePage({
   const handleSubmit = async () => {
     // Validate before submit
     if (annotations.length === 0) {
-      alert("Please add at least one annotation before submitting");
+      showAlert(
+        "Missing Annotations",
+        "Please add at least one annotation before submitting",
+        "destructive",
+      );
       return;
     }
 
     // Check if all annotations have labels
     const hasUnlabeledAnnotations = annotations.some((ann) => !ann.label);
     if (hasUnlabeledAnnotations) {
-      alert("Please assign labels to all annotations before submitting");
+      showAlert(
+        "Missing Labels",
+        "Please assign labels to all annotations before submitting",
+        "destructive",
+      );
       return;
     }
 
     try {
-      await submitTask(annotations);
-      alert("Task submitted successfully!");
-      navigate(-1);
+      await submitTask(annotations, annotatorNote);
+      showAlert("Success", "Task submitted successfully!", "success");
+      setTimeout(() => navigate(-1), 1500); // Give time to see the success modal
     } catch {
-      alert("Failed to submit task. Please try again.");
+      showAlert(
+        "Error",
+        "Failed to submit task. Please try again.",
+        "destructive",
+      );
     }
   };
 
@@ -194,15 +229,20 @@ export function WorkspacePage({
       // We pass the reason to skipTask which will call the PATCH API
       await skipTask(reason);
       setIsSkipModalOpen(false);
-      navigate(-1);
+      showAlert("Skipped", "Task skipped successfully", "default");
+      setTimeout(() => navigate(-1), 1000);
     } catch {
-      alert("Failed to skip task. Please try again.");
+      showAlert(
+        "Error",
+        "Failed to skip task. Please try again.",
+        "destructive",
+      );
     }
   };
 
   const handleApprove = () => {
-    alert("Task approved!");
-    navigate(-1);
+    showAlert("Approved", "Task approved successfully!", "success");
+    setTimeout(() => navigate(-1), 1000);
   };
 
   const handleReject = () => {
@@ -301,6 +341,14 @@ export function WorkspacePage({
         isOpen={isSkipModalOpen}
         onClose={() => setIsSkipModalOpen(false)}
         onConfirm={handleConfirmSkip}
+      />
+
+      <WorkspaceAlertModal
+        isOpen={alertConfig.isOpen}
+        title={alertConfig.title}
+        description={alertConfig.description}
+        variant={alertConfig.variant}
+        onClose={() => setAlertConfig((prev) => ({ ...prev, isOpen: false }))}
       />
     </motion.div>
   );
