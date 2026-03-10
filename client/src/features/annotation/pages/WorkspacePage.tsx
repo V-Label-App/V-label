@@ -189,10 +189,15 @@ export function WorkspacePage({
   };
 
   const handleConfirmSkip = async (reason: string) => {
-    setIsSkipModalOpen(false);
-    // TODO: Implement persistent skip with reason
-    alert(`Design Approval: This will skip the task with reason: "${reason}"`);
-    // navigate(-1); // Coming in next step: "The Brain"
+    try {
+      // In medical imaging, skip reason is often stored in the annotatorNote field
+      // We pass the reason to skipTask which will call the PATCH API
+      await skipTask(reason);
+      setIsSkipModalOpen(false);
+      navigate(-1);
+    } catch {
+      alert("Failed to skip task. Please try again.");
+    }
   };
 
   const handleApprove = () => {
