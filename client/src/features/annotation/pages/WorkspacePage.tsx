@@ -207,7 +207,7 @@ export function WorkspacePage({
     }
 
     try {
-      await submitTask(annotations, annotatorNote);
+      await submitTask(annotations, annotatorNote, actualTimeSeconds);
       showAlert("Success", "Task submitted successfully!", "success");
 
       // Auto-navigate to next task if available
@@ -240,7 +240,7 @@ export function WorkspacePage({
     try {
       // In medical imaging, skip reason is often stored in the annotatorNote field
       // We pass the reason to skipTask which will call the PATCH API
-      await skipTask(reason);
+      await skipTask(reason, actualTimeSeconds);
       setIsSkipModalOpen(false);
       showAlert("Skipped", "Task skipped successfully", "default");
 

@@ -120,6 +120,7 @@ export const annotatorApi = {
       status?: string;
       annotations?: any;
       annotatorNote?: string;
+      actualTimeSeconds?: number;
     },
   ) => {
     const response = await apiClient.patch<TaskAssignmentListItem>(

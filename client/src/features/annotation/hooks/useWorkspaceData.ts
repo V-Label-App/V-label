@@ -38,8 +38,12 @@ export interface UseWorkspaceDataReturn {
     note?: string,
     timeSeconds?: number,
   ) => Promise<void>;
-  submitTask: (annotations: Annotation[], note?: string) => Promise<void>;
-  skipTask: () => Promise<void>;
+  submitTask: (
+    annotations: Annotation[],
+    note?: string,
+    timeSeconds?: number,
+  ) => Promise<void>;
+  skipTask: (reason?: string, timeSeconds?: number) => Promise<void>;
 }
 
 /**
@@ -146,12 +150,13 @@ export const useWorkspaceData = (
    * Submit task for review
    */
   const submitTask = useCallback(
-    async (annotations: Annotation[], note?: string) => {
+    async (annotations: Annotation[], note?: string, timeSeconds?: number) => {
       try {
         await annotatorApi.updateTaskAssignment(assignmentId, {
           status: "SUBMITTED",
           annotations,
           annotatorNote: note,
+          actualTimeSeconds: timeSeconds,
         });
       } catch (err) {
         console.error("Failed to submit task:", err);
@@ -162,18 +167,23 @@ export const useWorkspaceData = (
   );
 
   /**
-   * Skip current task
+   * Skip current task with a mandatory reason
    */
-  const skipTask = useCallback(async () => {
-    try {
-      await annotatorApi.updateTaskAssignment(assignmentId, {
-        status: "SKIPPED",
-      });
-    } catch (err) {
-      console.error("Failed to skip task:", err);
-      throw err;
-    }
-  }, [assignmentId]);
+  const skipTask = useCallback(
+    async (reason?: string, timeSeconds?: number) => {
+      try {
+        await annotatorApi.updateTaskAssignment(assignmentId, {
+          status: "SKIPPED",
+          annotatorNote: reason,
+          actualTimeSeconds: timeSeconds,
+        });
+      } catch (err) {
+        console.error("Failed to skip task:", err);
+        throw err;
+      }
+    },
+    [assignmentId],
+  );
 
   // Load data on mount
   useEffect(() => {
