@@ -209,7 +209,20 @@ export function WorkspacePage({
     try {
       await submitTask(annotations, annotatorNote);
       showAlert("Success", "Task submitted successfully!", "success");
-      setTimeout(() => navigate(-1), 1500); // Give time to see the success modal
+
+      // Auto-navigate to next task if available
+      const currentIndexInProject = imageTasks.findIndex(
+        (t) => t.id === taskId,
+      );
+      const nextTask = imageTasks[currentIndexInProject + 1];
+
+      setTimeout(() => {
+        if (nextTask) {
+          navigate(`/workspace/${nextTask.id}`, { replace: true });
+        } else {
+          navigate(-1);
+        }
+      }, 1500);
     } catch {
       showAlert(
         "Error",
@@ -230,7 +243,20 @@ export function WorkspacePage({
       await skipTask(reason);
       setIsSkipModalOpen(false);
       showAlert("Skipped", "Task skipped successfully", "default");
-      setTimeout(() => navigate(-1), 1000);
+
+      // Auto-navigate to next task if available
+      const currentIndexInProject = imageTasks.findIndex(
+        (t) => t.id === taskId,
+      );
+      const nextTask = imageTasks[currentIndexInProject + 1];
+
+      setTimeout(() => {
+        if (nextTask) {
+          navigate(`/workspace/${nextTask.id}`, { replace: true });
+        } else {
+          navigate(-1);
+        }
+      }, 1000);
     } catch {
       showAlert(
         "Error",
