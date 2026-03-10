@@ -116,5 +116,20 @@ export const annotatorApi = {
             updates
         );
         return response.data;
+    },
+
+    /**
+     * Save draft annotations (auto-save)
+     */
+    saveDraft: async (assignmentId: string, data: {
+        annotations?: any;
+        annotatorNote?: string;
+        actualTimeSeconds?: number;
+    }) => {
+        const response = await apiClient.put<TaskAssignmentListItem>(
+            `${BASE_URL}/tasks/${assignmentId}/draft`,
+            data
+        );
+        return response.data;
     }
 };

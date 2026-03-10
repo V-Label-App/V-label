@@ -420,7 +420,7 @@ export function AnnotatorProjectDetailPage() {
                                   : "default"
                               }
                               onClick={() =>
-                                navigate(`/workspace/${task.taskId}`)
+                                navigate(`/workspace/${task.id}`)
                               }
                             >
                               {task.status === "REJECTED" ? (
