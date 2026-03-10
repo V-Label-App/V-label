@@ -54,14 +54,42 @@ export function WorkspacePage({
     taskStatus === "submitted" ||
     mode === "review";
 
-  // Work Timer
+  // Work Timer - pauses when tab/window is not visible
   useEffect(() => {
-    if (!loading && !isReadOnly) {
-      const timer = setInterval(() => {
-        setActualTimeSeconds((prev) => prev + 1);
-      }, 1000);
-      return () => clearInterval(timer);
-    }
+    if (loading || isReadOnly) return;
+
+    let timer: ReturnType<typeof setInterval> | null = null;
+
+    const startTimer = () => {
+      if (!timer) {
+        timer = setInterval(() => {
+          setActualTimeSeconds((prev) => prev + 1);
+        }, 1000);
+      }
+    };
+
+    const stopTimer = () => {
+      if (timer) {
+        clearInterval(timer);
+        timer = null;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopTimer();
+      } else {
+        startTimer();
+      }
+    };
+
+    startTimer();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      stopTimer();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [loading, isReadOnly]);
 
   // Auto-save integration
