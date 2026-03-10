@@ -30,6 +30,12 @@ interface AnnotationState {
   setAnnotations: (annotations: Annotation[]) => void;
   clearAnnotations: () => void;
 
+  // Notes
+  annotatorNote: string;
+  reviewComment: string;
+  setAnnotatorNote: (note: string) => void;
+  setReviewComment: (comment: string) => void;
+
   // History
   undo: () => void;
   redo: () => void;
@@ -43,6 +49,13 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
   selectedAnnotationId: null,
   history: [[]],
   historyIndex: 0,
+
+  // Notes
+  annotatorNote: "",
+  reviewComment: "",
+
+  setAnnotatorNote: (note) => set({ annotatorNote: note }),
+  setReviewComment: (comment) => set({ reviewComment: comment }),
 
   addAnnotation: (annotation) => {
     const newAnnotations = [...get().annotations, annotation];
@@ -84,6 +97,8 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
       selectedAnnotationId: null,
       history: [[]],
       historyIndex: 0,
+      annotatorNote: "",
+      reviewComment: "",
     });
   },
 
