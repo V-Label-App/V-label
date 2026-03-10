@@ -2026,6 +2026,41 @@ export function ProjectDetailPage() {
 
               {/* Submitted Tasks Tab */}
               <TabsContent value="submitted" className="space-y-6">
+                {/* Search & Filter for Submitted Tasks */}
+                <Card className="p-4">
+                  <div className="flex flex-wrap gap-4">
+                    <div className="flex-1 min-w-[250px]">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Search tasks by name or ID..."
+                          value={taskSearchQuery}
+                          onChange={(e) => setTaskSearchQuery(e.target.value)}
+                          className="pl-9"
+                        />
+                      </div>
+                    </div>
+                    <Select
+                      value={taskFilterAssignee}
+                      onValueChange={setTaskFilterAssignee}
+                    >
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Assignee" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Assignees</SelectItem>
+                        {annotators
+                          .filter((a: any) => a.projectRole === "ANNOTATOR")
+                          .map((a: any) => (
+                            <SelectItem key={a.userId} value={a.userId}>
+                              {a.user?.fullName || a.user?.email || "Unknown"}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </Card>
+
                 <Card className="p-6">
                   <div className="flex items-center justify-between mb-6">
                     <div>
@@ -2278,6 +2313,41 @@ export function ProjectDetailPage() {
 
               {/* Completed Tasks Tab */}
               <TabsContent value="completed" className="space-y-6">
+                {/* Search & Filter for Completed Tasks */}
+                <Card className="p-4">
+                  <div className="flex flex-wrap gap-4">
+                    <div className="flex-1 min-w-[250px]">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Search tasks by name or ID..."
+                          value={taskSearchQuery}
+                          onChange={(e) => setTaskSearchQuery(e.target.value)}
+                          className="pl-9"
+                        />
+                      </div>
+                    </div>
+                    <Select
+                      value={taskFilterAssignee}
+                      onValueChange={setTaskFilterAssignee}
+                    >
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Assignee" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Assignees</SelectItem>
+                        {annotators
+                          .filter((a: any) => a.projectRole === "ANNOTATOR")
+                          .map((a: any) => (
+                            <SelectItem key={a.userId} value={a.userId}>
+                              {a.user?.fullName || a.user?.email || "Unknown"}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </Card>
+
                 <Card className="p-6">
                   <div className="flex items-center justify-between mb-6">
                     <div>
