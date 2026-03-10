@@ -48,9 +48,8 @@ export function WorkspaceHeader({
     taskStatus.toLowerCase() === "submitted" || // Ensure case-insensitive comparison
     mode === "review";
 
-  const isSkipped =
-    taskStatus.toLowerCase() === "skipped" || // Ensure case-insensitive comparison
-    (currentImage as any)?.status?.toUpperCase() === "SKIPPED";
+  const isSkipped = taskStatus.toLowerCase() === "skipped";
+  // We trust the taskStatus prop more as it's directly sync'd with taskData in the page
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -79,7 +78,7 @@ export function WorkspaceHeader({
           </Badge>
         )}
         {isSkipped && (
-          <Badge className="ml-3 bg-amber-600 text-white">SKIPPED</Badge>
+          <Badge className="ml-3 bg-indigo-600 text-white">SKIPPED</Badge>
         )}
       </div>
 
@@ -119,7 +118,7 @@ export function WorkspaceHeader({
                 variant="outline"
                 size="sm"
                 onClick={onResume}
-                className="bg-amber-600 border-amber-500 text-white hover:bg-amber-700"
+                className="bg-indigo-600 border-indigo-500 text-white hover:bg-indigo-700"
               >
                 <Clock className="w-4 h-4 mr-2" />
                 Resume Annotation

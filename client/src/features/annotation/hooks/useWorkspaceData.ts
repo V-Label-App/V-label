@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import type { TaskAssignmentListItem } from "../../../services/annotator.api";
 import { annotatorApi } from "../../../services/annotator.api";
+import { useImageStore } from "../stores";
 import type { Annotation } from "../stores";
 import { toast } from "sonner";
 
@@ -27,6 +28,7 @@ export interface WorkspaceTaskData {
   reviewComment?: string;
   reviewScore?: number;
   projectName: string;
+  actualTimeSeconds?: number;
 }
 
 export interface UseWorkspaceDataReturn {
@@ -59,6 +61,7 @@ export const useWorkspaceData = (
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
   const [taskData, setTaskData] = useState<WorkspaceTaskData | null>(null);
+  const updateImageStatus = useImageStore((state) => state.updateImageStatus);
 
   /**
    * Transform API response to internal workspace format
@@ -98,6 +101,7 @@ export const useWorkspaceData = (
         reviewComment: assignment.reviewComment,
         reviewScore: assignment.reviewScore,
         projectName: assignment.task.project.name,
+        actualTimeSeconds: assignment.actualTimeSeconds,
       };
     },
     [],
@@ -154,12 +158,22 @@ export const useWorkspaceData = (
   const submitTask = useCallback(
     async (annotations: Annotation[], note?: string, timeSeconds?: number) => {
       try {
+        // Backend rejects direct ASSIGNED -> SUBMITTED transition
+        // We ensure it's IN_PROGRESS first if it's currently ASSIGNED
+        if (taskData?.status === "ASSIGNED") {
+          await annotatorApi.updateTaskAssignment(assignmentId, {
+            status: "IN_PROGRESS",
+          });
+        }
+
         await annotatorApi.updateTaskAssignment(assignmentId, {
           status: "SUBMITTED",
           annotations,
           annotatorNote: note,
           actualTimeSeconds: timeSeconds,
         });
+        updateImageStatus(assignmentId, "submitted");
+        setTaskData((prev) => (prev ? { ...prev, status: "SUBMITTED" } : null));
       } catch (err: any) {
         console.error("Failed to submit task:", err);
         if (err.response) {
@@ -168,7 +182,7 @@ export const useWorkspaceData = (
         throw err;
       }
     },
-    [assignmentId],
+    [assignmentId, taskData?.status, updateImageStatus],
   );
 
   /**
@@ -182,6 +196,8 @@ export const useWorkspaceData = (
           annotatorNote: reason,
           actualTimeSeconds: timeSeconds,
         });
+        updateImageStatus(assignmentId, "skipped");
+        setTaskData((prev) => (prev ? { ...prev, status: "SKIPPED" } : null));
         // Reloader after status change to get fresh state
         await loadData();
       } catch (err: any) {
@@ -192,7 +208,7 @@ export const useWorkspaceData = (
         throw err;
       }
     },
-    [assignmentId, loadData],
+    [assignmentId, loadData, updateImageStatus],
   );
 
   /**
@@ -203,6 +219,8 @@ export const useWorkspaceData = (
       await annotatorApi.updateTaskAssignment(assignmentId, {
         status: "IN_PROGRESS",
       });
+      updateImageStatus(assignmentId, "in_progress");
+      setTaskData((prev) => (prev ? { ...prev, status: "IN_PROGRESS" } : null));
       // Refresh local data to reflect status change
       await loadData();
       toast.success("Task resumed. You can now continue annotating.");

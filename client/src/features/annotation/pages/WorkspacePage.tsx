@@ -90,6 +90,9 @@ export function WorkspacePage({
   const isReadOnly =
     taskStatus === "approved" ||
     taskStatus === "submitted" ||
+    taskData?.status === "SUBMITTED" ||
+    taskData?.status === "APPROVED" ||
+    taskData?.status === "SKIPPED" ||
     mode === "review";
 
   // Work Timer
@@ -132,6 +135,11 @@ export function WorkspacePage({
 
       setAnnotatorNote(taskData.annotatorNote || "");
       setReviewComment(taskData.reviewComment || "");
+
+      // Initialize time from server if available
+      if (taskData.actualTimeSeconds !== undefined) {
+        setActualTimeSeconds(taskData.actualTimeSeconds);
+      }
     }
   }, [
     taskData,

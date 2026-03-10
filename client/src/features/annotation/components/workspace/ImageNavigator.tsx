@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { Button } from "../../../../components/ui/button";
 import { ChevronLeft, ChevronRight, Check } from "lucide-react";
 import { useImageStore } from "../../stores";
@@ -14,11 +15,23 @@ export function ImageNavigator() {
     hasPrevious,
   } = useImageStore();
 
+  const activeThumbRef = useRef<HTMLButtonElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to active thumbnail
+  useEffect(() => {
+    if (activeThumbRef.current && containerRef.current) {
+      activeThumbRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+        inline: "center",
+      });
+    }
+  }, [currentIndex]);
+
   if (images.length <= 1) {
     return null;
   }
-
-  // const currentImage = images[currentIndex];
 
   return (
     <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-slate-800/95 backdrop-blur rounded-lg px-4 py-3 shadow-2xl border border-slate-700 z-20">
@@ -35,10 +48,14 @@ export function ImageNavigator() {
       </Button>
 
       {/* Thumbnail Carousel */}
-      <div className="flex items-center gap-2 max-w-md overflow-x-auto scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800">
+      <div
+        ref={containerRef}
+        className="flex items-center gap-2 max-w-md overflow-x-auto scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800 scroll-smooth"
+      >
         {images.map((image, index) => (
           <button
             key={image.id}
+            ref={index === currentIndex ? activeThumbRef : null}
             onClick={() => jumpToImage(index)}
             className={cn(
               "flex-shrink-0 w-16 h-16 rounded-lg border-2 transition-all relative overflow-hidden group",
@@ -70,6 +87,7 @@ export function ImageNavigator() {
                 image.status === "submitted" && "bg-blue-500",
                 image.status === "in_progress" && "bg-yellow-500",
                 image.status === "assigned" && "bg-gray-400",
+                image.status === "skipped" && "bg-indigo-500",
               )}
             />
 

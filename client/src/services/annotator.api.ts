@@ -9,6 +9,7 @@ export interface TaskAssignmentListItem {
   reviewComment?: string;
   reviewScore?: number;
   annotations?: any;
+  actualTimeSeconds?: number;
   task: {
     id: string;
     priority: string;
