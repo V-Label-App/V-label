@@ -364,9 +364,7 @@ export class AnnotatorService {
             const invalidStates: AssignmentStatus[] = [
                 AssignmentStatus.SUBMITTED,
                 AssignmentStatus.APPROVED,
-                AssignmentStatus.REJECTED,
-                AssignmentStatus.SKIPPED
-            ];
+      ]
 
             if (invalidStates.includes(existing.status)) {
                 throw new Error(`Cannot save draft when task is: ${existing.status}`);

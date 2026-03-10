@@ -191,7 +191,13 @@ export class AnnotatorController {
             return res.json(updated);
         } catch (error) {
             if (error instanceof z.ZodError) {
-                return res.status(400).json({ error: 'Validation failed', details: error.issues });
+        logger.error('API', 'Save task draft validation failed', {
+          issues: error.issues,
+          body: req.body,
+        })
+        return res
+          .status(400)
+          .json({ error: 'Validation failed', details: error.issues })
             }
 
             const message = error instanceof Error ? error.message : 'Unknown error';
@@ -199,7 +205,11 @@ export class AnnotatorController {
                 return res.status(404).json({ error: 'Task assignment not found' });
             }
             if (message.includes('Cannot save draft when task is')) {
-                return res.status(400).json({ error: message });
+        logger.warn('API', 'Save task draft rejected: invalid status', {
+          message,
+          assignmentId,
+        })
+        return res.status(400).json({ error: message })
             }
 
             logger.error('API', 'Save task draft failed', { error });
