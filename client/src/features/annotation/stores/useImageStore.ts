@@ -16,6 +16,7 @@ interface ImageState {
 
     // Actions
     setImages: (images: ImageTask[]) => void;
+    updateImages: (images: ImageTask[]) => void; // Update images without resetting index
     goToNext: () => void;
     goToPrevious: () => void;
     jumpToImage: (index: number) => void;
@@ -31,6 +32,14 @@ export const useImageStore = create<ImageState>((set, get) => ({
     autoSaveStatus: 'saved',
 
     setImages: (images) => set({ images, currentIndex: 0 }),
+
+    updateImages: (images) => {
+        // Update images without resetting currentIndex
+        // Useful when navigating between tasks in the same project
+        const { currentIndex } = get();
+        const validIndex = Math.min(currentIndex, images.length - 1);
+        set({ images, currentIndex: Math.max(0, validIndex) });
+    },
 
     goToNext: () => {
         const { currentIndex, images } = get();

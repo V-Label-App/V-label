@@ -152,8 +152,11 @@ export class AnnotatorService {
                 total
             };
 
-            return {
-                data: assignments,
+            // Convert BigInt to Number for JSON serialization
+            const result = {
+                data: JSON.parse(JSON.stringify(assignments, (key, value) =>
+                    typeof value === 'bigint' ? Number(value) : value
+                )),
                 meta: {
                     total,
                     page,
@@ -162,6 +165,8 @@ export class AnnotatorService {
                     taskCounts
                 }
             };
+
+            return result;
         } catch (error) {
             logger.error('SERVICE', 'Error getting annotator tasks', { error, userId });
             throw error;
@@ -211,7 +216,12 @@ export class AnnotatorService {
                 throw new Error('Task assignment not found or access denied');
             }
 
-            return assignment;
+            // Convert BigInt to Number for JSON serialization
+            const result = JSON.parse(JSON.stringify(assignment, (key, value) =>
+                typeof value === 'bigint' ? Number(value) : value
+            ));
+
+            return result;
         } catch (error) {
             logger.error('SERVICE', 'Error getting task assignment', { error, assignmentId, userId });
             throw error;
@@ -317,7 +327,12 @@ export class AnnotatorService {
                 }
             }
 
-            return updated;
+            // Convert BigInt to Number for JSON serialization
+            const result = JSON.parse(JSON.stringify(updated, (key, value) =>
+                typeof value === 'bigint' ? Number(value) : value
+            ));
+
+            return result;
         } catch (error) {
             logger.error('SERVICE', 'Error updating task assignment', { error, assignmentId, userId });
             throw error;
@@ -376,7 +391,12 @@ export class AnnotatorService {
                 await UserWorkloadService.taskStarted(userId, existing.task.projectId);
             }
 
-            return updated;
+            // Convert BigInt to Number for JSON serialization (if any)
+            const result = JSON.parse(JSON.stringify(updated, (key, value) =>
+                typeof value === 'bigint' ? Number(value) : value
+            ));
+
+            return result;
         } catch (error) {
             logger.error('SERVICE', 'Error saving draft', { error, assignmentId, userId });
             throw error;

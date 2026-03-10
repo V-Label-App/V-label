@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
-import { useCanvasStore, useAnnotationStore } from '../stores';
-import { availableLabels } from '../constants';
+import { useCanvasStore, useAnnotationStore, useLabelStore, useImageStore } from '../stores';
 
 export function useKeyboardShortcuts(isReadOnly: boolean = false) {
     const { setTool } = useCanvasStore();
@@ -13,6 +12,8 @@ export function useKeyboardShortcuts(isReadOnly: boolean = false) {
         canUndo,
         canRedo,
     } = useAnnotationStore();
+    const { labels } = useLabelStore();
+    const { goToNext, goToPrevious, hasNext, hasPrevious } = useImageStore();
 
     useEffect(() => {
         if (isReadOnly) return;
@@ -55,9 +56,9 @@ export function useKeyboardShortcuts(isReadOnly: boolean = false) {
             // Quick label assignment (1-9)
             if (selectedAnnotationId && e.key >= '1' && e.key <= '9') {
                 const index = parseInt(e.key) - 1;
-                if (index < availableLabels.length) {
+                if (index < labels.length) {
                     e.preventDefault();
-                    updateAnnotation(selectedAnnotationId, { label: availableLabels[index] });
+                    updateAnnotation(selectedAnnotationId, { label: labels[index].name });
                 }
             }
 
@@ -65,6 +66,16 @@ export function useKeyboardShortcuts(isReadOnly: boolean = false) {
             if (e.key === 'Escape' && selectedAnnotationId) {
                 e.preventDefault();
                 useAnnotationStore.getState().selectAnnotation(null);
+            }
+
+            // Navigate between tasks (Alt + Arrow keys)
+            if (e.altKey && e.key === 'ArrowLeft' && hasPrevious()) {
+                e.preventDefault();
+                goToPrevious();
+            }
+            if (e.altKey && e.key === 'ArrowRight' && hasNext()) {
+                e.preventDefault();
+                goToNext();
             }
         };
 
@@ -80,5 +91,10 @@ export function useKeyboardShortcuts(isReadOnly: boolean = false) {
         redo,
         canUndo,
         canRedo,
+        labels,
+        goToNext,
+        goToPrevious,
+        hasNext,
+        hasPrevious,
     ]);
 }

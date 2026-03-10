@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { WorkspaceHeader } from '../components/workspace/WorkspaceHeader';
@@ -6,9 +6,10 @@ import { WorkspaceToolbar } from '../components/workspace/WorkspaceToolbar';
 import { WorkspaceCanvas } from '../components/canvas/WorkspaceCanvas';
 import { WorkspaceSidebar } from '../components/workspace/WorkspaceSidebar';
 import { ImageNavigator } from '../components/workspace/ImageNavigator';
-import { useImageStore, useAnnotationStore } from '../stores';
+import { useImageStore, useAnnotationStore, useLabelStore } from '../stores';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
-import { mockImages } from '../mockData';
+import { useWorkspaceData } from '../hooks/useWorkspaceData';
+import { useProjectTasks } from '../hooks/useProjectTasks';
 
 interface WorkspacePageProps {
     mode?: 'annotate' | 'review';
@@ -21,44 +22,121 @@ export function WorkspacePage({
 }: WorkspacePageProps) {
     const { taskId } = useParams<{ taskId: string }>();
     const navigate = useNavigate();
-    const { setImages, getCurrentImage, currentIndex } = useImageStore();
-    const { clearAnnotations } = useAnnotationStore();
+    const { updateImages, getCurrentImage, currentIndex, jumpToImage } = useImageStore();
+    const { clearAnnotations, setAnnotations, annotations } = useAnnotationStore();
+    const { setLabels } = useLabelStore();
+    
+    // Ref to prevent navigation loop
+    const isUpdatingFromURL = useRef(false);
+
+    // Validate taskId
+    if (!taskId) {
+        throw new Error('Task ID is required');
+    }
+
+    // Load task data from API
+    const { loading, error, taskData } = useWorkspaceData(taskId);
+    
+    // Extract projectId from taskData for loading other tasks
+    const projectId = taskData?.projectId;
+    
+    // Load all tasks in the project for navigation
+    const { imageTasks, findTaskIndex } = useProjectTasks(projectId);
 
     const isReadOnly = taskStatus === 'approved' || mode === 'review';
 
     // Initialize keyboard shortcuts
     useKeyboardShortcuts(isReadOnly);
 
-    // Load mock images on mount
+    // Load task data into stores when available
     useEffect(() => {
-        setImages(mockImages);
+        if (taskData) {
+            // Set labels from project (shared across all tasks)
+            if (taskData.labels && Array.isArray(taskData.labels)) {
+                setLabels(taskData.labels);
+            }
 
-        // If taskId is provided, find and jump to that image
-        if (taskId) {
-            const imageIndex = mockImages.findIndex(img => img.id === taskId);
-            if (imageIndex !== -1) {
-                useImageStore.getState().jumpToImage(imageIndex);
+            // Load existing annotations if any
+            if (taskData.annotations && Array.isArray(taskData.annotations)) {
+                setAnnotations(taskData.annotations);
+            } else {
+                clearAnnotations();
             }
         }
-    }, [taskId, setImages]);
+    }, [taskData, setLabels, setAnnotations, clearAnnotations]);
 
-    // Clear annotations when image changes
+    // Update image tasks list and current index when project tasks are loaded
     useEffect(() => {
-        clearAnnotations();
-        // In real app, load annotations for current image here
-    }, [currentIndex, clearAnnotations]);
+        if (imageTasks.length > 0 && taskId) {
+            // Mark that we're updating from URL to prevent navigation loop
+            isUpdatingFromURL.current = true;
+            
+            // Update images without resetting currentIndex
+            updateImages(imageTasks);
+            
+            // Always set current index based on taskId when taskId changes
+            const targetIndex = findTaskIndex(taskId);
+            if (targetIndex >= 0) {
+                const store = useImageStore.getState();
+                if (store.currentIndex !== targetIndex) {
+                    jumpToImage(targetIndex);
+                }
+            }
+            
+            // Reset flag after state updates
+            setTimeout(() => {
+                isUpdatingFromURL.current = false;
+            }, 0);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [imageTasks, taskId]);
+
+    // Handle navigation between tasks (user clicked or used keyboard)
+    useEffect(() => {
+        // Don't navigate if we're updating from URL change
+        if (isUpdatingFromURL.current) {
+            return;
+        }
+        
+        if (imageTasks.length > 0 && currentIndex >= 0 && currentIndex < imageTasks.length) {
+            const newTaskId = imageTasks[currentIndex].id;
+            
+            // Only navigate if taskId changed (user clicked on different task)
+            if (newTaskId !== taskId) {
+                // Update URL without page reload - this will trigger useWorkspaceData to reload
+                navigate(`/workspace/${newTaskId}`, { replace: true });
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentIndex]); // Only watch currentIndex to avoid loops
+
+    // TODO: Auto-save will be implemented by another team member
+    // TODO: Timer for tracking work time will be implemented by another team member
 
     const currentImage = getCurrentImage();
 
-    const handleSubmit = () => {
-        alert('Task submitted successfully!');
-        navigate(-1);
+    const handleSubmit = async () => {
+        // Validate before submit
+        if (annotations.length === 0) {
+            alert('Please add at least one annotation before submitting');
+            return;
+        }
+
+        // Check if all annotations have labels
+        const hasUnlabeledAnnotations = annotations.some(ann => !ann.label);
+        if (hasUnlabeledAnnotations) {
+            alert('Please assign labels to all annotations before submitting');
+            return;
+        }
+
+        // TODO: Submit API call will be implemented by another team member
+        alert('Submit functionality will be implemented by another team member');
     };
 
-    const handleSkip = () => {
+    const handleSkip = async () => {
         if (confirm('Are you sure you want to skip this task?')) {
-            alert('Task skipped!');
-            navigate(-1);
+            // TODO: Skip API call will be implemented by another team member
+            alert('Skip functionality will be implemented by another team member');
         }
     };
 
@@ -79,10 +157,38 @@ export function WorkspacePage({
         navigate(-1);
     };
 
-    if (!currentImage) {
+    // Loading state
+    if (loading) {
         return (
             <div className="fixed inset-0 bg-slate-900 flex items-center justify-center">
-                <div className="text-white">Loading...</div>
+                <div className="text-white text-lg">Loading task data...</div>
+            </div>
+        );
+    }
+
+    // Error state
+    if (error) {
+        return (
+            <div className="fixed inset-0 bg-slate-900 flex items-center justify-center">
+                <div className="text-center">
+                    <div className="text-red-500 text-xl mb-4">Failed to load task</div>
+                    <div className="text-gray-400 mb-4">{error.message}</div>
+                    <button
+                        onClick={() => navigate(-1)}
+                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                    >
+                        Go Back
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    // No image data
+    if (!currentImage || !taskData) {
+        return (
+            <div className="fixed inset-0 bg-slate-900 flex items-center justify-center">
+                <div className="text-white">No task data available</div>
             </div>
         );
     }
