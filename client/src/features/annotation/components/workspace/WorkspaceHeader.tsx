@@ -28,6 +28,7 @@ interface WorkspaceHeaderProps {
   onResume?: () => void;
   onClose?: () => void;
   actualTimeSeconds?: number;
+  projectName?: string;
 }
 
 export function WorkspaceHeader({
@@ -40,6 +41,7 @@ export function WorkspaceHeader({
   onResume,
   onClose,
   actualTimeSeconds = 0,
+  projectName,
 }: WorkspaceHeaderProps) {
   const { getCurrentImage, autoSaveStatus } = useImageStore();
   const currentImage = getCurrentImage();
@@ -61,9 +63,7 @@ export function WorkspaceHeader({
     <div className="h-14 bg-slate-800 border-b border-slate-700 flex items-center justify-between px-4">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-slate-300">
-        <span>Projects</span>
-        <ChevronRight className="w-4 h-4" />
-        <span>Medical Imaging</span>
+        <span>{projectName || "Loading..."}</span>
         <ChevronRight className="w-4 h-4" />
         <span className="text-white font-medium">
           {currentImage?.filename || "Loading..."}

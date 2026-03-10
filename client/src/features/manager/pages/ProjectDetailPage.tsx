@@ -788,8 +788,64 @@ export function ProjectDetailPage() {
   // Status/Assignee filters are currently visual-only or disabled effectively until backend supports them.
   const filteredTasks = tasks;
 
+  // Separate tasks by status
+  const activeTasks = tasks.filter((t: any) => {
+    const assignment = t.assignments?.find((a: any) => a.annotatorId);
+    const status = assignment?.status;
+    return status === "ASSIGNED" || status === "IN_PROGRESS" || status === "REJECTED";
+  });
+
+  const submittedTasks = tasks.filter((t: any) => {
+    const assignment = t.assignments?.find((a: any) => a.annotatorId);
+    return assignment?.status === "SUBMITTED";
+  });
+
+  const completedTasks = tasks.filter((t: any) => {
+    const assignment = t.assignments?.find((a: any) => a.annotatorId);
+    return assignment?.status === "APPROVED";
+  });
+
   // Group tasks by assignee
   const groupedTasks = tasks.reduce((acc: Record<string, any[]>, task: any) => {
+    const annotatorAssignment = task.assignments?.find(
+      (a: any) => a.annotatorId,
+    );
+    const assigneeId = annotatorAssignment?.annotatorId || "unassigned";
+    if (!acc[assigneeId]) {
+      acc[assigneeId] = [];
+    }
+    acc[assigneeId].push(task);
+    return acc;
+  }, {});
+
+  // Group active tasks by assignee
+  const groupedActiveTasks = activeTasks.reduce((acc: Record<string, any[]>, task: any) => {
+    const annotatorAssignment = task.assignments?.find(
+      (a: any) => a.annotatorId,
+    );
+    const assigneeId = annotatorAssignment?.annotatorId || "unassigned";
+    if (!acc[assigneeId]) {
+      acc[assigneeId] = [];
+    }
+    acc[assigneeId].push(task);
+    return acc;
+  }, {});
+
+  // Group submitted tasks by assignee
+  const groupedSubmittedTasks = submittedTasks.reduce((acc: Record<string, any[]>, task: any) => {
+    const annotatorAssignment = task.assignments?.find(
+      (a: any) => a.annotatorId,
+    );
+    const assigneeId = annotatorAssignment?.annotatorId || "unassigned";
+    if (!acc[assigneeId]) {
+      acc[assigneeId] = [];
+    }
+    acc[assigneeId].push(task);
+    return acc;
+  }, {});
+
+  // Group completed tasks by assignee
+  const groupedCompletedTasks = completedTasks.reduce((acc: Record<string, any[]>, task: any) => {
     const annotatorAssignment = task.assignments?.find(
       (a: any) => a.annotatorId,
     );
@@ -1353,6 +1409,29 @@ export function ProjectDetailPage() {
           </TabsContent>
 
           <TabsContent value="tasks" className="space-y-6">
+            <Tabs defaultValue="active" className="space-y-4">
+              <TabsList className="inline-flex h-auto gap-2 bg-transparent border-b w-full justify-start rounded-none p-0 pb-3">
+                <TabsTrigger
+                  value="active"
+                  className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:border-blue-700 data-[state=active]:shadow-none rounded-md border-2 border-transparent px-4 py-1.5 text-sm font-medium transition-all hover:bg-gray-50"
+                >
+                  Active Tasks ({activeTasks.length})
+                </TabsTrigger>
+                <TabsTrigger
+                  value="submitted"
+                  className="data-[state=active]:bg-purple-50 data-[state=active]:text-purple-700 data-[state=active]:border-purple-700 data-[state=active]:shadow-none rounded-md border-2 border-transparent px-4 py-1.5 text-sm font-medium transition-all hover:bg-gray-50"
+                >
+                  Submitted Tasks ({submittedTasks.length})
+                </TabsTrigger>
+                <TabsTrigger
+                  value="completed"
+                  className="data-[state=active]:bg-green-50 data-[state=active]:text-green-700 data-[state=active]:border-green-700 data-[state=active]:shadow-none rounded-md border-2 border-transparent px-4 py-1.5 text-sm font-medium transition-all hover:bg-gray-50"
+                >
+                  Completed Tasks ({completedTasks.length})
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="active" className="space-y-6">
             {/* Search & Filter for Tasks */}
             <Card className="p-4">
               <div className="flex flex-wrap gap-4">
@@ -1388,18 +1467,6 @@ export function ProjectDetailPage() {
                         In Progress
                       </div>
                     </SelectItem>
-                    <SelectItem value="submitted">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-purple-500"></div>
-                        Submitted
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="approved">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                        Approved
-                      </div>
-                    </SelectItem>
                     <SelectItem value="rejected">
                       <div className="flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full bg-red-500"></div>
@@ -1433,9 +1500,9 @@ export function ProjectDetailPage() {
             <Card className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h3 className="text-xl font-semibold">Tasks</h3>
+                  <h3 className="text-xl font-semibold">Active Tasks</h3>
                   <p className="text-sm text-muted-foreground">
-                    Showing {filteredTasks.length} tasks
+                    Showing {activeTasks.length} tasks
                     {selectedTasks.length > 0 && (
                       <span className="ml-2 text-blue-600 font-medium">
                         ({selectedTasks.length} selected)
@@ -1452,8 +1519,8 @@ export function ProjectDetailPage() {
                       <TableHead className="w-[50px]">
                         <Checkbox
                           checked={
-                            filteredTasks.length > 0 &&
-                            selectedTasks.length === filteredTasks.length
+                            activeTasks.length > 0 &&
+                            selectedTasks.length === activeTasks.length
                           }
                           onCheckedChange={(checked) =>
                             handleSelectAll(!!checked)
@@ -1476,18 +1543,18 @@ export function ProjectDetailPage() {
                           </p>
                         </TableCell>
                       </TableRow>
-                    ) : filteredTasks.length === 0 ? (
+                    ) : activeTasks.length === 0 ? (
                       <TableRow>
                         <TableCell
                           colSpan={7}
                           className="text-center py-8 text-muted-foreground"
                         >
-                          No tasks found
+                          No active tasks found
                         </TableCell>
                       </TableRow>
                     ) : (
                       <>
-                        {Object.entries(groupedTasks).map(
+                        {Object.entries(groupedActiveTasks).map(
                           ([assigneeId, userTasks]) => {
                             const firstTask = userTasks[0];
                             const annotatorAssignment =
@@ -1943,6 +2010,571 @@ export function ProjectDetailPage() {
                 </Table>
               </div>
             </Card>
+              </TabsContent>
+
+              {/* Submitted Tasks Tab */}
+              <TabsContent value="submitted" className="space-y-6">
+                {/* Search & Filter for Submitted Tasks */}
+                <Card className="p-4">
+                  <div className="flex flex-wrap gap-4">
+                    <div className="flex-1 min-w-[250px]">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Search tasks by name or ID..."
+                          value={taskSearchQuery}
+                          onChange={(e) => setTaskSearchQuery(e.target.value)}
+                          className="pl-9"
+                        />
+                      </div>
+                    </div>
+                    <Select
+                      value={taskFilterAssignee}
+                      onValueChange={setTaskFilterAssignee}
+                    >
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Assignee" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Assignees</SelectItem>
+                        {annotators
+                          .filter((a: any) => a.projectRole === "ANNOTATOR")
+                          .map((a: any) => (
+                            <SelectItem key={a.userId} value={a.userId}>
+                              {a.user?.fullName || a.user?.email || "Unknown"}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </Card>
+
+                <Card className="p-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <h3 className="text-xl font-semibold">Submitted Tasks</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Showing {submittedTasks.length} tasks awaiting review
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="border border-gray-200 rounded-lg overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-gray-50">
+                          <TableHead className="w-[50px]"></TableHead>
+                          <TableHead>User / Task</TableHead>
+                          <TableHead className="w-[120px] text-right">
+                            Actions
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {isTasksLoading ? (
+                          <TableRow>
+                            <TableCell colSpan={3} className="text-center py-8">
+                              <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" />
+                              <p className="text-sm text-muted-foreground mt-2">
+                                Loading tasks...
+                              </p>
+                            </TableCell>
+                          </TableRow>
+                        ) : submittedTasks.length === 0 ? (
+                          <TableRow>
+                            <TableCell
+                              colSpan={3}
+                              className="text-center py-8 text-muted-foreground"
+                            >
+                              No submitted tasks awaiting review
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          <>
+                            {Object.entries(groupedSubmittedTasks).map(
+                              ([assigneeId, userTasks]) => {
+                                const firstTask = userTasks[0];
+                                const annotatorAssignment =
+                                  firstTask.assignments?.find(
+                                    (a: any) => a.annotatorId,
+                                  );
+                                const assignee = annotatorAssignment?.annotator;
+                                const isExpanded = expandedUsers.has(assigneeId);
+                                const taskCount = userTasks.length;
+
+                                return (
+                                  <React.Fragment key={`submitted-group-${assigneeId}`}>
+                                    {/* User Group Row */}
+                                    <TableRow
+                                      className="bg-gradient-to-r from-purple-50 to-purple-100 hover:from-purple-100 hover:to-purple-200 cursor-pointer border-b-2 border-purple-300"
+                                      onClick={() =>
+                                        toggleUserExpansion(assigneeId)
+                                      }
+                                    >
+                                      <TableCell className="py-4"></TableCell>
+                                      <TableCell>
+                                        <div className="flex items-center gap-3">
+                                          <div className="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0">
+                                            {assigneeId === "unassigned"
+                                              ? "?"
+                                              : assignee?.fullName
+                                                  ?.charAt(0)
+                                                  .toUpperCase() || "A"}
+                                          </div>
+                                          <div className="flex-1">
+                                            <div className="font-medium text-gray-900">
+                                              {assigneeId === "unassigned"
+                                                ? "Unassigned Tasks"
+                                                : assignee?.fullName ||
+                                                  assignee?.email ||
+                                                  "Unknown"}
+                                            </div>
+                                            <div className="text-xs text-gray-500">
+                                              {taskCount} submitted {taskCount === 1 ? "task" : "tasks"}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </TableCell>
+                                      <TableCell className="text-right">
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            toggleUserExpansion(assigneeId);
+                                          }}
+                                        >
+                                          {isExpanded ? (
+                                            <ChevronDown className="w-4 h-4" />
+                                          ) : (
+                                            <ChevronRight className="w-4 h-4" />
+                                          )}
+                                        </Button>
+                                      </TableCell>
+                                    </TableRow>
+
+                                    {/* Expanded Tasks */}
+                                    {isExpanded &&
+                                      getPaginatedUserTasks(userTasks, assigneeId).map(
+                                        (task: any) => {
+                                          const assignment = task.assignments?.find(
+                                            (a: any) => a.annotatorId,
+                                          );
+                                          return (
+                                            <TableRow
+                                              key={`submitted-task-${task.id}`}
+                                              className="hover:bg-purple-50/50"
+                                            >
+                                              <TableCell></TableCell>
+                                              <TableCell>
+                                                <div className="flex items-center gap-3 pl-12">
+                                                  <div className="w-12 h-12 rounded overflow-hidden bg-gray-100 border flex-shrink-0">
+                                                    <img
+                                                      src={task.image?.storageUrl}
+                                                      alt={
+                                                        task.image?.originalFilename ||
+                                                        "Task"
+                                                      }
+                                                      className="w-full h-full object-cover"
+                                                    />
+                                                  </div>
+                                                  <div className="flex-1 min-w-0">
+                                                    <div className="font-medium text-sm truncate">
+                                                      {task.image?.originalFilename ||
+                                                        "Untitled"}
+                                                    </div>
+                                                    <div className="text-xs text-gray-500">
+                                                      ID: {task.id.slice(0, 8)}...
+                                                    </div>
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 mt-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
+                                                      Submitted
+                                                    </span>
+                                                  </div>
+                                                </div>
+                                              </TableCell>
+                                              <TableCell className="text-right">
+                                                <Button
+                                                  size="sm"
+                                                  onClick={() => {
+                                                    // Navigate to review workspace
+                                                    const assignmentId = assignment?.id;
+                                                    if (assignmentId) {
+                                                      navigate(`/workspace/${assignmentId}?mode=review`);
+                                                    }
+                                                  }}
+                                                  className="bg-purple-600 hover:bg-purple-700 text-white"
+                                                >
+                                                  Review
+                                                </Button>
+                                              </TableCell>
+                                            </TableRow>
+                                          );
+                                        },
+                                      )}
+
+                                    {/* Pagination for submitted tasks */}
+                                    {isExpanded && getUserTotalPages(userTasks) > 1 && (
+                                      <TableRow className="bg-gray-50">
+                                        <TableCell colSpan={3}>
+                                          <div className="flex items-center justify-center gap-2 py-2">
+                                            <Button
+                                              variant="outline"
+                                              size="icon"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setUserPage(assigneeId, 1);
+                                              }}
+                                              disabled={getUserPage(assigneeId) === 1}
+                                            >
+                                              <ChevronsLeft className="w-4 h-4" />
+                                            </Button>
+                                            <Button
+                                              variant="outline"
+                                              size="icon"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setUserPage(
+                                                  assigneeId,
+                                                  Math.max(1, getUserPage(assigneeId) - 1),
+                                                );
+                                              }}
+                                              disabled={getUserPage(assigneeId) === 1}
+                                            >
+                                              <ChevronLeft className="w-4 h-4" />
+                                            </Button>
+                                            <span className="text-sm text-muted-foreground px-2">
+                                              Page {getUserPage(assigneeId)} of{" "}
+                                              {getUserTotalPages(userTasks)}
+                                            </span>
+                                            <Button
+                                              variant="outline"
+                                              size="icon"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setUserPage(
+                                                  assigneeId,
+                                                  Math.min(
+                                                    getUserTotalPages(userTasks),
+                                                    getUserPage(assigneeId) + 1,
+                                                  ),
+                                                );
+                                              }}
+                                              disabled={
+                                                getUserPage(assigneeId) ===
+                                                getUserTotalPages(userTasks)
+                                              }
+                                            >
+                                              <ChevronRight className="w-4 h-4" />
+                                            </Button>
+                                            <Button
+                                              variant="outline"
+                                              size="icon"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setUserPage(
+                                                  assigneeId,
+                                                  getUserTotalPages(userTasks),
+                                                );
+                                              }}
+                                              disabled={
+                                                getUserPage(assigneeId) ===
+                                                getUserTotalPages(userTasks)
+                                              }
+                                            >
+                                              <ChevronsRight className="w-4 h-4" />
+                                            </Button>
+                                          </div>
+                                        </TableCell>
+                                      </TableRow>
+                                    )}
+                                  </React.Fragment>
+                                );
+                              },
+                            )}
+                          </>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </Card>
+              </TabsContent>
+
+              {/* Completed Tasks Tab */}
+              <TabsContent value="completed" className="space-y-6">
+                {/* Search & Filter for Completed Tasks */}
+                <Card className="p-4">
+                  <div className="flex flex-wrap gap-4">
+                    <div className="flex-1 min-w-[250px]">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Search tasks by name or ID..."
+                          value={taskSearchQuery}
+                          onChange={(e) => setTaskSearchQuery(e.target.value)}
+                          className="pl-9"
+                        />
+                      </div>
+                    </div>
+                    <Select
+                      value={taskFilterAssignee}
+                      onValueChange={setTaskFilterAssignee}
+                    >
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Assignee" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Assignees</SelectItem>
+                        {annotators
+                          .filter((a: any) => a.projectRole === "ANNOTATOR")
+                          .map((a: any) => (
+                            <SelectItem key={a.userId} value={a.userId}>
+                              {a.user?.fullName || a.user?.email || "Unknown"}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </Card>
+
+                <Card className="p-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <h3 className="text-xl font-semibold">Completed Tasks</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Showing {completedTasks.length} completed tasks
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="border border-gray-200 rounded-lg overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-gray-50">
+                          <TableHead className="w-[50px]"></TableHead>
+                          <TableHead>User / Task</TableHead>
+                          <TableHead className="w-[100px] text-right">
+                            Status
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {isTasksLoading ? (
+                          <TableRow>
+                            <TableCell colSpan={3} className="text-center py-8">
+                              <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" />
+                              <p className="text-sm text-muted-foreground mt-2">
+                                Loading tasks...
+                              </p>
+                            </TableCell>
+                          </TableRow>
+                        ) : completedTasks.length === 0 ? (
+                          <TableRow>
+                            <TableCell
+                              colSpan={3}
+                              className="text-center py-8 text-muted-foreground"
+                            >
+                              No completed tasks yet
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          <>
+                            {Object.entries(groupedCompletedTasks).map(
+                              ([assigneeId, userTasks]) => {
+                                const firstTask = userTasks[0];
+                                const annotatorAssignment =
+                                  firstTask.assignments?.find(
+                                    (a: any) => a.annotatorId,
+                                  );
+                                const assignee = annotatorAssignment?.annotator;
+                                const isExpanded = expandedUsers.has(assigneeId);
+                                const taskCount = userTasks.length;
+
+                                return (
+                                  <React.Fragment key={`completed-group-${assigneeId}`}>
+                                    {/* User Group Row */}
+                                    <TableRow
+                                      className="bg-gradient-to-r from-green-50 to-green-100 hover:from-green-100 hover:to-green-200 cursor-pointer border-b-2 border-green-300"
+                                      onClick={() =>
+                                        toggleUserExpansion(assigneeId)
+                                      }
+                                    >
+                                      <TableCell className="py-4"></TableCell>
+                                      <TableCell>
+                                        <div className="flex items-center gap-3">
+                                          <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0">
+                                            {assigneeId === "unassigned"
+                                              ? "?"
+                                              : assignee?.fullName
+                                                  ?.charAt(0)
+                                                  .toUpperCase() || "A"}
+                                          </div>
+                                          <div className="flex-1">
+                                            <div className="font-medium text-gray-900">
+                                              {assigneeId === "unassigned"
+                                                ? "Unassigned Tasks"
+                                                : assignee?.fullName ||
+                                                  assignee?.email ||
+                                                  "Unknown"}
+                                            </div>
+                                            <div className="text-xs text-gray-500">
+                                              {taskCount} completed {taskCount === 1 ? "task" : "tasks"}
+                                            </div>
+                                          </div>
+                                          <div className="text-sm text-green-600 font-medium flex items-center gap-1">
+                                            <CheckCircle2 className="w-4 h-4" />
+                                            All Approved
+                                          </div>
+                                        </div>
+                                      </TableCell>
+                                      <TableCell className="text-right">
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            toggleUserExpansion(assigneeId);
+                                          }}
+                                        >
+                                          {isExpanded ? (
+                                            <ChevronDown className="w-4 h-4" />
+                                          ) : (
+                                            <ChevronRight className="w-4 h-4" />
+                                          )}
+                                        </Button>
+                                      </TableCell>
+                                    </TableRow>
+
+                                    {/* Expanded Tasks */}
+                                    {isExpanded &&
+                                      getPaginatedUserTasks(userTasks, assigneeId).map(
+                                        (task: any) => {
+                                          return (
+                                            <TableRow
+                                              key={`completed-task-${task.id}`}
+                                              className="hover:bg-green-50/50"
+                                            >
+                                              <TableCell></TableCell>
+                                              <TableCell>
+                                                <div className="flex items-center gap-3 pl-12">
+                                                  <div className="w-12 h-12 rounded overflow-hidden bg-gray-100 border flex-shrink-0">
+                                                    <img
+                                                      src={task.image?.storageUrl}
+                                                      alt={
+                                                        task.image?.originalFilename ||
+                                                        "Task"
+                                                      }
+                                                      className="w-full h-full object-cover"
+                                                    />
+                                                  </div>
+                                                  <div className="flex-1 min-w-0">
+                                                    <div className="font-medium text-sm truncate">
+                                                      {task.image?.originalFilename ||
+                                                        "Untitled"}
+                                                    </div>
+                                                    <div className="text-xs text-gray-500">
+                                                      ID: {task.id.slice(0, 8)}...
+                                                    </div>
+                                                  </div>
+                                                </div>
+                                              </TableCell>
+                                              <TableCell className="text-right">
+                                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                                                  <CheckCircle2 className="w-3 h-3" />
+                                                  Approved
+                                                </span>
+                                              </TableCell>
+                                            </TableRow>
+                                          );
+                                        },
+                                      )}
+
+                                    {/* Pagination for completed tasks */}
+                                    {isExpanded && getUserTotalPages(userTasks) > 1 && (
+                                      <TableRow className="bg-gray-50">
+                                        <TableCell colSpan={3}>
+                                          <div className="flex items-center justify-center gap-2 py-2">
+                                            <Button
+                                              variant="outline"
+                                              size="icon"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setUserPage(assigneeId, 1);
+                                              }}
+                                              disabled={getUserPage(assigneeId) === 1}
+                                            >
+                                              <ChevronsLeft className="w-4 h-4" />
+                                            </Button>
+                                            <Button
+                                              variant="outline"
+                                              size="icon"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setUserPage(
+                                                  assigneeId,
+                                                  Math.max(1, getUserPage(assigneeId) - 1),
+                                                );
+                                              }}
+                                              disabled={getUserPage(assigneeId) === 1}
+                                            >
+                                              <ChevronLeft className="w-4 h-4" />
+                                            </Button>
+                                            <span className="text-sm text-muted-foreground px-2">
+                                              Page {getUserPage(assigneeId)} of{" "}
+                                              {getUserTotalPages(userTasks)}
+                                            </span>
+                                            <Button
+                                              variant="outline"
+                                              size="icon"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setUserPage(
+                                                  assigneeId,
+                                                  Math.min(
+                                                    getUserTotalPages(userTasks),
+                                                    getUserPage(assigneeId) + 1,
+                                                  ),
+                                                );
+                                              }}
+                                              disabled={
+                                                getUserPage(assigneeId) ===
+                                                getUserTotalPages(userTasks)
+                                              }
+                                            >
+                                              <ChevronRight className="w-4 h-4" />
+                                            </Button>
+                                            <Button
+                                              variant="outline"
+                                              size="icon"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setUserPage(
+                                                  assigneeId,
+                                                  getUserTotalPages(userTasks),
+                                                );
+                                              }}
+                                              disabled={
+                                                getUserPage(assigneeId) ===
+                                                getUserTotalPages(userTasks)
+                                              }
+                                            >
+                                              <ChevronsRight className="w-4 h-4" />
+                                            </Button>
+                                          </div>
+                                        </TableCell>
+                                      </TableRow>
+                                    )}
+                                  </React.Fragment>
+                                );
+                              },
+                            )}
+                          </>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </Card>
+              </TabsContent>
+            </Tabs>
           </TabsContent>
 
           <TabsContent value="resources" className="space-y-6">
