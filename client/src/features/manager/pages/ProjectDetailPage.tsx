@@ -2460,9 +2460,6 @@ export function ProjectDetailPage() {
                                     {isExpanded &&
                                       getPaginatedUserTasks(userTasks, assigneeId).map(
                                         (task: any) => {
-                                          const assignment = task.assignments?.find(
-                                            (a: any) => a.annotatorId,
-                                          );
                                           return (
                                             <TableRow
                                               key={`completed-task-${task.id}`}
