@@ -58,6 +58,7 @@ export function LabelRequestManager({ projectId, onUpdatePendingCount }: LabelRe
     // Form States
     const [selectedCategoryId, setSelectedCategoryId] = useState<string>("none");
     const [rejectionReason, setRejectionReason] = useState("");
+const [overrideColor, setOverrideColor] = useState("");
 
     const fetchRequests = async () => {
         setIsLoading(true);
@@ -91,6 +92,7 @@ export function LabelRequestManager({ projectId, onUpdatePendingCount }: LabelRe
 
     useEffect(() => {
         fetchRequests();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [projectId, activeTab]);
 
     useEffect(() => {
@@ -100,6 +102,7 @@ export function LabelRequestManager({ projectId, onUpdatePendingCount }: LabelRe
     const handleOpenApprove = (request: LabelRequest) => {
         setSelectedRequest(request);
         setSelectedCategoryId("none");
+    setOverrideColor(request.suggestedColor || "#3b82f6");
         setIsApproveOpen(true);
     };
 
@@ -114,12 +117,24 @@ export function LabelRequestManager({ projectId, onUpdatePendingCount }: LabelRe
 
         setActionLoading(true);
         try {
-            await labelRequestApi.approveRequest(
+      const result = await labelRequestApi.approveRequest(
                 projectId,
                 selectedRequest.id,
                 selectedCategoryId === "none" ? undefined : selectedCategoryId
             );
-            toast.success(`Label "${selectedRequest.labelName}" approved and created`);
+
+      // If the manager overrode the color, update the label immediately
+      if (
+        overrideColor &&
+        overrideColor !== selectedRequest.suggestedColor &&
+        result.label
+      ) {
+        await labelApi.update(result.label.id, { color: overrideColor });
+      }
+
+      toast.success(
+        `Label "${selectedRequest.labelName}" approved and created`,
+      );
             setIsApproveOpen(false);
             fetchRequests(); // Refresh list
         } catch (error: any) {
@@ -285,9 +300,39 @@ export function LabelRequestManager({ projectId, onUpdatePendingCount }: LabelRe
 
                     <div className="space-y-4 py-4">
                         <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-md border text-sm">
-                            <div className="w-6 h-6 rounded-full border" style={{ backgroundColor: selectedRequest?.suggestedColor || '#ccc' }} />
                             <span className="font-medium">{selectedRequest?.labelName}</span>
-                            <span className="text-muted-foreground ml-auto">Suggested by {selectedRequest?.requester?.fullName}</span>
+              <span className="text-muted-foreground ml-auto">
+                Suggested by {selectedRequest?.requester?.fullName}
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Label Color</Label>
+              <div className="flex items-center gap-3">
+                <Input
+                  type="color"
+                  value={overrideColor}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setOverrideColor(e.target.value)
+                  }
+                  className="w-14 h-10 p-1 cursor-pointer"
+                />
+                <Input
+                  type="text"
+                  value={overrideColor.toUpperCase()}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                    const val = e.target.value;
+                    if (/^#[0-9A-Fa-f]{0,6}$/.test(val)) {
+                      setOverrideColor(val);
+                    }
+                  }}
+                  className="flex-1 font-mono"
+                  maxLength={7}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                You can override the suggested color here.
+              </p>
                         </div>
 
                         <div className="space-y-2">
@@ -310,9 +355,21 @@ export function LabelRequestManager({ projectId, onUpdatePendingCount }: LabelRe
                     </div>
 
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsApproveOpen(false)} disabled={actionLoading}>Cancel</Button>
-                        <Button onClick={handleApprove} disabled={actionLoading} className="bg-green-600 hover:bg-green-700 text-white">
-                            {actionLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            <Button
+              variant="outline"
+              onClick={() => setIsApproveOpen(false)}
+              disabled={actionLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleApprove}
+              disabled={actionLoading}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              {actionLoading && (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              )}
                             Approve & Create
                         </Button>
                     </DialogFooter>
@@ -342,9 +399,21 @@ export function LabelRequestManager({ projectId, onUpdatePendingCount }: LabelRe
                     </div>
 
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsRejectOpen(false)} disabled={actionLoading}>Cancel</Button>
-                        <Button onClick={handleReject} disabled={actionLoading} variant="destructive">
-                            {actionLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            <Button
+              variant="outline"
+              onClick={() => setIsRejectOpen(false)}
+              disabled={actionLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleReject}
+              disabled={actionLoading}
+              variant="destructive"
+            >
+              {actionLoading && (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              )}
                             Reject Request
                         </Button>
                     </DialogFooter>
