@@ -77,8 +77,15 @@ export function WorkspacePage({
   }
 
   // Load task data from API
-  const { loading, error, taskData, submitTask, skipTask, saveDraft } =
-    useWorkspaceData(taskId);
+  const {
+    loading,
+    error,
+    taskData,
+    submitTask,
+    skipTask,
+    resumeTask,
+    saveDraft,
+  } = useWorkspaceData(taskId);
 
   const isReadOnly =
     taskStatus === "approved" ||
@@ -102,7 +109,8 @@ export function WorkspacePage({
   const projectId = taskData?.projectId;
 
   // Load all tasks in the project for navigation
-  const { imageTasks, findTaskIndex } = useProjectTasks(projectId);
+  const projectTasks = useProjectTasks(projectId);
+  const { imageTasks } = projectTasks;
 
   // Initialize keyboard shortcuts
   useKeyboardShortcuts(isReadOnly);
@@ -144,7 +152,7 @@ export function WorkspacePage({
       updateImages(imageTasks);
 
       // Always set current index based on taskId when taskId changes
-      const targetIndex = findTaskIndex(taskId);
+      const targetIndex = projectTasks.findTaskIndex(taskId);
       if (targetIndex >= 0) {
         const store = useImageStore.getState();
         if (store.currentIndex !== targetIndex) {
@@ -207,30 +215,40 @@ export function WorkspacePage({
       return;
     }
 
+    // Prevent duplicate submission if already submitted or approved
+    if (taskData?.status === "SUBMITTED" || taskData?.status === "APPROVED") {
+      toast.info("Task already submitted. Moving to next...");
+      handleNextAutoNav();
+      return;
+    }
+
     try {
       await submitTask(annotations, annotatorNote, actualTimeSeconds);
       toast.success("Task submitted successfully! Moving to next image...");
-
-      // Auto-navigate to next task if available
-      const currentIndexInProject = imageTasks.findIndex(
-        (t) => t.id === taskId,
-      );
-      const nextTask = imageTasks[currentIndexInProject + 1];
-
-      setTimeout(() => {
-        if (nextTask) {
-          navigate(`/workspace/${nextTask.id}`, { replace: true });
-        } else {
-          navigate(-1);
-        }
-      }, 2000);
-    } catch {
-      showAlert(
-        "Error",
-        "Failed to submit task. Please try again.",
-        "destructive",
-      );
+      handleNextAutoNav();
+    } catch (err: any) {
+      const errorMsg =
+        err.response?.data?.error || "Failed to submit task. Please try again.";
+      showAlert("Error", errorMsg, "destructive");
     }
+  };
+
+  // Helper for auto-navigation to avoid code duplication
+  const handleNextAutoNav = () => {
+    const currentIndexInProject = imageTasks.findIndex((t) => t.id === taskId);
+    const nextTask =
+      currentIndexInProject >= 0 &&
+      currentIndexInProject < imageTasks.length - 1
+        ? imageTasks[currentIndexInProject + 1]
+        : null;
+
+    setTimeout(() => {
+      if (nextTask) {
+        navigate(`/workspace/${nextTask.id}`, { replace: true });
+      } else {
+        navigate(-1);
+      }
+    }, 2000);
   };
 
   const handleSkip = () => {
@@ -238,30 +256,39 @@ export function WorkspacePage({
   };
 
   const handleConfirmSkip = async (reason: string) => {
+    // Prevent duplicate skip or skip on already submitted task
+    const isSkipped =
+      taskStatus.toLowerCase() === "skipped" ||
+      (currentImage as { status?: string })?.status?.toUpperCase() ===
+        "SKIPPED";
+    if (isSkipped) {
+      toast.info("Task already skipped. Moving to next...");
+      setIsSkipModalOpen(false);
+      handleNextAutoNav();
+      return;
+    }
+
     try {
       // In medical imaging, skip reason is often stored in the annotatorNote field
       // We pass the reason to skipTask which will call the PATCH API
       await skipTask(reason, actualTimeSeconds);
       setIsSkipModalOpen(false);
       toast.info("Task skipped. Moving to next image...");
+      handleNextAutoNav();
+    } catch (err: any) {
+      const errorMsg =
+        err.response?.data?.error || "Failed to skip task. Please try again.";
+      showAlert("Error", errorMsg, "destructive");
+    }
+  };
 
-      // Auto-navigate to next task if available
-      const currentIndexInProject = imageTasks.findIndex(
-        (t) => t.id === taskId,
-      );
-      const nextTask = imageTasks[currentIndexInProject + 1];
-
-      setTimeout(() => {
-        if (nextTask) {
-          navigate(`/workspace/${nextTask.id}`, { replace: true });
-        } else {
-          navigate(-1);
-        }
-      }, 2000);
+  const handleResume = async () => {
+    try {
+      await resumeTask();
     } catch {
       showAlert(
         "Error",
-        "Failed to skip task. Please try again.",
+        "Failed to resume task. Please try again.",
         "destructive",
       );
     }
@@ -273,15 +300,11 @@ export function WorkspacePage({
   };
 
   const handleReject = () => {
-    const reason = prompt("Please provide a rejection reason:");
-    if (reason && reason.trim()) {
-      alert(`Task rejected. Reason: ${reason}`);
-      navigate(-1);
-    }
-  };
-
-  const handleClose = () => {
-    navigate(-1);
+    showAlert(
+      "Feature Not Implemented",
+      "Reject function is coming soon",
+      "default",
+    );
   };
 
   // Loading state
@@ -331,12 +354,13 @@ export function WorkspacePage({
       {/* Header */}
       <WorkspaceHeader
         mode={mode}
-        taskStatus={taskStatus}
+        taskStatus={taskData?.status?.toLowerCase() as any}
         onSubmit={handleSubmit}
         onSkip={handleSkip}
+        onResume={handleResume}
         onApprove={handleApprove}
         onReject={handleReject}
-        onClose={handleClose}
+        onClose={() => navigate(-1)}
         actualTimeSeconds={actualTimeSeconds}
       />
 

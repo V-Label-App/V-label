@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import type { TaskAssignmentListItem } from "../../../services/annotator.api";
 import { annotatorApi } from "../../../services/annotator.api";
 import type { Annotation } from "../stores";
+import { toast } from "sonner";
 
 export interface WorkspaceTaskData {
   assignmentId: string;
@@ -44,6 +45,7 @@ export interface UseWorkspaceDataReturn {
     timeSeconds?: number,
   ) => Promise<void>;
   skipTask: (reason?: string, timeSeconds?: number) => Promise<void>;
+  resumeTask: () => Promise<void>;
 }
 
 /**
@@ -158,8 +160,11 @@ export const useWorkspaceData = (
           annotatorNote: note,
           actualTimeSeconds: timeSeconds,
         });
-      } catch (err) {
+      } catch (err: any) {
         console.error("Failed to submit task:", err);
+        if (err.response) {
+          console.error("Server error response:", err.response.data);
+        }
         throw err;
       }
     },
@@ -177,13 +182,38 @@ export const useWorkspaceData = (
           annotatorNote: reason,
           actualTimeSeconds: timeSeconds,
         });
-      } catch (err) {
+        // Reloader after status change to get fresh state
+        await loadData();
+      } catch (err: any) {
         console.error("Failed to skip task:", err);
+        if (err.response) {
+          console.error("Server error response:", err.response.data);
+        }
         throw err;
       }
     },
-    [assignmentId],
+    [assignmentId, loadData],
   );
+
+  /**
+   * Resume a skipped or submitted task back to IN_PROGRESS
+   */
+  const resumeTask = useCallback(async () => {
+    try {
+      await annotatorApi.updateTaskAssignment(assignmentId, {
+        status: "IN_PROGRESS",
+      });
+      // Refresh local data to reflect status change
+      await loadData();
+      toast.success("Task resumed. You can now continue annotating.");
+    } catch (err: any) {
+      console.error("Failed to resume task:", err);
+      if (err.response) {
+        console.error("Server error response:", err.response.data);
+      }
+      throw err;
+    }
+  }, [assignmentId, loadData]);
 
   // Load data on mount
   useEffect(() => {
@@ -200,5 +230,6 @@ export const useWorkspaceData = (
     saveDraft,
     submitTask,
     skipTask,
+    resumeTask,
   };
 };
