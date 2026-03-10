@@ -421,6 +421,7 @@ export function WorkspacePage({
         <WorkspaceSidebar
           isReadOnly={isReadOnly}
           initialTab={taskStatus === "rejected" ? "discussion" : "regions"}
+          projectId={projectId}
         />
       </div>
 
