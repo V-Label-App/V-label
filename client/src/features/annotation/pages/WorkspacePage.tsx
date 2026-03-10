@@ -12,6 +12,7 @@ import { useWorkspaceData } from "../hooks/useWorkspaceData";
 import { useProjectTasks } from "../hooks/useProjectTasks";
 import { useAutoSave } from "../hooks/useAutoSave";
 import { useState } from "react";
+import { SkipReasonModal } from "../components/workspace/SkipReasonModal";
 
 interface WorkspacePageProps {
   mode?: "annotate" | "review";
@@ -41,6 +42,7 @@ export function WorkspacePage({
   const { setLabels } = useLabelStore();
 
   const [actualTimeSeconds, setActualTimeSeconds] = useState(0);
+  const [isSkipModalOpen, setIsSkipModalOpen] = useState(false);
 
   // Ref to prevent navigation loop
   const isUpdatingFromURL = useRef(false);
@@ -182,16 +184,15 @@ export function WorkspacePage({
     }
   };
 
-  const handleSkip = async () => {
-    if (confirm("Are you sure you want to skip this task?")) {
-      try {
-        await skipTask();
-        alert("Task skipped");
-        navigate(-1);
-      } catch {
-        alert("Failed to skip task");
-      }
-    }
+  const handleSkip = () => {
+    setIsSkipModalOpen(true);
+  };
+
+  const handleConfirmSkip = async (reason: string) => {
+    setIsSkipModalOpen(false);
+    // TODO: Implement persistent skip with reason
+    alert(`Design Approval: This will skip the task with reason: "${reason}"`);
+    // navigate(-1); // Coming in next step: "The Brain"
   };
 
   const handleApprove = () => {
@@ -289,6 +290,13 @@ export function WorkspacePage({
           initialTab={taskStatus === "rejected" ? "discussion" : "regions"}
         />
       </div>
+
+      {/* Modals */}
+      <SkipReasonModal
+        isOpen={isSkipModalOpen}
+        onClose={() => setIsSkipModalOpen(false)}
+        onConfirm={handleConfirmSkip}
+      />
     </motion.div>
   );
 }
