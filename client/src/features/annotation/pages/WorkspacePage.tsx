@@ -31,8 +31,13 @@ export function WorkspacePage({
   const navigate = useNavigate();
   const { updateImages, getCurrentImage, currentIndex, jumpToImage } =
     useImageStore();
-  const { clearAnnotations, setAnnotations, annotations } =
-    useAnnotationStore();
+  const {
+    clearAnnotations,
+    setAnnotations,
+    annotations,
+    setAnnotatorNote,
+    setReviewComment,
+  } = useAnnotationStore();
   const { setLabels } = useLabelStore();
 
   const [actualTimeSeconds, setActualTimeSeconds] = useState(0);
@@ -90,8 +95,19 @@ export function WorkspacePage({
       } else {
         clearAnnotations();
       }
+
+      // Load annotator note and review comment
+      setAnnotatorNote(taskData.annotatorNote || "");
+      setReviewComment(taskData.reviewComment || "");
     }
-  }, [taskData, setLabels, setAnnotations, clearAnnotations]);
+  }, [
+    taskData,
+    setLabels,
+    setAnnotations,
+    clearAnnotations,
+    setAnnotatorNote,
+    setReviewComment,
+  ]);
 
   // Update image tasks list and current index when project tasks are loaded
   useEffect(() => {
