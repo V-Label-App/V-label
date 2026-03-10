@@ -4,8 +4,9 @@ import { useCanvasStore, useAnnotationStore, useLabelStore } from "../stores";
 import { generateId } from "../constants";
 
 export function useAnnotationTools() {
-  const { tool } = useCanvasStore();
-  const { addAnnotation } = useAnnotationStore();
+  const { tool, imageSize, isModalOpen } = useCanvasStore();
+  const { addAnnotation, defaultOpacity, defaultStrokeWidth } =
+    useAnnotationStore();
   const { labels } = useLabelStore();
 
   const [isDrawing, setIsDrawing] = useState(false);
@@ -21,7 +22,7 @@ export function useAnnotationTools() {
 
   const handleMouseDown = useCallback(
     (e: Konva.KonvaEventObject<MouseEvent>) => {
-      if (tool !== "rectangle") return;
+      if (tool !== "rectangle" || isModalOpen) return;
 
       const stage = e.target.getStage();
       if (!stage) return;
@@ -32,11 +33,16 @@ export function useAnnotationTools() {
       const transform = stage.getAbsoluteTransform().copy().invert();
       const stagePos = transform.point(pos);
 
+      // Clamp start point to image bounds
+      const clampX = Math.max(0, Math.min(stagePos.x, imageSize.width));
+      const clampY = Math.max(0, Math.min(stagePos.y, imageSize.height));
+
       setIsDrawing(true);
-      setDrawStart(stagePos);
-      setTempRect({ x: stagePos.x, y: stagePos.y, width: 0, height: 0 });
+      const startPoint = { x: clampX, y: clampY };
+      setDrawStart(startPoint);
+      setTempRect({ x: clampX, y: clampY, width: 0, height: 0 });
     },
-    [tool],
+    [tool, imageSize, isModalOpen],
   );
 
   const handleMouseMove = useCallback(
@@ -52,16 +58,22 @@ export function useAnnotationTools() {
       const transform = stage.getAbsoluteTransform().copy().invert();
       const stagePos = transform.point(pos);
 
+      // Clamp to image bounds
+      const clampX = Math.max(0, Math.min(stagePos.x, imageSize.width));
+      const clampY = Math.max(0, Math.min(stagePos.y, imageSize.height));
+
       const newRect = {
-        x: Math.min(drawStart.x, stagePos.x),
-        y: Math.min(drawStart.y, stagePos.y),
-        width: Math.abs(stagePos.x - drawStart.x),
-        height: Math.abs(stagePos.y - drawStart.y),
+        x: Math.min(drawStart.x, clampX),
+        y: Math.min(drawStart.y, clampY),
+        width: Math.abs(clampX - drawStart.x),
+        height: Math.abs(clampY - drawStart.y),
       };
+
+      console.log("Drawing rectangle coordinates:", newRect);
 
       setTempRect(newRect);
     },
-    [isDrawing, drawStart, tool],
+    [isDrawing, drawStart, tool, imageSize],
   );
 
   const handleMouseUp = useCallback(() => {
@@ -79,6 +91,8 @@ export function useAnnotationTools() {
           height: tempRect.height,
           visible: true,
           createdAt: new Date(),
+          opacity: defaultOpacity,
+          strokeWidth: defaultStrokeWidth,
         });
       }
     }
@@ -86,7 +100,15 @@ export function useAnnotationTools() {
     setIsDrawing(false);
     setDrawStart(null);
     setTempRect(null);
-  }, [isDrawing, tool, tempRect, addAnnotation, labels]);
+  }, [
+    isDrawing,
+    tool,
+    tempRect,
+    addAnnotation,
+    labels,
+    defaultOpacity,
+    defaultStrokeWidth,
+  ]);
 
   return {
     isDrawing,

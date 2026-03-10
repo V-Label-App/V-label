@@ -13,6 +13,7 @@ export interface Annotation {
   createdAt: Date;
   aiSuggested?: boolean; // Flag if AI suggested this box
   opacity?: number; // Custom opacity
+  strokeWidth?: number; // Custom stroke width (px)
 }
 
 interface AnnotationState {
@@ -20,6 +21,9 @@ interface AnnotationState {
   selectedAnnotationId: string | null;
   history: Annotation[][];
   historyIndex: number;
+
+  defaultOpacity: number;
+  defaultStrokeWidth: number;
 
   // Actions
   addAnnotation: (annotation: Annotation) => void;
@@ -29,6 +33,8 @@ interface AnnotationState {
   toggleVisibility: (id: string) => void;
   setAnnotations: (annotations: Annotation[]) => void;
   clearAnnotations: () => void;
+  setDefaultOpacity: (opacity: number) => void;
+  setDefaultStrokeWidth: (width: number) => void;
 
   // History
   undo: () => void;
@@ -43,6 +49,8 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
   selectedAnnotationId: null,
   history: [[]],
   historyIndex: 0,
+  defaultOpacity: 0.1,
+  defaultStrokeWidth: 2,
 
   addAnnotation: (annotation) => {
     const newAnnotations = [...get().annotations, annotation];
@@ -86,6 +94,9 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
       historyIndex: 0,
     });
   },
+
+  setDefaultOpacity: (opacity) => set({ defaultOpacity: opacity }),
+  setDefaultStrokeWidth: (width) => set({ defaultStrokeWidth: width }),
 
   // History management
   addToHistory: (annotations) => {
