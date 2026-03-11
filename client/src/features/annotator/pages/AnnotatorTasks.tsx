@@ -13,7 +13,7 @@ import {
   TableRow,
 } from "../../../components/ui/table";
 
-import { FolderKanban, Loader2, Users, CheckCircle2, Search } from "lucide-react";
+import { FolderKanban, Loader2, Users, CheckCircle2, Search, Sparkles } from "lucide-react";
 import { annotatorApi } from "../../../services/annotator.api";
 import type { AnnotatorProject } from "../../../services/annotator.api";
 import { toast } from "sonner";
@@ -137,11 +137,13 @@ export function AnnotatorTasks(_props: AnnotatorTasksProps) {
                 <TableBody className="divide-y divide-gray-200">
                   {filteredProjects.map((project) => {
                     const progress = project.progress || 0;
+                    const isPaused = project.status === "PAUSED";
                     return (
                       <TableRow
                         key={project.id}
-                        className="hover:bg-gray-50 transition-colors cursor-pointer"
-                        onClick={() => navigate(`/annotator/projects/${project.id}`)}
+                        className={`transition-colors ${isPaused ? "opacity-60 cursor-not-allowed" : "hover:bg-gray-50 cursor-pointer"}`}
+                        onClick={() => !isPaused && navigate(`/annotator/projects/${project.id}`)}
+                        title={isPaused ? "This project is paused" : undefined}
                       >
                         <TableCell>
                           <div className="flex items-center gap-3">
@@ -149,11 +151,19 @@ export function AnnotatorTasks(_props: AnnotatorTasksProps) {
                               <FolderKanban className="w-5 h-5 text-blue-600" />
                             </div>
                             <div className="min-w-0 flex-1 overflow-hidden">
-                              <div
-                                className="font-semibold text-gray-900 truncate"
-                                title={project.name}
-                              >
-                                {project.name}
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className="font-semibold text-gray-900 truncate"
+                                  title={project.name}
+                                >
+                                  {project.name}
+                                </div>
+                                {project.enableAiAssistance && (
+                                  <Badge className="bg-purple-50 text-purple-700 border border-purple-200 flex items-center gap-1 shrink-0 text-xs px-1.5 py-0">
+                                    <Sparkles className="w-3 h-3" />
+                                    AI
+                                  </Badge>
+                                )}
                               </div>
                               <div
                                 className="text-xs text-gray-500 truncate max-w-[400px]"

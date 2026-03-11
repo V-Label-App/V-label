@@ -36,6 +36,7 @@ import {
   AlertTriangle,
   Search,
   Eye,
+  Sparkles,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -180,11 +181,19 @@ export function AnnotatorProjectDetailPage() {
               </p>
             </div>
 
-            {project.category && (
-              <Badge className="bg-blue-50 text-blue-700 border-blue-200">
-                {project.category.name}
-              </Badge>
-            )}
+            <div className="flex items-center gap-2">
+              {project.enableAiAssistance && (
+                <Badge className="bg-purple-50 text-purple-700 border border-purple-200 flex items-center gap-1">
+                  <Sparkles className="w-3 h-3" />
+                  AI Assisted
+                </Badge>
+              )}
+              {project.category && (
+                <Badge className="bg-blue-50 text-blue-700 border-blue-200">
+                  {project.category.name}
+                </Badge>
+              )}
+            </div>
           </div>
 
           {/* Project Labels Section */}

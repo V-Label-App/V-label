@@ -48,6 +48,7 @@ export interface AnnotatorProject {
   description?: string;
   status: string;
   progress?: number;
+  enableAiAssistance: boolean;
   category?: {
     id: string;
     name: string;

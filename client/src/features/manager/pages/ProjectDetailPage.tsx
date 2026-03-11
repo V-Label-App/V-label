@@ -793,7 +793,7 @@ export function ProjectDetailPage() {
     const assignment = t.assignments?.find((a: any) => a.annotatorId);
     if (!assignment) return true; // No assignment yet = unassigned active task
     const status = assignment?.status;
-    return status === "ASSIGNED" || status === "IN_PROGRESS" || status === "REJECTED";
+    return status === "ASSIGNED" || status === "IN_PROGRESS" || status === "REJECTED" || status === "SKIPPED";
   });
 
   const submittedTasks = tasks.filter((t: any) => {
@@ -820,17 +820,28 @@ export function ProjectDetailPage() {
   }, {});
 
   // Group active tasks by assignee
-  const groupedActiveTasks = activeTasks.reduce((acc: Record<string, any[]>, task: any) => {
-    const annotatorAssignment = task.assignments?.find(
-      (a: any) => a.annotatorId,
-    );
-    const assigneeId = annotatorAssignment?.annotatorId || "unassigned";
-    if (!acc[assigneeId]) {
-      acc[assigneeId] = [];
-    }
-    acc[assigneeId].push(task);
-    return acc;
-  }, {});
+  const groupedActiveTasks = Object.fromEntries(
+    Object.entries(
+      activeTasks.reduce((acc: Record<string, any[]>, task: any) => {
+        const annotatorAssignment = task.assignments?.find(
+          (a: any) => a.annotatorId,
+        );
+        const assigneeId = annotatorAssignment?.annotatorId || "unassigned";
+        if (!acc[assigneeId]) {
+          acc[assigneeId] = [];
+        }
+        acc[assigneeId].push(task);
+        return acc;
+      }, {})
+    ).map(([assigneeId, tasks]) => [
+      assigneeId,
+      [...tasks].sort((a: any, b: any) => {
+        const aSkipped = a.assignments?.find((x: any) => x.annotatorId)?.status === "SKIPPED";
+        const bSkipped = b.assignments?.find((x: any) => x.annotatorId)?.status === "SKIPPED";
+        return aSkipped === bSkipped ? 0 : aSkipped ? -1 : 1;
+      }),
+    ])
+  );
 
   // Group submitted tasks by assignee
   const groupedSubmittedTasks = submittedTasks.reduce((acc: Record<string, any[]>, task: any) => {
@@ -1170,8 +1181,8 @@ export function ProjectDetailPage() {
     }
   };
   return (
-    <div className="min-h-screen bg-gray-50 animate-in fade-in slide-in-from-bottom-5 duration-700">
-      <div className="max-w-7xl mx-auto px-8 py-8">
+    <div className="min-h-screen bg-gray-50 animate-in fade-in slide-in-from-bottom-5 duration-700 overflow-x-hidden">
+      <div className="max-w-7xl mx-auto px-8 py-8 min-w-0">
         {/* Back Button & Actions */}
         <div className="flex items-center justify-between mb-6">
           <Button variant="ghost" onClick={() => navigate("/manager/projects")}>
@@ -1246,9 +1257,9 @@ export function ProjectDetailPage() {
 
         {/* Project Header */}
         <Card className="p-6 mb-8">
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-2">
+          <div className="flex items-start justify-between mb-4 flex-wrap gap-4">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-3 mb-2 flex-wrap">
                 <FolderOpen className="w-6 h-6 text-blue-600" />
                 <h2 className="text-2xl font-semibold">{project.name}</h2>
                 <Badge variant="outline">
@@ -1281,7 +1292,7 @@ export function ProjectDetailPage() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2 ml-6">
+            <div className="flex items-center gap-2 flex-wrap shrink-0">
               <Badge
                 variant="outline"
                 className="border-blue-200 bg-blue-50 text-blue-700"
@@ -1305,7 +1316,7 @@ export function ProjectDetailPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-4 gap-4 mt-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mt-6">
             <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
               <div className="w-10 h-10 bg-gray-200 rounded-lg flex items-center justify-center">
                 <Clock className="w-5 h-5 text-gray-600" />
@@ -1778,6 +1789,7 @@ export function ProjectDetailPage() {
                                             checked={selectedTasks.includes(
                                               task.id,
                                             )}
+                                            disabled={status === "IN_PROGRESS"}
                                             onCheckedChange={(checked) =>
                                               handleSelectTask(
                                                 task.id,
@@ -1827,9 +1839,12 @@ export function ProjectDetailPage() {
                                                               "ASSIGNED"
                                                             ? "bg-blue-100 text-blue-800 border-blue-300"
                                                             : status ===
-                                                                "UNASSIGNED"
-                                                              ? "bg-gray-100 text-gray-600 border-gray-300"
-                                                              : ""
+                                                                "SKIPPED"
+                                                              ? "bg-orange-100 text-orange-800 border-orange-300"
+                                                              : status ===
+                                                                  "UNASSIGNED"
+                                                                ? "bg-gray-100 text-gray-600 border-gray-300"
+                                                                : ""
                                                   }`}
                                                 >
                                                   {status
@@ -1853,6 +1868,12 @@ export function ProjectDetailPage() {
                                                   </div>
                                                 )}
                                               </div>
+                                              {status === "SKIPPED" && taskAssignment?.annotatorNote && (
+                                                <div className="mt-1 flex items-start gap-1 text-xs text-orange-700 bg-orange-50 border border-orange-200 rounded px-2 py-1">
+                                                  <span className="font-medium shrink-0">Skip reason:</span>
+                                                  <span className="break-words">{taskAssignment.annotatorNote}</span>
+                                                </div>
+                                              )}
                                             </div>
                                           </div>
                                         </TableCell>
@@ -1869,7 +1890,9 @@ export function ProjectDetailPage() {
                                               </DropdownMenuTrigger>
                                               <DropdownMenuContent align="end">
                                                 <DropdownMenuItem
+                                                  disabled={status === "IN_PROGRESS"}
                                                   onClick={() => {
+                                                    if (status === "IN_PROGRESS") return;
                                                     setTaskToAssign(task);
                                                     setSelectedAnnotatorId(
                                                       taskAssignment?.annotatorId ||
@@ -1880,10 +1903,15 @@ export function ProjectDetailPage() {
                                                 >
                                                   <Edit className="mr-2 h-4 w-4" />
                                                   Reassign
+                                                  {status === "IN_PROGRESS" && (
+                                                    <span className="ml-auto text-xs text-gray-400">In Progress</span>
+                                                  )}
                                                 </DropdownMenuItem>
                                                 <DropdownMenuSeparator />
                                                 <DropdownMenuItem
+                                                  disabled={status === "IN_PROGRESS"}
                                                   onClick={() => {
+                                                    if (status === "IN_PROGRESS") return;
                                                     setTaskToUnassign(task);
                                                     setIsUnassignDialogOpen(
                                                       true,
@@ -1893,6 +1921,9 @@ export function ProjectDetailPage() {
                                                 >
                                                   <Trash2 className="mr-2 h-4 w-4" />
                                                   Unassign
+                                                  {status === "IN_PROGRESS" && (
+                                                    <span className="ml-auto text-xs text-gray-400">In Progress</span>
+                                                  )}
                                                 </DropdownMenuItem>
                                               </DropdownMenuContent>
                                             </DropdownMenu>
