@@ -13,7 +13,14 @@ import {
   TableRow,
 } from "../../../components/ui/table";
 
-import { FolderKanban, Loader2, Users, CheckCircle2, Search, Sparkles } from "lucide-react";
+import {
+  FolderKanban,
+  Loader2,
+  Users,
+  CheckCircle2,
+  Search,
+  Sparkles,
+} from "lucide-react";
 import { annotatorApi } from "../../../services/annotator.api";
 import type { AnnotatorProject } from "../../../services/annotator.api";
 import { toast } from "sonner";
@@ -36,8 +43,8 @@ export function AnnotatorTasks(_props: AnnotatorTasksProps) {
         const projectsData = await annotatorApi.getMyProjects();
         setProjects(projectsData);
       } catch (error) {
-        console.error('Failed to fetch projects:', error);
-        toast.error('Failed to load projects');
+        console.error("Failed to fetch projects:", error);
+        toast.error("Failed to load projects");
       } finally {
         setIsLoading(false);
       }
@@ -47,9 +54,10 @@ export function AnnotatorTasks(_props: AnnotatorTasksProps) {
   }, []);
 
   // Filter projects by search
-  const filteredProjects = projects.filter((project) =>
-    project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    project.id.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredProjects = projects.filter(
+    (project) =>
+      project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      project.id.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   const getStatusBadgeColor = (status: string) => {
@@ -129,8 +137,12 @@ export function AnnotatorTasks(_props: AnnotatorTasksProps) {
                     <TableHead className="w-[35%]">Project Name</TableHead>
                     <TableHead className="w-[15%]">Category</TableHead>
                     <TableHead className="w-[20%]">Progress</TableHead>
-                    <TableHead className="w-[10%]">My Tasks</TableHead>
-                    <TableHead className="w-[10%]">Members</TableHead>
+                    <TableHead className="w-[10%] text-center">
+                      My Tasks
+                    </TableHead>
+                    <TableHead className="w-[10%] text-center">
+                      Members
+                    </TableHead>
                     <TableHead className="w-[10%]">Status</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -142,7 +154,10 @@ export function AnnotatorTasks(_props: AnnotatorTasksProps) {
                       <TableRow
                         key={project.id}
                         className={`transition-colors ${isPaused ? "opacity-60 cursor-not-allowed" : "hover:bg-gray-50 cursor-pointer"}`}
-                        onClick={() => !isPaused && navigate(`/annotator/projects/${project.id}`)}
+                        onClick={() =>
+                          !isPaused &&
+                          navigate(`/annotator/projects/${project.id}`)
+                        }
                         title={isPaused ? "This project is paused" : undefined}
                       >
                         <TableCell>
@@ -176,7 +191,7 @@ export function AnnotatorTasks(_props: AnnotatorTasksProps) {
                         </TableCell>
                         <TableCell>
                           {project.category ? (
-                            <Badge className="bg-blue-50 text-blue-700 border border-blue-200">
+                            <Badge className="bg-blue-50 text-blue-700 border border-blue-200 whitespace-nowrap">
                               {project.category.name}
                             </Badge>
                           ) : (
@@ -193,19 +208,19 @@ export function AnnotatorTasks(_props: AnnotatorTasksProps) {
                             </span>
                           </div>
                         </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
+                        <TableCell className="text-center">
+                          <div className="flex items-center justify-center gap-2">
                             <CheckCircle2 className="w-4 h-4 text-blue-500" />
                             <span className="text-sm font-medium text-gray-700">
                               {project._count.tasks || 0}
                             </span>
                           </div>
                         </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
+                        <TableCell className="text-center">
+                          <div className="flex items-center justify-center gap-2">
                             <Users className="w-4 h-4 text-gray-400" />
                             <span className="text-sm text-gray-700">
-                              {project._count.members || 0}
+                              {Math.max(0, (project._count.members || 0) - 1)}
                             </span>
                           </div>
                         </TableCell>
