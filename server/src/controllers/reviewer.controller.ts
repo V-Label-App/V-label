@@ -49,6 +49,31 @@ export class ReviewerController {
     }
 
     /**
+     * GET /api/v1/reviewer/assignments/:assignmentId
+     * Get assignment detail for review
+     */
+    static async getAssignmentDetail(req: Request, res: Response) {
+        try {
+            const userId = (req as any).user.sub || (req as any).user.id;
+            const assignmentId = req.params.assignmentId as string;
+
+            if (!assignmentId) {
+                return res.status(400).json({ error: 'Assignment ID is required' });
+            }
+
+            const result = await ReviewerService.getAssignmentDetail(assignmentId, userId);
+            return res.json(result);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Unknown error';
+            if (message.includes('not found')) {
+                return res.status(404).json({ error: message });
+            }
+            logger.error('API', 'Get assignment detail failed', { error });
+            return res.status(500).json({ error: 'Failed to fetch assignment detail' });
+        }
+    }
+
+    /**
      * POST /api/v1/reviewer/assignments/:assignmentId/approve
      * Approve a task assignment
      */
@@ -62,7 +87,11 @@ export class ReviewerController {
                 return res.status(400).json({ error: 'Assignment ID is required' });
             }
 
-            const result = await ReviewerService.approveTask(assignmentId, userId, reviewComment);
+            const result = await ReviewerService.approveTask(
+                assignmentId,
+                userId,
+                reviewComment
+            );
 
             logger.info('API', 'Task approved', { assignmentId, reviewerId: userId });
             return res.json(result);
@@ -108,6 +137,21 @@ export class ReviewerController {
             }
             logger.error('API', 'Reject task failed', { error });
             return res.status(500).json({ error: 'Failed to reject task' });
+        }
+    }
+
+    /**
+     * GET /api/v1/reviewer/stats
+     * Get reviewer statistics
+     */
+    static async getStats(req: Request, res: Response) {
+        try {
+            const userId = (req as any).user.sub || (req as any).user.id;
+            const stats = await ReviewerService.getStats(userId);
+            return res.json(stats);
+        } catch (error) {
+            logger.error('API', 'Get reviewer stats failed', { error });
+            return res.status(500).json({ error: 'Failed to fetch reviewer stats' });
         }
     }
 }
