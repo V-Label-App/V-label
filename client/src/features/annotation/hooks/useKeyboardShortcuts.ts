@@ -7,9 +7,11 @@ import {
 } from "../stores";
 
 export function useKeyboardShortcuts(isReadOnly: boolean = false) {
-  const { setTool } = useCanvasStore();
+  const { tool, setTool } = useCanvasStore();
   const {
     selectedAnnotationId,
+    selectAnnotation,
+    annotations,
     deleteAnnotation,
     updateAnnotation,
     undo,
@@ -17,7 +19,7 @@ export function useKeyboardShortcuts(isReadOnly: boolean = false) {
     canUndo,
     canRedo,
   } = useAnnotationStore();
-  const { labels } = useLabelStore();
+  const { labels, activeLabel, setActiveLabel } = useLabelStore();
   const { goToNext, goToPrevious, hasNext, hasPrevious } = useImageStore();
 
   useEffect(() => {
@@ -98,6 +100,53 @@ export function useKeyboardShortcuts(isReadOnly: boolean = false) {
         e.preventDefault();
         goToNext();
       }
+
+      // Left/Right Arrow without Alt key
+      if (!e.altKey) {
+        if (e.key === "ArrowLeft") {
+          e.preventDefault();
+          if (tool === "rectangle") {
+            // Switch to previous drawn annotation
+            if (annotations.length > 0) {
+              if (selectedAnnotationId) {
+                const currentIndex = annotations.findIndex(a => a.id === selectedAnnotationId);
+                if (currentIndex > 0) {
+                  selectAnnotation(annotations[currentIndex - 1].id);
+                } else {
+                  selectAnnotation(annotations[annotations.length - 1].id); // wrap around
+                }
+              } else {
+                selectAnnotation(annotations[annotations.length - 1].id);
+              }
+            }
+          } else if (tool === "select" || tool === "hand") {
+            // Switch to previous task
+            if (hasPrevious()) goToPrevious();
+          }
+        }
+        
+        if (e.key === "ArrowRight") {
+          e.preventDefault();
+          if (tool === "rectangle") {
+            // Switch to next drawn annotation
+            if (annotations.length > 0) {
+              if (selectedAnnotationId) {
+                const currentIndex = annotations.findIndex(a => a.id === selectedAnnotationId);
+                if (currentIndex < annotations.length - 1) {
+                  selectAnnotation(annotations[currentIndex + 1].id);
+                } else {
+                  selectAnnotation(annotations[0].id); // wrap around
+                }
+              } else {
+                selectAnnotation(annotations[0].id);
+              }
+            }
+          } else if (tool === "select" || tool === "hand") {
+            // Switch to next task
+            if (hasNext()) goToNext();
+          }
+        }
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -105,6 +154,9 @@ export function useKeyboardShortcuts(isReadOnly: boolean = false) {
   }, [
     isReadOnly,
     selectedAnnotationId,
+    selectAnnotation,
+    annotations,
+    tool,
     setTool,
     deleteAnnotation,
     updateAnnotation,
@@ -113,9 +165,12 @@ export function useKeyboardShortcuts(isReadOnly: boolean = false) {
     canUndo,
     canRedo,
     labels,
+    activeLabel,
+    setActiveLabel,
     goToNext,
     goToPrevious,
     hasNext,
     hasPrevious,
   ]);
 }
+
