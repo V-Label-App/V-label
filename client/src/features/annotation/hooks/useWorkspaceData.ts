@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import type { TaskAssignmentListItem } from "../../../services/annotator.api";
 import { annotatorApi } from "../../../services/annotator.api";
+import { projectApi } from "../../../services/project.api";
 import { useImageStore } from "../stores";
 import type { Annotation } from "../stores";
 import { toast } from "sonner";
@@ -59,6 +60,7 @@ export interface UseWorkspaceDataReturn {
  */
 export const useWorkspaceData = (
   assignmentId: string,
+  isManagerReview = false,
 ): UseWorkspaceDataReturn => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
@@ -119,7 +121,9 @@ export const useWorkspaceData = (
       setLoading(true);
       setError(null);
 
-      const assignment = await annotatorApi.getTaskAssignment(assignmentId);
+      const assignment = isManagerReview
+        ? await projectApi.getTaskAssignmentForReview(assignmentId)
+        : await annotatorApi.getTaskAssignment(assignmentId);
       const transformedData = transformTaskData(assignment);
 
       setTaskData(transformedData);

@@ -932,6 +932,58 @@ export class ProjectController {
         }
     }
     /**
+     * GET /api/v1/projects/assignments/:assignmentId
+     * Manager/Admin: view any task assignment for review (no ownership check)
+     */
+    static async getTaskAssignmentForReview(req: Request, res: Response) {
+        try {
+            const { assignmentId } = req.params as { assignmentId: string }
+            const { prisma } = await import('../utils/database.js')
+
+            const assignment = await prisma.taskAssignment.findUnique({
+                where: { id: assignmentId },
+                include: {
+                    task: {
+                        include: {
+                            image: true,
+                            project: {
+                                include: {
+                                    projectLabels: {
+                                        include: {
+                                            label: {
+                                                include: { category: true }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    annotator: {
+                        select: { id: true, fullName: true, email: true }
+                    },
+                    reviewer: {
+                        select: { id: true, fullName: true, email: true }
+                    }
+                }
+            })
+
+            if (!assignment) {
+                return res.status(404).json({ error: 'Task assignment not found' })
+            }
+
+            const result = JSON.parse(JSON.stringify(assignment, (_, value) =>
+                typeof value === 'bigint' ? Number(value) : value
+            ))
+
+            return res.json(result)
+        } catch (error) {
+            logger.error('API', 'Get task assignment for review failed', { error })
+            return res.status(500).json({ error: 'Internal server error' })
+        }
+    }
+
+    /**
      * GET /api/v1/projects/:id/health
      * Get project health statistics
      */

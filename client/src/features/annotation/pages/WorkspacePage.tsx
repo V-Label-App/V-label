@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { WorkspaceHeader } from "../components/workspace/WorkspaceHeader";
 import { WorkspaceToolbar } from "../components/workspace/WorkspaceToolbar";
@@ -29,11 +29,13 @@ interface WorkspacePageProps {
 }
 
 export function WorkspacePage({
-  mode = "annotate",
+  mode: modeProp = "annotate",
   taskStatus = "assigned",
 }: WorkspacePageProps) {
   const { taskId } = useParams<{ taskId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const mode = (searchParams.get("mode") as "annotate" | "review") ?? modeProp;
   const { updateImages, getCurrentImage, currentIndex, jumpToImage } =
     useImageStore();
   const {
@@ -89,7 +91,7 @@ export function WorkspacePage({
     skipTask,
     resumeTask,
     saveDraft,
-  } = useWorkspaceData(taskId);
+  } = useWorkspaceData(taskId, mode === "review");
 
   const isReadOnly =
     taskStatus === "approved" ||
@@ -172,14 +174,30 @@ export function WorkspacePage({
       if (taskData.actualTimeSeconds !== undefined) {
         setActualTimeSeconds(taskData.actualTimeSeconds);
       }
+
+      // For manager review mode: imageTasks won't load (annotator API), set image directly
+      if (mode === "review") {
+        updateImages([{
+          id: taskData.assignmentId,
+          filename: taskData.image.filename,
+          status: taskData.status.toLowerCase() as any,
+          thumbnail: taskData.image.url,
+          annotationCount: taskData.annotations?.length ?? 0,
+          url: taskData.image.url,
+          width: taskData.image.width,
+          height: taskData.image.height,
+        }]);
+      }
     }
   }, [
     taskData,
+    mode,
     setLabels,
     setAnnotations,
     clearAnnotations,
     setAnnotatorNote,
     setReviewComment,
+    updateImages,
   ]);
 
   // Update image tasks list and current index when project tasks are loaded

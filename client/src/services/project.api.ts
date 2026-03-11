@@ -384,4 +384,14 @@ export const projectApi = {
     );
     return response.data;
   },
+
+  /**
+   * Get a single task assignment for review (manager/admin only, no ownership check)
+   */
+  getTaskAssignmentForReview: async (assignmentId: string) => {
+    const response = await apiClient.get(
+      `${BASE_URL}/assignments/${assignmentId}`,
+    );
+    return response.data;
+  },
 };

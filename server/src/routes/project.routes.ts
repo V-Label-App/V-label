@@ -14,6 +14,9 @@ router.use(authMiddleware)
 router.get('/:id/health', authMiddleware, requireRole(['MANAGER', 'ADMIN']), ProjectController.getHealthStats)
 router.get('/:id/rescue', authMiddleware, requireRole(['MANAGER', 'ADMIN']), ProjectController.getRescueTasks)
 
+// Manager: view any task assignment (for review)
+router.get('/assignments/:assignmentId', requireRole(['MANAGER', 'ADMIN']), ProjectController.getTaskAssignmentForReview)
+
 // GET: Anyone logged in can likely see projects (or we might restrict to members later)
 router.get('/', ProjectController.getAll)
 router.get('/:id', ProjectController.getById)

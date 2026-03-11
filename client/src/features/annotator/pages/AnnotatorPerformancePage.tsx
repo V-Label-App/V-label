@@ -137,7 +137,11 @@ export function AnnotatorPerformancePage() {
               <BarChart data={weeklyActivity}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" />
-                <YAxis />
+                <YAxis
+                  allowDecimals={false}
+                  domain={[0, 'auto']}
+                  tickFormatter={(value) => Math.floor(value)}
+                />
                 <Tooltip />
                 <Legend />
                 <Bar dataKey="completed" fill="#10B981" name="Completed" />
@@ -173,27 +177,6 @@ export function AnnotatorPerformancePage() {
             </ResponsiveContainer>
           </Card>
         </div>
-
-        {/* Today's Progress Area Chart */}
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold mb-4">Today's Progress</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={todayProgress}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="time" />
-              <YAxis />
-              <Tooltip />
-              <Area
-                type="monotone"
-                dataKey="tasks"
-                stroke="#8B5CF6"
-                fill="#8B5CF6"
-                fillOpacity={0.3}
-                name="Tasks Completed"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </Card>
       </div>
     </div>
   );
