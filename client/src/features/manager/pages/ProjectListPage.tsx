@@ -52,7 +52,7 @@ import type { Project } from "../../../types/project.types";
 
 export function ProjectListPage() {
   const navigate = useNavigate();
-  const { } = useAuth();
+  const {} = useAuth();
 
   // State
   const [projects, setProjects] = useState<Project[]>([]);
@@ -363,16 +363,16 @@ export function ProjectListPage() {
                         {getSortIcon("progress")}
                       </button>
                     </th>
-                    <th className="px-6 py-3 text-left w-[10%]">
+                    <th className="px-6 py-3 text-center w-[10%]">
                       <button
                         onClick={() => handleSort("totalImages")}
-                        className="flex items-center gap-2 font-medium text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                        className="flex items-center justify-center gap-2 font-medium text-sm text-gray-600 hover:text-gray-900 transition-colors w-full"
                       >
                         Images
                         {getSortIcon("totalImages")}
                       </button>
                     </th>
-                    <th className="px-6 py-3 text-left w-[8%]">
+                    <th className="px-6 py-3 text-center w-[8%]">
                       <span className="font-medium text-sm text-gray-600">
                         Members
                       </span>
@@ -424,7 +424,7 @@ export function ProjectListPage() {
                         </td>
                         <td className="px-6 py-4">
                           {project.category ? (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 whitespace-nowrap">
                               {project.category.name}
                             </span>
                           ) : (
@@ -441,13 +441,13 @@ export function ProjectListPage() {
                             </span>
                           </div>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-6 py-4 text-center">
                           <span className="text-sm text-gray-700 font-medium">
                             {project.totalImages || 0}
                           </span>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center justify-center gap-2">
                             <Users className="w-4 h-4 text-gray-400" />
                             <span className="text-sm text-gray-700">
                               {project._count?.members || 0}
