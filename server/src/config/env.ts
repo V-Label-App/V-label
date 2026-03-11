@@ -55,6 +55,10 @@ export default {
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
   JWT_REFRESH_EXPIRES_IN: process.env.JWT_REFRESH_EXPIRES_IN || '10d',
 
+  // Reviewer
+  REPUTATION_APPROVE_DELTA: parseInt(process.env.REPUTATION_APPROVE_DELTA || '2'),
+  REPUTATION_REJECT_DELTA: parseInt(process.env.REPUTATION_REJECT_DELTA || '-1'),
+
   // Cloudinary
   CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME || '',
   CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY || '',

@@ -567,8 +567,31 @@ import { appEvents } from '../utils/events.js';
 
 appEvents.on('TASK_SUBMITTED_AUTO_REVIEWER', async ({ taskId, projectId, annotatorId, assignmentId }) => {
     try {
-        await TaskService.autoAssignTask(taskId, projectId, 'REVIEWER', annotatorId);
-        logger.info('TASK_SERVICE', 'Handled auto-reviewer event', { taskId, assignmentId });
+        // Check reviewerDelayHours before assigning
+        const project = await prisma.project.findUnique({
+            where: { id: projectId },
+            include: { assignmentRule: true }
+        });
+
+        const delayHours = project?.assignmentRule?.reviewerDelayHours ?? 0;
+
+        if (delayHours > 0) {
+            const delayMs = delayHours * 3600 * 1000;
+            logger.info('TASK_SERVICE', 'Delaying auto-reviewer assignment', {
+                taskId, assignmentId, delayHours
+            });
+            setTimeout(async () => {
+                try {
+                    await TaskService.autoAssignTask(taskId, projectId, 'REVIEWER', annotatorId);
+                    logger.info('TASK_SERVICE', 'Delayed auto-reviewer assignment completed', { taskId, assignmentId });
+                } catch (delayedError) {
+                    logger.error('TASK_SERVICE', 'Failed delayed auto-reviewer assignment', { error: delayedError, taskId });
+                }
+            }, delayMs);
+        } else {
+            await TaskService.autoAssignTask(taskId, projectId, 'REVIEWER', annotatorId);
+            logger.info('TASK_SERVICE', 'Handled auto-reviewer event', { taskId, assignmentId });
+        }
     } catch (error) {
         logger.error('TASK_SERVICE', 'Failed to handle auto-reviewer event', { error, taskId, assignmentId });
     }

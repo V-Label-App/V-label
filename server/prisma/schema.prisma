@@ -126,6 +126,7 @@ model TaskAssignment {
   updatedAt            DateTime         @updatedAt @map("updated_at")
   aiModelId            String?          @map("ai_model_id") @db.Uuid
   aiConfidence         Float?           @map("ai_confidence")
+  reviewedAt           DateTime?        @map("reviewed_at")
   rejectionCount       Int              @default(0) @map("rejection_count")
   maxRejections        Int              @default(3) @map("max_rejections")
   skipReason           String?          @map("skip_reason")

@@ -23,6 +23,7 @@ export function AnnotatorPerformancePage() {
   const [weeklyActivity, setWeeklyActivity] = useState<WeeklyActivity[]>([]);
   const [taskDistribution, setTaskDistribution] = useState<TaskDistribution[]>([]);
 
+
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
