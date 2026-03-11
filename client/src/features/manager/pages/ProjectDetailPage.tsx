@@ -791,6 +791,7 @@ export function ProjectDetailPage() {
   // Separate tasks by status
   const activeTasks = tasks.filter((t: any) => {
     const assignment = t.assignments?.find((a: any) => a.annotatorId);
+    if (!assignment) return true; // No assignment yet = unassigned active task
     const status = assignment?.status;
     return status === "ASSIGNED" || status === "IN_PROGRESS" || status === "REJECTED";
   });

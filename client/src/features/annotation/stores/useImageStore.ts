@@ -13,6 +13,8 @@ export interface ImageTask {
   thumbnail: string; // URL or emoji for mock
   annotationCount: number;
   url?: string; // Full image URL
+  width?: number;
+  height?: number;
 }
 
 interface ImageState {

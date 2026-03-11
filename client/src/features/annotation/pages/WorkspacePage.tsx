@@ -11,9 +11,11 @@ import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { useWorkspaceData } from "../hooks/useWorkspaceData";
 import { useProjectTasks } from "../hooks/useProjectTasks";
 import { useAutoSave } from "../hooks/useAutoSave";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { SkipReasonModal } from "../components/workspace/SkipReasonModal";
 import { WorkspaceAlertModal } from "../components/workspace/WorkspaceAlertModal";
+import { aiApi } from "../../../services/ai.api";
+import type { Annotation } from "../stores";
 import { toast } from "sonner";
 
 interface WorkspacePageProps {
@@ -38,6 +40,7 @@ export function WorkspacePage({
     clearAnnotations,
     setAnnotations,
     annotations,
+    addAnnotation,
     setAnnotatorNote,
     setReviewComment,
     annotatorNote,
@@ -46,6 +49,7 @@ export function WorkspacePage({
 
   const [actualTimeSeconds, setActualTimeSeconds] = useState(0);
   const [isSkipModalOpen, setIsSkipModalOpen] = useState(false);
+  const [isAiLoading, setIsAiLoading] = useState(false);
 
   // Alert Modal State
   const [alertConfig, setAlertConfig] = useState<{
@@ -343,6 +347,71 @@ export function WorkspacePage({
     );
   };
 
+  const handleAiSuggest = useCallback(async () => {
+    if (!currentImage || !taskData || isAiLoading) return;
+
+    setIsAiLoading(true);
+    try {
+      // Get actual image dimensions from browser
+      const actualDims = await new Promise<{ width: number; height: number }>(
+        (resolve) => {
+          const img = new window.Image();
+          img.crossOrigin = "Anonymous";
+          img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+          img.onerror = () => resolve({ width: currentImage.width ?? 1000, height: currentImage.height ?? 1000 });
+          img.src = currentImage.url ?? "";
+        }
+      );
+
+      const imageUrl = currentImage.url ?? "";
+      const { suggestions } = await aiApi.suggestAnnotations(
+        imageUrl,
+        taskData.labels,
+        actualDims.width,
+        actualDims.height
+      );
+
+      if (suggestions.length === 0) {
+        toast.info("No matching objects detected.", {
+          description: "Try a different image or review the project labels.",
+          duration: 4000,
+        });
+        return;
+      }
+
+      // Remove previous AI-generated annotations before adding new ones
+      const currentAnnotations = useAnnotationStore.getState().annotations;
+      const manualAnnotations = currentAnnotations.filter((a) => !a.aiSuggested);
+      setAnnotations(manualAnnotations);
+
+      toast.success(`AI detected ${suggestions.length} object${suggestions.length > 1 ? "s" : ""}.`, {
+        description: "Review and adjust the regions if needed.",
+        duration: 3000,
+      });
+
+      suggestions.forEach((s) => {
+        const ann: Annotation = {
+          id: crypto.randomUUID(),
+          label: s.label,
+          type: "rectangle",
+          x: s.x,
+          y: s.y,
+          width: s.width,
+          height: s.height,
+          visible: true,
+          createdAt: new Date(),
+          aiSuggested: true,
+          opacity: 0.7,
+        };
+        addAnnotation(ann);
+      });
+    } catch {
+      toast.error("AI suggestion failed. Please try again.");
+    } finally {
+      setIsAiLoading(false);
+    }
+  }, [currentImage, taskData, isAiLoading, addAnnotation]);
+
   // Loading state
   if (loading) {
     return (
@@ -404,7 +473,12 @@ export function WorkspacePage({
       {/* Main Content */}
       <div className="flex flex-1 overflow-hidden">
         {/* Toolbar */}
-        <WorkspaceToolbar isReadOnly={isReadOnly} />
+        <WorkspaceToolbar
+          isReadOnly={isReadOnly}
+          enableAiAssistance={taskData.enableAiAssistance}
+          onAiSuggest={handleAiSuggest}
+          isAiLoading={isAiLoading}
+        />
 
         {/* Canvas */}
         <div className="flex-1 relative">
@@ -412,6 +486,17 @@ export function WorkspacePage({
             imageUrl={currentImage.url || ""}
             isReadOnly={isReadOnly}
           />
+
+          {/* AI Loading Overlay */}
+          {isAiLoading && (
+            <div className="absolute inset-0 bg-slate-900/60 flex flex-col items-center justify-center z-10 backdrop-blur-sm">
+              <div className="bg-slate-800 border border-slate-600 rounded-xl px-8 py-6 flex flex-col items-center gap-3 shadow-xl">
+                <div className="animate-spin rounded-full h-10 w-10 border-2 border-slate-600 border-t-blue-400" />
+                <p className="text-white font-medium">AI is analyzing the image...</p>
+                <p className="text-slate-400 text-sm">Please wait</p>
+              </div>
+            </div>
+          )}
 
           {/* Image Navigator */}
           <ImageNavigator />

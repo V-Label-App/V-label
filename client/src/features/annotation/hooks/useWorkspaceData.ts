@@ -29,6 +29,8 @@ export interface WorkspaceTaskData {
   reviewScore?: number;
   projectName: string;
   actualTimeSeconds?: number;
+  enableAiAssistance: boolean;
+  updatedAt: string;
 }
 
 export interface UseWorkspaceDataReturn {
@@ -102,6 +104,8 @@ export const useWorkspaceData = (
         reviewScore: assignment.reviewScore,
         projectName: assignment.task.project.name,
         actualTimeSeconds: assignment.actualTimeSeconds,
+        enableAiAssistance: assignment.task.project.enableAiAssistance ?? false,
+        updatedAt: assignment.updatedAt,
       };
     },
     [],

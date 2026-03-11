@@ -121,6 +121,31 @@ export class AIController {
   }
 
   /**
+   * Suggest bounding box annotations for an image
+   */
+  static async suggestAnnotations(req: Request, res: Response) {
+    try {
+      const { imageUrl, labels, imageWidth, imageHeight } = req.body;
+
+      if (!imageUrl || !labels || !Array.isArray(labels) || labels.length === 0) {
+        return res.status(400).json({ error: 'imageUrl and labels array are required' });
+      }
+
+      const suggestions = await geminiService.suggestAnnotations(
+        imageUrl,
+        labels,
+        imageWidth || 1000,
+        imageHeight || 1000
+      );
+
+      return res.json({ suggestions });
+    } catch (error: any) {
+      console.error('[AI] Suggest annotations error:', error);
+      return res.status(500).json({ error: 'Failed to generate annotation suggestions' });
+    }
+  }
+
+  /**
    * Refactor/improve text using AI
    */
   static async refactorText(req: Request, res: Response) {

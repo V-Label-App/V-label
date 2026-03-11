@@ -8,6 +8,7 @@ import {
   ZoomIn,
   ZoomOut,
   Maximize2,
+  Sparkles,
 } from "lucide-react";
 import { useCanvasStore, useAnnotationStore } from "../../stores";
 import type { Tool } from "../../stores";
@@ -61,10 +62,16 @@ function ToolButton({
 
 interface WorkspaceToolbarProps {
   isReadOnly?: boolean;
+  enableAiAssistance?: boolean;
+  onAiSuggest?: () => void;
+  isAiLoading?: boolean;
 }
 
 export function WorkspaceToolbar({
   isReadOnly = false,
+  enableAiAssistance = false,
+  onAiSuggest,
+  isAiLoading = false,
 }: WorkspaceToolbarProps) {
   const { tool, setTool, zoom, zoomIn, zoomOut, triggerFit } = useCanvasStore();
   const {
@@ -216,6 +223,20 @@ export function WorkspaceToolbar({
       />
 
       <div className="flex-1"></div>
+
+      {/* AI Suggest button — only shown when project enables AI */}
+      {enableAiAssistance && !isReadOnly && (
+        <>
+          <div className="w-10 h-px bg-slate-700 my-2"></div>
+          <ToolButton
+            icon={Sparkles}
+            onClick={onAiSuggest}
+            tooltip="AI Suggest"
+            disabled={isAiLoading}
+            showIndicator={isAiLoading}
+          />
+        </>
+      )}
     </div>
   );
 }

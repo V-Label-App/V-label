@@ -392,6 +392,87 @@ AI: [NOW call create_labels_auto function]
             throw error;
         }
     }
+
+    /**
+     * Suggest bounding box annotations for an image using Gemini Vision
+     */
+    async suggestAnnotations(
+        imageUrl: string,
+        labels: Array<{ name: string; color?: string }>,
+        imageWidth: number,
+        imageHeight: number
+    ): Promise<Array<{ label: string; x: number; y: number; width: number; height: number; confidence: number }>> {
+        const labelNames = labels.map(l => l.name).join(', ');
+
+        // Gemini Vision returns bounding boxes as normalized values 0-1000
+        // Format: [ymin, xmin, ymax, xmax] normalized to 0-1000
+        const prompt = `You are a precise image annotation expert. Your task is to detect objects in this image that match the given labels and draw tight bounding boxes around them.
+
+Target labels: ${labelNames}
+
+Rules:
+- Only detect objects you are highly confident about (confidence >= 0.6)
+- SKIP objects that are blurry, partially hidden, or too ambiguous to clearly identify
+- SKIP objects where the bounding box cannot be drawn accurately
+- Draw the box as tight as possible around the object boundary
+- If the same label appears multiple times, include each instance separately
+- label must be exactly one of: ${labelNames}
+- box_2d format: [ymin, xmin, ymax, xmax] normalized to 0-1000
+
+Return ONLY a valid JSON array, no markdown, no explanation.
+Return [] if no objects qualify.
+
+Example: [{"label":"cat","box_2d":[120,180,450,520],"confidence":0.91}]`;
+
+        const response = await fetch(imageUrl);
+        const buffer = await response.arrayBuffer();
+        const base64 = Buffer.from(buffer).toString('base64');
+        const mimeType = (response.headers.get('content-type') || 'image/jpeg').split(';')[0] as string;
+
+        const model = this.genAI.getGenerativeModel({
+            model: 'gemini-2.5-flash',
+            generationConfig: { thinkingConfig: { thinkingBudget: 8000 } } as any,
+        });
+        const result = await model.generateContent([
+            prompt,
+            { inlineData: { mimeType, data: base64 } }
+        ]);
+
+        const text = result.response.text().trim();
+        const jsonMatch = text.match(/\[[\s\S]*\]/);
+        if (!jsonMatch) return [];
+
+        try {
+            const parsed = JSON.parse(jsonMatch[0]);
+            if (!Array.isArray(parsed)) return [];
+
+            // Filter out low confidence and invalid items
+            const valid = parsed.filter((item: any) =>
+                item.box_2d && Array.isArray(item.box_2d) &&
+                item.label && labelNames.includes(item.label) &&
+                (item.confidence ?? 1) >= 0.6
+            );
+
+            // Convert normalized 0-1000 coords to pixel coordinates
+            return valid.map((item: any) => {
+                const [ymin, xmin, ymax, xmax] = item.box_2d || [0, 0, 0, 0];
+                const x = Math.round((xmin / 1000) * imageWidth);
+                const y = Math.round((ymin / 1000) * imageHeight);
+                const width = Math.round(((xmax - xmin) / 1000) * imageWidth);
+                const height = Math.round(((ymax - ymin) / 1000) * imageHeight);
+                return {
+                    label: item.label,
+                    x,
+                    y,
+                    width,
+                    height,
+                    confidence: item.confidence ?? 0.8,
+                };
+            });
+        } catch {
+            return [];
+        }
+    }
 }
 
 export const geminiService = new GeminiService();

@@ -5,6 +5,7 @@ export interface TaskAssignmentListItem {
   taskId: string;
   status: string;
   deadline: Date | null;
+  updatedAt: string;
   annotatorNote?: string;
   reviewComment?: string;
   reviewScore?: number;
@@ -25,6 +26,7 @@ export interface TaskAssignmentListItem {
       id: string;
       name: string;
       labelConfig: any[];
+      enableAiAssistance: boolean;
       projectLabels?: {
         label: {
           id: string;

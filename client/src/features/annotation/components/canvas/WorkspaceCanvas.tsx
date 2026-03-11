@@ -118,10 +118,12 @@ export function WorkspaceCanvas({
     [zoom, setZoom],
   );
 
-  // Drag end: sync pan store with stage position
+  // Drag end: sync pan store with stage position (only when Stage itself is dragged)
   const handleDragEnd = useCallback(
     (e: Konva.KonvaEventObject<DragEvent>) => {
-      setPan({ x: e.target.x(), y: e.target.y() });
+      if (e.target === stageRef.current) {
+        setPan({ x: e.target.x(), y: e.target.y() });
+      }
     },
     [setPan],
   );

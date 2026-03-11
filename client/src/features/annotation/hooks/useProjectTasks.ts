@@ -62,6 +62,8 @@ export const useProjectTasks = (projectId?: string): UseProjectTasksReturn => {
         status: task.status.toLowerCase() as ImageTask['status'],
         url: task.task.image?.storageUrl || '',
         thumbnail: task.task.image?.storageUrl || '',
+        width: task.task.image?.width,
+        height: task.task.image?.height,
         annotationCount: 0 // Will be updated when task detail is loaded
     })), [tasks]);
 
