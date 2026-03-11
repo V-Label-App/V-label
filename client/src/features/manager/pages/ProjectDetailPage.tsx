@@ -91,6 +91,7 @@ import {
   Sparkles,
   UserMinus,
   AlertTriangle,
+  Eye,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -193,8 +194,7 @@ export function ProjectDetailPage() {
   const [memberSearchQuery, setMemberSearchQuery] = useState("");
   const [potentialMembers, setPotentialMembers] = useState<any[]>([]);
   const [selectedMembers, setSelectedMembers] = useState<any[]>([]); // Multi-select
-  const [selectedRole, setSelectedRole] = useState("ANNOTATOR");
-  const [isRoleOverride, setIsRoleOverride] = useState(false);
+  const [memberRoleFilter, setMemberRoleFilter] = useState<string>("all");
   const [isSearchingMembers, setIsSearchingMembers] = useState(false);
   const [isAddingMembers, setIsAddingMembers] = useState(false);
 
@@ -237,11 +237,8 @@ export function ProjectDetailPage() {
       // Process in parallel for speed, though sequentially might be safer for rate limits.
       // Parallel is fine for < 100 usually.
       const promises = selectedMembers.map((user) => {
-        // If override is checked, use the selected dropdown role
-        // If not, use the user's system role (or fallback to selectedRole if missing)
-        const roleToAdd = isRoleOverride
-          ? selectedRole
-          : user.role || selectedRole;
+        // Use the user's system role (or fallback to ANNOTATOR if missing)
+        const roleToAdd = user.role || "ANNOTATOR";
 
         return projectApi.addMember(project.id, user.id, roleToAdd);
       });
@@ -783,11 +780,6 @@ export function ProjectDetailPage() {
     (m: any) => m.projectRole === "ANNOTATOR" || m.projectRole === "REVIEWER",
   );
 
-  // Client-side filtering is removed/minimized as we use server-side search
-  // We strictly show what the API returns.
-  // Status/Assignee filters are currently visual-only or disabled effectively until backend supports them.
-  const filteredTasks = tasks;
-
   // Separate tasks by status
   const activeTasks = tasks.filter((t: any) => {
     const assignment = t.assignments?.find((a: any) => a.annotatorId);
@@ -1165,14 +1157,6 @@ export function ProjectDetailPage() {
     setIsEditRoleOpen(true);
   };
 
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedTasks(filteredTasks.map((t) => t.id));
-    } else {
-      setSelectedTasks([]);
-    }
-  };
-
   const handleSelectTask = (taskId: string, checked: boolean) => {
     if (checked) {
       setSelectedTasks((prev) => [...prev, taskId]);
@@ -1532,11 +1516,15 @@ export function ProjectDetailPage() {
                         <Checkbox
                           checked={
                             activeTasks.length > 0 &&
-                            selectedTasks.length === activeTasks.length
+                            activeTasks.every((t) => selectedTasks.includes(t.id))
                           }
-                          onCheckedChange={(checked) =>
-                            handleSelectAll(!!checked)
-                          }
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedTasks(activeTasks.map((t) => t.id));
+                            } else {
+                              setSelectedTasks([]);
+                            }
+                          }}
                         />
                       </TableHead>
                       <TableHead>User / Task</TableHead>
@@ -2087,6 +2075,11 @@ export function ProjectDetailPage() {
                       <h3 className="text-xl font-semibold">Submitted Tasks</h3>
                       <p className="text-sm text-muted-foreground">
                         Showing {submittedTasks.length} tasks awaiting review
+                        {selectedTasks.length > 0 && (
+                          <span className="ml-2 text-blue-600 font-medium">
+                            ({selectedTasks.length} selected)
+                          </span>
+                        )}
                       </p>
                     </div>
                   </div>
@@ -2095,7 +2088,21 @@ export function ProjectDetailPage() {
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-gray-50">
-                          <TableHead className="w-[50px]"></TableHead>
+                          <TableHead className="w-[50px]">
+                            <Checkbox
+                              checked={
+                                submittedTasks.length > 0 &&
+                                submittedTasks.every((t) => selectedTasks.includes(t.id))
+                              }
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setSelectedTasks(submittedTasks.map((t) => t.id));
+                                } else {
+                                  setSelectedTasks([]);
+                                }
+                              }}
+                            />
+                          </TableHead>
                           <TableHead>User / Task</TableHead>
                           <TableHead className="w-[120px] text-right">
                             Actions
@@ -2143,45 +2150,93 @@ export function ProjectDetailPage() {
                                         toggleUserExpansion(assigneeId)
                                       }
                                     >
-                                      <TableCell className="py-4"></TableCell>
-                                      <TableCell>
-                                        <div className="flex items-center gap-3">
-                                          <div className="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0">
-                                            {assigneeId === "unassigned"
-                                              ? "?"
-                                              : assignee?.fullName
-                                                  ?.charAt(0)
-                                                  .toUpperCase() || "A"}
-                                          </div>
-                                          <div className="flex-1">
-                                            <div className="font-medium text-gray-900">
+                                      <TableCell className="py-4">
+                                        <Checkbox
+                                          checked={userTasks.every((t: any) =>
+                                            selectedTasks.includes(t.id),
+                                          )}
+                                          onCheckedChange={(checked) => {
+                                            userTasks.forEach((t: any) =>
+                                              handleSelectTask(t.id, !!checked),
+                                            );
+                                          }}
+                                          onClick={(e) => e.stopPropagation()}
+                                        />
+                                      </TableCell>
+                                      <TableCell colSpan={2}>
+                                        <div className="flex items-center justify-between">
+                                          <div className="flex items-center gap-3">
+                                            {isExpanded ? (
+                                              <ChevronDown className="h-5 w-5 text-purple-700 flex-shrink-0" />
+                                            ) : (
+                                              <ChevronRight className="h-5 w-5 text-purple-700 flex-shrink-0" />
+                                            )}
+                                            <div className="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0">
                                               {assigneeId === "unassigned"
-                                                ? "Unassigned Tasks"
-                                                : assignee?.fullName ||
-                                                  assignee?.email ||
-                                                  "Unknown"}
+                                                ? "?"
+                                                : assignee?.fullName
+                                                    ?.charAt(0)
+                                                    .toUpperCase() || "A"}
                                             </div>
-                                            <div className="text-xs text-gray-500">
-                                              {taskCount} submitted {taskCount === 1 ? "task" : "tasks"}
+                                            <div className="flex-1">
+                                              <div className="font-medium text-gray-900">
+                                                {assigneeId === "unassigned"
+                                                  ? "Unassigned Tasks"
+                                                  : assignee?.fullName ||
+                                                    assignee?.email ||
+                                                    "Unknown"}
+                                              </div>
+                                              <div className="text-xs text-gray-500">
+                                                {taskCount} submitted {taskCount === 1 ? "task" : "tasks"}
+                                              </div>
                                             </div>
+                                          </div>
+                                          <div
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="flex items-center gap-2"
+                                          >
+                                            {(() => {
+                                              // Count how many selected tasks are from this user's section
+                                              const userTaskIds = userTasks.map((t: any) => t.id);
+                                              const selectedUserCount = selectedTasks.filter((id) =>
+                                                userTaskIds.includes(id)
+                                              ).length;
+
+                                              return selectedUserCount > 0 ? (
+                                                <Button
+                                                  onClick={() => setIsDeleteDialogOpen(true)}
+                                                  size="sm"
+                                                  variant="destructive"
+                                                  className="gap-2"
+                                                >
+                                                  <Trash2 className="h-4 w-4" />
+                                                  Delete {selectedUserCount} Task{selectedUserCount > 1 ? "s" : ""}
+                                                </Button>
+                                              ) : null;
+                                            })()}
+                                            <DropdownMenu>
+                                              <DropdownMenuTrigger asChild>
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                >
+                                                  <MoreVertical className="h-4 w-4" />
+                                                </Button>
+                                              </DropdownMenuTrigger>
+                                              <DropdownMenuContent align="end">
+                                                <DropdownMenuItem
+                                                  onClick={() => {
+                                                    // Navigate to review all submitted tasks for this user
+                                                    toast.info("Review feature coming soon");
+                                                  }}
+                                                >
+                                                  <Eye className="mr-2 h-4 w-4" />
+                                                  Review All Submitted Tasks
+                                                </DropdownMenuItem>
+                                              </DropdownMenuContent>
+                                            </DropdownMenu>
                                           </div>
                                         </div>
-                                      </TableCell>
-                                      <TableCell className="text-right">
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            toggleUserExpansion(assigneeId);
-                                          }}
-                                        >
-                                          {isExpanded ? (
-                                            <ChevronDown className="w-4 h-4" />
-                                          ) : (
-                                            <ChevronRight className="w-4 h-4" />
-                                          )}
-                                        </Button>
                                       </TableCell>
                                     </TableRow>
 
@@ -2197,7 +2252,15 @@ export function ProjectDetailPage() {
                                               key={`submitted-task-${task.id}`}
                                               className="hover:bg-purple-50/50"
                                             >
-                                              <TableCell></TableCell>
+                                              <TableCell>
+                                                <Checkbox
+                                                  checked={selectedTasks.includes(task.id)}
+                                                  onCheckedChange={(checked) =>
+                                                    handleSelectTask(task.id, !!checked)
+                                                  }
+                                                  onClick={(e) => e.stopPropagation()}
+                                                />
+                                              </TableCell>
                                               <TableCell>
                                                 <div className="flex items-center gap-3 pl-12">
                                                   <div className="w-12 h-12 rounded overflow-hidden bg-gray-100 border flex-shrink-0">
@@ -2225,19 +2288,40 @@ export function ProjectDetailPage() {
                                                 </div>
                                               </TableCell>
                                               <TableCell className="text-right">
-                                                <Button
-                                                  size="sm"
-                                                  onClick={() => {
-                                                    // Navigate to review workspace
-                                                    const assignmentId = assignment?.id;
-                                                    if (assignmentId) {
-                                                      navigate(`/workspace/${assignmentId}?mode=review`);
-                                                    }
-                                                  }}
-                                                  className="bg-purple-600 hover:bg-purple-700 text-white"
-                                                >
-                                                  Review
-                                                </Button>
+                                                <DropdownMenu>
+                                                  <DropdownMenuTrigger asChild>
+                                                    <Button
+                                                      variant="ghost"
+                                                      size="sm"
+                                                    >
+                                                      <MoreVertical className="h-4 w-4" />
+                                                    </Button>
+                                                  </DropdownMenuTrigger>
+                                                  <DropdownMenuContent align="end">
+                                                    <DropdownMenuItem
+                                                      onClick={() => {
+                                                        const assignmentId = assignment?.id;
+                                                        if (assignmentId) {
+                                                          navigate(`/workspace/${assignmentId}?mode=review`);
+                                                        }
+                                                      }}
+                                                    >
+                                                      <Eye className="mr-2 h-4 w-4" />
+                                                      Review Task
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuSeparator />
+                                                    <DropdownMenuItem
+                                                      onClick={() => {
+                                                        setSelectedTasks([task.id]);
+                                                        setIsDeleteDialogOpen(true);
+                                                      }}
+                                                      className="text-red-600"
+                                                    >
+                                                      <Trash2 className="mr-2 h-4 w-4" />
+                                                      Delete Task
+                                                    </DropdownMenuItem>
+                                                  </DropdownMenuContent>
+                                                </DropdownMenu>
                                               </TableCell>
                                             </TableRow>
                                           );
@@ -3408,6 +3492,7 @@ export function ProjectDetailPage() {
               setMemberSearchQuery("");
               setPotentialMembers([]);
               setSelectedMembers([]);
+              setMemberRoleFilter("all");
             }
           }}
         >
@@ -3421,54 +3506,104 @@ export function ProjectDetailPage() {
 
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label>Search User</Label>
-                <Input
-                  placeholder="Search by name or email..."
-                  value={memberSearchQuery}
-                  onChange={(e) => handleSearchUsers(e.target.value)}
-                />
+                <Label>Search & Filter</Label>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Search by name or email..."
+                    value={memberSearchQuery}
+                    onChange={(e) => handleSearchUsers(e.target.value)}
+                    className="flex-1"
+                  />
+                  <Select
+                    value={memberRoleFilter}
+                    onValueChange={setMemberRoleFilter}
+                  >
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue placeholder="Role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Roles</SelectItem>
+                      <SelectItem value="ANNOTATOR">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                          Annotator
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="REVIEWER">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                          Reviewer
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
                 {/* Selected Members Summary */}
                 {selectedMembers.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mb-2 p-2 bg-blue-50 rounded-md border border-blue-100 max-h-[100px] overflow-y-auto">
-                    {selectedMembers.map((user) => (
-                      <Badge
-                        key={user.id}
-                        variant="secondary"
-                        className="bg-white hover:bg-white text-blue-700 border-blue-200 pl-2 pr-1 py-1 flex items-center gap-1"
-                      >
-                        {user.fullName || user.email}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-4 w-4 p-0 ml-1 rounded-full hover:bg-red-100 hover:text-red-600"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleToggleMemberSelection(user);
-                          }}
+                  <div className="space-y-2">
+                    {(() => {
+                      const reviewerCount = selectedMembers.filter(u => u.role === "REVIEWER").length;
+                      const annotatorCount = selectedMembers.filter(u => u.role === "ANNOTATOR").length;
+                      const parts = [];
+                      if (reviewerCount > 0) {
+                        parts.push(`${reviewerCount} Reviewer${reviewerCount > 1 ? 's' : ''}`);
+                      }
+                      if (annotatorCount > 0) {
+                        parts.push(`${annotatorCount} Annotator${annotatorCount > 1 ? 's' : ''}`);
+                      }
+                      return parts.length > 0 ? (
+                        <p className="text-xs text-gray-600 font-medium">
+                          You are choosing {parts.join(' and ')}
+                        </p>
+                      ) : null;
+                    })()}
+                    <div className="flex flex-wrap gap-2 p-2 bg-gray-50 rounded-md border border-gray-200 max-h-[100px] overflow-y-auto">
+                      {selectedMembers.map((user) => (
+                        <Badge
+                          key={user.id}
+                          variant="secondary"
+                          className={`${
+                            user.role === "ANNOTATOR"
+                              ? "bg-emerald-50 hover:bg-emerald-50 text-emerald-700 border-emerald-200"
+                              : user.role === "REVIEWER"
+                                ? "bg-blue-50 hover:bg-blue-50 text-blue-700 border-blue-200"
+                                : "bg-white hover:bg-white text-gray-700 border-gray-200"
+                          } pl-2 pr-1 py-1 flex items-center gap-1`}
                         >
-                          <span className="sr-only">Remove</span>
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            className="w-3 h-3"
+                          {user.fullName || user.email}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-4 w-4 p-0 ml-1 rounded-full hover:bg-red-100 hover:text-red-600"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleMemberSelection(user);
+                            }}
                           >
-                            <path d="M18 6 6 18" />
-                            <path d="m6 6 12 12" />
-                          </svg>
-                        </Button>
-                      </Badge>
-                    ))}
+                            <span className="sr-only">Remove</span>
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              className="w-3 h-3"
+                            >
+                              <path d="M18 6 6 18" />
+                              <path d="m6 6 12 12" />
+                            </svg>
+                          </Button>
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
                 )}
 
                 {/* Potential Members List */}
-                <Card className="max-h-[200px] overflow-auto mt-2 border-gray-200 shadow-sm">
+                <Card className="h-[400px] overflow-auto mt-2 border-gray-200 shadow-sm">
                   <ScrollArea className="h-full">
                     <div className="p-1 space-y-1">
                       {isSearchingMembers && (
@@ -3485,7 +3620,13 @@ export function ProjectDetailPage() {
                         </div>
                       )}
 
-                      {potentialMembers.map((user) => {
+                      {potentialMembers
+                        .filter((user) => {
+                          // Filter by role
+                          if (memberRoleFilter === "all") return true;
+                          return user.role === memberRoleFilter;
+                        })
+                        .map((user) => {
                         const isSelected = selectedMembers.some(
                           (m) => m.id === user.id,
                         );
@@ -3533,7 +3674,13 @@ export function ProjectDetailPage() {
                             {user.role && (
                               <Badge
                                 variant="secondary"
-                                className="text-[10px] h-5 px-1 bg-gray-100 text-gray-600 border-gray-200"
+                                className={`text-[10px] h-5 px-1 ${
+                                  user.role === "ANNOTATOR"
+                                    ? "bg-emerald-100 text-emerald-700 border-emerald-300"
+                                    : user.role === "REVIEWER"
+                                      ? "bg-blue-100 text-blue-700 border-blue-300"
+                                      : "bg-gray-100 text-gray-600 border-gray-200"
+                                }`}
                               >
                                 {user.role}
                               </Badge>
@@ -3544,50 +3691,6 @@ export function ProjectDetailPage() {
                     </div>
                   </ScrollArea>
                 </Card>
-              </div>
-
-              <div className="space-y-3 pt-2 border-t border-gray-100">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="role-override"
-                    checked={isRoleOverride}
-                    onCheckedChange={(c) => setIsRoleOverride(c as boolean)}
-                  />
-                  <Label
-                    htmlFor="role-override"
-                    className="text-sm font-medium leading-none cursor-pointer"
-                  >
-                    Override default role?
-                  </Label>
-                </div>
-
-                {isRoleOverride ? (
-                  <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                    <Label className="text-xs text-muted-foreground">
-                      Assign this role to all selected:
-                    </Label>
-                    <Select
-                      value={selectedRole}
-                      onValueChange={setSelectedRole}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ANNOTATOR">Annotator</SelectItem>
-                        <SelectItem value="REVIEWER">Reviewer</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground pl-6">
-                    Selected members will be added with their{" "}
-                    <strong className="font-medium text-gray-700">
-                      system role
-                    </strong>
-                    .
-                  </p>
-                )}
               </div>
             </div>
 
