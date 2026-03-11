@@ -94,6 +94,27 @@ export class TaskService {
     }
 
     /**
+     * Helper: Get active task count for a user by role
+     */
+    static async getActiveTaskCount(
+        userId: string,
+        role: 'ANNOTATOR' | 'REVIEWER'
+    ): Promise<number> {
+        const where = role === 'ANNOTATOR'
+            ? { annotatorId: userId }
+            : { reviewerId: userId };
+
+        return prisma.taskAssignment.count({
+            where: {
+                ...where,
+                status: {
+                    in: [AssignmentStatus.ASSIGNED, AssignmentStatus.IN_PROGRESS]
+                }
+            }
+        });
+    }
+
+    /**
      * Helper: Check if user has reached workload limit
      */
     static async checkWorkloadLimits(
@@ -102,18 +123,7 @@ export class TaskService {
         role: 'ANNOTATOR' | 'REVIEWER'
     ): Promise<boolean> {
         try {
-            const where = role === 'ANNOTATOR'
-                ? { annotatorId: userId }
-                : { reviewerId: userId };
-
-            const activeTaskCount = await prisma.taskAssignment.count({
-                where: {
-                    ...where,
-                    status: {
-                        in: [AssignmentStatus.ASSIGNED, AssignmentStatus.IN_PROGRESS]
-                    }
-                }
-            });
+            const activeTaskCount = await this.getActiveTaskCount(userId, role);
 
             const isUnderLimit = activeTaskCount < maxTasks;
 
@@ -551,3 +561,24 @@ export class TaskService {
         }
     }
 }
+
+// ==== Event Listeners ====
+import { appEvents } from '../utils/events.js';
+
+appEvents.on('TASK_SUBMITTED_AUTO_REVIEWER', async ({ taskId, projectId, annotatorId, assignmentId }) => {
+    try {
+        await TaskService.autoAssignTask(taskId, projectId, 'REVIEWER', annotatorId);
+        logger.info('TASK_SERVICE', 'Handled auto-reviewer event', { taskId, assignmentId });
+    } catch (error) {
+        logger.error('TASK_SERVICE', 'Failed to handle auto-reviewer event', { error, taskId, assignmentId });
+    }
+});
+
+appEvents.on('TASK_SKIPPED_REASSIGN', async ({ taskId, projectId }) => {
+    try {
+        await TaskService.autoAssignTask(taskId, projectId, 'ANNOTATOR');
+        logger.info('TASK_SERVICE', 'Handled auto-reassign event via skip', { taskId, projectId });
+    } catch (error) {
+        logger.error('TASK_SERVICE', 'Failed to handle auto-reassign event', { error, taskId, projectId });
+    }
+});

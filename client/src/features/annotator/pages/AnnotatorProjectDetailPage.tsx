@@ -28,7 +28,6 @@ import {
 } from "../../../components/ui/tabs";
 import {
   ArrowLeft,
-  FolderOpen,
   Clock,
   CheckCircle2,
   Loader2,
@@ -112,21 +111,50 @@ export function AnnotatorProjectDetailPage() {
 
   const getStatusBadge = (status: string) => {
     const styles = {
-      ASSIGNED: { className: "bg-gray-100 text-gray-700 border-gray-300", label: "Assigned" },
-      SUBMITTED: { className: "bg-blue-100 text-blue-700 border-blue-300", label: "Submitted" },
-      REJECTED: { className: "bg-red-100 text-red-700 border-red-300", label: "REJECTED" },
-      IN_PROGRESS: { className: "bg-yellow-100 text-yellow-700 border-yellow-300", label: "In Progress" },
-      APPROVED: { className: "bg-green-100 text-green-700 border-green-300", label: "Approved" },
+      ASSIGNED: {
+        className: "bg-gray-100 text-gray-700 border-gray-300",
+        label: "Assigned",
+      },
+      SUBMITTED: {
+        className: "bg-blue-100 text-blue-700 border-blue-300",
+        label: "Submitted",
+      },
+      REJECTED: {
+        className: "bg-red-100 text-red-700 border-red-300",
+        label: "REJECTED",
+      },
+      IN_PROGRESS: {
+        className: "bg-yellow-100 text-yellow-700 border-yellow-300",
+        label: "In Progress",
+      },
+      APPROVED: {
+        className: "bg-green-100 text-green-700 border-green-300",
+        label: "Approved",
+      },
+      SKIPPED: {
+        className: "bg-indigo-100 text-indigo-700 border-indigo-300",
+        label: "Skipped",
+      },
     };
     return styles[status as keyof typeof styles] || styles.ASSIGNED;
   };
 
+  // Detect stuck tasks: IN_PROGRESS and not updated for >24h
+  const stuckTasks = tasks.filter((task) => {
+    if (task.status !== "IN_PROGRESS") return false;
+    const hoursSince = (Date.now() - new Date(task.updatedAt).getTime()) / (1000 * 60 * 60);
+    return hoursSince >= 24;
+  });
+
   // Filter tasks based on search and status
   const filteredTasks = tasks.filter((task) => {
     const matchesSearch =
-      task.task.image?.originalFilename.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      task.task.image?.originalFilename
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase()) ||
       task.id.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = filterStatus === "ALL" || task.status === filterStatus;
+    const matchesStatus =
+      filterStatus === "ALL" || task.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
 
@@ -145,16 +173,11 @@ export function AnnotatorProjectDetailPage() {
           </Button>
 
           <div className="flex items-start justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <FolderOpen className="w-6 h-6 text-blue-600" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold">{project.name}</h1>
-                <p className="text-muted-foreground mt-1">
-                  {project.description || "No description"}
-                </p>
-              </div>
+            <div>
+              <h1 className="text-3xl font-bold">{project.name}</h1>
+              <p className="text-muted-foreground mt-1">
+                {project.description || "No description"}
+              </p>
             </div>
 
             {project.category && (
@@ -275,6 +298,39 @@ export function AnnotatorProjectDetailPage() {
           </TabsList>
 
           <TabsContent value="tasks" className="mt-6">
+            {/* Stuck Tasks Warning Banner */}
+            {stuckTasks.length > 0 && (
+              <div className="mb-4 rounded-lg border border-yellow-300 bg-yellow-50 p-4 flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5 shrink-0" />
+                <div>
+                  <p className="font-semibold text-yellow-800">
+                    {stuckTasks.length} stuck task{stuckTasks.length > 1 ? "s" : ""} detected
+                  </p>
+                  <p className="text-sm text-yellow-700 mt-0.5">
+                    The following {stuckTasks.length > 1 ? "tasks have" : "task has"} been in progress for more than 24 hours without any update. Please resume or skip {stuckTasks.length > 1 ? "them" : "it"}.
+                  </p>
+                  <ul className="mt-2 space-y-1">
+                    {stuckTasks.map((task) => {
+                      const hours = Math.floor((Date.now() - new Date(task.updatedAt).getTime()) / (1000 * 60 * 60));
+                      return (
+                        <li key={task.id} className="flex items-center gap-2 text-sm text-yellow-800">
+                          <Clock className="w-3.5 h-3.5 shrink-0" />
+                          <span className="font-medium">{task.task.image?.originalFilename || `Task ${task.id.slice(0, 8)}`}</span>
+                          <span className="text-yellow-600">— idle for {hours}h</span>
+                          <button
+                            className="ml-auto text-xs underline text-yellow-700 hover:text-yellow-900"
+                            onClick={() => navigate(`/workspace/${task.id}`)}
+                          >
+                            Resume
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              </div>
+            )}
+
             {/* Search & Filter Bar */}
             <Card className="p-4 mb-4">
               <div className="flex flex-wrap gap-4">
@@ -333,7 +389,9 @@ export function AnnotatorProjectDetailPage() {
                       <TableHead>Name</TableHead>
                       <TableHead className="w-[120px]">Status</TableHead>
                       <TableHead className="w-[140px]">Deadline</TableHead>
-                      <TableHead className="w-[100px] text-right">Actions</TableHead>
+                      <TableHead className="w-[100px] text-right">
+                        Actions
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -366,12 +424,13 @@ export function AnnotatorProjectDetailPage() {
                               <div className="text-xs text-muted-foreground">
                                 ID: {task.id.slice(0, 8)}...
                               </div>
-                              {task.status === "REJECTED" && task.reviewComment && (
-                                <div className="text-xs text-red-600 flex items-center gap-1">
-                                  <AlertTriangle className="w-3 h-3" />
-                                  {task.reviewComment}
-                                </div>
-                              )}
+                              {task.status === "REJECTED" &&
+                                task.reviewComment && (
+                                  <div className="text-xs text-red-600 flex items-center gap-1">
+                                    <AlertTriangle className="w-3 h-3" />
+                                    {task.reviewComment}
+                                  </div>
+                                )}
                             </div>
                           </TableCell>
                           <TableCell>
@@ -385,24 +444,34 @@ export function AnnotatorProjectDetailPage() {
                           <TableCell>
                             {task.deadline ? (
                               <div className="text-sm">
-                                {format(new Date(task.deadline), "MMM dd, yyyy")}
+                                {format(
+                                  new Date(task.deadline),
+                                  "MMM dd, yyyy",
+                                )}
                               </div>
                             ) : (
-                              <span className="text-muted-foreground text-sm">—</span>
+                              <span className="text-muted-foreground text-sm">
+                                —
+                              </span>
                             )}
                           </TableCell>
                           <TableCell className="text-right">
                             <Button
                               size="sm"
-                              variant={task.status === "REJECTED" ? "destructive" : "default"}
-                              onClick={() => navigate(`/workspace/${task.taskId}`)}
+                              variant={
+                                task.status === "REJECTED"
+                                  ? "destructive"
+                                  : "default"
+                              }
+                              onClick={() => navigate(`/workspace/${task.id}`)}
                             >
                               {task.status === "REJECTED" ? (
                                 <>
                                   <AlertTriangle className="w-3 h-3 mr-1" />
                                   Fix
                                 </>
-                              ) : task.status === "SUBMITTED" || task.status === "APPROVED" ? (
+                              ) : task.status === "SUBMITTED" ||
+                                task.status === "APPROVED" ? (
                                 <>
                                   <Eye className="w-3 h-3 mr-1" />
                                   View

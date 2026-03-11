@@ -1,4 +1,6 @@
-// Label color configuration
+import { useLabelStore } from './stores/useLabelStore';
+
+// Label color configuration (fallback for old labels)
 export const labelColors: Record<string, { border: string; fill: string; bg: string }> = {
     'Normal': {
         border: '#3B82F6',
@@ -19,18 +21,49 @@ export const labelColors: Record<string, { border: string; fill: string; bg: str
 
 export const availableLabels = ['Normal', 'Abnormal', 'Uncertain'];
 
-// Helper to get label color
-export function getLabelColor(label: string, opacity?: number): string {
-    const colors = labelColors[label];
+// Helper to get label color (dynamic from project labels)
+export function getLabelColor(labelName: string, opacity?: number): string {
+    // Try to get from label store first
+    const labelStore = useLabelStore.getState();
+    const label = labelStore.labels.find(l => l.name === labelName);
+    
+    if (label) {
+        const color = label.color;
+        
+        if (opacity !== undefined) {
+            const rgb = hexToRgb(color);
+            return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${opacity})`;
+        }
+        
+        return color;
+    }
+    
+    // Fallback to old label colors
+    const colors = labelColors[labelName];
     if (!colors) return '#3B82F6';
 
     if (opacity !== undefined) {
-        // Return fill color with custom opacity
         const rgb = hexToRgb(colors.border);
         return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${opacity})`;
     }
 
     return colors.border;
+}
+
+// Helper to get badge class for label
+export function getLabelBadgeClass(labelName: string): string {
+    // Try to get from label store first
+    const labelStore = useLabelStore.getState();
+    const label = labelStore.labels.find(l => l.name === labelName);
+    
+    if (label) {
+        // Use dynamic styling for project labels
+        return 'border border-current';
+    }
+    
+    // Fallback to old label colors
+    const colors = labelColors[labelName];
+    return colors?.bg || 'bg-blue-100 text-blue-700';
 }
 
 // Helper to convert hex to RGB

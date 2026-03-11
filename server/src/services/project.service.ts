@@ -253,33 +253,7 @@ export class ProjectService {
         },
     ) {
         try {
-            // If labelConfig is being updated, check strict rule
-            if (data.labelConfig) {
-                const taskCount = await prisma.task.count({
-                    where: { projectId: id },
-                })
-
-                if (taskCount > 0) {
-                    // Check if labelConfig actually changed deeply?
-                    // For simplicity, we just block ANY update to labelConfig if tasks exist
-                    // Or we could compare current vs new.
-                    // Let's first fetch the current project to compare.
-                    const currentProject = await prisma.project.findUnique({
-                        where: { id },
-                        select: { labelConfig: true },
-                    })
-
-                    if (
-                        currentProject &&
-                        JSON.stringify(currentProject.labelConfig) !==
-                        JSON.stringify(data.labelConfig)
-                    ) {
-                        throw new Error(
-                            'Cannot update Label Configuration because this project already has tasks. Please delete all tasks first.',
-                        )
-                    }
-                }
-            }
+            // labelConfig can be updated freely even when tasks exist
 
             // If status is being updated to COMPLETED, check progress
             if (data.status === ProjectStatus.COMPLETED) {

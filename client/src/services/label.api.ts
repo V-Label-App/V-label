@@ -10,6 +10,11 @@ export interface LabelCategory {
   color?: string;
   description: string | null;
   createdAt: string;
+  createdBy?: string | null;
+  creator?: {
+    id: string;
+    fullName: string | null;
+  } | null;
   _count?: {
     labels: number;
   };

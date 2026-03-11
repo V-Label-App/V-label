@@ -331,19 +331,21 @@ export class ProjectController {
 
             const { prisma } = await import('../utils/database.js')
 
-            // Check for existing duplicate in this project
+            // Check for existing duplicate in same dataset (or project-wide if no dataset)
+            const duplicateWhere = datasetId
+                ? { projectId: id, datasetId, checksum }
+                : { projectId: id, datasetId: null, checksum }
+
             const existingImage = await prisma.image.findFirst({
-                where: {
-                    projectId: id,
-                    checksum: checksum
-                }
+                where: duplicateWhere
             })
 
             if (existingImage) {
-                logger.warn('API', `Duplicate image skipped: ${req.file.originalname}`, { projectId: id, checksum })
+                const scope = datasetId ? 'dataset' : 'project'
+                logger.warn('API', `Duplicate image skipped: ${req.file.originalname}`, { projectId: id, datasetId, checksum })
                 return res.status(409).json({
                     error: 'Duplicate image detected',
-                    message: `The image "${req.file.originalname}" already exists in this project.`,
+                    message: `The image "${req.file.originalname}" already exists in this ${scope}.`,
                     existingImageId: existingImage.id,
                     existingImageUrl: existingImage.storageUrl,
                     existingImageName: existingImage.originalFilename
@@ -1076,7 +1078,7 @@ export class ProjectController {
     static async assignTask(req: Request, res: Response) {
         try {
             const { id, taskId } = req.params as { id: string; taskId: string }
-            const { annotatorId, deadline, reason } = req.body
+            const { annotatorId, deadline, reason, force } = req.body
             const user = (req as any).user
             const userId = user.sub || user.id
 
@@ -1117,6 +1119,29 @@ export class ProjectController {
 
             if (!member) {
                 return res.status(400).json({ error: 'User is not an annotator in this project' })
+            }
+
+            // Check workload limit (soft block — Manager can override with force: true)
+            if (!force) {
+                const assignmentRule = await prisma.assignmentRule.findUnique({
+                    where: { projectId: id }
+                })
+                if (assignmentRule) {
+                    const { TaskService } = await import('../services/task.service.js')
+                    const currentTasks = await TaskService.getActiveTaskCount(annotatorId, 'ANNOTATOR')
+                    const maxTasks = assignmentRule.maxTasksPerAnnotator
+                    if (currentTasks >= maxTasks) {
+                        logger.warn('API', `Manual assign blocked: annotator ${annotatorId} workload limit reached`, {
+                            projectId: id, currentTasks, maxTasks
+                        })
+                        return res.status(400).json({
+                            error: 'Workload limit exceeded',
+                            currentTasks,
+                            maxTasks,
+                            message: `Annotator has reached the maximum task limit (${currentTasks}/${maxTasks}). Send force: true to override.`
+                        })
+                    }
+                }
             }
 
             // Check if task already has an active assignment
@@ -1660,7 +1685,7 @@ export class ProjectController {
     static async bulkAssignTasks(req: Request, res: Response) {
         try {
             const { id } = req.params as { id: string }
-            const { taskIds, annotatorId, deadline } = req.body
+            const { taskIds, annotatorId, deadline, force } = req.body
             const user = (req as any).user
             const userId = user.sub || user.id
 
@@ -1706,6 +1731,33 @@ export class ProjectController {
 
             if (annotator.role !== 'ANNOTATOR') {
                 return res.status(400).json({ error: 'User is not an annotator' })
+            }
+
+            // Check workload limit (soft block — Manager can override with force: true)
+            if (!force) {
+                const assignmentRule = await prisma.assignmentRule.findUnique({
+                    where: { projectId: id }
+                })
+                if (assignmentRule) {
+                    const { TaskService } = await import('../services/task.service.js')
+                    const currentTasks = await TaskService.getActiveTaskCount(annotatorId, 'ANNOTATOR')
+                    const maxTasks = assignmentRule.maxTasksPerAnnotator
+                    // Check if adding these tasks would exceed the limit
+                    if (currentTasks + taskIds.length > maxTasks) {
+                        const remainingSlots = Math.max(0, maxTasks - currentTasks)
+                        logger.warn('API', `Bulk assign blocked: annotator ${annotatorId} workload limit exceeded`, {
+                            projectId: id, currentTasks, maxTasks, requestedTasks: taskIds.length, remainingSlots
+                        })
+                        return res.status(400).json({
+                            error: 'Workload limit exceeded',
+                            currentTasks,
+                            maxTasks,
+                            requestedTasks: taskIds.length,
+                            remainingSlots,
+                            message: `Annotator has ${currentTasks}/${maxTasks} active tasks. Cannot assign ${taskIds.length} more (only ${remainingSlots} slots available). Send force: true to override.`
+                        })
+                    }
+                }
             }
 
             const deadlineDate = deadline ? new Date(deadline) : null

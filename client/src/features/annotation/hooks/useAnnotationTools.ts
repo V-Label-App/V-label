@@ -1,89 +1,120 @@
-import { useState, useCallback } from 'react';
-import Konva from 'konva';
-import { useCanvasStore, useAnnotationStore } from '../stores';
-import type { Annotation } from '../stores';
-import { generateId, availableLabels } from '../constants';
+import { useState, useCallback } from "react";
+import Konva from "konva";
+import { useCanvasStore, useAnnotationStore, useLabelStore } from "../stores";
+import { generateId } from "../constants";
 
 export function useAnnotationTools() {
-    const { tool } = useCanvasStore();
-    const { addAnnotation } = useAnnotationStore();
+  const { tool, imageSize, isModalOpen } = useCanvasStore();
+  const { addAnnotation, defaultOpacity, defaultStrokeWidth } =
+    useAnnotationStore();
+  const { labels } = useLabelStore();
 
-    const [isDrawing, setIsDrawing] = useState(false);
-    const [drawStart, setDrawStart] = useState<{ x: number; y: number } | null>(null);
-    const [tempRect, setTempRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [drawStart, setDrawStart] = useState<{ x: number; y: number } | null>(
+    null,
+  );
+  const [tempRect, setTempRect] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
 
-    const handleMouseDown = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
-        if (tool !== 'rectangle') return;
+  const handleMouseDown = useCallback(
+    (e: Konva.KonvaEventObject<MouseEvent>) => {
+      if (tool !== "rectangle" || isModalOpen) return;
 
-        const stage = e.target.getStage();
-        if (!stage) return;
+      const stage = e.target.getStage();
+      if (!stage) return;
 
-        const pos = stage.getPointerPosition();
-        if (!pos) return;
+      const pos = stage.getPointerPosition();
+      if (!pos) return;
 
-        // Convert screen coordinates to stage coordinates (accounting for zoom/pan)
-        const transform = stage.getAbsoluteTransform().copy().invert();
-        const stagePos = transform.point(pos);
+      const transform = stage.getAbsoluteTransform().copy().invert();
+      const stagePos = transform.point(pos);
 
-        setIsDrawing(true);
-        setDrawStart(stagePos);
-        setTempRect({ x: stagePos.x, y: stagePos.y, width: 0, height: 0 });
-    }, [tool]);
+      // Clamp start point to image bounds
+      const clampX = Math.max(0, Math.min(stagePos.x, imageSize.width));
+      const clampY = Math.max(0, Math.min(stagePos.y, imageSize.height));
 
-    const handleMouseMove = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
-        if (!isDrawing || !drawStart) return;
+      setIsDrawing(true);
+      const startPoint = { x: clampX, y: clampY };
+      setDrawStart(startPoint);
+      setTempRect({ x: clampX, y: clampY, width: 0, height: 0 });
+    },
+    [tool, imageSize, isModalOpen],
+  );
 
-        const stage = e.target.getStage();
-        if (!stage) return;
+  const handleMouseMove = useCallback(
+    (e: Konva.KonvaEventObject<MouseEvent>) => {
+      if (!isDrawing || !drawStart || tool !== "rectangle") return;
 
-        const pos = stage.getPointerPosition();
-        if (!pos) return;
+      const stage = e.target.getStage();
+      if (!stage) return;
 
-        const transform = stage.getAbsoluteTransform().copy().invert();
-        const stagePos = transform.point(pos);
+      const pos = stage.getPointerPosition();
+      if (!pos) return;
 
-        const newRect = {
-            x: Math.min(drawStart.x, stagePos.x),
-            y: Math.min(drawStart.y, stagePos.y),
-            width: Math.abs(stagePos.x - drawStart.x),
-            height: Math.abs(stagePos.y - drawStart.y),
-        };
+      const transform = stage.getAbsoluteTransform().copy().invert();
+      const stagePos = transform.point(pos);
 
-        setTempRect(newRect);
-    }, [isDrawing, drawStart]);
+      // Clamp to image bounds
+      const clampX = Math.max(0, Math.min(stagePos.x, imageSize.width));
+      const clampY = Math.max(0, Math.min(stagePos.y, imageSize.height));
 
-    const handleMouseUp = useCallback(() => {
-        if (!isDrawing || !tempRect || tempRect.width < 10 || tempRect.height < 10) {
-            setIsDrawing(false);
-            setDrawStart(null);
-            setTempRect(null);
-            return;
-        }
+      const newRect = {
+        x: Math.min(drawStart.x, clampX),
+        y: Math.min(drawStart.y, clampY),
+        width: Math.abs(clampX - drawStart.x),
+        height: Math.abs(clampY - drawStart.y),
+      };
 
-        const newAnnotation: Annotation = {
-            id: generateId(),
-            label: availableLabels[0], // Default to first label
-            type: 'rectangle',
-            x: tempRect.x,
-            y: tempRect.y,
-            width: tempRect.width,
-            height: tempRect.height,
-            visible: true,
-            createdAt: new Date(),
-        };
+      console.log("Drawing rectangle coordinates:", newRect);
 
-        addAnnotation(newAnnotation);
+      setTempRect(newRect);
+    },
+    [isDrawing, drawStart, tool, imageSize],
+  );
 
-        setIsDrawing(false);
-        setDrawStart(null);
-        setTempRect(null);
-    }, [isDrawing, tempRect, addAnnotation]);
+  const handleMouseUp = useCallback(() => {
+    if (!isDrawing) return;
 
-    return {
-        isDrawing,
-        tempRect,
-        handleMouseDown,
-        handleMouseMove,
-        handleMouseUp,
-    };
+    if (tool === "rectangle" && tempRect) {
+      if (tempRect.width >= 5 && tempRect.height >= 5) {
+        addAnnotation({
+          id: generateId(),
+          label: labels[0]?.name || "Unlabeled", // Default to first label from project
+          type: "rectangle",
+          x: tempRect.x,
+          y: tempRect.y,
+          width: tempRect.width,
+          height: tempRect.height,
+          visible: true,
+          createdAt: new Date(),
+          opacity: defaultOpacity,
+          strokeWidth: defaultStrokeWidth,
+        });
+      }
+    }
+
+    setIsDrawing(false);
+    setDrawStart(null);
+    setTempRect(null);
+  }, [
+    isDrawing,
+    tool,
+    tempRect,
+    addAnnotation,
+    labels,
+    defaultOpacity,
+    defaultStrokeWidth,
+  ]);
+
+  return {
+    isDrawing,
+    tempRect,
+    handleMouseDown,
+    handleMouseMove,
+    handleMouseUp,
+  };
 }

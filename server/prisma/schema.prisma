@@ -30,6 +30,7 @@ model User {
   imagesUploaded         Image[]               @relation("ImageUploader")
   labelRequestsSent      LabelRequest[]        @relation("LabelRequester")
   labelRequestsReviewed  LabelRequest[]        @relation("LabelReviewer")
+  labelCategoriesCreated LabelCategory[]       @relation("LabelCategoryCreator")
   labelsCreated          Label[]               @relation("LabelCreator")
   notifications          Notification[]
   passwordResetTokens    PasswordResetToken[]
@@ -281,7 +282,7 @@ model Image {
   uploader         User?    @relation("ImageUploader", fields: [uploadedBy], references: [id])
   tasks            Task[]
 
-  @@unique([projectId, checksum])
+  @@unique([projectId, datasetId, checksum])
   @@index([projectId])
   @@index([datasetId])
   @@index([checksum])
@@ -446,6 +447,8 @@ model LabelCategory {
   description String?
   createdAt   DateTime @default(now()) @map("created_at")
   color       String?  @db.VarChar(7)
+  createdBy   String?  @map("created_by") @db.Uuid
+  creator     User?    @relation("LabelCategoryCreator", fields: [createdBy], references: [id])
   labels      Label[]
 
   @@map("label_categories")

@@ -196,6 +196,51 @@ export class AuthService {
   }
 
   /**
+   * Change password for authenticated user
+   */
+  static async changePassword(
+    userId: string,
+    oldPassword: string,
+    newPassword: string
+  ): Promise<{ success: boolean; message: string }> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        passwordHash: true,
+        provider: true,
+      },
+    })
+
+    if (!user) {
+      throw new Error('User not found')
+    }
+
+    if (user.provider !== 'LOCAL') {
+      throw new Error('Password change is not available for Google accounts')
+    }
+
+    if (!user.passwordHash) {
+      throw new Error('No password set for this account')
+    }
+
+    const isValidPassword = await comparePassword(oldPassword, user.passwordHash)
+    if (!isValidPassword) {
+      throw new Error('Current password is incorrect')
+    }
+
+    const { hashPassword } = await import('../utils/password.utils.js')
+    const newHash = await hashPassword(newPassword)
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash: newHash },
+    })
+
+    return { success: true, message: 'Password changed successfully' }
+  }
+
+  /**
    * Login with Google (Firebase)
    */
   static async loginWithGoogle(idToken: string): Promise<LoginResult | null> {

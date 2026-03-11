@@ -51,10 +51,10 @@ export class LabelCategoryController {
         return res.status(400).json({ success: false, error: 'Name is required' });
       }
 
-      const category = await LabelCategoryService.create({ name, description });
+      const userId = (req as any).user?.sub as string;
+      const category = await LabelCategoryService.create({ name, description, createdBy: userId });
 
       // Broadcast to refresh label management page
-      const userId = (req as any).user?.sub as string;
       broadcastService.broadcastToAll(SystemEventType.LABEL_CREATED, {
         count: 0,
         categoryName: category.name,

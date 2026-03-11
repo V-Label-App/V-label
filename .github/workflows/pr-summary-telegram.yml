@@ -1,0 +1,164 @@
+name: PR Summary to Telegram
+
+on:
+  pull_request:
+    branches: [develop]
+    types: [opened, reopened, synchronize, closed]
+
+jobs:
+  summarize-and-notify:
+    name: Summarize PR & Notify Telegram
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get PR info and diff
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          REPO=${{ github.repository }}
+          gh pr diff $PR_NUMBER --repo $REPO 2>/dev/null | head -c 5000 > /tmp/pr_diff.txt
+          gh pr view $PR_NUMBER --repo $REPO --json files --jq '[.files[].path] | join(", ")' | head -c 500 > /tmp/pr_files.txt
+
+      - name: Summarize and notify
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+          PR_EVENT: ${{ github.event.action }}
+          PR_MERGED: ${{ github.event.pull_request.merged }}
+          MERGER: ${{ github.event.pull_request.merged_by.login }}
+          REPO: ${{ github.repository }}
+        run: |
+          cat > /tmp/run_summary.py << 'PYEOF'
+          import os, json, urllib.request
+
+          gemini_key = os.environ["GEMINI_API_KEY"]
+          tg_token   = os.environ["TELEGRAM_BOT_TOKEN"]
+          tg_chat    = os.environ["TELEGRAM_CHAT_ID"]
+          pr_title   = os.environ.get("PR_TITLE", "")
+          pr_body    = os.environ.get("PR_BODY", "") or "(khong co mo ta)"
+          pr_author  = os.environ.get("PR_AUTHOR", "")
+          pr_url     = os.environ.get("PR_URL", "")
+          pr_number  = os.environ.get("PR_NUMBER", "")
+          base_br    = os.environ.get("BASE_BRANCH", "")
+          head_br    = os.environ.get("HEAD_BRANCH", "")
+          pr_event   = os.environ.get("PR_EVENT", "")
+          repo       = os.environ.get("REPO", "")
+          pr_merged  = os.environ.get("PR_MERGED", "false")
+          merger     = os.environ.get("MERGER", "")
+
+          diff  = open("/tmp/pr_diff.txt").read() or "(khong co diff)"
+          files = open("/tmp/pr_files.txt").read() or "(khong ro)"
+
+          event_label = {"opened": "Moi tao", "reopened": "Mo lai", "synchronize": "Cap nhat", "closed": "Da dong"}.get(pr_event, pr_event)
+
+          # Neu la merged thi gui thong bao don gian, khong can AI
+          if pr_event == "closed" and pr_merged == "true":
+              message = "\n".join([
+                  "[Da Merge] PR #" + pr_number + " - " + repo,
+                  "",
+                  "Tieu de: " + pr_title,
+                  "Tac gia: @" + pr_author,
+                  "Merge boi: @" + merger,
+                  "Nhanh: " + head_br + " -> " + base_br,
+                  "Link: " + pr_url,
+              ])
+              def send_tg(text):
+                  url = "https://api.telegram.org/bot" + tg_token + "/sendMessage"
+                  body = json.dumps({"chat_id": tg_chat, "text": text, "disable_web_page_preview": True}).encode()
+                  req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
+                  urllib.request.urlopen(req)
+              send_tg(message)
+              print("Merge notification sent")
+              exit(0)
+
+          # Neu la closed ma khong merge (bi tu choi) thi bo qua
+          if pr_event == "closed" and pr_merged != "true":
+              print("PR closed without merge, skipping")
+              exit(0)
+
+          prompt = "\n".join([
+              "Ban la Senior Engineer. Review PR nay bang tieng Viet.",
+              "KHONG chao hoi. KHONG giai thich. Chi tra loi theo format duoi day.",
+              "",
+              "=== Information ===",
+              "Title: " + pr_title,
+              "Author: " + pr_author,
+              "Branch: " + head_br + " -> " + base_br,
+              "Description: " + (pr_body if pr_body else "Khong co"),
+              "Files changed: " + files,
+              "",
+              "=== DIFF ===",
+              diff,
+              "",
+              "=== Request ===",
+              "Tra loi CHINH XAC theo format sau:",
+              "",
+              "Purpose: [PR nay lam gi, tai sao can thiet]",
+              "Changes: [Liet ke ngan gon nhung thay doi chinh, dung gach dau dong]",
+              "Warning: [Bug, security, performance, logic sai - neu khong co ghi: Khong co]",
+              "Suggestion: [Goi y cai thien neu co - neu khong co ghi: Khong co]",
+              "",
+              "IMPORTANT: Khong them bat ky noi dung nao ngoai 4 muc tren.",
+          ])
+
+          gemini_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + gemini_key
+          gemini_body = json.dumps({
+              "contents": [{"parts": [{"text": prompt}] }],
+              "generationConfig": {"maxOutputTokens": 8192, "temperature": 0.2}
+          }).encode()
+
+          req = urllib.request.Request(gemini_url, data=gemini_body, headers={"Content-Type": "application/json"})
+          try:
+              res = urllib.request.urlopen(req)
+              data = json.loads(res.read())
+              summary = data["candidates"][0]["content"]["parts"][0]["text"]
+          except urllib.error.HTTPError as e:
+              body = e.read().decode()
+              summary = "(Loi Gemini " + str(e.code) + ": " + body[:300] + ")"
+          except Exception as e:
+              summary = "(Khong the tao tom tat: " + str(e) + ")"
+
+          message = "\n".join([
+              "[" + event_label + "] PR #" + pr_number + " - " + repo,
+              "",
+              "Tieu de: " + pr_title,
+              "Tac gia: @" + pr_author,
+              "Nhanh: " + head_br + " -> " + base_br,
+              "Link: " + pr_url,
+              "",
+              "--- Tom tat (AI) ---",
+              summary,
+          ])
+
+          def send_tg(text):
+              url = "https://api.telegram.org/bot" + tg_token + "/sendMessage"
+              body = json.dumps({"chat_id": tg_chat, "text": text, "disable_web_page_preview": True}).encode()
+              req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
+              urllib.request.urlopen(req)
+
+          try:
+              for i in range(0, len(message), 4096):
+                  send_tg(message[i:i+4096])
+              print("Telegram OK")
+          except Exception as e:
+              print("Telegram Error:", e)
+              raise
+          PYEOF
+          python3 /tmp/run_summary.py
