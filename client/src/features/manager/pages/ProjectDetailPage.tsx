@@ -552,15 +552,14 @@ export function ProjectDetailPage() {
       try {
         // Use Promise.all to assign reviewer to all selected tasks
         await Promise.all(
-          selectedTasks.map((taskId) => {
-            const task = tasks.find((t) => t.id === taskId);
-            return projectApi.assignReviewer(
+          selectedTasks.map((taskId) => 
+            projectApi.assignReviewer(
               projectId,
               taskId,
               selectedReviewerId,
               selectedReviewerDeadline,
-            );
-          })
+            )
+          )
         );
         toast.success(`${selectedTasks.length} tasks assigned to reviewer successfully`);
         setIsAssignReviewerDialogOpen(false);
