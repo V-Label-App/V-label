@@ -194,6 +194,26 @@ export class ReviewerService {
      */
     static async getAssignmentDetail(assignmentId: string, userId: string) {
         try {
+            // First check if assignment exists at all
+            const existingAssignment = await prisma.taskAssignment.findUnique({
+                where: { id: assignmentId },
+                select: { id: true, reviewerId: true, annotatorId: true, status: true }
+            });
+
+            if (!existingAssignment) {
+                throw new Error(`Assignment not found with ID: ${assignmentId}`);
+            }
+
+            // Check if user is the assigned reviewer
+            if (!existingAssignment.reviewerId) {
+                throw new Error(`Assignment ${assignmentId} does not have a reviewer assigned yet`);
+            }
+
+            if (existingAssignment.reviewerId !== userId) {
+                throw new Error(`Assignment ${assignmentId} is assigned to different reviewer. Your ID: ${userId}, Assigned to: ${existingAssignment.reviewerId}`);
+            }
+
+            // Now fetch full assignment data
             const assignment = await prisma.taskAssignment.findFirst({
                 where: {
                     id: assignmentId,
@@ -226,10 +246,24 @@ export class ReviewerService {
             });
 
             if (!assignment) {
-                throw new Error('Assignment not found');
+                throw new Error('Failed to load assignment with full details');
             }
 
-            return assignment;
+            // Transform BigInt fields to Number for JSON serialization
+            const result = {
+                ...assignment,
+                task: assignment.task ? {
+                    ...assignment.task,
+                    image: assignment.task.image ? {
+                        ...assignment.task.image,
+                        fileSizeBytes: assignment.task.image.fileSizeBytes 
+                            ? Number(assignment.task.image.fileSizeBytes) 
+                            : null
+                    } : null
+                } : null
+            };
+
+            return result;
         } catch (error) {
             logger.error('SERVICE', 'Error getting assignment detail', { error, assignmentId, userId });
             throw error;

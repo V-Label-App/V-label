@@ -2664,6 +2664,7 @@ export class ProjectController {
             }
 
             // Calculate deadline
+            const { TaskService } = await import('../services/task.service.js')
             const reviewDeadline = deadline ? new Date(deadline) : null
 
             // Update all eligible assignments in a transaction
@@ -2682,8 +2683,6 @@ export class ProjectController {
                     })
                 })
             )
-
-            const { TaskService } = await import('../services/task.service.js')
 
             logger.info('API', `Bulk assigned reviewer ${reviewerId} to ${eligible.length} tasks`, {
                 actorId: userId, projectId: id
