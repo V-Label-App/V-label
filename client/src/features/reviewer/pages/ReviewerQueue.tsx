@@ -122,7 +122,7 @@ export function ReviewerQueue({ onOpenWorkspace }: ReviewerQueueProps) {
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-sm text-muted-foreground mb-1">
-                  Pending Review
+                  Pending
                 </p>
                 <h3 className="text-3xl font-semibold">{queueTasks.length}</h3>
               </div>
