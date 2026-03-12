@@ -148,14 +148,17 @@ export class TaskService {
         projectId: string,
         role: ProjectRole,
         strategy: string,
-        rules: AssignmentRule
+        rules: AssignmentRule,
+        excludeUserId?: string // Conflict of Interest: exclude this user from candidates
     ): Promise<string | null> {
         try {
             // Get all project members with the specified role
             const members = await prisma.projectMember.findMany({
                 where: {
                     projectId,
-                    projectRole: role
+                    projectRole: role,
+                    // Exclude user for Conflict of Interest (reviewer != annotator)
+                    ...(excludeUserId && { userId: { not: excludeUserId } })
                 },
                 include: {
                     user: {
@@ -478,27 +481,18 @@ export class TaskService {
                 return false;
             }
 
-            // Find next assignee
+            // Find next assignee (excludeUserId filters out the annotator for COI)
             const projectRole = role === 'ANNOTATOR' ? ProjectRole.ANNOTATOR : ProjectRole.REVIEWER;
             const selectedUserId = await this.findNextAssignee(
                 projectId,
                 projectRole,
                 rules.assignmentStrategy,
-                rules
+                rules,
+                role === 'REVIEWER' ? excludeUserId : undefined
             );
 
             if (!selectedUserId) {
                 logger.warn('TASK_SERVICE', `No eligible ${role} found`, { taskId, projectId });
-                return false;
-            }
-
-            // Conflict of Interest check for Reviewers
-            if (role === 'REVIEWER' && excludeUserId && selectedUserId === excludeUserId) {
-                logger.warn('TASK_SERVICE', 'Conflict of Interest: Reviewer cannot be the annotator', {
-                    taskId,
-                    selectedUserId,
-                    excludeUserId
-                });
                 return false;
             }
 
