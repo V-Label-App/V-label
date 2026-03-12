@@ -13,6 +13,7 @@
 5. [Màn 4: Review Queue (Global)](#5-màn-4-review-queue-global)
 6. [Status Transitions](#6-status-transitions)
 7. [Checklist FE cần nối](#7-checklist-fe-cần-nối)
+8. [Manager API: Gán Reviewer thủ công](#8-manager-api-gán-reviewer-thủ-công)
 
 ---
 
@@ -568,6 +569,300 @@ export const reviewerApi = {
 
 ---
 
+## 8. Manager API: Gán Reviewer thủ công
+
+> Khi `autoAssignReviewer = false` trong AssignmentRule, hoặc khi Manager muốn chọn reviewer cụ thể, Manager sử dụng các API dưới đây.
+
+**Role**: Yêu cầu `MANAGER` hoặc `ADMIN`
+
+**Base URL**: `/api/v1/projects/:projectId`
+
+---
+
+### 8.1. Xem danh sách task chờ gán reviewer
+
+**Mô tả**: Lọc task đã SUBMITTED nhưng chưa có reviewer (annotator đã gán nhãn xong, chờ Manager phân reviewer).
+
+```typescript
+// GET /api/v1/projects/:projectId/tasks?pendingReview=true&page=1&limit=20
+const result = await projectApi.getTasks(projectId, {
+  pendingReview: 'true',
+  page: 1,
+  limit: 20
+});
+```
+
+**Query params**:
+
+| Param | Type | Mô tả |
+|-------|------|--------|
+| `pendingReview` | `'true'` | Lọc task có assignment `status = SUBMITTED` và `reviewerId = null` |
+| `page` | `number` | Trang hiện tại (default: 1) |
+| `limit` | `number` | Số item/trang (default: 20) |
+
+> **Lưu ý**: Khi `pendingReview=true`, các filter `status` và `assigneeId` sẽ bị bỏ qua.
+
+**Response**: Giống `GET /projects/:id/tasks` hiện có — trả mảng tasks kèm `assignments` (có `annotator`, `reviewer` info).
+
+```typescript
+interface TaskListResponse {
+  data: Array<{
+    id: string;
+    status: string;
+    priority: string;
+    difficultyLevel: string;
+    image: {
+      id: string;
+      storageUrl: string;
+      originalFilename: string;
+      width: number;
+      height: number;
+    };
+    assignments: Array<{
+      id: string;
+      status: string;           // 'SUBMITTED'
+      annotatorId: string;
+      reviewerId: string | null; // null = chưa gán reviewer
+      deadline: string | null;
+      annotator: {
+        id: string;
+        fullName: string;
+        email: string;
+        avatarUrl?: string;
+      };
+      reviewer: null;            // null khi chưa gán
+    }>;
+  }>;
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
+```
+
+---
+
+### 8.2. Gán reviewer thủ công cho 1 task
+
+**Mô tả**: Manager chọn reviewer cụ thể cho 1 task đã SUBMITTED.
+
+```typescript
+// POST /api/v1/projects/:projectId/tasks/:taskId/assign-reviewer
+const result = await projectApi.assignReviewer(projectId, taskId, {
+  reviewerId: 'user-uuid-here',
+  deadline: '2026-03-15T00:00:00.000Z',  // Tùy chọn
+  force: false                             // Tùy chọn, override workload limit
+});
+```
+
+**Request body**:
+
+```typescript
+interface AssignReviewerRequest {
+  reviewerId: string;       // BẮT BUỘC — UUID của reviewer
+  deadline?: string;        // ISO datetime, nếu không truyền sẽ tự tính theo difficulty
+  force?: boolean;          // true = bỏ qua workload limit check
+}
+```
+
+**Validation rules**:
+
+| Rule | Mô tả | HTTP Status |
+|------|--------|-------------|
+| Task phải có assignment SUBMITTED | Task chưa submit hoặc đã review sẽ bị từ chối | `400` |
+| Conflict of Interest | Reviewer không được trùng annotator của task | `400` |
+| Task chưa có reviewer | Nếu đã có reviewer → trả `409 Conflict` | `409` |
+| Reviewer là member với role REVIEWER | User phải được add vào project với role REVIEWER | `400` |
+| Workload limit | Nếu reviewer đạt `maxTasksPerReviewer` → trả `400` (có thể override bằng `force: true`) | `400` |
+
+**Response thành công** (`200`):
+
+```typescript
+interface AssignReviewerResponse {
+  message: 'Reviewer assigned successfully';
+  assignment: {
+    id: string;
+    taskId: string;
+    status: 'SUBMITTED';
+    annotatorId: string;
+    reviewerId: string;
+    deadline: string;
+    assignmentMethod: 'MANUAL';
+    annotator: { id: string; fullName: string; email: string; avatarUrl?: string };
+    reviewer: { id: string; fullName: string; email: string; avatarUrl?: string };
+    task: {
+      id: string;
+      image: { id: string; storageUrl: string; originalFilename: string };
+    };
+  };
+}
+```
+
+**Error responses**:
+
+```typescript
+// 400 - Task chưa SUBMITTED
+{ error: 'Task does not have a SUBMITTED assignment. Only SUBMITTED tasks can be assigned to a reviewer.' }
+
+// 400 - Conflict of Interest
+{ error: 'Conflict of Interest: Reviewer cannot be the same person who annotated this task.' }
+
+// 400 - Workload limit
+{ error: 'Workload limit exceeded', currentTasks: 5, maxTasks: 5,
+  message: 'Reviewer has reached the maximum task limit (5/5). Send force: true to override.' }
+
+// 409 - Đã có reviewer
+{ error: 'This task already has a reviewer assigned. Unassign the current reviewer first or use force: true to override.' }
+```
+
+**Hành vi backend**:
+- Cập nhật `reviewerId` trên TaskAssignment hiện có (không tạo record mới)
+- Tính deadline tự động theo difficulty nếu không truyền `deadline`
+- Gửi notification `TASK_ASSIGNED` cho reviewer (DB + WebSocket)
+- Log activity `ASSIGNED` với `metadata.targetRole = 'REVIEWER'`
+
+---
+
+### 8.3. Gán reviewer hàng loạt cho nhiều tasks
+
+**Mô tả**: Manager chọn 1 reviewer và gán cho nhiều task SUBMITTED cùng lúc.
+
+```typescript
+// POST /api/v1/projects/:projectId/tasks/bulk-assign-reviewer
+const result = await projectApi.bulkAssignReviewer(projectId, {
+  taskIds: ['task-1', 'task-2', 'task-3'],
+  reviewerId: 'reviewer-uuid-here',
+  deadline: '2026-03-15T00:00:00.000Z',  // Tùy chọn
+  force: false                             // Tùy chọn
+});
+```
+
+**Request body**:
+
+```typescript
+interface BulkAssignReviewerRequest {
+  taskIds: string[];        // BẮT BUỘC — mảng task IDs
+  reviewerId: string;       // BẮT BUỘC — UUID của reviewer
+  deadline?: string;        // ISO datetime (áp dụng chung), nếu không truyền sẽ tính theo difficulty từng task
+  force?: boolean;          // true = bỏ qua workload limit check
+}
+```
+
+**Validation rules**:
+
+| Rule | Mô tả | HTTP Status |
+|------|--------|-------------|
+| `taskIds` không rỗng | Phải có ít nhất 1 task | `400` |
+| Reviewer là member REVIEWER | Kiểm tra project membership | `400` |
+| Task phải SUBMITTED + chưa có reviewer | Chỉ lấy task thỏa điều kiện, bỏ qua task không đủ | `400` nếu không có task nào eligible |
+| Conflict of Interest | Tự động skip task mà reviewer = annotator | Trả danh sách `conflictedTaskIds` |
+| Workload limit | Check tổng: `currentTasks + eligible.length > max` | `400` (override bằng `force: true`) |
+
+**Response thành công** (`200`):
+
+```typescript
+interface BulkAssignReviewerResponse {
+  message: string;              // 'Successfully assigned reviewer to 3 tasks'
+  assigned: number;             // Số task được gán thành công
+  skippedConflict: number;      // Số task bị skip do COI
+  conflictedTaskIds: string[];  // Danh sách task bị COI (reviewer = annotator)
+}
+```
+
+**Hành vi backend**:
+- Lọc task SUBMITTED + `reviewerId = null` trong project
+- Tự động loại task có COI (annotator = reviewer) — KHÔNG fail toàn bộ request
+- Transaction update tất cả assignment eligible
+- Log `BULK_ASSIGNED` activity với `metadata.targetRole = 'REVIEWER'`
+
+---
+
+### 8.4. Luồng Manager gán reviewer (End-to-end)
+
+```
+┌──────────────────────────┐
+│  Manager: Project Detail │
+│  GET /tasks              │
+│  ?pendingReview=true     │
+│                          │
+│  → Danh sách tasks       │
+│    SUBMITTED, chưa có    │
+│    reviewer              │
+└───────────┬──────────────┘
+            │
+     Chọn task(s) + reviewer
+            │
+   ┌────────┴─────────┐
+   │                  │
+   ▼                  ▼
+┌──────────────┐  ┌───────────────────┐
+│  Gán 1 task  │  │  Gán hàng loạt    │
+│              │  │                   │
+│  POST        │  │  POST             │
+│  /assign-    │  │  /bulk-assign-    │
+│  reviewer    │  │  reviewer         │
+└──────┬───────┘  └────────┬──────────┘
+       │                   │
+       └─────────┬─────────┘
+                 │
+                 ▼
+        Reviewer nhận notification
+        → Thấy task trong Review Queue
+        → Approve / Reject
+```
+
+### Các method cần thêm vào `project.api.ts` (hoặc manager API tương ứng):
+
+```typescript
+export const projectApi = {
+    // ... existing methods ...
+
+    /**
+     * Get tasks pending review (SUBMITTED, no reviewer)
+     */
+    getTasksPendingReview: async (projectId: string, page = 1, limit = 20) => {
+        const response = await apiClient.get(
+            `/projects/${projectId}/tasks`,
+            { params: { pendingReview: 'true', page, limit } }
+        );
+        return response.data;
+    },
+
+    /**
+     * Manually assign a reviewer to a SUBMITTED task
+     */
+    assignReviewer: async (
+        projectId: string,
+        taskId: string,
+        data: { reviewerId: string; deadline?: string; force?: boolean }
+    ) => {
+        const response = await apiClient.post(
+            `/projects/${projectId}/tasks/${taskId}/assign-reviewer`,
+            data
+        );
+        return response.data;
+    },
+
+    /**
+     * Bulk assign a reviewer to multiple SUBMITTED tasks
+     */
+    bulkAssignReviewer: async (
+        projectId: string,
+        data: { taskIds: string[]; reviewerId: string; deadline?: string; force?: boolean }
+    ) => {
+        const response = await apiClient.post(
+            `/projects/${projectId}/tasks/bulk-assign-reviewer`,
+            data
+        );
+        return response.data;
+    }
+};
+```
+
+---
+
 ## Tổng kết
 
 **Backend API đã đầy đủ** — 6 endpoints cho luồng reviewer:
@@ -581,8 +876,17 @@ export const reviewerApi = {
 | 5 | `POST` | `/reviewer/assignments/:id/approve` | Approve task |
 | 6 | `POST` | `/reviewer/assignments/:id/reject` | Reject task |
 
+**Manager API gán reviewer** — 3 endpoints mới:
+
+| # | Method | Endpoint | Mô tả |
+|---|--------|----------|--------|
+| 7 | `POST` | `/projects/:id/tasks/:taskId/assign-reviewer` | Manager gán reviewer thủ công |
+| 8 | `POST` | `/projects/:id/tasks/bulk-assign-reviewer` | Gán reviewer hàng loạt |
+| 9 | `GET` | `/projects/:id/tasks?pendingReview=true` | Lọc task chờ reviewer |
+
 **Frontend cần nối**:
 - 2 trang (Projects, Project Detail) đã nối API ✅
 - **ReviewerQueue** đang dùng mock data hoàn toàn — cần connect `getStats()` + `getReviewQueue()`
 - **Workspace review mode** — cần implement `getAssignmentDetail()`, `handleApprove()`, `handleReject()`
 - **Fix bug navigation**: dùng `assignmentId` (không phải `taskId`) + thêm `?mode=review`
+- **Manager UI** — cần nối API gán reviewer thủ công (assign-reviewer, bulk-assign-reviewer, pendingReview filter)
