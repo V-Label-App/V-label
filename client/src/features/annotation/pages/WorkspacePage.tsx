@@ -1,12 +1,12 @@
 import { useEffect, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { WorkspaceHeader } from "../components/workspace/WorkspaceHeader";
 import { WorkspaceToolbar } from "../components/workspace/WorkspaceToolbar";
 import { WorkspaceCanvas } from "../components/canvas/WorkspaceCanvas";
 import { WorkspaceSidebar } from "../components/workspace/WorkspaceSidebar";
 import { ImageNavigator } from "../components/workspace/ImageNavigator";
-import { useImageStore, useAnnotationStore, useLabelStore } from "../stores";
+import { useImageStore, useAnnotationStore, useLabelStore, type ImageTask } from "../stores";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { useWorkspaceData } from "../hooks/useWorkspaceData";
 import { useProjectTasks } from "../hooks/useProjectTasks";
@@ -24,11 +24,17 @@ interface WorkspacePageProps {
 }
 
 export function WorkspacePage({
-  mode = "annotate",
-  taskStatus = "assigned",
+  mode: propMode,
+  taskStatus: propTaskStatus,
 }: WorkspacePageProps) {
   const { taskId } = useParams<{ taskId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  
+  // Read mode from URL query params, fallback to props
+  const mode = (searchParams.get("mode") as "annotate" | "review") || propMode || "annotate";
+  const taskStatus = propTaskStatus || "assigned";
+  
   const { updateImages, getCurrentImage, currentIndex, jumpToImage } =
     useImageStore();
   const { clearAnnotations, setAnnotations, annotations } =
@@ -47,7 +53,7 @@ export function WorkspacePage({
 
   // Load task data from API
   const { loading, error, taskData, submitTask, skipTask, saveDraft } =
-    useWorkspaceData(taskId);
+    useWorkspaceData(taskId, false, mode);
 
   const isReadOnly =
     taskStatus === "approved" ||
@@ -64,14 +70,14 @@ export function WorkspacePage({
     }
   }, [loading, isReadOnly]);
 
-  // Auto-save integration
-  useAutoSave(saveDraft, actualTimeSeconds);
+  // Auto-save integration (disabled in review mode)
+  useAutoSave(saveDraft, actualTimeSeconds, mode !== "review");
 
   // Extract projectId from taskData for loading other tasks
   const projectId = taskData?.projectId;
 
-  // Load all tasks in the project for navigation
-  const { imageTasks, findTaskIndex } = useProjectTasks(projectId);
+  // Load all tasks in the project for navigation (disabled in review mode)
+  const { imageTasks, findTaskIndex } = useProjectTasks(mode === "review" ? undefined : projectId);
 
   // Initialize keyboard shortcuts
   useKeyboardShortcuts(isReadOnly);
@@ -90,8 +96,24 @@ export function WorkspacePage({
       } else {
         clearAnnotations();
       }
+
+      // In review mode, manually set the image since we don't load task list
+      if (mode === "review" && taskData.image) {
+        const imageStatus = (taskData.status?.toLowerCase() || 'in_progress') as ImageTask['status'];
+        updateImages([{
+          id: taskId!,
+          filename: taskData.image.filename,
+          status: imageStatus,
+          url: taskData.image.url,
+          thumbnail: taskData.image.url,
+          width: taskData.image.width,
+          height: taskData.image.height,
+          annotationCount: taskData.annotations?.length || 0
+        }]);
+        jumpToImage(0);
+      }
     }
-  }, [taskData, setLabels, setAnnotations, clearAnnotations]);
+  }, [taskData, setLabels, setAnnotations, clearAnnotations, mode, taskId, updateImages, jumpToImage]);
 
   // Update image tasks list and current index when project tasks are loaded
   useEffect(() => {

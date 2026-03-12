@@ -98,5 +98,35 @@ export const reviewerApi = {
     }) => {
         const response = await apiClient.get<ReviewQueueResponse>(`${BASE_URL}/queue`, { params });
         return response.data;
+    },
+
+    /**
+     * Get assignment detail for review
+     */
+    getAssignmentDetail: async (assignmentId: string) => {
+        const response = await apiClient.get(`${BASE_URL}/assignments/${assignmentId}`);
+        return response.data;
+    },
+
+    /**
+     * Approve a task assignment
+     */
+    approveTask: async (assignmentId: string, data: { reviewComment?: string }) => {
+        const response = await apiClient.post(
+            `${BASE_URL}/assignments/${assignmentId}/approve`,
+            data
+        );
+        return response.data;
+    },
+
+    /**
+     * Reject a task assignment (reviewComment required)
+     */
+    rejectTask: async (assignmentId: string, data: { reviewComment: string }) => {
+        const response = await apiClient.post(
+            `${BASE_URL}/assignments/${assignmentId}/reject`,
+            data
+        );
+        return response.data;
     }
 };

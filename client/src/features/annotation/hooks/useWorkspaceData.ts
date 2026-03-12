@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import type { TaskAssignmentListItem } from "../../../services/annotator.api";
 import { annotatorApi } from "../../../services/annotator.api";
+import { reviewerApi } from "../../../services/reviewer.api";
 import { projectApi } from "../../../services/project.api";
 import { useImageStore } from "../stores";
 import type { Annotation } from "../stores";
@@ -56,11 +57,14 @@ export interface UseWorkspaceDataReturn {
 /**
  * Custom hook to manage workspace task data and API interactions
  * @param assignmentId - The task assignment ID
+ * @param isManagerReview - If true, uses manager API endpoint
+ * @param mode - 'annotate' or 'review' mode
  * @returns Task data and methods to interact with the API
  */
 export const useWorkspaceData = (
   assignmentId: string,
   isManagerReview = false,
+  mode: "annotate" | "review" = "annotate",
 ): UseWorkspaceDataReturn => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
@@ -121,9 +125,18 @@ export const useWorkspaceData = (
       setLoading(true);
       setError(null);
 
-      const assignment = isManagerReview
-        ? await projectApi.getTaskAssignmentForReview(assignmentId)
-        : await annotatorApi.getTaskAssignment(assignmentId);
+      let assignment;
+      if (mode === "review") {
+        // Reviewer mode: use reviewer API
+        assignment = await reviewerApi.getAssignmentDetail(assignmentId);
+      } else if (isManagerReview) {
+        // Manager review mode
+        assignment = await projectApi.getTaskAssignmentForReview(assignmentId);
+      } else {
+        // Annotator mode
+        assignment = await annotatorApi.getTaskAssignment(assignmentId);
+      }
+      
       const transformedData = transformTaskData(assignment);
 
       setTaskData(transformedData);
@@ -136,7 +149,7 @@ export const useWorkspaceData = (
     } finally {
       setLoading(false);
     }
-  }, [assignmentId, transformTaskData]);
+  }, [assignmentId, isManagerReview, mode, transformTaskData]);
 
   /**
    * Auto-save draft annotations

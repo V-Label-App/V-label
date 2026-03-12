@@ -399,7 +399,7 @@ export function ReviewerProjectDetailPage() {
                             <Button
                               size="sm"
                               variant={task.status === "SUBMITTED" ? "default" : "outline"}
-                              onClick={() => navigate(`/workspace/${task.taskId}`)}
+                              onClick={() => navigate(`/workspace/${task.id}?mode=review`)}
                             >
                               <Eye className="w-3 h-3 mr-1" />
                               {task.status === "SUBMITTED" ? "Review" : "View"}
