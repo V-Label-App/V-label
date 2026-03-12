@@ -285,6 +285,15 @@ export function ProjectDetailPage() {
   const [isAssigning, setIsAssigning] = useState(false);
   const [isBulkAssign, setIsBulkAssign] = useState(false);
 
+  // Reviewer Assignment State
+  const [isAssignReviewerDialogOpen, setIsAssignReviewerDialogOpen] = useState(false);
+  const [taskToAssignReviewer, setTaskToAssignReviewer] = useState<any>(null);
+  const [selectedReviewerId, setSelectedReviewerId] = useState<string>("");
+  const [selectedReviewerDeadline, setSelectedReviewerDeadline] = useState<Date | undefined>();
+  const [reviewerReassignmentReason, setReviewerReassignmentReason] = useState<string>("");
+  const [isAssigningReviewer, setIsAssigningReviewer] = useState(false);
+  const [isBulkAssignReviewer, setIsBulkAssignReviewer] = useState(false);
+
   // Force Assign State
   const [isForceAssignDialogOpen, setIsForceAssignDialogOpen] = useState(false);
   const [forceAssignData, setForceAssignData] = useState<{
@@ -528,6 +537,87 @@ export function ProjectDetailPage() {
       );
     } finally {
       setIsAssigning(false);
+    }
+  };
+
+  // Handle reviewer assignment
+  const handleAssignReviewer = async () => {
+    if (!projectId || !selectedReviewerId) return;
+
+    // Bulk assign mode
+    if (isBulkAssignReviewer) {
+      if (selectedTasks.length === 0) return;
+
+      setIsAssigningReviewer(true);
+      try {
+        // Use Promise.all to assign reviewer to all selected tasks
+        await Promise.all(
+          selectedTasks.map((taskId) => {
+            const task = tasks.find((t) => t.id === taskId);
+            return projectApi.assignReviewer(
+              projectId,
+              taskId,
+              selectedReviewerId,
+              selectedReviewerDeadline,
+            );
+          })
+        );
+        toast.success(`${selectedTasks.length} tasks assigned to reviewer successfully`);
+        setIsAssignReviewerDialogOpen(false);
+        setSelectedReviewerId("");
+        setSelectedReviewerDeadline(undefined);
+        setSelectedTasks([]); // Clear selection
+        setIsBulkAssignReviewer(false);
+        fetchTasks();
+        fetchWorkloads();
+      } catch (error: any) {
+        console.error("Failed to assign reviewer:", error);
+        toast.error(error.response?.data?.error || "Failed to assign reviewer to tasks");
+      } finally {
+        setIsAssigningReviewer(false);
+      }
+      return;
+    }
+
+    // Single assign mode
+    if (!taskToAssignReviewer) return;
+
+    // Check if it's a reassignment and reason is required
+    const currentReviewerAssignment = taskToAssignReviewer.assignments?.find(
+      (a: any) => a.reviewerId,
+    );
+    const isReassignment =
+      currentReviewerAssignment &&
+      currentReviewerAssignment.reviewerId !== selectedReviewerId;
+
+    if (isReassignment && !reviewerReassignmentReason.trim()) {
+      toast.error("Please provide a reason for reviewer reassignment");
+      return;
+    }
+
+    setIsAssigningReviewer(true);
+    try {
+      await projectApi.assignReviewer(
+        projectId,
+        taskToAssignReviewer.id,
+        selectedReviewerId,
+        selectedReviewerDeadline,
+        isReassignment ? reviewerReassignmentReason : undefined,
+      );
+      toast.success("Reviewer assigned successfully");
+      setIsAssignReviewerDialogOpen(false);
+      setTaskToAssignReviewer(null);
+      setSelectedReviewerId("");
+      setSelectedReviewerDeadline(undefined);
+      setReviewerReassignmentReason("");
+      setIsBulkAssignReviewer(false);
+      fetchTasks();
+      fetchWorkloads();
+    } catch (error: any) {
+      console.error("Failed to assign reviewer:", error);
+      toast.error(error.response?.data?.error || "Failed to assign reviewer");
+    } finally {
+      setIsAssigningReviewer(false);
     }
   };
 
@@ -2167,16 +2257,16 @@ export function ProjectDetailPage() {
                                         <div className="flex items-center justify-between">
                                           <div className="flex items-center gap-3">
                                             {isExpanded ? (
-                                              <ChevronDown className="h-5 w-5 text-purple-700 flex-shrink-0" />
+                                              <ChevronDown className="h-5 w-5 text-gray-700 flex-shrink-0" />
                                             ) : (
-                                              <ChevronRight className="h-5 w-5 text-purple-700 flex-shrink-0" />
+                                              <ChevronRight className="h-5 w-5 text-gray-700 flex-shrink-0" />
                                             )}
-                                            <div className="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0">
-                                              {assigneeId === "unassigned"
-                                                ? "?"
-                                                : assignee?.fullName
+                                            <div className="h-10 w-10 rounded-full bg-purple-500 flex items-center justify-center ring-2 ring-white shadow-sm">
+                                              <span className="text-sm font-semibold text-white">
+                                                {assignee?.fullName
                                                     ?.charAt(0)
                                                     .toUpperCase() || "A"}
+                                              </span>
                                             </div>
                                             <div className="flex-1">
                                               <div className="font-medium text-gray-900">
@@ -2203,15 +2293,28 @@ export function ProjectDetailPage() {
                                               ).length;
 
                                               return selectedUserCount > 0 ? (
-                                                <Button
-                                                  onClick={() => setIsDeleteDialogOpen(true)}
-                                                  size="sm"
-                                                  variant="destructive"
-                                                  className="gap-2"
-                                                >
-                                                  <Trash2 className="h-4 w-4" />
-                                                  Delete {selectedUserCount} Task{selectedUserCount > 1 ? "s" : ""}
-                                                </Button>
+                                                <>
+                                                  <Button
+                                                    onClick={() => {
+                                                      setIsBulkAssignReviewer(true);
+                                                      setIsAssignReviewerDialogOpen(true);
+                                                    }}
+                                                    size="sm"
+                                                    className="gap-2"
+                                                  >
+                                                    <Users className="h-4 w-4" />
+                                                    Assign {selectedUserCount} Task{selectedUserCount > 1 ? "s" : ""}
+                                                  </Button>
+                                                  <Button
+                                                    onClick={() => setIsDeleteDialogOpen(true)}
+                                                    size="sm"
+                                                    variant="destructive"
+                                                    className="gap-2"
+                                                  >
+                                                    <Trash2 className="h-4 w-4" />
+                                                    Delete {selectedUserCount} Task{selectedUserCount > 1 ? "s" : ""}
+                                                  </Button>
+                                                </>
                                               ) : null;
                                             })()}
                                             <DropdownMenu>
@@ -2281,9 +2384,31 @@ export function ProjectDetailPage() {
                                                     <div className="text-xs text-gray-500">
                                                       ID: {task.id.slice(0, 8)}...
                                                     </div>
-                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 mt-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
-                                                      Submitted
-                                                    </span>
+                                                    <div className="flex gap-2 mt-1">
+                                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
+                                                        Submitted
+                                                      </span>
+                                                      {(() => {
+                                                        const reviewerAssignment = task.assignments?.find(
+                                                          (a: any) => a.reviewerId,
+                                                        );
+                                                        if (reviewerAssignment?.reviewer) {
+                                                          return (
+                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                                                              <Users className="h-3 w-3" />
+                                                              {reviewerAssignment.reviewer.fullName || reviewerAssignment.reviewer.email}
+                                                            </span>
+                                                          );
+                                                        } else {
+                                                          return (
+                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                                                              <AlertCircle className="h-3 w-3" />
+                                                              No Reviewer
+                                                            </span>
+                                                          );
+                                                        }
+                                                      })()}
+                                                    </div>
                                                   </div>
                                                 </div>
                                               </TableCell>
@@ -2298,6 +2423,25 @@ export function ProjectDetailPage() {
                                                     </Button>
                                                   </DropdownMenuTrigger>
                                                   <DropdownMenuContent align="end">
+                                                    <DropdownMenuItem
+                                                      onClick={() => {
+                                                        setTaskToAssignReviewer(task);
+                                                        const reviewerAssignment = task.assignments?.find(
+                                                          (a: any) => a.reviewerId,
+                                                        );
+                                                        setSelectedReviewerId(reviewerAssignment?.reviewerId || "");
+                                                        setIsAssignReviewerDialogOpen(true);
+                                                      }}
+                                                    >
+                                                      <Users className="mr-2 h-4 w-4" />
+                                                      {(() => {
+                                                        const reviewerAssignment = task.assignments?.find(
+                                                          (a: any) => a.reviewerId,
+                                                        );
+                                                        return reviewerAssignment ? "Reassign Reviewer" : "Assign Reviewer";
+                                                      })()}
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuSeparator />
                                                     <DropdownMenuItem
                                                       onClick={() => {
                                                         const assignmentId = assignment?.id;
@@ -4019,6 +4163,258 @@ export function ProjectDetailPage() {
                     return hasCurrentAssignment
                       ? "Reassign Task"
                       : "Assign Task";
+                  })()
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Reviewer Assignment Dialog */}
+        <Dialog
+          open={isAssignReviewerDialogOpen}
+          onOpenChange={(open) => {
+            setIsAssignReviewerDialogOpen(open);
+            if (!open) {
+              setTaskToAssignReviewer(null);
+              setSelectedReviewerId("");
+              setSelectedReviewerDeadline(undefined);
+              setReviewerReassignmentReason("");
+              setIsBulkAssignReviewer(false);
+            }
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                {isBulkAssignReviewer
+                  ? "Assign Reviewer to Multiple Tasks"
+                  : (() => {
+                      const hasCurrentReviewer = taskToAssignReviewer?.assignments?.find(
+                        (a: any) => a.reviewerId,
+                      );
+                      return hasCurrentReviewer ? "Reassign Reviewer" : "Assign Reviewer";
+                    })()}
+              </DialogTitle>
+              <DialogDescription>
+                {isBulkAssignReviewer
+                  ? `Assign a reviewer to ${selectedTasks.length} selected tasks.`
+                  : (() => {
+                      const hasCurrentReviewer = taskToAssignReviewer?.assignments?.find(
+                        (a: any) => a.reviewerId,
+                      );
+                      return hasCurrentReviewer
+                        ? "Reassign this task to a different reviewer."
+                        : "Assign this task to a reviewer in the project.";
+                    })()}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              {/* Task Preview */}
+              {isBulkAssignReviewer ? (
+                <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
+                  <div className="flex-1">
+                    <div className="font-medium text-sm">
+                      {selectedTasks.length} tasks selected
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Assign a reviewer to all selected tasks at once
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                taskToAssignReviewer && (
+                  <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
+                    <div className="w-16 h-16 rounded overflow-hidden bg-gray-100 border">
+                      <img
+                        src={taskToAssignReviewer.image?.storageUrl}
+                        alt={taskToAssignReviewer.image?.originalFilename || "Task"}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-medium text-sm">
+                        {taskToAssignReviewer.image?.originalFilename || "Untitled"}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        ID: {taskToAssignReviewer.id.slice(0, 8)}...
+                      </div>
+                      <Badge variant="secondary" className="mt-1">
+                        Submitted
+                      </Badge>
+                    </div>
+                  </div>
+                )
+              )}
+
+              {/* Reviewer Selection */}
+              <div className="space-y-2">
+                <Label>Select Reviewer</Label>
+                {!isBulkAssignReviewer &&
+                  taskToAssignReviewer &&
+                  (() => {
+                    const currentReviewerAssignment = taskToAssignReviewer.assignments?.find(
+                      (a: any) => a.reviewerId,
+                    );
+                    if (currentReviewerAssignment) {
+                      const currentReviewer = annotators.find(
+                        (a: any) => a.userId === currentReviewerAssignment.reviewerId,
+                      );
+                      return (
+                        <p className="text-xs text-muted-foreground mb-1">
+                          Currently assigned to:{" "}
+                          <span className="font-semibold">
+                            {currentReviewer?.user?.fullName || currentReviewer?.user?.email}
+                          </span>
+                        </p>
+                      );
+                    }
+                    return null;
+                  })()}
+                <Select
+                  value={selectedReviewerId}
+                  onValueChange={setSelectedReviewerId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a reviewer..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {annotators
+                      .filter((a: any) => a.projectRole === "REVIEWER")
+                      .map((reviewer: any) => {
+                        const taskCount = workloadMap[reviewer.userId] || 0;
+                        return (
+                          <SelectItem key={reviewer.userId} value={reviewer.userId}>
+                            <div className="flex items-center justify-between w-full">
+                              <span>
+                                {reviewer.user?.fullName || reviewer.user?.email}
+                              </span>
+                              <Badge variant="secondary" className="ml-2 text-xs">
+                                {taskCount} tasks
+                              </Badge>
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Deadline Selection */}
+              <div className="space-y-2">
+                <Label>Deadline (Optional)</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start text-left font-normal"
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {selectedReviewerDeadline ? (
+                        format(selectedReviewerDeadline, "PPP")
+                      ) : (
+                        <span className="text-muted-foreground">Select a deadline</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={selectedReviewerDeadline}
+                      onSelect={setSelectedReviewerDeadline}
+                      initialFocus
+                      disabled={(date) => date < new Date()}
+                    />
+                  </PopoverContent>
+                </Popover>
+                <p className="text-xs text-muted-foreground">
+                  If not set, deadline will be auto-calculated
+                </p>
+              </div>
+
+              {/* Reassignment Reason - Only show for single task reassignments */}
+              {!isBulkAssignReviewer &&
+                taskToAssignReviewer &&
+                (() => {
+                  const currentReviewerAssignment = taskToAssignReviewer.assignments?.find(
+                    (a: any) => a.reviewerId,
+                  );
+                  const isReassignment =
+                    currentReviewerAssignment &&
+                    selectedReviewerId &&
+                    currentReviewerAssignment.reviewerId !== selectedReviewerId;
+
+                  if (!isReassignment) return null;
+
+                  const currentReviewer = annotators.find(
+                    (a: any) => a.userId === currentReviewerAssignment.reviewerId,
+                  );
+
+                  return (
+                    <div className="space-y-2 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                      <div className="flex items-center gap-2 text-amber-900">
+                        <AlertCircle className="h-4 w-4" />
+                        <Label className="text-sm font-semibold">
+                          Reassignment Reason (Required)
+                        </Label>
+                      </div>
+                      <p className="text-xs text-amber-700">
+                        This task is currently assigned to reviewer{" "}
+                        {currentReviewer?.user?.fullName || currentReviewer?.user?.email}
+                        . Please provide a reason for reassigning.
+                      </p>
+                      <Textarea
+                        placeholder="Explain why this task needs to be reassigned..."
+                        value={reviewerReassignmentReason}
+                        onChange={(e) => setReviewerReassignmentReason(e.target.value)}
+                        rows={3}
+                        className="bg-white"
+                      />
+                    </div>
+                  );
+                })()}
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsAssignReviewerDialogOpen(false);
+                  setTaskToAssignReviewer(null);
+                  setSelectedReviewerId("");
+                  setSelectedReviewerDeadline(undefined);
+                  setReviewerReassignmentReason("");
+                  setIsBulkAssignReviewer(false);
+                }}
+                disabled={isAssigningReviewer}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleAssignReviewer}
+                disabled={!selectedReviewerId || isAssigningReviewer}
+              >
+                {isAssigningReviewer ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {isBulkAssignReviewer
+                      ? "Assigning..."
+                      : (() => {
+                          const hasCurrentReviewer = taskToAssignReviewer?.assignments?.find(
+                            (a: any) => a.reviewerId,
+                          );
+                          return hasCurrentReviewer ? "Reassigning..." : "Assigning...";
+                        })()}
+                  </>
+                ) : isBulkAssignReviewer ? (
+                  `Assign ${selectedTasks.length} Tasks`
+                ) : (
+                  (() => {
+                    const hasCurrentReviewer = taskToAssignReviewer?.assignments?.find(
+                      (a: any) => a.reviewerId,
+                    );
+                    return hasCurrentReviewer ? "Reassign Reviewer" : "Assign Reviewer";
                   })()
                 )}
               </Button>
