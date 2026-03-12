@@ -14,17 +14,15 @@ import {
   PieChart,
   Pie,
   Cell,
-  AreaChart,
-  Area,
 } from "recharts";
 import { performanceApi } from "../../../services/performance.api";
-import type { WeeklyActivity, TaskDistribution, TodayProgress } from "../../../services/performance.api";
+import type { WeeklyActivity, TaskDistribution } from "../../../services/performance.api";
 
 export function AnnotatorPerformancePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [weeklyActivity, setWeeklyActivity] = useState<WeeklyActivity[]>([]);
   const [taskDistribution, setTaskDistribution] = useState<TaskDistribution[]>([]);
-  const [todayProgress, setTodayProgress] = useState<TodayProgress[]>([]);
+  const [, setTodayProgress] = useState<unknown[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -140,7 +138,7 @@ export function AnnotatorPerformancePage() {
                 <YAxis
                   allowDecimals={false}
                   domain={[0, 'auto']}
-                  tickFormatter={(value) => Math.floor(value)}
+                  tickFormatter={(value) => String(Math.floor(value))}
                 />
                 <Tooltip />
                 <Legend />
