@@ -2303,7 +2303,7 @@ export function ProjectDetailPage() {
                                                     className="gap-2"
                                                   >
                                                     <Users className="h-4 w-4" />
-                                                    Assign {selectedUserCount} Task{selectedUserCount > 1 ? "s" : ""}
+                                                    Assign Reviewer to {selectedUserCount} Task{selectedUserCount > 1 ? "s" : ""}
                                                   </Button>
                                                   <Button
                                                     onClick={() => setIsDeleteDialogOpen(true)}
