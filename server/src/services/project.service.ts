@@ -389,6 +389,7 @@ export class ProjectService {
                     email: true,
                     avatarUrl: true,
                     role: true,
+                    reputationScore: true,
                 },
                 take: 20,
             })

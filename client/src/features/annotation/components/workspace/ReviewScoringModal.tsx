@@ -34,7 +34,7 @@ export function ReviewScoringModal({
 
   useEffect(() => {
     if (isOpen) {
-      setComment(initialComment);
+      setComment(initialComment || "");
     }
   }, [isOpen, initialComment]);
 
@@ -42,7 +42,7 @@ export function ReviewScoringModal({
     onConfirm(comment);
   };
 
-  const isInvalid = type === "reject" && !comment.trim();
+  const isInvalid = type === "reject" && (!comment || !comment.trim());
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>

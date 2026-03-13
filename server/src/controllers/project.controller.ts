@@ -1212,7 +1212,7 @@ export class ProjectController {
                 where: {
                     taskId,
                     status: {
-                        in: [AssignmentStatus.ASSIGNED, AssignmentStatus.IN_PROGRESS]
+                        in: [AssignmentStatus.ASSIGNED, AssignmentStatus.IN_PROGRESS, AssignmentStatus.REJECTED]
                     }
                 },
                 include: {
@@ -1231,37 +1231,12 @@ export class ProjectController {
                 return res.status(409).json({ error: 'Task already assigned to this annotator' })
             }
 
-            // Store old assignment info for reassignment logging
+            // Store old assignment info for activity log if needed
             const isReassignment = !!existingAssignment
             const oldAnnotator = existingAssignment?.annotator
 
-            // Delete old assignment if reassigning
-            if (existingAssignment) {
-                // Update workload for old annotator
-                const { UserWorkloadService } = await import('../services/user-workload.service.js')
-
-                if (existingAssignment.status === AssignmentStatus.ASSIGNED) {
-                    await UserWorkloadService.decrementAssignedTasks(existingAssignment.annotatorId, id)
-                } else if (existingAssignment.status === AssignmentStatus.IN_PROGRESS) {
-                    await prisma.userWorkload.update({
-                        where: {
-                            userId_projectId: {
-                                userId: existingAssignment.annotatorId,
-                                projectId: id
-                            }
-                        },
-                        data: {
-                            inProgressTasks: { decrement: 1 }
-                        }
-                    })
-                    await UserWorkloadService.updateAvailabilityStatus(existingAssignment.annotatorId, id)
-                }
-
-                // Delete old assignment
-                await prisma.taskAssignment.delete({
-                    where: { id: existingAssignment.id }
-                })
-            }
+            // Note: Old assignments are now automatically cleaned up inside TaskService.assignToUser
+            // This ensures centralized logic for both manual and automatic reassignments.
 
             // Use TaskService to create assignment with auto-calculated deadline
             const { TaskService } = await import('../services/task.service.js')

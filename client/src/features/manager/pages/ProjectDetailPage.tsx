@@ -124,6 +124,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { useDebounce } from "../../../hooks/useDebounce";
+import { calculateLevelLinear } from "../../../utils/levelUtils";
 
 export const getLatestAnnotatorAssignment = (task: any) => {
   if (!task || !task.assignments || !Array.isArray(task.assignments)) return undefined;
@@ -4281,9 +4282,19 @@ export function ProjectDetailPage() {
                                 </AvatarFallback>
                               </Avatar>
                               <div className="flex-1 overflow-hidden">
-                                <p className="text-sm font-medium truncate">
-                                  {user.fullName}
-                                </p>
+                                <div className="flex items-center gap-2">
+                                  <p className="text-sm font-medium truncate">
+                                    {user.fullName || 'Unknown User'}
+                                  </p>
+                                  {user.role === "ANNOTATOR" && (
+                                    <div className="flex items-center gap-1.5 px-1.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded text-[10px] font-bold">
+                                      <Sparkles className="w-3 h-3" />
+                                      <span>{user.reputationScore || 0} pts</span>
+                                      <span className="text-amber-400">|</span>
+                                      <span>Lv.{calculateLevelLinear(user.reputationScore || 0, 10)}</span>
+                                    </div>
+                                  )}
+                                </div>
                                 <p className="text-xs text-muted-foreground truncate">
                                   {user.email}
                                 </p>

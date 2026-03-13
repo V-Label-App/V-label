@@ -21,6 +21,7 @@ import { Button } from "../../components/ui/button"
 import { NotificationBell } from "../notifications/NotificationBell"
 
 import { toast } from "sonner"
+import { calculateLevelLinear } from "../../utils/levelUtils"
 
 export function UserNav() {
     const { user, logout } = useAuth()
@@ -48,12 +49,12 @@ export function UserNav() {
                             <AvatarImage src={user.avatarUrl || ""} alt={user.fullName || user.email} className="object-cover" />
                             <AvatarFallback className="bg-primary/5 font-semibold text-primary">{initials}</AvatarFallback>
                         </Avatar>
-                        <div className="flex flex-col text-left text-sm max-w-[150px] hidden md:flex">
+                        <div className="flex-col text-left text-sm max-w-[150px] hidden md:flex">
                             <div className="flex items-center gap-2 mb-0.5">
                                 <span className="font-semibold truncate leading-none">{user.fullName || 'User'}</span>
                                 {user.role === 'ANNOTATOR' && (
                                     <Badge variant="outline" className="h-4 px-1 text-[10px] bg-yellow-50 text-yellow-700 border-yellow-200">
-                                        Lv.{Math.floor((user.reputationScore || 0) / 100) + 1}
+                                        Lv.{calculateLevelLinear(user.reputationScore || 0, 10)}
                                     </Badge>
                                 )}
                             </div>

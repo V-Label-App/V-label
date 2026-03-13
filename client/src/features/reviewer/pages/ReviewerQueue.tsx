@@ -11,7 +11,7 @@ import {
 } from "../../../components/ui/table";
 import { Avatar, AvatarFallback } from "../../../components/ui/avatar";
 import { Badge } from "../../../components/ui/badge";
-import { Clock, Star, RefreshCw, Inbox, CheckCircle2, XCircle } from "lucide-react";
+import { Clock, RefreshCw, Inbox, CheckCircle2, XCircle } from "lucide-react";
 import { formatDistanceToNow, parseISO } from "date-fns";
 import { reviewerApi } from "../../../services/reviewer.api";
 import { Loader2 } from "lucide-react";
@@ -113,7 +113,7 @@ export function ReviewerQueue({ onOpenWorkspace }: ReviewerQueueProps) {
                   <h3 className="text-3xl font-bold text-emerald-900">{stats?.approved || 0}</h3>
                 </div>
                 <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center shadow-inner">
-                  <Star className="w-6 h-6 text-emerald-600" />
+                  <CheckCircle2 className="w-6 h-6 text-emerald-600" />
                 </div>
               </div>
             </Card>
@@ -221,12 +221,7 @@ export function ReviewerQueue({ onOpenWorkspace }: ReviewerQueueProps) {
                             <div className="overflow-hidden">
                               <p className="font-semibold text-sm text-gray-900 truncate">{assignment.annotator.fullName}</p>
                               <div className="flex items-center gap-1.5">
-                                <div className="flex items-center text-amber-500">
-                                  <Star className="w-3 h-3 fill-current" />
-                                  <span className="text-[10px] font-bold ml-0.5">
-                                    {(assignment.annotator as any).reputationScore?.toFixed(1) || "5.0"}
-                                  </span>
-                                </div>
+
                                 <p className="text-[10px] text-muted-foreground truncate italic">
                                   {assignment.annotator.email}
                                 </p>

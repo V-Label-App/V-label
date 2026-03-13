@@ -53,6 +53,7 @@ export function WorkspacePage({
     saveDraft,
     approveTask,
     rejectTask,
+    resumeTask,
   } = useWorkspaceData(taskId || "", false, mode);
 
   const { updateImages, getCurrentImage, currentIndex, jumpToImage } =
@@ -88,6 +89,7 @@ export function WorkspacePage({
   const isReadOnly =
     taskStatus === "approved" ||
     taskStatus === "submitted" ||
+    taskStatus === "skipped" ||
     mode === "review";
 
   // Work Timer
@@ -334,6 +336,7 @@ export function WorkspacePage({
         taskStatus={taskStatus}
         onSubmit={handleSubmit}
         onSkip={() => setIsSkipConfirmOpen(true)}
+        onResume={resumeTask}
         onApprove={handleApprove}
         onReject={handleReject}
         onClose={handleClose}
@@ -371,7 +374,7 @@ export function WorkspacePage({
         onConfirm={handleReviewConfirm}
         type={reviewType}
         isLoading={isReviewLoading}
-        initialComment={taskData.annotatorNote} // default to annotator note as feedback start
+        initialComment={annotatorNote} // default to annotator note as feedback start
       />
 
       {/* Skip Confirm Dialog */}

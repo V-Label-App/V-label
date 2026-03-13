@@ -555,6 +555,7 @@ export class ReviewerService {
         appEvents.emit('TASK_SKIPPED_REASSIGN', {
           taskId: assignment.task.id,
           projectId,
+          excludeUserId: assignment.annotator.id,
         })
       }
 
