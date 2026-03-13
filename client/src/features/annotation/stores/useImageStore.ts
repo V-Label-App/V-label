@@ -21,6 +21,7 @@ interface ImageState {
   images: ImageTask[];
   currentIndex: number;
   autoSaveStatus: "saved" | "saving" | "unsaved";
+  hasInteracted: boolean; // Tracks if the user has manually added an annotation in the current session
 
   // Actions
   setImages: (images: ImageTask[]) => void;
@@ -30,6 +31,7 @@ interface ImageState {
   jumpToImage: (index: number) => void;
   getCurrentImage: () => ImageTask | null;
   setAutoSaveStatus: (status: "saved" | "saving" | "unsaved") => void;
+  setHasInteracted: (hasInteracted: boolean) => void;
   updateImageStatus: (id: string, status: ImageTask["status"]) => void;
   hasNext: () => boolean;
   hasPrevious: () => boolean;
@@ -39,15 +41,20 @@ export const useImageStore = create<ImageState>((set, get) => ({
   images: [],
   currentIndex: 0,
   autoSaveStatus: "saved",
+  hasInteracted: false,
 
-  setImages: (images) => set({ images, currentIndex: 0 }),
+  setImages: (images) => set({ images, currentIndex: 0, hasInteracted: false }),
 
   updateImages: (images) => {
     // Update images without resetting currentIndex
     // Useful when navigating between tasks in the same project
     const { currentIndex } = get();
     const validIndex = Math.min(currentIndex, images.length - 1);
-    set({ images, currentIndex: Math.max(0, validIndex) });
+    set({
+      images,
+      currentIndex: Math.max(0, validIndex),
+      hasInteracted: false,
+    });
   },
 
   goToNext: () => {
@@ -77,6 +84,7 @@ export const useImageStore = create<ImageState>((set, get) => ({
   },
 
   setAutoSaveStatus: (status) => set({ autoSaveStatus: status }),
+  setHasInteracted: (hasInteracted) => set({ hasInteracted }),
   updateImageStatus: (id, status) => {
     const { images } = get();
     const updatedImages = images.map((img) =>

@@ -78,6 +78,11 @@ export function WorkspaceHeader({
         {taskStatus.toLowerCase() === "assigned" && (
           <Badge className="ml-3 bg-blue-500 text-white">ASSIGNED</Badge>
         )}
+        {taskStatus.toLowerCase() === "in_progress" && (
+          <Badge className="ml-3 bg-yellow-500 text-white font-semibold">
+            IN PROGRESS
+          </Badge>
+        )}
         {taskStatus === "rejected" && (
           <Badge className="ml-3 bg-red-600 text-white">
             {mode === "review" ? "REJECTED (Read-Only)" : "REJECTED"}

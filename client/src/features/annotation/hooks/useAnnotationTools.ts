@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import Konva from "konva";
-import { useCanvasStore, useAnnotationStore, useLabelStore } from "../stores";
+import { useCanvasStore, useAnnotationStore, useLabelStore, useImageStore } from "../stores";
 import { generateId } from "../constants";
 
 export function useAnnotationTools() {
@@ -8,6 +8,7 @@ export function useAnnotationTools() {
   const { addAnnotation, defaultOpacity, defaultStrokeWidth } =
     useAnnotationStore();
   const { labels, activeLabel } = useLabelStore();
+  const { setHasInteracted } = useImageStore();
 
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawStart, setDrawStart] = useState<{ x: number; y: number } | null>(
@@ -94,6 +95,7 @@ export function useAnnotationTools() {
           opacity: defaultOpacity,
           strokeWidth: defaultStrokeWidth,
         });
+        setHasInteracted(true);
       }
     }
 
@@ -109,6 +111,7 @@ export function useAnnotationTools() {
     activeLabel,
     defaultOpacity,
     defaultStrokeWidth,
+    setHasInteracted,
   ]);
 
   return {

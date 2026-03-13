@@ -167,11 +167,19 @@ export const useWorkspaceData = (
   const saveDraft = useCallback(
     async (annotations: Annotation[], note?: string, timeSeconds?: number) => {
       try {
-        await annotatorApi.saveDraft(assignmentId, {
+        const updatedAssignment = await annotatorApi.saveDraft(assignmentId, {
           annotations,
           annotatorNote: note,
           actualTimeSeconds: timeSeconds,
         });
+
+        // Update local task data if the status or annotations changed on the server
+        if (updatedAssignment) {
+          const transformed = transformTaskData(updatedAssignment);
+          setTaskData(transformed);
+          // Also sync with the image store to keep the navigator updated
+          updateImageStatus(assignmentId, transformed.status.toLowerCase() as any);
+        }
       } catch (err: any) {
         console.error("Failed to save draft:", err);
         if (err.response) {
@@ -180,7 +188,7 @@ export const useWorkspaceData = (
         throw err;
       }
     },
-    [assignmentId],
+    [assignmentId, transformTaskData, updateImageStatus],
   );
 
   /**
