@@ -152,7 +152,7 @@ export function WorkspaceHeader({
             )}
           </>
         )}
-        {mode === "review" && (
+        {mode === "review" && taskStatus === "submitted" && (
           <>
             <Button
               variant="outline"

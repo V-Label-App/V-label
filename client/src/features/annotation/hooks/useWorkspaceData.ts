@@ -28,7 +28,6 @@ export interface WorkspaceTaskData {
   }>;
   annotatorNote?: string;
   reviewComment?: string;
-  reviewScore?: number;
   projectName: string;
   actualTimeSeconds?: number;
   enableAiAssistance: boolean;
@@ -109,7 +108,6 @@ export const useWorkspaceData = (
         labels,
         annotatorNote: assignment.annotatorNote,
         reviewComment: assignment.reviewComment,
-        reviewScore: assignment.reviewScore,
         projectName: assignment.task.project.name,
         actualTimeSeconds: assignment.actualTimeSeconds,
         enableAiAssistance: assignment.task.project.enableAiAssistance ?? false,
@@ -262,7 +260,9 @@ export const useWorkspaceData = (
   const approveTask = useCallback(
     async (note?: string) => {
       try {
-        await reviewerApi.approveTask(assignmentId, { reviewComment: note });
+        await reviewerApi.approveTask(assignmentId, { 
+          reviewComment: note
+        });
         toast.success("Task approved successfully");
         updateImageStatus(assignmentId, "approved");
         setTaskData((prev) => (prev ? { ...prev, status: "APPROVED" } : null));
@@ -281,7 +281,9 @@ export const useWorkspaceData = (
   const rejectTask = useCallback(
     async (reason: string) => {
       try {
-        await reviewerApi.rejectTask(assignmentId, { reviewComment: reason });
+        await reviewerApi.rejectTask(assignmentId, { 
+          reviewComment: reason
+        });
         toast.success("Task rejected successfully");
         updateImageStatus(assignmentId, "rejected");
         setTaskData((prev) => (prev ? { ...prev, status: "REJECTED" } : null));
