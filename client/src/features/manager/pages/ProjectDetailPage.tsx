@@ -125,6 +125,17 @@ import {
 } from "lucide-react";
 import { useDebounce } from "../../../hooks/useDebounce";
 
+export const getLatestAnnotatorAssignment = (task: any) => {
+  if (!task || !task.assignments || !Array.isArray(task.assignments)) return undefined;
+  const annotatorAssignments = task.assignments.filter((a: any) => a.annotatorId);
+  if (annotatorAssignments.length === 0) return undefined;
+  return [...annotatorAssignments].sort((a, b) => {
+    const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : new Date(a.createdAt).getTime();
+    const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : new Date(b.createdAt).getTime();
+    return dateB - dateA;
+  })[0];
+};
+
 export function ProjectDetailPage() {
   const { projectId } = useParams();
   const navigate = useNavigate();
@@ -466,9 +477,7 @@ export function ProjectDetailPage() {
     if (!taskToAssign) return;
 
     // Check if it's a reassignment and reason is required
-    const currentAssignment = taskToAssign.assignments?.find(
-      (a: any) => a.annotatorId,
-    );
+    const currentAssignment = getLatestAnnotatorAssignment(taskToAssign);
     const isReassignment =
       currentAssignment &&
       currentAssignment.annotatorId !== selectedAnnotatorId;
@@ -585,6 +594,8 @@ export function ProjectDetailPage() {
               taskId,
               selectedReviewerId,
               selectedReviewerDeadline,
+              undefined,
+              true,
             ),
           ),
         );
@@ -633,6 +644,7 @@ export function ProjectDetailPage() {
         selectedReviewerId,
         selectedReviewerDeadline,
         isReassignment ? reviewerReassignmentReason : undefined,
+        true,
       );
       toast.success("Reviewer assigned successfully");
       setIsAssignReviewerDialogOpen(false);
@@ -902,7 +914,7 @@ export function ProjectDetailPage() {
 
   // Separate tasks by status
   const activeTasks = tasks.filter((t: any) => {
-    const assignment = t.assignments?.find((a: any) => a.annotatorId);
+    const assignment = getLatestAnnotatorAssignment(t);
     if (!assignment) return true; // No assignment yet = unassigned active task
     const status = assignment?.status;
     return (
@@ -914,25 +926,22 @@ export function ProjectDetailPage() {
   });
 
   const submittedTasks = tasks.filter((t: any) => {
-    const assignment = t.assignments?.find((a: any) => a.annotatorId);
+    const assignment = getLatestAnnotatorAssignment(t);
     return assignment?.status === "SUBMITTED";
   });
 
   const completedTasks = tasks.filter((t: any) => {
-    const assignment = t.assignments?.find((a: any) => a.annotatorId);
+    const assignment = getLatestAnnotatorAssignment(t);
     return assignment?.status === "APPROVED";
   });
 
   const rejectedTasks = tasks.filter((t: any) => {
-    const assignment = t.assignments?.find((a: any) => a.annotatorId);
+    const assignment = getLatestAnnotatorAssignment(t);
     return assignment?.status === "REJECTED";
   });
 
-  // Group tasks by assignee
   const groupedTasks = tasks.reduce((acc: Record<string, any[]>, task: any) => {
-    const annotatorAssignment = task.assignments?.find(
-      (a: any) => a.annotatorId,
-    );
+    const annotatorAssignment = getLatestAnnotatorAssignment(task);
     const assigneeId = annotatorAssignment?.annotatorId || "unassigned";
     if (!acc[assigneeId]) {
       acc[assigneeId] = [];
@@ -941,13 +950,10 @@ export function ProjectDetailPage() {
     return acc;
   }, {});
 
-  // Group active tasks by assignee
   const groupedActiveTasks = Object.fromEntries(
     Object.entries(
       activeTasks.reduce((acc: Record<string, any[]>, task: any) => {
-        const annotatorAssignment = task.assignments?.find(
-          (a: any) => a.annotatorId,
-        );
+        const annotatorAssignment = getLatestAnnotatorAssignment(task);
         const assigneeId = annotatorAssignment?.annotatorId || "unassigned";
         if (!acc[assigneeId]) {
           acc[assigneeId] = [];
@@ -958,21 +964,16 @@ export function ProjectDetailPage() {
     ).map(([assigneeId, tasks]) => [
       assigneeId,
       [...tasks].sort((a: any, b: any) => {
-        const aSkipped =
-          a.assignments?.find((x: any) => x.annotatorId)?.status === "SKIPPED";
-        const bSkipped =
-          b.assignments?.find((x: any) => x.annotatorId)?.status === "SKIPPED";
+        const aSkipped = getLatestAnnotatorAssignment(a)?.status === "SKIPPED";
+        const bSkipped = getLatestAnnotatorAssignment(b)?.status === "SKIPPED";
         return aSkipped === bSkipped ? 0 : aSkipped ? -1 : 1;
       }),
     ]),
   );
 
-  // Group submitted tasks by assignee
   const groupedSubmittedTasks = submittedTasks.reduce(
     (acc: Record<string, any[]>, task: any) => {
-      const annotatorAssignment = task.assignments?.find(
-        (a: any) => a.annotatorId,
-      );
+      const annotatorAssignment = getLatestAnnotatorAssignment(task);
       const assigneeId = annotatorAssignment?.annotatorId || "unassigned";
       if (!acc[assigneeId]) {
         acc[assigneeId] = [];
@@ -983,12 +984,9 @@ export function ProjectDetailPage() {
     {},
   );
 
-  // Group completed tasks by assignee
   const groupedCompletedTasks = completedTasks.reduce(
     (acc: Record<string, any[]>, task: any) => {
-      const annotatorAssignment = task.assignments?.find(
-        (a: any) => a.annotatorId,
-      );
+      const annotatorAssignment = getLatestAnnotatorAssignment(task);
       const assigneeId = annotatorAssignment?.annotatorId || "unassigned";
       if (!acc[assigneeId]) {
         acc[assigneeId] = [];
@@ -999,12 +997,9 @@ export function ProjectDetailPage() {
     {},
   );
 
-  // Group rejected tasks by assignee
   const groupedRejectedTasks = rejectedTasks.reduce(
     (acc: Record<string, any[]>, task: any) => {
-      const annotatorAssignment = task.assignments?.find(
-        (a: any) => a.annotatorId,
-      );
+      const annotatorAssignment = getLatestAnnotatorAssignment(task);
       const assigneeId = annotatorAssignment?.annotatorId || "unassigned";
       if (!acc[assigneeId]) {
         acc[assigneeId] = [];
@@ -1060,7 +1055,7 @@ export function ProjectDetailPage() {
   };
 
   const approvedTasksCount = tasks.filter((t: any) => {
-    const assignment = t.assignments?.find((a: any) => a.annotatorId);
+    const assignment = getLatestAnnotatorAssignment(t);
     return assignment?.status === "APPROVED";
   }).length;
   const totalTasksCount = project._count?.tasks || 0;
@@ -1693,9 +1688,7 @@ export function ProjectDetailPage() {
                               ([assigneeId, userTasks]) => {
                                 const firstTask = userTasks[0];
                                 const annotatorAssignment =
-                                  firstTask.assignments?.find(
-                                    (a: any) => a.annotatorId,
-                                  );
+                                  getLatestAnnotatorAssignment(firstTask);
                                 const assignee = annotatorAssignment?.annotator;
                                 const isExpanded =
                                   expandedUsers.has(assigneeId);
@@ -1919,9 +1912,7 @@ export function ProjectDetailPage() {
                                         assigneeId,
                                       ).map((task: any, i: number) => {
                                         const taskAssignment =
-                                          task.assignments?.find(
-                                            (a: any) => a.annotatorId,
-                                          );
+                                          getLatestAnnotatorAssignment(task);
                                         const status =
                                           taskAssignment?.status ||
                                           "UNASSIGNED";
@@ -2352,9 +2343,7 @@ export function ProjectDetailPage() {
                               ([assigneeId, userTasks]) => {
                                 const firstTask = userTasks[0];
                                 const annotatorAssignment =
-                                  firstTask.assignments?.find(
-                                    (a: any) => a.annotatorId,
-                                  );
+                                  getLatestAnnotatorAssignment(firstTask);
                                 const assignee = annotatorAssignment?.annotator;
                                 const isExpanded =
                                   expandedUsers.has(assigneeId);
@@ -2505,9 +2494,7 @@ export function ProjectDetailPage() {
                                         assigneeId,
                                       ).map((task: any) => {
                                         const assignment =
-                                          task.assignments?.find(
-                                            (a: any) => a.annotatorId,
-                                          );
+                                          getLatestAnnotatorAssignment(task);
                                         return (
                                           <TableRow
                                             key={`submitted-task-${task.id}`}
@@ -2869,9 +2856,7 @@ export function ProjectDetailPage() {
                               ([assigneeId, userTasks]) => {
                                 const firstTask = userTasks[0];
                                 const annotatorAssignment =
-                                  firstTask.assignments?.find(
-                                    (a: any) => a.annotatorId,
-                                  );
+                                  getLatestAnnotatorAssignment(firstTask);
                                 const assignee = annotatorAssignment?.annotator;
                                 const isExpanded =
                                   expandedUsers.has(assigneeId);
@@ -2970,9 +2955,7 @@ export function ProjectDetailPage() {
                                         userTasks,
                                         assigneeId,
                                       ).map((task: any) => {
-                                        const annotatorAssignment = task.assignments?.find(
-                                          (a: any) => a.annotatorId,
-                                        );
+                                        const annotatorAssignment = getLatestAnnotatorAssignment(task);
                                         return (
                                           <TableRow
                                             key={`rejected-task-${task.id}`}
@@ -3131,9 +3114,7 @@ export function ProjectDetailPage() {
                               ([assigneeId, userTasks]) => {
                                 const firstTask = userTasks[0];
                                 const annotatorAssignment =
-                                  firstTask.assignments?.find(
-                                    (a: any) => a.annotatorId,
-                                  );
+                                  getLatestAnnotatorAssignment(firstTask);
                                 const assignee = annotatorAssignment?.annotator;
                                 const isExpanded =
                                   expandedUsers.has(assigneeId);
@@ -5128,9 +5109,7 @@ export function ProjectDetailPage() {
                   userTaskIds.includes(id),
                 );
                 const firstTask = groupedTasks[bulkUnassignUserId][0];
-                const annotatorAssignment = firstTask.assignments?.find(
-                  (a: any) => a.annotatorId,
-                );
+                const annotatorAssignment = getLatestAnnotatorAssignment(firstTask);
                 const assignee = annotatorAssignment?.annotator;
 
                 return (
@@ -5220,9 +5199,7 @@ export function ProjectDetailPage() {
                 <div className="p-4 bg-gray-50 rounded-lg">
                   {(() => {
                     const firstTask = groupedTasks[bulkDeadlineUserId][0];
-                    const annotatorAssignment = firstTask.assignments?.find(
-                      (a: any) => a.annotatorId,
-                    );
+                    const annotatorAssignment = getLatestAnnotatorAssignment(firstTask);
                     const assignee = annotatorAssignment?.annotator;
                     const taskCount = groupedTasks[bulkDeadlineUserId].length;
 
