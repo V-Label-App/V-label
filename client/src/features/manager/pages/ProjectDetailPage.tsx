@@ -210,37 +210,7 @@ export function ProjectDetailPage() {
   const [isSearchingMembers, setIsSearchingMembers] = useState(false);
   const [isAddingMembers, setIsAddingMembers] = useState(false);
 
-  // Edit Role State
-  const [isEditRoleOpen, setIsEditRoleOpen] = useState(false);
-  const [memberToEdit, setMemberToEdit] = useState<any>(null);
-  const [roleToUpdate, setRoleToUpdate] = useState<string>("ANNOTATOR");
-  const [isUpdatingRole, setIsUpdatingRole] = useState(false);
 
-  const handleUpdateRole = async () => {
-    if (!project || !memberToEdit) return;
-    setIsUpdatingRole(true);
-    try {
-      await projectApi.updateMemberRole(
-        project.id,
-        memberToEdit.userId,
-        roleToUpdate,
-      );
-      toast.success("Member role updated successfully");
-      setIsEditRoleOpen(false);
-
-      // Refresh project to list updated roles
-      const updated = await projectApi.getById(project.id);
-      setProject(updated);
-
-      // Refresh tasks to see if roles changed there too
-      await fetchTasks();
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to update member role");
-    } finally {
-      setIsUpdatingRole(false);
-    }
-  };
 
   const handleSearchUsers = async (query: string) => {
     if (!project) return;
@@ -1272,11 +1242,6 @@ export function ProjectDetailPage() {
     }
   };
 
-  const openEditRoleDialog = (member: any) => {
-    setMemberToEdit(member);
-    setRoleToUpdate(member.projectRole || "ANNOTATOR");
-    setIsEditRoleOpen(true);
-  };
 
   const handleSelectTask = (taskId: string, checked: boolean) => {
     if (checked) {
@@ -3534,14 +3499,6 @@ export function ProjectDetailPage() {
                                     <Button
                                       variant="ghost"
                                       size="sm"
-                                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                      onClick={() => openEditRoleDialog(member)}
-                                    >
-                                      Change Role
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
                                       className="text-red-600 hover:text-red-700 hover:bg-red-50"
                                       onClick={() =>
                                         confirmRemoveMember(member)
@@ -5377,56 +5334,6 @@ export function ProjectDetailPage() {
         </DialogContent>
       </Dialog>
 
-        {/* Edit Member Role Dialog */}
-        <Dialog open={isEditRoleOpen} onOpenChange={setIsEditRoleOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Edit Member Role</DialogTitle>
-              <DialogDescription>
-                Change the role of{" "}
-                {memberToEdit?.user?.fullName ||
-                  memberToEdit?.user?.email ||
-                  "this member"}{" "}
-                in this project.
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label>Select New Role</Label>
-                <Select value={roleToUpdate} onValueChange={setRoleToUpdate}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ANNOTATOR">Annotator</SelectItem>
-                    <SelectItem value="REVIEWER">Reviewer</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setIsEditRoleOpen(false)}
-                disabled={isUpdatingRole}
-              >
-                Cancel
-              </Button>
-              <Button onClick={handleUpdateRole} disabled={isUpdatingRole}>
-                {isUpdatingRole ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Updating...
-                  </>
-                ) : (
-                  "Save Changes"
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </div>
   );
 }

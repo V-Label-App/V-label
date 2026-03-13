@@ -117,24 +117,37 @@ export function WorkspacePage({
   // Initialize keyboard shortcuts
   useKeyboardShortcuts(isReadOnly);
 
+  // Track the current assignment ID to detect changes
+  const lastAssignmentIdRef = useRef<string | null>(null);
+
   // Load task data into stores when available
   useEffect(() => {
     if (taskData) {
+      const currentAssignmentId = taskData.assignmentId;
+      const isNewTask = lastAssignmentIdRef.current !== currentAssignmentId;
+
       // Set labels from project (shared across all tasks)
       if (taskData.labels && Array.isArray(taskData.labels)) {
         setLabels(taskData.labels);
       }
 
-      // Load existing annotations if any
-      if (taskData.annotations && Array.isArray(taskData.annotations)) {
-        setAnnotations(taskData.annotations);
-      } else {
-        clearAnnotations();
-      }
+      // Only load annotations and clear selection if it's a new task
+      // or if we were previously loading but now have data.
+      // This prevents auto-save updates from resetting current selection/history
+      if (isNewTask) {
+        if (taskData.annotations && Array.isArray(taskData.annotations)) {
+          setAnnotations(taskData.annotations);
+        } else {
+          clearAnnotations();
+        }
 
-      // Sync notes and review comments to store
-      setAnnotatorNote(taskData.annotatorNote || "");
-      setReviewComment(taskData.reviewComment || "");
+        // Sync notes and review comments to store
+        setAnnotatorNote(taskData.annotatorNote || "");
+        setReviewComment(taskData.reviewComment || "");
+
+        // Update ref
+        lastAssignmentIdRef.current = currentAssignmentId;
+      }
     }
   }, [
     taskData,

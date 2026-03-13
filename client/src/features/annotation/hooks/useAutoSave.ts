@@ -19,7 +19,7 @@ export const useAutoSave = (
   enabled: boolean = true,
 ) => {
   const { annotations } = useAnnotationStore();
-  const { setAutoSaveStatus } = useImageStore();
+  const { setAutoSaveStatus, hasInteracted } = useImageStore();
 
   const saveDraftRef = useRef(saveDraft);
   const timeRef = useRef(actualTimeSeconds);
@@ -54,6 +54,14 @@ export const useAutoSave = (
 
     // 2. If nothing changed, do nothing
     if (currentJson === lastSavedJsonRef.current) {
+      return;
+    }
+
+    // 3. Check if user has interacted (drawn a rectangle)
+    // Delay auto-save until first manual input
+    if (!hasInteracted) {
+      // Keep reference updated but don't trigger save
+      lastSavedJsonRef.current = currentJson;
       return;
     }
 
@@ -94,5 +102,5 @@ export const useAutoSave = (
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [annotations, enabled]); // Trigger when annotations or enabled flag changes
+  }, [annotations, enabled, hasInteracted]); // Trigger when annotations, enabled flag or hasInteracted changes
 };

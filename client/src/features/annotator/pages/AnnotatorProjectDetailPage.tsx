@@ -37,6 +37,7 @@ import {
   Search,
   Eye,
   Sparkles,
+  RotateCcw,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -491,8 +492,8 @@ export function AnnotatorProjectDetailPage() {
                                 </>
                               ) : task.status === "REJECTED" ? (
                                 <>
-                                  <AlertTriangle className="w-3 h-3 mr-1" />
-                                  Fix
+                                  <RotateCcw className="w-3 h-3 mr-1" />
+                                  Restart
                                 </>
                               ) : task.status === "SUBMITTED" ||
                                 task.status === "APPROVED" ? (
