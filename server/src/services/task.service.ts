@@ -320,31 +320,63 @@ export class TaskService {
             // Calculate deadline based on difficulty or use custom deadline
             const deadline = customDeadline || this.calculateDeadline(task.difficultyLevel, role);
 
-            const data: any = {
-                taskId,
-                status: AssignmentStatus.ASSIGNED,
-                assignmentMethod: method,
-                deadline,
-                ...(assignedBy && { assignedBy })
-            };
-
             if (role === 'ANNOTATOR') {
-                data.annotatorId = userId;
-            } else {
-                data.reviewerId = userId;
-            }
+                // ANNOTATOR: Create new assignment record
+                const data: any = {
+                    taskId,
+                    annotatorId: userId,
+                    status: AssignmentStatus.ASSIGNED,
+                    assignmentMethod: method,
+                    deadline,
+                    ...(assignedBy && { assignedBy })
+                };
 
-            // Create assignment and update task (deadline + status) in a transaction
-            await prisma.$transaction([
-                prisma.taskAssignment.create({ data }),
-                prisma.task.update({
-                    where: { id: taskId },
-                    data: {
-                        deadline,
-                        status: 'IN_PROGRESS' // Mark task as in progress when assigned
-                    }
-                })
-            ]);
+                await prisma.$transaction([
+                    prisma.taskAssignment.create({ data }),
+                    prisma.task.update({
+                        where: { id: taskId },
+                        data: {
+                            deadline,
+                            status: 'IN_PROGRESS'
+                        }
+                    })
+                ]);
+            } else {
+                // REVIEWER: Update existing SUBMITTED assignment (do NOT create new record)
+                // Reason: Reviewer must be added to the same record as the annotator who submitted,
+                // creating a new record would lose the annotatorId and violate DB constraints.
+                const existingAssignment = await prisma.taskAssignment.findFirst({
+                    where: {
+                        taskId,
+                        status: AssignmentStatus.SUBMITTED
+                    },
+                    orderBy: { updatedAt: 'desc' }
+                });
+
+                if (!existingAssignment) {
+                    throw new Error(`No submitted assignment found for task ${taskId} to assign reviewer`);
+                }
+
+                await prisma.$transaction([
+                    prisma.taskAssignment.update({
+                        where: { id: existingAssignment.id },
+                        data: {
+                            reviewerId: userId,
+                            status: AssignmentStatus.ASSIGNED,
+                            assignmentMethod: method,
+                            deadline,
+                            ...(assignedBy && { assignedBy })
+                        }
+                    }),
+                    prisma.task.update({
+                        where: { id: taskId },
+                        data: {
+                            deadline,
+                            status: 'IN_PROGRESS'
+                        }
+                    })
+                ]);
+            }
 
             // Update user workload (only for ANNOTATOR role)
             if (role === 'ANNOTATOR') {
