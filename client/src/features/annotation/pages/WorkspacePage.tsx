@@ -371,7 +371,7 @@ export function WorkspacePage({
         onConfirm={handleReviewConfirm}
         type={reviewType}
         isLoading={isReviewLoading}
-        initialComment={taskData.annotatorNote} // default to annotator note as feedback start
+        initialComment={annotatorNote} // default to annotator note as feedback start
       />
 
       {/* Skip Confirm Dialog */}
