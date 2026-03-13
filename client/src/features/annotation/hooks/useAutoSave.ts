@@ -7,6 +7,7 @@ import { logger } from "../../../utils/logger";
  * Hook to automatically save annotations when they change
  * @param saveDraft - The save function from useWorkspaceData
  * @param actualTimeSeconds - Current work duration in seconds
+ * @param enabled - Whether auto-save is enabled (default: true)
  */
 export const useAutoSave = (
   saveDraft: (
@@ -15,6 +16,7 @@ export const useAutoSave = (
     time?: number,
   ) => Promise<void>,
   actualTimeSeconds: number,
+  enabled: boolean = true,
 ) => {
   const { annotations } = useAnnotationStore();
   const { setAutoSaveStatus } = useImageStore();
@@ -36,6 +38,11 @@ export const useAutoSave = (
   }, [actualTimeSeconds]);
 
   useEffect(() => {
+    // 0. If auto-save is disabled, do nothing
+    if (!enabled) {
+      return;
+    }
+
     const currentJson = JSON.stringify(annotations);
 
     // 1. Initial initialization - don't mark as unsaved
@@ -87,5 +94,5 @@ export const useAutoSave = (
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [annotations]); // ONLY trigger when annotations change
+  }, [annotations, enabled]); // Trigger when annotations or enabled flag changes
 };

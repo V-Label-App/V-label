@@ -113,7 +113,7 @@ export function ReviewerProjectDetailPage() {
 
   const getStatusBadge = (status: string) => {
     const styles = {
-      SUBMITTED: { className: "bg-blue-100 text-blue-700 border-blue-300", label: "Pending Review" },
+      SUBMITTED: { className: "bg-blue-100 text-blue-700 border-blue-300", label: "Pending" },
       APPROVED: { className: "bg-green-100 text-green-700 border-green-300", label: "Approved" },
       REJECTED: { className: "bg-red-100 text-red-700 border-red-300", label: "Rejected" },
       IN_PROGRESS: { className: "bg-yellow-100 text-yellow-700 border-yellow-300", label: "In Progress" },
@@ -297,7 +297,7 @@ export function ReviewerProjectDetailPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="ALL">All Status</SelectItem>
-                    <SelectItem value="SUBMITTED">Pending Review</SelectItem>
+                    <SelectItem value="SUBMITTED">Pending</SelectItem>
                     <SelectItem value="APPROVED">Approved</SelectItem>
                     <SelectItem value="REJECTED">Rejected</SelectItem>
                   </SelectContent>
@@ -399,7 +399,7 @@ export function ReviewerProjectDetailPage() {
                             <Button
                               size="sm"
                               variant={task.status === "SUBMITTED" ? "default" : "outline"}
-                              onClick={() => navigate(`/workspace/${task.taskId}`)}
+                              onClick={() => navigate(`/workspace/${task.id}?mode=review`)}
                             >
                               <Eye className="w-3 h-3 mr-1" />
                               {task.status === "SUBMITTED" ? "Review" : "View"}

@@ -1,6 +1,12 @@
 import { prisma } from '../utils/database.js';
-import { ProjectRole, AssignmentStatus, TaskStatus } from '@prisma/client';
+import { ProjectRole, AssignmentStatus, TaskStatus, NotificationType } from '@prisma/client';
 import logger from '../utils/logger.js';
+import { NotificationService } from './notification.service.js';
+import { NotificationTemplateService } from './notification.template.service.js';
+import { appEvents } from '../utils/events.js';
+import { broadcastService } from '../websocket/events/broadcast.service.js';
+import { SystemEventType } from '../websocket/events/types.js';
+import env from '../config/env.js';
 
 export class ReviewerService {
     /**
@@ -184,6 +190,87 @@ export class ReviewerService {
     }
 
     /**
+     * Get assignment detail for reviewer (with ownership check)
+     */
+    static async getAssignmentDetail(assignmentId: string, userId: string) {
+        try {
+            // First check if assignment exists at all
+            const existingAssignment = await prisma.taskAssignment.findUnique({
+                where: { id: assignmentId },
+                select: { id: true, reviewerId: true, annotatorId: true, status: true }
+            });
+
+            if (!existingAssignment) {
+                throw new Error(`Assignment not found with ID: ${assignmentId}`);
+            }
+
+            // Check if user is the assigned reviewer
+            if (!existingAssignment.reviewerId) {
+                throw new Error(`Assignment ${assignmentId} does not have a reviewer assigned yet`);
+            }
+
+            if (existingAssignment.reviewerId !== userId) {
+                throw new Error(`Assignment ${assignmentId} is assigned to different reviewer. Your ID: ${userId}, Assigned to: ${existingAssignment.reviewerId}`);
+            }
+
+            // Now fetch full assignment data
+            const assignment = await prisma.taskAssignment.findFirst({
+                where: {
+                    id: assignmentId,
+                    reviewerId: userId
+                },
+                include: {
+                    task: {
+                        include: {
+                            image: true,
+                            project: {
+                                include: {
+                                    projectLabels: {
+                                        include: {
+                                            label: {
+                                                include: { category: true }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    annotator: {
+                        select: { id: true, fullName: true, email: true, avatarUrl: true }
+                    },
+                    reviewer: {
+                        select: { id: true, fullName: true, email: true }
+                    }
+                }
+            });
+
+            if (!assignment) {
+                throw new Error('Failed to load assignment with full details');
+            }
+
+            // Transform BigInt fields to Number for JSON serialization
+            const result = {
+                ...assignment,
+                task: assignment.task ? {
+                    ...assignment.task,
+                    image: assignment.task.image ? {
+                        ...assignment.task.image,
+                        fileSizeBytes: assignment.task.image.fileSizeBytes 
+                            ? Number(assignment.task.image.fileSizeBytes) 
+                            : null
+                    } : null
+                } : null
+            };
+
+            return result;
+        } catch (error) {
+            logger.error('SERVICE', 'Error getting assignment detail', { error, assignmentId, userId });
+            throw error;
+        }
+    }
+
+    /**
      * Approve a task assignment
      */
     static async approveTask(
@@ -201,15 +288,16 @@ export class ReviewerService {
                 },
                 include: {
                     task: {
-                        select: {
-                            id: true,
-                            projectId: true
+                        include: {
+                            image: { select: { originalFilename: true } },
+                            project: { select: { id: true, name: true } }
                         }
                     },
                     annotator: {
-                        select: {
-                            id: true
-                        }
+                        select: { id: true, fullName: true, email: true }
+                    },
+                    reviewer: {
+                        select: { id: true, fullName: true }
                     }
                 }
             });
@@ -218,56 +306,111 @@ export class ReviewerService {
                 throw new Error('Assignment not found or not submitted for review');
             }
 
-            // Update assignment status to APPROVED and task status to DONE in transaction
-            const updateData: any = {
-                status: AssignmentStatus.APPROVED
-            };
-            if (reviewComment) {
-                updateData.reviewComment = reviewComment;
-            }
+            const { UserWorkloadService } = await import('./user-workload.service.js');
 
-            const updated = await prisma.$transaction([
-                prisma.taskAssignment.update({
+            // Interactive transaction: all DB ops in one atomic block
+            const updatedAssignment = await prisma.$transaction(async (tx) => {
+                // 1. Update assignment status
+                const updated = await tx.taskAssignment.update({
                     where: { id: assignmentId },
-                    data: updateData,
+                    data: {
+                        status: AssignmentStatus.APPROVED,
+                        reviewedAt: new Date(),
+                        ...(reviewComment && { reviewComment })
+                    },
                     include: {
-                        task: {
-                            include: {
-                                image: true
-                            }
-                        },
-                        annotator: {
-                            select: {
-                                id: true,
-                                fullName: true,
-                                email: true
-                            }
-                        }
+                        task: { include: { image: true } },
+                        annotator: { select: { id: true, fullName: true, email: true } }
                     }
-                }),
-                prisma.task.update({
+                });
+
+                // 2. Mark task as DONE
+                await tx.task.update({
                     where: { id: assignment.task.id },
                     data: { status: TaskStatus.DONE }
-                })
-            ]);
+                });
 
-            // Update user workload - decrement pending review tasks
-            const { UserWorkloadService } = await import('./user-workload.service.js');
-            await prisma.userWorkload.update({
-                where: {
-                    userId_projectId: {
+                // 3. Update annotator reputation
+                await tx.user.update({
+                    where: { id: assignment.annotator.id },
+                    data: { reputationScore: { increment: env.REPUTATION_APPROVE_DELTA } }
+                });
+
+                // 4. Decrement pending review tasks in workload
+                await tx.userWorkload.updateMany({
+                    where: {
                         userId: assignment.annotator.id,
-                        projectId: assignment.task.projectId
-                    }
-                },
-                data: {
-                    pendingReviewTasks: { decrement: 1 }
-                }
+                        projectId: assignment.task.project.id
+                    },
+                    data: { pendingReviewTasks: { decrement: 1 } }
+                });
+
+                return updated;
             });
-            await UserWorkloadService.updateAvailabilityStatus(assignment.annotator.id, assignment.task.projectId);
+
+            // Post-transaction: update availability (non-critical, outside tx is ok)
+            const { UserWorkloadService: WorkloadSvc } = await import('./user-workload.service.js');
+            await WorkloadSvc.updateAvailabilityStatus(assignment.annotator.id, assignment.task.project.id);
+
+            // Send notification to annotator
+            const taskName = assignment.task.image?.originalFilename || `Task ${assignment.task.id.slice(0, 8)}`;
+            const reviewerName = assignment.reviewer?.fullName || 'Reviewer';
+            try {
+                const rendered = await NotificationTemplateService.render(
+                    NotificationType.TASK_APPROVED,
+                    {
+                        reviewerName,
+                        taskName,
+                        projectName: assignment.task.project.name,
+                        taskId: assignment.task.id
+                    }
+                );
+
+                if (rendered) {
+                    const notification = await NotificationService.createNotification({
+                        userId: assignment.annotator.id,
+                        type: NotificationType.TASK_APPROVED,
+                        title: rendered.title,
+                        message: rendered.message,
+                        metadata: {
+                            assignmentId,
+                            taskId: assignment.task.id,
+                            projectId: assignment.task.project.id,
+                            reviewerId: userId
+                        }
+                    });
+
+                    broadcastService.broadcastToUser(
+                        assignment.annotator.id,
+                        SystemEventType.NOTIFICATION_CREATED,
+                        {
+                            notification: {
+                                id: notification.id,
+                                type: notification.type,
+                                title: notification.title,
+                                message: notification.message,
+                                metadata: notification.metadata,
+                                isRead: notification.isRead,
+                                createdAt: notification.createdAt
+                            }
+                        }
+                    );
+                }
+            } catch (notifError) {
+                logger.error('SERVICE', 'Failed to send approval notification', { error: notifError, assignmentId });
+            }
+
+            // Emit event
+            appEvents.emit('TASK_APPROVED', {
+                taskId: assignment.task.id,
+                assignmentId,
+                reviewerId: userId,
+                annotatorId: assignment.annotator.id,
+                projectId: assignment.task.project.id
+            });
 
             logger.info('SERVICE', 'Task approved', { assignmentId, reviewerId: userId });
-            return updated[0];
+            return updatedAssignment;
         } catch (error) {
             logger.error('SERVICE', 'Error approving task', { error, assignmentId, userId });
             throw error;
@@ -292,15 +435,18 @@ export class ReviewerService {
                 },
                 include: {
                     task: {
-                        select: {
-                            id: true,
-                            projectId: true
+                        include: {
+                            image: true,
+                            project: {
+                                include: { assignmentRule: true }
+                            }
                         }
                     },
                     annotator: {
-                        select: {
-                            id: true
-                        }
+                        select: { id: true, fullName: true, email: true }
+                    },
+                    reviewer: {
+                        select: { id: true, fullName: true }
                     }
                 }
             });
@@ -313,55 +459,232 @@ export class ReviewerService {
                 throw new Error('Review comment is required when rejecting a task');
             }
 
-            // Update assignment status to REJECTED and task status to TODO in transaction
-            const updated = await prisma.$transaction([
-                prisma.taskAssignment.update({
+            const newRejectionCount = assignment.rejectionCount + 1;
+            const maxRejectionsRule = assignment.task.project.assignmentRule?.maxRejectionsBeforeReassign ?? assignment.maxRejections;
+            const exceedsMaxRejections = newRejectionCount >= maxRejectionsRule;
+
+            // Interactive transaction: all DB ops in one atomic block
+            const updatedAssignment = await prisma.$transaction(async (tx) => {
+                // 1. Update assignment status + increment rejectionCount
+                const updated = await tx.taskAssignment.update({
                     where: { id: assignmentId },
                     data: {
                         status: AssignmentStatus.REJECTED,
-                        reviewComment
+                        reviewComment,
+                        reviewedAt: new Date(),
+                        rejectionCount: { increment: 1 }
                     },
                     include: {
-                        task: {
-                            include: {
-                                image: true
-                            }
-                        },
-                        annotator: {
-                            select: {
-                                id: true,
-                                fullName: true,
-                                email: true
-                            }
-                        }
+                        task: { include: { image: true } },
+                        annotator: { select: { id: true, fullName: true, email: true } }
                     }
-                }),
-                prisma.task.update({
+                });
+
+                // 2. Reset task status to TODO for reannotation
+                await tx.task.update({
                     where: { id: assignment.task.id },
                     data: { status: TaskStatus.TODO }
-                })
-            ]);
+                });
 
-            // Update user workload - decrement pending review tasks
-            const { UserWorkloadService } = await import('./user-workload.service.js');
-            await prisma.userWorkload.update({
-                where: {
-                    userId_projectId: {
+                // 3. Update annotator reputation
+                await tx.user.update({
+                    where: { id: assignment.annotator.id },
+                    data: { reputationScore: { increment: env.REPUTATION_REJECT_DELTA } }
+                });
+
+                // 4. Decrement pending review tasks in workload
+                await tx.userWorkload.updateMany({
+                    where: {
                         userId: assignment.annotator.id,
-                        projectId: assignment.task.projectId
-                    }
-                },
-                data: {
-                    pendingReviewTasks: { decrement: 1 }
-                }
-            });
-            await UserWorkloadService.updateAvailabilityStatus(assignment.annotator.id, assignment.task.projectId);
+                        projectId: assignment.task.project.id
+                    },
+                    data: { pendingReviewTasks: { decrement: 1 } }
+                });
 
-            logger.info('SERVICE', 'Task rejected', { assignmentId, reviewerId: userId });
-            return updated[0];
+                return updated;
+            });
+
+            // Post-transaction: update availability
+            const projectId = assignment.task.project.id;
+            const { UserWorkloadService } = await import('./user-workload.service.js');
+            await UserWorkloadService.updateAvailabilityStatus(assignment.annotator.id, projectId);
+
+            // If max rejections exceeded, emit reassignment event
+            if (exceedsMaxRejections) {
+                logger.warn('SERVICE', 'Max rejections reached, triggering reassignment', {
+                    assignmentId,
+                    rejectionCount: newRejectionCount,
+                    maxRejections: maxRejectionsRule
+                });
+                appEvents.emit('TASK_SKIPPED_REASSIGN', {
+                    taskId: assignment.task.id,
+                    projectId
+                });
+            }
+
+            // Send notification to annotator
+            const taskName = assignment.task.image?.originalFilename || `Task ${assignment.task.id.slice(0, 8)}`;
+            const reviewerName = assignment.reviewer?.fullName || 'Reviewer';
+            try {
+                const rendered = await NotificationTemplateService.render(
+                    NotificationType.TASK_REJECTED,
+                    {
+                        reviewerName,
+                        taskName,
+                        projectName: assignment.task.project.name,
+                        taskId: assignment.task.id,
+                        feedback: reviewComment
+                    }
+                );
+
+                if (rendered) {
+                    const notification = await NotificationService.createNotification({
+                        userId: assignment.annotator.id,
+                        type: NotificationType.TASK_REJECTED,
+                        title: rendered.title,
+                        message: rendered.message,
+                        metadata: {
+                            assignmentId,
+                            taskId: assignment.task.id,
+                            projectId,
+                            reviewerId: userId,
+                            feedback: reviewComment,
+                            rejectionCount: newRejectionCount,
+                            exceedsMaxRejections
+                        }
+                    });
+
+                    broadcastService.broadcastToUser(
+                        assignment.annotator.id,
+                        SystemEventType.NOTIFICATION_CREATED,
+                        {
+                            notification: {
+                                id: notification.id,
+                                type: notification.type,
+                                title: notification.title,
+                                message: notification.message,
+                                metadata: notification.metadata,
+                                isRead: notification.isRead,
+                                createdAt: notification.createdAt
+                            }
+                        }
+                    );
+                }
+            } catch (notifError) {
+                logger.error('SERVICE', 'Failed to send rejection notification', { error: notifError, assignmentId });
+            }
+
+            // Emit event
+            appEvents.emit('TASK_REJECTED', {
+                taskId: assignment.task.id,
+                assignmentId,
+                reviewerId: userId,
+                annotatorId: assignment.annotator.id,
+                projectId,
+                rejectionCount: newRejectionCount,
+                exceedsMaxRejections
+            });
+
+            logger.info('SERVICE', 'Task rejected', {
+                assignmentId,
+                reviewerId: userId,
+                rejectionCount: newRejectionCount,
+                exceedsMaxRejections
+            });
+            return updatedAssignment;
         } catch (error) {
             logger.error('SERVICE', 'Error rejecting task', { error, assignmentId, userId });
             throw error;
         }
     }
+
+    /**
+     * Get reviewer statistics
+     */
+    static async getStats(userId: string) {
+        try {
+            // Count by status in parallel
+            const [approved, rejected, pending, todayApproved, todayRejected, weekApproved, weekRejected] = await Promise.all([
+                prisma.taskAssignment.count({
+                    where: { reviewerId: userId, status: AssignmentStatus.APPROVED }
+                }),
+                prisma.taskAssignment.count({
+                    where: { reviewerId: userId, status: AssignmentStatus.REJECTED }
+                }),
+                prisma.taskAssignment.count({
+                    where: { reviewerId: userId, status: AssignmentStatus.SUBMITTED }
+                }),
+                prisma.taskAssignment.count({
+                    where: {
+                        reviewerId: userId,
+                        status: AssignmentStatus.APPROVED,
+                        reviewedAt: { gte: getStartOfDay() }
+                    }
+                }),
+                prisma.taskAssignment.count({
+                    where: {
+                        reviewerId: userId,
+                        status: AssignmentStatus.REJECTED,
+                        reviewedAt: { gte: getStartOfDay() }
+                    }
+                }),
+                prisma.taskAssignment.count({
+                    where: {
+                        reviewerId: userId,
+                        status: AssignmentStatus.APPROVED,
+                        reviewedAt: { gte: getStartOfWeek() }
+                    }
+                }),
+                prisma.taskAssignment.count({
+                    where: {
+                        reviewerId: userId,
+                        status: AssignmentStatus.REJECTED,
+                        reviewedAt: { gte: getStartOfWeek() }
+                    }
+                })
+            ]);
+
+            const totalReviewed = approved + rejected;
+            const approvalRate = totalReviewed > 0 ? Math.round((approved / totalReviewed) * 100) : 0;
+            const todayCount = todayApproved + todayRejected;
+            const weekCount = weekApproved + weekRejected;
+
+            // Calculate average review time from assignments that have reviewedAt
+            const avgResult = await prisma.$queryRaw<[{ avg_seconds: number | null }]>`
+                SELECT AVG(EXTRACT(EPOCH FROM (reviewed_at - updated_at))) as avg_seconds
+                FROM task_assignments
+                WHERE reviewer_id = ${userId}::uuid
+                AND reviewed_at IS NOT NULL
+                AND status IN ('APPROVED', 'REJECTED')
+            `;
+            const avgReviewTimeMinutes = avgResult[0]?.avg_seconds
+                ? Math.round(avgResult[0].avg_seconds / 60)
+                : null;
+
+            return {
+                totalReviewed,
+                approvalRate,
+                pendingCount: pending,
+                avgReviewTimeMinutes,
+                todayCount,
+                weekCount
+            };
+        } catch (error) {
+            logger.error('SERVICE', 'Error getting reviewer stats', { error, userId });
+            throw error;
+        }
+    }
+}
+
+function getStartOfDay(): Date {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+}
+
+function getStartOfWeek(): Date {
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Monday = start of week
+    const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diff);
+    return monday;
 }

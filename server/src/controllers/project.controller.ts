@@ -1042,26 +1042,37 @@ export class ProjectController {
             const limit = parseInt(req.query.limit as string) || 20
             const status = req.query.status as string | undefined
             const assigneeId = req.query.assigneeId as string | undefined
+            const pendingReview = req.query.pendingReview as string | undefined
 
             const { prisma } = await import('../utils/database.js')
 
             const where: any = { projectId: id }
 
-            // Build where clause for filtering
-            const assignmentWhere: any = {}
-
-            if (status) {
-                assignmentWhere.status = status
-            }
-
-            if (assigneeId) {
-                assignmentWhere.annotatorId = assigneeId
-            }
-
-            // Only apply assignment filter if we have conditions
-            if (Object.keys(assignmentWhere).length > 0) {
+            // Filter: tasks SUBMITTED but no reviewer assigned yet
+            if (pendingReview === 'true') {
                 where.assignments = {
-                    some: assignmentWhere
+                    some: {
+                        status: 'SUBMITTED',
+                        reviewerId: null
+                    }
+                }
+            } else {
+                // Build where clause for filtering
+                const assignmentWhere: any = {}
+
+                if (status) {
+                    assignmentWhere.status = status
+                }
+
+                if (assigneeId) {
+                    assignmentWhere.annotatorId = assigneeId
+                }
+
+                // Only apply assignment filter if we have conditions
+                if (Object.keys(assignmentWhere).length > 0) {
+                    where.assignments = {
+                        some: assignmentWhere
+                    }
                 }
             }
 
@@ -2336,6 +2347,382 @@ export class ProjectController {
                 error: 'Internal server error',
                 message: error instanceof Error ? error.message : 'Unknown error'
             })
+        }
+    }
+
+    /**
+     * POST /api/v1/projects/:id/tasks/:taskId/assign-reviewer
+     * Manually assign a reviewer to a SUBMITTED task
+     */
+    static async assignReviewer(req: Request, res: Response) {
+        try {
+            const { id, taskId } = req.params as { id: string; taskId: string }
+            const { reviewerId, deadline, force } = req.body
+            const user = (req as any).user
+            const userId = user.sub || user.id
+
+            if (!reviewerId) {
+                return res.status(400).json({ error: 'reviewerId is required' })
+            }
+
+            const { prisma } = await import('../utils/database.js')
+            const { AssignmentMethod, AssignmentStatus, ProjectRole } = await import('@prisma/client')
+
+            // Verify task belongs to project
+            const task = await prisma.task.findFirst({
+                where: { id: taskId, projectId: id },
+                include: {
+                    image: { select: { originalFilename: true } }
+                }
+            })
+
+            if (!task) {
+                return res.status(404).json({ error: 'Task not found in this project' })
+            }
+
+            // Find the SUBMITTED assignment for this task
+            const submittedAssignment = await prisma.taskAssignment.findFirst({
+                where: {
+                    taskId,
+                    status: AssignmentStatus.SUBMITTED
+                },
+                select: { id: true, annotatorId: true, reviewerId: true }
+            })
+
+            if (!submittedAssignment) {
+                return res.status(400).json({ error: 'Task does not have a SUBMITTED assignment. Only SUBMITTED tasks can be assigned to a reviewer.' })
+            }
+
+            // Conflict of Interest: reviewer cannot be the annotator
+            if (submittedAssignment.annotatorId === reviewerId) {
+                return res.status(400).json({ error: 'Conflict of Interest: Reviewer cannot be the same person who annotated this task.' })
+            }
+
+            // Check if reviewer is already assigned
+            if (submittedAssignment.reviewerId) {
+                return res.status(409).json({ error: 'This task already has a reviewer assigned. Unassign the current reviewer first or use force: true to override.' })
+            }
+
+            // Verify reviewer is a member of this project with REVIEWER role
+            const member = await prisma.projectMember.findFirst({
+                where: {
+                    projectId: id,
+                    userId: reviewerId,
+                    projectRole: ProjectRole.REVIEWER
+                }
+            })
+
+            if (!member) {
+                return res.status(400).json({ error: 'User is not a reviewer in this project' })
+            }
+
+            // Check workload limit (soft block — Manager can override with force: true)
+            if (!force) {
+                const assignmentRule = await prisma.assignmentRule.findUnique({
+                    where: { projectId: id }
+                })
+                if (assignmentRule) {
+                    const { TaskService } = await import('../services/task.service.js')
+                    const currentTasks = await TaskService.getActiveTaskCount(reviewerId, 'REVIEWER')
+                    const maxTasks = assignmentRule.maxTasksPerReviewer
+                    if (currentTasks >= maxTasks) {
+                        logger.warn('API', `Manual reviewer assign blocked: reviewer ${reviewerId} workload limit reached`, {
+                            projectId: id, currentTasks, maxTasks
+                        })
+                        return res.status(400).json({
+                            error: 'Workload limit exceeded',
+                            currentTasks,
+                            maxTasks,
+                            message: `Reviewer has reached the maximum task limit (${currentTasks}/${maxTasks}). Send force: true to override.`
+                        })
+                    }
+                }
+            }
+
+            // Calculate deadline
+            const { TaskService } = await import('../services/task.service.js')
+            const reviewDeadline = deadline
+                ? new Date(deadline)
+                : TaskService.calculateDeadline(task.difficultyLevel, 'REVIEWER')
+
+            // Update the assignment: set reviewerId and deadline
+            await prisma.taskAssignment.update({
+                where: { id: submittedAssignment.id },
+                data: {
+                    reviewerId,
+                    deadline: reviewDeadline,
+                    assignedBy: userId,
+                    assignmentMethod: AssignmentMethod.MANUAL
+                }
+            })
+
+            // Fetch the updated assignment to return
+            const updatedAssignment = await prisma.taskAssignment.findUnique({
+                where: { id: submittedAssignment.id },
+                include: {
+                    annotator: {
+                        select: { id: true, fullName: true, email: true, avatarUrl: true }
+                    },
+                    reviewer: {
+                        select: { id: true, fullName: true, email: true, avatarUrl: true }
+                    },
+                    task: {
+                        include: {
+                            image: {
+                                select: { id: true, storageUrl: true, originalFilename: true }
+                            }
+                        }
+                    }
+                }
+            })
+
+            logger.info('API', `Reviewer ${reviewerId} manually assigned to task ${taskId}`, {
+                actorId: userId, projectId: id, assignmentId: submittedAssignment.id
+            })
+
+            // Log activity
+            try {
+                const { TaskActivityService } = await import('../services/task-activity.service.js')
+                const { TaskAction } = await import('@prisma/client')
+
+                const reviewer = await prisma.user.findUnique({
+                    where: { id: reviewerId },
+                    select: { fullName: true, email: true }
+                })
+
+                await TaskActivityService.logActivity({
+                    taskId,
+                    projectId: id,
+                    userId,
+                    action: TaskAction.ASSIGNED,
+                    metadata: {
+                        targetUserId: reviewerId,
+                        targetUserName: reviewer?.fullName || reviewer?.email || 'Unknown',
+                        targetRole: 'REVIEWER',
+                        deadline: reviewDeadline.toISOString(),
+                        method: 'MANUAL'
+                    }
+                })
+            } catch (activityError) {
+                logger.error('API', 'Failed to log reviewer assignment activity', { error: activityError })
+            }
+
+            // Send notification to reviewer
+            try {
+                const { NotificationType } = await import('@prisma/client')
+                const { NotificationTemplateService } = await import('../services/notification.template.service.js')
+                const { NotificationService } = await import('../services/notification.service.js')
+                const { broadcastService } = await import('../websocket/events/broadcast.service.js')
+                const { SystemEventType } = await import('../websocket/events/types.js')
+
+                const project = await prisma.project.findUnique({
+                    where: { id },
+                    select: { id: true, name: true }
+                })
+
+                if (project) {
+                    const rendered = await NotificationTemplateService.render(
+                        NotificationType.TASK_ASSIGNED,
+                        {
+                            taskId: task.id,
+                            taskName: task.image?.originalFilename || 'Untitled Task',
+                            projectId: project.id,
+                            projectName: project.name
+                        }
+                    )
+
+                    if (rendered) {
+                        const notification = await NotificationService.createNotification({
+                            userId: reviewerId,
+                            type: NotificationType.TASK_ASSIGNED,
+                            title: rendered.title,
+                            message: rendered.message,
+                            metadata: {
+                                taskId: task.id,
+                                projectId: project.id,
+                                projectName: project.name,
+                                role: 'REVIEWER'
+                            }
+                        })
+
+                        broadcastService.broadcastToUser(reviewerId, SystemEventType.NOTIFICATION_CREATED, {
+                            notification: {
+                                id: notification.id,
+                                type: notification.type,
+                                title: notification.title,
+                                message: notification.message,
+                                metadata: notification.metadata,
+                                isRead: notification.isRead,
+                                createdAt: notification.createdAt
+                            }
+                        })
+                    }
+                }
+            } catch (notifError) {
+                logger.error('API', 'Failed to send reviewer assignment notification', { error: notifError })
+            }
+
+            return res.json({
+                message: 'Reviewer assigned successfully',
+                assignment: updatedAssignment
+            })
+        } catch (error) {
+            logger.error('API', 'Assign reviewer failed', { error })
+            return res.status(500).json({ error: 'Internal server error' })
+        }
+    }
+
+    /**
+     * POST /api/v1/projects/:id/tasks/bulk-assign-reviewer
+     * Bulk assign a reviewer to multiple SUBMITTED tasks
+     */
+    static async bulkAssignReviewer(req: Request, res: Response) {
+        try {
+            const { id } = req.params as { id: string }
+            const { taskIds, reviewerId, deadline, force } = req.body
+            const user = (req as any).user
+            const userId = user.sub || user.id
+
+            if (!taskIds || !Array.isArray(taskIds) || taskIds.length === 0) {
+                return res.status(400).json({ error: 'taskIds array is required' })
+            }
+
+            if (!reviewerId) {
+                return res.status(400).json({ error: 'reviewerId is required' })
+            }
+
+            const { prisma } = await import('../utils/database.js')
+            const { AssignmentMethod, AssignmentStatus, ProjectRole } = await import('@prisma/client')
+
+            // Verify reviewer is a REVIEWER member of this project
+            const member = await prisma.projectMember.findFirst({
+                where: {
+                    projectId: id,
+                    userId: reviewerId,
+                    projectRole: ProjectRole.REVIEWER
+                },
+                include: {
+                    user: { select: { id: true, fullName: true, email: true } }
+                }
+            })
+
+            if (!member) {
+                return res.status(400).json({ error: 'User is not a reviewer in this project' })
+            }
+
+            // Find all SUBMITTED assignments for these tasks that have no reviewer
+            const assignments = await prisma.taskAssignment.findMany({
+                where: {
+                    task: { projectId: id },
+                    taskId: { in: taskIds },
+                    status: AssignmentStatus.SUBMITTED,
+                    reviewerId: null
+                },
+                include: {
+                    task: {
+                        include: { image: { select: { originalFilename: true } } }
+                    }
+                }
+            })
+
+            if (assignments.length === 0) {
+                return res.status(400).json({ error: 'No eligible SUBMITTED tasks without reviewer found for the given task IDs.' })
+            }
+
+            // Conflict of Interest check: filter out tasks where reviewer is the annotator
+            const eligible = assignments.filter(a => a.annotatorId !== reviewerId)
+            const conflicted = assignments.filter(a => a.annotatorId === reviewerId)
+
+            if (eligible.length === 0) {
+                return res.status(400).json({
+                    error: 'All matching tasks have Conflict of Interest (reviewer is the annotator).',
+                    conflictedTaskIds: conflicted.map(a => a.taskId)
+                })
+            }
+
+            // Check workload limit
+            if (!force) {
+                const assignmentRule = await prisma.assignmentRule.findUnique({
+                    where: { projectId: id }
+                })
+                if (assignmentRule) {
+                    const { TaskService } = await import('../services/task.service.js')
+                    const currentTasks = await TaskService.getActiveTaskCount(reviewerId, 'REVIEWER')
+                    const maxTasks = assignmentRule.maxTasksPerReviewer
+                    if (currentTasks + eligible.length > maxTasks) {
+                        const remainingSlots = Math.max(0, maxTasks - currentTasks)
+                        return res.status(400).json({
+                            error: 'Workload limit exceeded',
+                            currentTasks,
+                            maxTasks,
+                            requestedTasks: eligible.length,
+                            remainingSlots,
+                            message: `Reviewer has ${currentTasks}/${maxTasks} active tasks. Cannot assign ${eligible.length} more (only ${remainingSlots} slots available). Send force: true to override.`
+                        })
+                    }
+                }
+            }
+
+            // Calculate deadline
+            const { TaskService } = await import('../services/task.service.js')
+            const reviewDeadline = deadline ? new Date(deadline) : null
+
+            // Update all eligible assignments in a transaction
+            await prisma.$transaction(
+                eligible.map(a => {
+                    const taskDeadline = reviewDeadline ||
+                        TaskService.calculateDeadline(a.task.difficultyLevel, 'REVIEWER')
+                    return prisma.taskAssignment.update({
+                        where: { id: a.id },
+                        data: {
+                            reviewerId,
+                            deadline: taskDeadline,
+                            assignedBy: userId,
+                            assignmentMethod: AssignmentMethod.MANUAL
+                        }
+                    })
+                })
+            )
+
+            logger.info('API', `Bulk assigned reviewer ${reviewerId} to ${eligible.length} tasks`, {
+                actorId: userId, projectId: id
+            })
+
+            // Log bulk activity
+            try {
+                const { TaskActivityService } = await import('../services/task-activity.service.js')
+                const { TaskAction } = await import('@prisma/client')
+
+                const taskNames = eligible.map(a =>
+                    a.task.image?.originalFilename || `Task #${a.taskId.substring(0, 6)}`
+                )
+
+                await TaskActivityService.logBulkActivity({
+                    taskIds: eligible.map(a => a.taskId),
+                    projectId: id,
+                    userId,
+                    action: TaskAction.BULK_ASSIGNED,
+                    metadata: {
+                        count: eligible.length,
+                        targetUserId: reviewerId,
+                        targetUserName: member.user.fullName || member.user.email,
+                        targetRole: 'REVIEWER',
+                        taskNames
+                    }
+                })
+            } catch (activityError) {
+                logger.error('API', 'Failed to log bulk reviewer assign activity', { error: activityError })
+            }
+
+            return res.json({
+                message: `Successfully assigned reviewer to ${eligible.length} tasks`,
+                assigned: eligible.length,
+                skippedConflict: conflicted.length,
+                conflictedTaskIds: conflicted.map(a => a.taskId)
+            })
+        } catch (error) {
+            logger.error('API', 'Bulk assign reviewer failed', { error })
+            return res.status(500).json({ error: 'Internal server error' })
         }
     }
 }

@@ -148,14 +148,17 @@ export class TaskService {
         projectId: string,
         role: ProjectRole,
         strategy: string,
-        rules: AssignmentRule
+        rules: AssignmentRule,
+        excludeUserId?: string // Conflict of Interest: exclude this user from candidates
     ): Promise<string | null> {
         try {
             // Get all project members with the specified role
             const members = await prisma.projectMember.findMany({
                 where: {
                     projectId,
-                    projectRole: role
+                    projectRole: role,
+                    // Exclude user for Conflict of Interest (reviewer != annotator)
+                    ...(excludeUserId && { userId: { not: excludeUserId } })
                 },
                 include: {
                     user: {
@@ -478,27 +481,18 @@ export class TaskService {
                 return false;
             }
 
-            // Find next assignee
+            // Find next assignee (excludeUserId filters out the annotator for COI)
             const projectRole = role === 'ANNOTATOR' ? ProjectRole.ANNOTATOR : ProjectRole.REVIEWER;
             const selectedUserId = await this.findNextAssignee(
                 projectId,
                 projectRole,
                 rules.assignmentStrategy,
-                rules
+                rules,
+                role === 'REVIEWER' ? excludeUserId : undefined
             );
 
             if (!selectedUserId) {
                 logger.warn('TASK_SERVICE', `No eligible ${role} found`, { taskId, projectId });
-                return false;
-            }
-
-            // Conflict of Interest check for Reviewers
-            if (role === 'REVIEWER' && excludeUserId && selectedUserId === excludeUserId) {
-                logger.warn('TASK_SERVICE', 'Conflict of Interest: Reviewer cannot be the annotator', {
-                    taskId,
-                    selectedUserId,
-                    excludeUserId
-                });
                 return false;
             }
 
@@ -567,8 +561,31 @@ import { appEvents } from '../utils/events.js';
 
 appEvents.on('TASK_SUBMITTED_AUTO_REVIEWER', async ({ taskId, projectId, annotatorId, assignmentId }) => {
     try {
-        await TaskService.autoAssignTask(taskId, projectId, 'REVIEWER', annotatorId);
-        logger.info('TASK_SERVICE', 'Handled auto-reviewer event', { taskId, assignmentId });
+        // Check reviewerDelayHours before assigning
+        const project = await prisma.project.findUnique({
+            where: { id: projectId },
+            include: { assignmentRule: true }
+        });
+
+        const delayHours = project?.assignmentRule?.reviewerDelayHours ?? 0;
+
+        if (delayHours > 0) {
+            const delayMs = delayHours * 3600 * 1000;
+            logger.info('TASK_SERVICE', 'Delaying auto-reviewer assignment', {
+                taskId, assignmentId, delayHours
+            });
+            setTimeout(async () => {
+                try {
+                    await TaskService.autoAssignTask(taskId, projectId, 'REVIEWER', annotatorId);
+                    logger.info('TASK_SERVICE', 'Delayed auto-reviewer assignment completed', { taskId, assignmentId });
+                } catch (delayedError) {
+                    logger.error('TASK_SERVICE', 'Failed delayed auto-reviewer assignment', { error: delayedError, taskId });
+                }
+            }, delayMs);
+        } else {
+            await TaskService.autoAssignTask(taskId, projectId, 'REVIEWER', annotatorId);
+            logger.info('TASK_SERVICE', 'Handled auto-reviewer event', { taskId, assignmentId });
+        }
     } catch (error) {
         logger.error('TASK_SERVICE', 'Failed to handle auto-reviewer event', { error, taskId, assignmentId });
     }
