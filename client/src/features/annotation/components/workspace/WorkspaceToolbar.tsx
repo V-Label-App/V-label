@@ -117,7 +117,7 @@ export function WorkspaceToolbar({
   };
 
   const handleToolChange = (newTool: Tool) => {
-    if (!isReadOnly) setTool(newTool);
+    if (!isReadOnly || newTool === "hand") setTool(newTool);
   };
 
   const selectedAnnotation = annotations.find(

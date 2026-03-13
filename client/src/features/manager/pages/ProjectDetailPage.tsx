@@ -895,6 +895,11 @@ export function ProjectDetailPage() {
     return assignment?.status === "APPROVED";
   });
 
+  const rejectedTasks = tasks.filter((t: any) => {
+    const assignment = t.assignments?.find((a: any) => a.annotatorId);
+    return assignment?.status === "REJECTED";
+  });
+
   // Group tasks by assignee
   const groupedTasks = tasks.reduce((acc: Record<string, any[]>, task: any) => {
     const annotatorAssignment = task.assignments?.find(
@@ -952,6 +957,22 @@ export function ProjectDetailPage() {
 
   // Group completed tasks by assignee
   const groupedCompletedTasks = completedTasks.reduce(
+    (acc: Record<string, any[]>, task: any) => {
+      const annotatorAssignment = task.assignments?.find(
+        (a: any) => a.annotatorId,
+      );
+      const assigneeId = annotatorAssignment?.annotatorId || "unassigned";
+      if (!acc[assigneeId]) {
+        acc[assigneeId] = [];
+      }
+      acc[assigneeId].push(task);
+      return acc;
+    },
+    {},
+  );
+
+  // Group rejected tasks by assignee
+  const groupedRejectedTasks = rejectedTasks.reduce(
     (acc: Record<string, any[]>, task: any) => {
       const annotatorAssignment = task.assignments?.find(
         (a: any) => a.annotatorId,
@@ -1494,6 +1515,12 @@ export function ProjectDetailPage() {
                   className="data-[state=active]:bg-purple-50 data-[state=active]:text-purple-700 data-[state=active]:border-purple-700 data-[state=active]:shadow-none rounded-md border-2 border-transparent px-4 py-1.5 text-sm font-medium transition-all hover:bg-gray-50"
                 >
                   Submitted Tasks ({submittedTasks.length})
+                </TabsTrigger>
+                <TabsTrigger
+                  value="rejected"
+                  className="data-[state=active]:bg-red-50 data-[state=active]:text-red-700 data-[state=active]:border-red-700 data-[state=active]:shadow-none rounded-md border-2 border-transparent px-4 py-1.5 text-sm font-medium transition-all hover:bg-gray-50"
+                >
+                  Rejected Tasks ({rejectedTasks.length})
                 </TabsTrigger>
                 <TabsTrigger
                   value="completed"
@@ -2692,6 +2719,285 @@ export function ProjectDetailPage() {
                                           </TableCell>
                                         </TableRow>
                                       )}
+                                  </React.Fragment>
+                                );
+                              },
+                            )}
+                          </>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </Card>
+              </TabsContent>
+
+              {/* Rejected Tasks Tab */}
+              <TabsContent value="rejected" className="space-y-6">
+                {/* Search & Filter for Rejected Tasks */}
+                <Card className="p-4">
+                  <div className="flex flex-wrap gap-4">
+                    <div className="flex-1 min-w-[250px]">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Search tasks by name or ID..."
+                          value={taskSearchQuery}
+                          onChange={(e) => setTaskSearchQuery(e.target.value)}
+                          className="pl-9"
+                        />
+                      </div>
+                    </div>
+                    <Select
+                      value={taskFilterAssignee}
+                      onValueChange={setTaskFilterAssignee}
+                    >
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Assignee" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Assignees</SelectItem>
+                        {annotators
+                          .filter((a: any) => a.projectRole === "ANNOTATOR")
+                          .map((a: any) => (
+                            <SelectItem key={a.userId} value={a.userId}>
+                              {a.user?.fullName || a.user?.email || "Unknown"}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </Card>
+
+                <Card className="p-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <h3 className="text-xl font-semibold">Rejected Tasks</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Showing {rejectedTasks.length} rejected tasks
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="border border-gray-200 rounded-lg overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-gray-50">
+                          <TableHead className="w-[50px]">
+                            <Checkbox
+                              checked={
+                                rejectedTasks.length > 0 &&
+                                rejectedTasks.every((t) =>
+                                  selectedTasks.includes(t.id),
+                                )
+                              }
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setSelectedTasks(
+                                    rejectedTasks.map((t) => t.id),
+                                  );
+                                } else {
+                                  setSelectedTasks([]);
+                                }
+                              }}
+                            />
+                          </TableHead>
+                          <TableHead>User / Task</TableHead>
+                          <TableHead className="w-[120px] text-right">
+                            Actions
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {isTasksLoading ? (
+                          <TableRow>
+                            <TableCell colSpan={3} className="text-center py-8">
+                              <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" />
+                              <p className="text-sm text-muted-foreground mt-2">
+                                Loading tasks...
+                              </p>
+                            </TableCell>
+                          </TableRow>
+                        ) : rejectedTasks.length === 0 ? (
+                          <TableRow>
+                            <TableCell
+                              colSpan={3}
+                              className="text-center py-8 text-muted-foreground"
+                            >
+                              No rejected tasks found
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          <>
+                            {Object.entries(groupedRejectedTasks).map(
+                              ([assigneeId, userTasks]) => {
+                                const firstTask = userTasks[0];
+                                const annotatorAssignment =
+                                  firstTask.assignments?.find(
+                                    (a: any) => a.annotatorId,
+                                  );
+                                const assignee = annotatorAssignment?.annotator;
+                                const isExpanded =
+                                  expandedUsers.has(assigneeId);
+                                const taskCount = userTasks.length;
+
+                                return (
+                                  <React.Fragment
+                                    key={`rejected-group-${assigneeId}`}
+                                  >
+                                    <TableRow
+                                      className="bg-gradient-to-r from-red-50 to-red-100 hover:from-red-100 hover:to-red-200 cursor-pointer border-b-2 border-red-300"
+                                      onClick={() =>
+                                        toggleUserExpansion(assigneeId)
+                                      }
+                                    >
+                                      <TableCell className="py-4">
+                                        <Checkbox
+                                          checked={userTasks.every((t: any) =>
+                                            selectedTasks.includes(t.id),
+                                          )}
+                                          onCheckedChange={(checked) => {
+                                            userTasks.forEach((t: any) =>
+                                              handleSelectTask(t.id, !!checked),
+                                            );
+                                          }}
+                                          onClick={(e) => e.stopPropagation()}
+                                        />
+                                      </TableCell>
+                                      <TableCell colSpan={2}>
+                                        <div className="flex items-center justify-between">
+                                          <div className="flex items-center gap-3">
+                                            {isExpanded ? (
+                                              <ChevronDown className="h-5 w-5 text-gray-700 flex-shrink-0" />
+                                            ) : (
+                                              <ChevronRight className="h-5 w-5 text-gray-700 flex-shrink-0" />
+                                            )}
+                                            <div className="h-10 w-10 rounded-full bg-red-500 flex items-center justify-center ring-2 ring-white shadow-sm">
+                                              <span className="text-sm font-semibold text-white">
+                                                {assigneeId === "unassigned"
+                                                  ? "?"
+                                                  : assignee?.fullName
+                                                      ?.charAt(0)
+                                                      .toUpperCase() || "A"}
+                                              </span>
+                                            </div>
+                                            <div className="flex-1">
+                                              <div className="font-medium text-gray-900">
+                                                {assigneeId === "unassigned"
+                                                  ? "Unassigned Tasks"
+                                                  : assignee?.fullName ||
+                                                    assignee?.email ||
+                                                    "Unknown"}
+                                              </div>
+                                              <div className="text-xs text-gray-500">
+                                                {taskCount} rejected{" "}
+                                                {taskCount === 1
+                                                  ? "task"
+                                                  : "tasks"}
+                                              </div>
+                                            </div>
+                                          </div>
+                                          <div
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="flex items-center gap-2"
+                                          >
+                                            {(() => {
+                                              const userTaskIds = userTasks.map(
+                                                (t: any) => t.id,
+                                              );
+                                              const selectedUserCount =
+                                                selectedTasks.filter((id) =>
+                                                  userTaskIds.includes(id),
+                                                ).length;
+
+                                              return selectedUserCount > 0 ? (
+                                                <Button
+                                                  onClick={() => {
+                                                    setIsBulkAssign(true);
+                                                    setIsAssignDialogOpen(true);
+                                                  }}
+                                                  size="sm"
+                                                  className="gap-2"
+                                                >
+                                                  <Users className="h-4 w-4" />
+                                                  Reassign {selectedUserCount} Task{selectedUserCount > 1 ? "s" : ""}
+                                                </Button>
+                                              ) : null;
+                                            })()}
+                                          </div>
+                                        </div>
+                                      </TableCell>
+                                    </TableRow>
+
+                                    {isExpanded &&
+                                      getPaginatedUserTasks(
+                                        userTasks,
+                                        assigneeId,
+                                      ).map((task: any) => (
+                                        <TableRow
+                                          key={`rejected-task-${task.id}`}
+                                          className="hover:bg-red-50/50"
+                                        >
+                                          <TableCell>
+                                            <Checkbox
+                                              checked={selectedTasks.includes(
+                                                task.id,
+                                              )}
+                                              onCheckedChange={(checked) =>
+                                                handleSelectTask(
+                                                  task.id,
+                                                  !!checked,
+                                                )
+                                              }
+                                              onClick={(e) =>
+                                                e.stopPropagation()
+                                              }
+                                            />
+                                          </TableCell>
+                                          <TableCell>
+                                            <div className="flex items-center gap-3 pl-12">
+                                              <div className="w-12 h-12 rounded overflow-hidden bg-gray-100 border flex-shrink-0">
+                                                <img
+                                                  src={task.image?.storageUrl}
+                                                  alt={
+                                                    task.image
+                                                      ?.originalFilename ||
+                                                    "Task"
+                                                  }
+                                                  className="w-full h-full object-cover"
+                                                />
+                                              </div>
+                                              <div className="flex-1 min-w-0">
+                                                <div className="font-medium text-sm truncate">
+                                                  {task.image
+                                                    ?.originalFilename ||
+                                                    "Untitled"}
+                                                </div>
+                                                <div className="text-xs text-gray-500">
+                                                  ID: {task.id.slice(0, 8)}...
+                                                </div>
+                                                <div className="mt-1">
+                                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
+                                                    Rejected
+                                                  </span>
+                                                </div>
+                                              </div>
+                                            </div>
+                                          </TableCell>
+                                          <TableCell className="text-right">
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              onClick={() => {
+                                                setTaskToAssign(task);
+                                                setSelectedAnnotatorId(assigneeId !== "unassigned" ? assigneeId : "");
+                                                setIsAssignDialogOpen(true);
+                                              }}
+                                            >
+                                              Reassign
+                                            </Button>
+                                          </TableCell>
+                                        </TableRow>
+                                      ))}
                                   </React.Fragment>
                                 );
                               },

@@ -69,6 +69,9 @@ export function WorkspaceHeader({
           {currentImage?.filename || "Loading..."}
         </span>
 
+        {taskStatus.toLowerCase() === "assigned" && (
+          <Badge className="ml-3 bg-blue-500 text-white">ASSIGNED</Badge>
+        )}
         {taskStatus === "rejected" && (
           <Badge className="ml-3 bg-red-600 text-white">REJECTED</Badge>
         )}
@@ -76,6 +79,9 @@ export function WorkspaceHeader({
           <Badge className="ml-3 bg-green-600 text-white">
             APPROVED (Read-Only)
           </Badge>
+        )}
+        {taskStatus === "submitted" && (
+          <Badge className="ml-3 bg-blue-600 text-white">SUBMITTED</Badge>
         )}
         {isSkipped && (
           <Badge className="ml-3 bg-indigo-600 text-white">SKIPPED</Badge>
