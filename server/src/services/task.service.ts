@@ -321,6 +321,43 @@ export class TaskService {
             const deadline = customDeadline || this.calculateDeadline(task.difficultyLevel, role);
 
             if (role === 'ANNOTATOR') {
+                // Cleanup: Find and remove any existing active or rejected assignments for this task
+                // This prevents "ghost" tasks showing up for old annotators and fixes stats
+                const existingAssignments = await prisma.taskAssignment.findMany({
+                    where: {
+                        taskId,
+                        status: {
+                            in: [AssignmentStatus.ASSIGNED, AssignmentStatus.IN_PROGRESS, AssignmentStatus.REJECTED]
+                        }
+                    },
+                    select: { annotatorId: true }
+                });
+
+                if (existingAssignments.length > 0) {
+                    const oldAnnotatorIds = [...new Set(existingAssignments.map(a => a.annotatorId))];
+
+                    await prisma.taskAssignment.deleteMany({
+                        where: {
+                            taskId,
+                            status: {
+                                in: [AssignmentStatus.ASSIGNED, AssignmentStatus.IN_PROGRESS, AssignmentStatus.REJECTED]
+                            }
+                        }
+                    });
+
+                    // Recalculate workloads for old annotators (to keep stats in sync)
+                    const { UserWorkloadService } = await import('./user-workload.service.js');
+                    for (const oldId of oldAnnotatorIds) {
+                        try {
+                            await UserWorkloadService.recalculateWorkload(oldId, task.projectId);
+                        } catch (recalcError) {
+                            logger.error('TASK_SERVICE', 'Failed to recalculate workload during reassignment', {
+                                error: recalcError, userId: oldId, projectId: task.projectId
+                            });
+                        }
+                    }
+                }
+
                 // ANNOTATOR: Create new assignment record
                 const data: any = {
                     taskId,
@@ -520,7 +557,7 @@ export class TaskService {
                 projectRole,
                 rules.assignmentStrategy,
                 rules,
-                role === 'REVIEWER' ? excludeUserId : undefined
+                excludeUserId
             );
 
             if (!selectedUserId) {
@@ -623,10 +660,10 @@ appEvents.on('TASK_SUBMITTED_AUTO_REVIEWER', async ({ taskId, projectId, annotat
     }
 });
 
-appEvents.on('TASK_SKIPPED_REASSIGN', async ({ taskId, projectId }) => {
+appEvents.on('TASK_SKIPPED_REASSIGN', async ({ taskId, projectId, excludeUserId }) => {
     try {
-        await TaskService.autoAssignTask(taskId, projectId, 'ANNOTATOR');
-        logger.info('TASK_SERVICE', 'Handled auto-reassign event via skip', { taskId, projectId });
+        await TaskService.autoAssignTask(taskId, projectId, 'ANNOTATOR', excludeUserId);
+        logger.info('TASK_SERVICE', 'Handled auto-reassign event via skip', { taskId, projectId, excludeUserId });
     } catch (error) {
         logger.error('TASK_SERVICE', 'Failed to handle auto-reassign event', { error, taskId, projectId });
     }
