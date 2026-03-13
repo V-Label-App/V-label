@@ -125,6 +125,17 @@ import {
 } from "lucide-react";
 import { useDebounce } from "../../../hooks/useDebounce";
 
+export const getLatestAnnotatorAssignment = (task: any) => {
+  if (!task || !task.assignments || !Array.isArray(task.assignments)) return undefined;
+  const annotatorAssignments = task.assignments.filter((a: any) => a.annotatorId);
+  if (annotatorAssignments.length === 0) return undefined;
+  return [...annotatorAssignments].sort((a, b) => {
+    const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : new Date(a.createdAt).getTime();
+    const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : new Date(b.createdAt).getTime();
+    return dateB - dateA;
+  })[0];
+};
+
 export function ProjectDetailPage() {
   const { projectId } = useParams();
   const navigate = useNavigate();
@@ -466,9 +477,7 @@ export function ProjectDetailPage() {
     if (!taskToAssign) return;
 
     // Check if it's a reassignment and reason is required
-    const currentAssignment = taskToAssign.assignments?.find(
-      (a: any) => a.annotatorId,
-    );
+    const currentAssignment = getLatestAnnotatorAssignment(taskToAssign);
     const isReassignment =
       currentAssignment &&
       currentAssignment.annotatorId !== selectedAnnotatorId;
@@ -585,6 +594,8 @@ export function ProjectDetailPage() {
               taskId,
               selectedReviewerId,
               selectedReviewerDeadline,
+              undefined,
+              true,
             ),
           ),
         );
@@ -633,6 +644,7 @@ export function ProjectDetailPage() {
         selectedReviewerId,
         selectedReviewerDeadline,
         isReassignment ? reviewerReassignmentReason : undefined,
+        true,
       );
       toast.success("Reviewer assigned successfully");
       setIsAssignReviewerDialogOpen(false);
@@ -902,7 +914,7 @@ export function ProjectDetailPage() {
 
   // Separate tasks by status
   const activeTasks = tasks.filter((t: any) => {
-    const assignment = t.assignments?.find((a: any) => a.annotatorId);
+    const assignment = getLatestAnnotatorAssignment(t);
     if (!assignment) return true; // No assignment yet = unassigned active task
     const status = assignment?.status;
     return (
@@ -914,25 +926,22 @@ export function ProjectDetailPage() {
   });
 
   const submittedTasks = tasks.filter((t: any) => {
-    const assignment = t.assignments?.find((a: any) => a.annotatorId);
+    const assignment = getLatestAnnotatorAssignment(t);
     return assignment?.status === "SUBMITTED";
   });
 
   const completedTasks = tasks.filter((t: any) => {
-    const assignment = t.assignments?.find((a: any) => a.annotatorId);
+    const assignment = getLatestAnnotatorAssignment(t);
     return assignment?.status === "APPROVED";
   });
 
   const rejectedTasks = tasks.filter((t: any) => {
-    const assignment = t.assignments?.find((a: any) => a.annotatorId);
+    const assignment = getLatestAnnotatorAssignment(t);
     return assignment?.status === "REJECTED";
   });
 
-  // Group tasks by assignee
   const groupedTasks = tasks.reduce((acc: Record<string, any[]>, task: any) => {
-    const annotatorAssignment = task.assignments?.find(
-      (a: any) => a.annotatorId,
-    );
+    const annotatorAssignment = getLatestAnnotatorAssignment(task);
     const assigneeId = annotatorAssignment?.annotatorId || "unassigned";
     if (!acc[assigneeId]) {
       acc[assigneeId] = [];
@@ -941,13 +950,10 @@ export function ProjectDetailPage() {
     return acc;
   }, {});
 
-  // Group active tasks by assignee
   const groupedActiveTasks = Object.fromEntries(
     Object.entries(
       activeTasks.reduce((acc: Record<string, any[]>, task: any) => {
-        const annotatorAssignment = task.assignments?.find(
-          (a: any) => a.annotatorId,
-        );
+        const annotatorAssignment = getLatestAnnotatorAssignment(task);
         const assigneeId = annotatorAssignment?.annotatorId || "unassigned";
         if (!acc[assigneeId]) {
           acc[assigneeId] = [];
@@ -958,21 +964,16 @@ export function ProjectDetailPage() {
     ).map(([assigneeId, tasks]) => [
       assigneeId,
       [...tasks].sort((a: any, b: any) => {
-        const aSkipped =
-          a.assignments?.find((x: any) => x.annotatorId)?.status === "SKIPPED";
-        const bSkipped =
-          b.assignments?.find((x: any) => x.annotatorId)?.status === "SKIPPED";
+        const aSkipped = getLatestAnnotatorAssignment(a)?.status === "SKIPPED";
+        const bSkipped = getLatestAnnotatorAssignment(b)?.status === "SKIPPED";
         return aSkipped === bSkipped ? 0 : aSkipped ? -1 : 1;
       }),
     ]),
   );
 
-  // Group submitted tasks by assignee
   const groupedSubmittedTasks = submittedTasks.reduce(
     (acc: Record<string, any[]>, task: any) => {
-      const annotatorAssignment = task.assignments?.find(
-        (a: any) => a.annotatorId,
-      );
+      const annotatorAssignment = getLatestAnnotatorAssignment(task);
       const assigneeId = annotatorAssignment?.annotatorId || "unassigned";
       if (!acc[assigneeId]) {
         acc[assigneeId] = [];
@@ -983,12 +984,9 @@ export function ProjectDetailPage() {
     {},
   );
 
-  // Group completed tasks by assignee
   const groupedCompletedTasks = completedTasks.reduce(
     (acc: Record<string, any[]>, task: any) => {
-      const annotatorAssignment = task.assignments?.find(
-        (a: any) => a.annotatorId,
-      );
+      const annotatorAssignment = getLatestAnnotatorAssignment(task);
       const assigneeId = annotatorAssignment?.annotatorId || "unassigned";
       if (!acc[assigneeId]) {
         acc[assigneeId] = [];
@@ -999,12 +997,9 @@ export function ProjectDetailPage() {
     {},
   );
 
-  // Group rejected tasks by assignee
   const groupedRejectedTasks = rejectedTasks.reduce(
     (acc: Record<string, any[]>, task: any) => {
-      const annotatorAssignment = task.assignments?.find(
-        (a: any) => a.annotatorId,
-      );
+      const annotatorAssignment = getLatestAnnotatorAssignment(task);
       const assigneeId = annotatorAssignment?.annotatorId || "unassigned";
       if (!acc[assigneeId]) {
         acc[assigneeId] = [];
@@ -1060,7 +1055,7 @@ export function ProjectDetailPage() {
   };
 
   const approvedTasksCount = tasks.filter((t: any) => {
-    const assignment = t.assignments?.find((a: any) => a.annotatorId);
+    const assignment = getLatestAnnotatorAssignment(t);
     return assignment?.status === "APPROVED";
   }).length;
   const totalTasksCount = project._count?.tasks || 0;
@@ -1693,9 +1688,7 @@ export function ProjectDetailPage() {
                               ([assigneeId, userTasks]) => {
                                 const firstTask = userTasks[0];
                                 const annotatorAssignment =
-                                  firstTask.assignments?.find(
-                                    (a: any) => a.annotatorId,
-                                  );
+                                  getLatestAnnotatorAssignment(firstTask);
                                 const assignee = annotatorAssignment?.annotator;
                                 const isExpanded =
                                   expandedUsers.has(assigneeId);
@@ -1919,9 +1912,7 @@ export function ProjectDetailPage() {
                                         assigneeId,
                                       ).map((task: any, i: number) => {
                                         const taskAssignment =
-                                          task.assignments?.find(
-                                            (a: any) => a.annotatorId,
-                                          );
+                                          getLatestAnnotatorAssignment(task);
                                         const status =
                                           taskAssignment?.status ||
                                           "UNASSIGNED";
@@ -2002,6 +1993,15 @@ export function ProjectDetailPage() {
                                                         .toLowerCase()
                                                         .replace("_", " ")}
                                                     </Badge>
+                                                    {taskAssignment && taskAssignment.rejectionCount >= 3 && (
+                                                      <Badge
+                                                        variant="destructive"
+                                                        className="animate-pulse bg-red-600 hover:bg-red-700 flex items-center gap-1 text-[10px] py-0 px-2 h-5"
+                                                      >
+                                                        <AlertTriangle className="h-3 w-3" />
+                                                        Needs Reassign
+                                                      </Badge>
+                                                    )}
                                                     {taskAssignment?.deadline && (
                                                       <div className="flex items-center gap-1 text-xs text-muted-foreground">
                                                         <Clock className="h-3 w-3" />
@@ -2343,9 +2343,7 @@ export function ProjectDetailPage() {
                               ([assigneeId, userTasks]) => {
                                 const firstTask = userTasks[0];
                                 const annotatorAssignment =
-                                  firstTask.assignments?.find(
-                                    (a: any) => a.annotatorId,
-                                  );
+                                  getLatestAnnotatorAssignment(firstTask);
                                 const assignee = annotatorAssignment?.annotator;
                                 const isExpanded =
                                   expandedUsers.has(assigneeId);
@@ -2496,9 +2494,7 @@ export function ProjectDetailPage() {
                                         assigneeId,
                                       ).map((task: any) => {
                                         const assignment =
-                                          task.assignments?.find(
-                                            (a: any) => a.annotatorId,
-                                          );
+                                          getLatestAnnotatorAssignment(task);
                                         return (
                                           <TableRow
                                             key={`submitted-task-${task.id}`}
@@ -2860,9 +2856,7 @@ export function ProjectDetailPage() {
                               ([assigneeId, userTasks]) => {
                                 const firstTask = userTasks[0];
                                 const annotatorAssignment =
-                                  firstTask.assignments?.find(
-                                    (a: any) => a.annotatorId,
-                                  );
+                                  getLatestAnnotatorAssignment(firstTask);
                                 const assignee = annotatorAssignment?.annotator;
                                 const isExpanded =
                                   expandedUsers.has(assigneeId);
@@ -2960,72 +2954,71 @@ export function ProjectDetailPage() {
                                       getPaginatedUserTasks(
                                         userTasks,
                                         assigneeId,
-                                      ).map((task: any) => (
-                                        <TableRow
-                                          key={`rejected-task-${task.id}`}
-                                          className="hover:bg-red-50/50"
-                                        >
-                                          <TableCell>
-                                            <Checkbox
-                                              checked={selectedTasks.includes(
-                                                task.id,
-                                              )}
-                                              onCheckedChange={(checked) =>
-                                                handleSelectTask(
-                                                  task.id,
-                                                  !!checked,
-                                                )
-                                              }
-                                              onClick={(e) =>
-                                                e.stopPropagation()
-                                              }
-                                            />
-                                          </TableCell>
-                                          <TableCell>
-                                            <div className="flex items-center gap-3 pl-12">
-                                              <div className="w-12 h-12 rounded overflow-hidden bg-gray-100 border flex-shrink-0">
-                                                <img
-                                                  src={task.image?.storageUrl}
-                                                  alt={
-                                                    task.image
-                                                      ?.originalFilename ||
-                                                    "Task"
-                                                  }
-                                                  className="w-full h-full object-cover"
-                                                />
+                                      ).map((task: any) => {
+                                        const annotatorAssignment = getLatestAnnotatorAssignment(task);
+                                        return (
+                                          <TableRow
+                                            key={`rejected-task-${task.id}`}
+                                            className="hover:bg-red-50/50"
+                                          >
+                                            <TableCell>
+                                              <Checkbox
+                                                checked={selectedTasks.includes(task.id)}
+                                                onCheckedChange={(checked) =>
+                                                  handleSelectTask(task.id, !!checked)
+                                                }
+                                                onClick={(e) => e.stopPropagation()}
+                                              />
+                                            </TableCell>
+                                            <TableCell>
+                                              <div className="flex items-center gap-3 pl-12">
+                                                <div className="w-12 h-12 rounded overflow-hidden bg-gray-100 border flex-shrink-0">
+                                                  <img
+                                                    src={task.image?.storageUrl}
+                                                    alt={task.image?.originalFilename || "Task"}
+                                                    className="w-full h-full object-cover"
+                                                  />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                  <div className="font-medium text-sm truncate">
+                                                    {task.image?.originalFilename || "Untitled"}
+                                                  </div>
+                                                  <div className="text-xs text-gray-500">
+                                                    ID: {task.id.slice(0, 8)}...
+                                                  </div>
+                                                  <div className="mt-1 flex gap-2">
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
+                                                      Rejected
+                                                    </span>
+                                                    {annotatorAssignment && annotatorAssignment.rejectionCount >= 3 && (
+                                                      <Badge
+                                                        variant="destructive"
+                                                        className="animate-pulse bg-red-600 hover:bg-red-700 flex items-center gap-1 text-[10px] py-0 px-2 h-5 border-none"
+                                                      >
+                                                        <AlertTriangle className="h-3 w-3" />
+                                                        Needs Reassign
+                                                      </Badge>
+                                                    )}
+                                                  </div>
+                                                </div>
                                               </div>
-                                              <div className="flex-1 min-w-0">
-                                                <div className="font-medium text-sm truncate">
-                                                  {task.image
-                                                    ?.originalFilename ||
-                                                    "Untitled"}
-                                                </div>
-                                                <div className="text-xs text-gray-500">
-                                                  ID: {task.id.slice(0, 8)}...
-                                                </div>
-                                                <div className="mt-1">
-                                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
-                                                    Rejected
-                                                  </span>
-                                                </div>
-                                              </div>
-                                            </div>
-                                          </TableCell>
-                                          <TableCell className="text-right">
-                                            <Button
-                                              variant="outline"
-                                              size="sm"
-                                              onClick={() => {
-                                                setTaskToAssign(task);
-                                                setSelectedAnnotatorId(assigneeId !== "unassigned" ? assigneeId : "");
-                                                setIsAssignDialogOpen(true);
-                                              }}
-                                            >
-                                              Reassign
-                                            </Button>
-                                          </TableCell>
-                                        </TableRow>
-                                      ))}
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                              <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => {
+                                                  setTaskToAssign(task);
+                                                  setSelectedAnnotatorId(assigneeId !== "unassigned" ? assigneeId : "");
+                                                  setIsAssignDialogOpen(true);
+                                                }}
+                                              >
+                                                Reassign
+                                              </Button>
+                                            </TableCell>
+                                          </TableRow>
+                                        );
+                                      })}
                                   </React.Fragment>
                                 );
                               },
@@ -3121,9 +3114,7 @@ export function ProjectDetailPage() {
                               ([assigneeId, userTasks]) => {
                                 const firstTask = userTasks[0];
                                 const annotatorAssignment =
-                                  firstTask.assignments?.find(
-                                    (a: any) => a.annotatorId,
-                                  );
+                                  getLatestAnnotatorAssignment(firstTask);
                                 const assignee = annotatorAssignment?.annotator;
                                 const isExpanded =
                                   expandedUsers.has(assigneeId);
@@ -4498,15 +4489,24 @@ export function ProjectDetailPage() {
                       .filter((a: any) => a.projectRole === "ANNOTATOR")
                       .map((annotator: any) => {
                         const taskCount = workloadMap[annotator.userId] || 0;
+                        
+                        // NEW: Disable logic for reassignment after 3+ rejections
+                        const currentAssignment = taskToAssign?.assignments?.find((a: any) => a.annotatorId);
+                        const isPreviousAnnotator = currentAssignment && annotator.userId === currentAssignment.annotatorId;
+                        const reachRejectionLimit = (currentAssignment?.rejectionCount || 0) >= 3;
+                        const isDisabled = isPreviousAnnotator && reachRejectionLimit;
+
                         return (
                           <SelectItem
                             key={annotator.userId}
                             value={annotator.userId}
+                            disabled={isDisabled}
                           >
                             <div className="flex items-center justify-between w-full">
-                              <span>
+                              <span className={isDisabled ? "text-muted-foreground line-through" : ""}>
                                 {annotator.user?.fullName ||
                                   annotator.user?.email}
+                                {isDisabled && " (Max rejections reached)"}
                               </span>
                               <Badge
                                 variant="secondary"
@@ -4569,7 +4569,27 @@ export function ProjectDetailPage() {
                     selectedAnnotatorId &&
                     currentAssignment.annotatorId !== selectedAnnotatorId;
 
-                  if (!isReassignment) return null;
+                  if (!isReassignment) {
+                    // NEW: Show warning if task already has 3+ rejections but not reassigned yet
+                    if ((currentAssignment?.rejectionCount || 0) >= 3) {
+                       return (
+                        <div className="space-y-2 p-4 bg-red-50 border border-red-200 rounded-lg animate-pulse">
+                          <div className="flex items-center gap-2 text-red-900">
+                            <AlertTriangle className="h-5 w-5" />
+                            <Label className="text-sm font-bold">
+                              Critical: Task Needs New Assignee
+                            </Label>
+                          </div>
+                          <p className="text-xs text-red-700">
+                            This task has been rejected {(currentAssignment?.rejectionCount || 3)} times.
+                            Leader rules: You <b>MUST</b> assign this to a different annotator to ensure quality.
+                            The previous annotator has been disabled in the list below.
+                          </p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }
 
                   const currentAnnotator = annotators.find(
                     (a: any) => a.userId === currentAssignment.annotatorId,
@@ -5089,9 +5109,7 @@ export function ProjectDetailPage() {
                   userTaskIds.includes(id),
                 );
                 const firstTask = groupedTasks[bulkUnassignUserId][0];
-                const annotatorAssignment = firstTask.assignments?.find(
-                  (a: any) => a.annotatorId,
-                );
+                const annotatorAssignment = getLatestAnnotatorAssignment(firstTask);
                 const assignee = annotatorAssignment?.annotator;
 
                 return (
@@ -5181,9 +5199,7 @@ export function ProjectDetailPage() {
                 <div className="p-4 bg-gray-50 rounded-lg">
                   {(() => {
                     const firstTask = groupedTasks[bulkDeadlineUserId][0];
-                    const annotatorAssignment = firstTask.assignments?.find(
-                      (a: any) => a.annotatorId,
-                    );
+                    const annotatorAssignment = getLatestAnnotatorAssignment(firstTask);
                     const assignee = annotatorAssignment?.annotator;
                     const taskCount = groupedTasks[bulkDeadlineUserId].length;
 

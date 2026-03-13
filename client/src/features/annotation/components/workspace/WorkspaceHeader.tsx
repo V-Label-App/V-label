@@ -29,6 +29,11 @@ interface WorkspaceHeaderProps {
   onClose?: () => void;
   actualTimeSeconds?: number;
   projectName?: string;
+  annotator?: {
+    fullName: string;
+    email?: string;
+    reputationScore?: number;
+  };
 }
 
 export function WorkspaceHeader({
@@ -42,6 +47,7 @@ export function WorkspaceHeader({
   onClose,
   actualTimeSeconds = 0,
   projectName,
+  annotator,
 }: WorkspaceHeaderProps) {
   const { getCurrentImage, autoSaveStatus } = useImageStore();
   const currentImage = getCurrentImage();
@@ -73,7 +79,9 @@ export function WorkspaceHeader({
           <Badge className="ml-3 bg-blue-500 text-white">ASSIGNED</Badge>
         )}
         {taskStatus === "rejected" && (
-          <Badge className="ml-3 bg-red-600 text-white">REJECTED</Badge>
+          <Badge className="ml-3 bg-red-600 text-white">
+            {mode === "review" ? "REJECTED (Read-Only)" : "REJECTED"}
+          </Badge>
         )}
         {taskStatus === "approved" && (
           <Badge className="ml-3 bg-green-600 text-white">
@@ -81,10 +89,29 @@ export function WorkspaceHeader({
           </Badge>
         )}
         {taskStatus === "submitted" && (
-          <Badge className="ml-3 bg-blue-600 text-white">SUBMITTED</Badge>
+          <Badge className="ml-3 bg-blue-600 text-white">
+            {mode === "review" ? "PENDING REVIEW" : "SUBMITTED"}
+          </Badge>
         )}
         {isSkipped && (
           <Badge className="ml-3 bg-indigo-600 text-white">SKIPPED</Badge>
+        )}
+
+        {mode === "review" && annotator && (
+          <div className="ml-4 flex items-center gap-2 px-3 py-1 bg-purple-900/30 border border-purple-500/30 rounded-full text-purple-200">
+            <span className="text-[10px] font-bold uppercase text-purple-400 tracking-wider">
+              Reviewing
+            </span>
+            <span className="font-semibold">{annotator.fullName}</span>
+            {annotator.reputationScore !== undefined && (
+              <Badge
+                variant="outline"
+                className="h-4 px-1 bg-amber-500/20 border-amber-500/50 text-amber-500 text-[9px] font-bold"
+              >
+                {annotator.reputationScore.toFixed(1)} REP
+              </Badge>
+            )}
+          </div>
         )}
       </div>
 
@@ -152,7 +179,7 @@ export function WorkspaceHeader({
             )}
           </>
         )}
-        {mode === "review" && (
+        {mode === "review" && taskStatus === "submitted" && (
           <>
             <Button
               variant="outline"

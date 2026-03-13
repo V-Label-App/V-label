@@ -16,6 +16,8 @@ export interface User {
   fullName: string | null
   avatarUrl?: string | null
   isActive?: boolean
+  reputationScore?: number
+  totalTasksDone?: number
 }
 
 /**

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "../../../components/ui/button";
 import { Card } from "../../../components/ui/card";
@@ -37,11 +37,16 @@ import {
   XCircle,
   Search,
   Eye,
+  RefreshCw,
+  Star,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { motion, AnimatePresence } from "framer-motion";
+import { cn } from "../../../components/ui/utils";
 
 import { projectApi } from "../../../services/project.api";
+import type { Project } from "../../../types/project.types";
 import { reviewerApi } from "../../../services/reviewer.api";
 import type { ReviewQueueItem } from "../../../services/reviewer.api";
 import { ChatPanel } from "../../../components/chat/ChatPanel";
@@ -50,9 +55,10 @@ export function ReviewerProjectDetailPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
 
-  const [project, setProject] = useState<any>(null);
+  const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<ReviewQueueItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState("reviews");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
@@ -75,29 +81,33 @@ export function ReviewerProjectDetailPage() {
   }, [projectId]);
 
   // Fetch review queue for this project
-  useEffect(() => {
-    const fetchTasks = async () => {
-      if (!projectId) return;
+  const fetchTasks = useCallback(async (silent = false) => {
+    if (!projectId) return;
 
-      setIsLoading(true);
-      try {
-        const result = await reviewerApi.getReviewQueue({
-          projectId,
-          status: filterStatus === "ALL" ? undefined : filterStatus,
-          page: 1,
-          limit: 100,
-        });
-        setTasks(result.data);
-      } catch (error) {
-        console.error("Failed to fetch review queue:", error);
-        toast.error("Failed to load review queue");
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    if (!silent) setIsLoading(true);
+    else setIsRefreshing(true);
 
-    fetchTasks();
+    try {
+      const result = await reviewerApi.getReviewQueue({
+        projectId,
+        status: filterStatus === "ALL" ? undefined : filterStatus,
+        page: 1,
+        limit: 100,
+      });
+      setTasks(result.data);
+      if (silent) toast.success("Task list refreshed");
+    } catch (error) {
+      console.error("Failed to fetch review queue:", error);
+      toast.error("Failed to load review queue");
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
   }, [projectId, filterStatus]);
+
+  useEffect(() => {
+    fetchTasks();
+  }, [fetchTasks]);
 
   if (!project) {
     return (
@@ -126,10 +136,27 @@ export function ReviewerProjectDetailPage() {
   // Filter tasks based on search
   const filteredTasks = tasks.filter((task) => {
     const matchesSearch =
-      task.task.image?.originalFilename.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      task.task.image?.originalFilename
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase()) ||
       task.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      task.annotator.fullName.toLowerCase().includes(searchQuery.toLowerCase());
+      task.annotator.fullName
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase());
     return matchesSearch;
+  });
+
+  // Sort tasks by status: Pending -> Rejected -> Approved
+  const statusOrder: Record<string, number> = {
+    SUBMITTED: 0,
+    REJECTED: 1,
+    APPROVED: 2,
+  };
+
+  const sortedTasks = [...filteredTasks].sort((a, b) => {
+    const orderA = statusOrder[a.status] ?? 99;
+    const orderB = statusOrder[b.status] ?? 99;
+    return orderA - orderB;
   });
 
   return (
@@ -148,22 +175,34 @@ export function ReviewerProjectDetailPage() {
 
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+              <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center shadow-sm">
                 <FolderOpen className="w-6 h-6 text-purple-600" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold">{project.name}</h1>
-                <p className="text-muted-foreground mt-1">
-                  {project.description || "No description"}
+                <h1 className="text-3xl font-bold text-gray-900 tracking-tight">{project.name}</h1>
+                <p className="text-muted-foreground mt-1 max-w-2xl">
+                  {project.description || "No description provided for this project"}
                 </p>
               </div>
             </div>
 
-            {project.category && (
-              <Badge className="bg-purple-50 text-purple-700 border-purple-200">
-                {project.category.name}
-              </Badge>
-            )}
+            <div className="flex flex-col items-end gap-3">
+              {project.category && (
+                <Badge className="bg-purple-50 text-purple-700 border-purple-200">
+                  {project.category.name}
+                </Badge>
+              )}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-2 bg-white hover:bg-gray-50 shadow-sm transition-all"
+                onClick={() => fetchTasks(true)}
+                disabled={isRefreshing}
+              >
+                <RefreshCw className={cn("w-4 h-4", isRefreshing && "animate-spin")} />
+                {isRefreshing ? "Refreshing..." : "Refresh Tasks"}
+              </Button>
+            </div>
           </div>
 
           {/* Project Labels Section */}
@@ -174,7 +213,7 @@ export function ReviewerProjectDetailPage() {
                   Project Labels
                 </h3>
                 <div className="flex flex-wrap gap-2">
-                  {project.projectLabels.map((pl: any) => (
+                  {project.projectLabels.map((pl) => (
                     <Badge
                       key={pl.label.id}
                       variant="outline"
@@ -331,84 +370,108 @@ export function ReviewerProjectDetailPage() {
                     <TableRow>
                       <TableHead className="w-[100px]">Preview</TableHead>
                       <TableHead>Task / Image</TableHead>
-                      <TableHead>Annotator</TableHead>
+                      <TableHead>Annotator / Reputation</TableHead>
                       <TableHead className="w-[120px]">Status</TableHead>
                       <TableHead className="w-[140px]">Deadline</TableHead>
                       <TableHead className="w-[100px] text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredTasks.map((task) => {
-                      const statusBadge = getStatusBadge(task.status);
-                      return (
-                        <TableRow
-                          key={task.id}
-                          className="hover:bg-gray-50 cursor-pointer"
-                        >
-                          <TableCell>
-                            <div className="w-16 h-16 bg-gradient-to-br from-purple-100 to-blue-100 rounded-lg flex items-center justify-center overflow-hidden">
-                              {task.task.image ? (
-                                <img
-                                  src={task.task.image.storageUrl}
-                                  alt={task.task.image.originalFilename}
-                                  className="w-full h-full object-cover"
-                                />
+                    <AnimatePresence mode="popLayout">
+                      {sortedTasks.map((task, index) => {
+                        const statusBadge = getStatusBadge(task.status);
+                        return (
+                          <motion.tr
+                            key={task.id}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            transition={{ duration: 0.2, delay: index * 0.03 }}
+                            className="hover:bg-gray-50 cursor-pointer transition-colors group"
+                            onClick={() => navigate(`/workspace/${task.id}?mode=review`)}
+                          >
+                            <TableCell>
+                              <div className="w-16 h-16 bg-gradient-to-br from-purple-100 to-blue-100 rounded-xl flex items-center justify-center overflow-hidden border border-gray-100 shadow-sm group-hover:scale-105 transition-transform duration-300">
+                                {task.task.image ? (
+                                  <img
+                                    src={task.task.image.storageUrl}
+                                    alt={task.task.image.originalFilename}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <span className="text-2xl">🖼️</span>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="space-y-1">
+                                <div className="font-bold text-gray-900 group-hover:text-purple-600 transition-colors">
+                                  {task.task.image?.originalFilename ||
+                                    `Task ${task.id.slice(0, 8)}`}
+                                </div>
+                                <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">
+                                  ID: {task.id.slice(0, 8)}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="space-y-1">
+                                <div className="font-semibold text-sm text-gray-800">
+                                  {task.annotator.fullName}
+                                </div>
+                                  <div className="flex items-center gap-1.5">
+                                    <div className="flex items-center text-amber-500 bg-amber-50 px-1 rounded shadow-sm">
+                                      <Star className="w-3 h-3 fill-current" />
+                                      <span className="text-[10px] font-bold ml-0.5">
+                                        {task.annotator.reputationScore?.toFixed(1) || "5.0"}
+                                      </span>
+                                      <span className="text-[10px] font-black text-amber-600/60 ml-0.5 uppercase">Rep</span>
+                                    </div>
+                                    <span className="text-[10px] text-muted-foreground italic truncate max-w-[100px]">
+                                      {task.annotator.email}
+                                    </span>
+                                  </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant="outline"
+                                className={cn("font-semibold shadow-sm", statusBadge.className)}
+                              >
+                                {statusBadge.label}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {task.deadline ? (
+                                <div className="flex items-center gap-2 text-sm text-gray-600 font-medium">
+                                  <Clock className="w-3.5 h-3.5" />
+                                  {format(new Date(task.deadline), "MMM dd, yyyy")}
+                                </div>
                               ) : (
-                                <span className="text-2xl">🖼️</span>
+                                <span className="text-muted-foreground text-xs italic">No deadline</span>
                               )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="space-y-1">
-                              <div className="font-medium">
-                                {task.task.image?.originalFilename ||
-                                  `Task ${task.id.slice(0, 8)}`}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                ID: {task.id.slice(0, 8)}...
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="space-y-1">
-                              <div className="font-medium">
-                                {task.annotator.fullName}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {task.annotator.email}
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge
-                              variant="outline"
-                              className={statusBadge.className}
-                            >
-                              {statusBadge.label}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {task.deadline ? (
-                              <div className="text-sm">
-                                {format(new Date(task.deadline), "MMM dd, yyyy")}
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground text-sm">—</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Button
-                              size="sm"
-                              variant={task.status === "SUBMITTED" ? "default" : "outline"}
-                              onClick={() => navigate(`/workspace/${task.id}?mode=review`)}
-                            >
-                              <Eye className="w-3 h-3 mr-1" />
-                              {task.status === "SUBMITTED" ? "Review" : "View"}
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                size="sm"
+                                variant={task.status === "SUBMITTED" ? "default" : "outline"}
+                                className={cn(
+                                  "transition-all group-hover:px-6 shadow-sm",
+                                  task.status === "SUBMITTED" ? "bg-gray-900 hover:bg-black" : ""
+                                )}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/workspace/${task.id}?mode=review`);
+                                }}
+                              >
+                                <Eye className="w-4 h-4 mr-2" />
+                                {task.status === "SUBMITTED" ? "Review" : "View"}
+                              </Button>
+                            </TableCell>
+                          </motion.tr>
+                        );
+                      })}
+                    </AnimatePresence>
                   </TableBody>
                 </Table>
               </Card>

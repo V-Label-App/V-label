@@ -57,6 +57,7 @@ export interface ReviewQueueItem {
     fullName: string;
     email: string;
     avatarUrl?: string;
+    reputationScore?: number;
   };
 }
 
@@ -132,7 +133,10 @@ export const reviewerApi = {
   /**
    * Reject a task assignment (reviewComment required)
    */
-  rejectTask: async (assignmentId: string, data: { reviewComment: string }) => {
+  rejectTask: async (
+    assignmentId: string,
+    data: { reviewComment: string },
+  ) => {
     const response = await apiClient.post(
       `${BASE_URL}/assignments/${assignmentId}/reject`,
       data,

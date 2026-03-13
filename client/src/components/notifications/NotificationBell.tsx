@@ -9,7 +9,7 @@ import { NotificationInbox } from './NotificationInbox';
 import { useNotifications } from '../../hooks/useNotifications';
 
 export function NotificationBell() {
-    const { notifications, unreadCount, markAsRead } = useNotifications();
+    const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
 
     return (
         <DropdownMenu>
@@ -27,6 +27,8 @@ export function NotificationBell() {
                 <NotificationInbox
                     notifications={notifications}
                     onMarkAsRead={markAsRead}
+                    onMarkAllAsRead={markAllAsRead}
+                    unreadCount={unreadCount}
                 />
             </DropdownMenuContent>
         </DropdownMenu>

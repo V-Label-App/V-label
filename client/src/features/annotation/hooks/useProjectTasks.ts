@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { annotatorApi, type TaskAssignmentListItem } from '../../../services/annotator.api';
+import { reviewerApi } from '../../../services/reviewer.api';
 import type { ImageTask } from '../stores';
 
 export interface UseProjectTasksReturn {
@@ -14,9 +15,10 @@ export interface UseProjectTasksReturn {
 /**
  * Custom hook to load all tasks in a project for navigation
  * @param projectId - The project ID to load tasks from
+ * @param mode - The workspace mode ('annotate' or 'review')
  * @returns Task list and navigation helpers
  */
-export const useProjectTasks = (projectId?: string): UseProjectTasksReturn => {
+export const useProjectTasks = (projectId?: string, mode: 'annotate' | 'review' = 'annotate'): UseProjectTasksReturn => {
     const [loading, setLoading] = useState<boolean>(false);
     const [error, setError] = useState<Error | null>(null);
     const [tasks, setTasks] = useState<TaskAssignmentListItem[]>([]);
@@ -29,20 +31,33 @@ export const useProjectTasks = (projectId?: string): UseProjectTasksReturn => {
             setLoading(true);
             setError(null);
 
-            // Get all tasks in project (paginated, but we'll get a reasonable limit)
-            const response = await annotatorApi.getMyTasks({
-                projectId,
-                limit: 100 // Load up to 100 tasks for navigation
-            });
+            let responseData: TaskAssignmentListItem[] = [];
 
-            setTasks(response.data);
+            if (mode === 'review') {
+                // For reviewers, get items from the review queue for this project
+                const response = await reviewerApi.getReviewQueue({
+                    projectId,
+                    limit: 100
+                });
+                // Map ReviewQueueItem to TaskAssignmentListItem (they are compatible)
+                responseData = response.data as any;
+            } else {
+                // For annotators, get their specific tasks
+                const response = await annotatorApi.getMyTasks({
+                    projectId,
+                    limit: 100
+                });
+                responseData = response.data;
+            }
+
+            setTasks(responseData);
         } catch (err) {
             console.error('[useProjectTasks] Failed to load project tasks:', err);
             setError(err instanceof Error ? err : new Error('Failed to load project tasks'));
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [mode]);
 
     /**
      * Find index of a task by its assignmentId

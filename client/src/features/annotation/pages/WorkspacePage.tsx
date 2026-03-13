@@ -10,14 +10,14 @@ import {
   useImageStore,
   useLabelStore,
   useAnnotationStore,
-  type ImageTask,
 } from "../stores";
-import { RejectReasonModal } from "../components/workspace/RejectReasonModal";
+import { ReviewScoringModal } from "../components/workspace/ReviewScoringModal";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { useWorkspaceData } from "../hooks/useWorkspaceData";
 import { useProjectTasks } from "../hooks/useProjectTasks";
 import { useAutoSave } from "../hooks/useAutoSave";
 import { useState } from "react";
+import { toast } from "sonner";
 
 interface WorkspacePageProps {
   mode?: "annotate" | "review";
@@ -55,25 +55,27 @@ export function WorkspacePage({
     rejectTask,
   } = useWorkspaceData(taskId || "", false, mode);
 
+  const { updateImages, getCurrentImage, currentIndex, jumpToImage } =
+    useImageStore();
+
   // Derive taskStatus dynamically from taskData, fallback to propTaskStatus/assigned
   const taskStatus = (taskData?.status?.toLowerCase() ||
     propTaskStatus ||
     "assigned") as any;
-
-  const { updateImages, getCurrentImage, currentIndex, jumpToImage } =
-    useImageStore();
   const {
     clearAnnotations,
     setAnnotations,
     annotations,
+    annotatorNote,
     setAnnotatorNote,
     setReviewComment,
   } = useAnnotationStore();
   const { setLabels } = useLabelStore();
 
   const [actualTimeSeconds, setActualTimeSeconds] = useState(0);
-  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
-  const [isRejecting, setIsRejecting] = useState(false);
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [reviewType, setReviewType] = useState<"approve" | "reject">("approve");
+  const [isReviewLoading, setIsReviewLoading] = useState(false);
 
   // Ref to prevent navigation loop
   const isUpdatingFromURL = useRef(false);
@@ -104,9 +106,10 @@ export function WorkspacePage({
   // Extract projectId from taskData for loading other tasks
   const projectId = taskData?.projectId;
 
-  // Load all tasks in the project for navigation (disabled in review mode)
+  // Load all tasks in the project for navigation (enabled for both modes)
   const { imageTasks, findTaskIndex } = useProjectTasks(
-    mode === "review" ? undefined : projectId,
+    projectId,
+    mode
   );
 
   // Initialize keyboard shortcuts
@@ -130,35 +133,12 @@ export function WorkspacePage({
       // Sync notes and review comments to store
       setAnnotatorNote(taskData.annotatorNote || "");
       setReviewComment(taskData.reviewComment || "");
-
-      // In review mode, manually set the image since we don't load task list
-      if (mode === "review" && taskData.image) {
-        const imageStatus = (taskData.status?.toLowerCase() ||
-          "in_progress") as ImageTask["status"];
-        updateImages([
-          {
-            id: taskId!,
-            filename: taskData.image.filename,
-            status: imageStatus,
-            url: taskData.image.url,
-            thumbnail: taskData.image.url,
-            width: taskData.image.width,
-            height: taskData.image.height,
-            annotationCount: taskData.annotations?.length || 0,
-          },
-        ]);
-        jumpToImage(0);
-      }
     }
   }, [
     taskData,
     setLabels,
     setAnnotations,
     clearAnnotations,
-    mode,
-    taskId,
-    updateImages,
-    jumpToImage,
     setAnnotatorNote,
     setReviewComment,
   ]);
@@ -206,7 +186,7 @@ export function WorkspacePage({
       // Only navigate if taskId changed (user clicked on different task)
       if (newTaskId !== taskId) {
         // Update URL without page reload - this will trigger useWorkspaceData to reload
-        navigate(`/workspace/${newTaskId}`, { replace: true });
+        navigate(`/workspace/${newTaskId}?mode=${mode}`, { replace: true });
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -214,66 +194,89 @@ export function WorkspacePage({
 
   const currentImage = getCurrentImage();
 
+  const [isSkipConfirmOpen, setIsSkipConfirmOpen] = useState(false);
+  const [skipReason, setSkipReason] = useState("");
+
   const handleSubmit = async () => {
     // Validate before submit
     if (annotations.length === 0) {
-      alert("Please add at least one annotation before submitting");
+      toast.error("Please add at least one annotation before submitting");
       return;
     }
 
     // Check if all annotations have labels
     const hasUnlabeledAnnotations = annotations.some((ann) => !ann.label);
     if (hasUnlabeledAnnotations) {
-      alert("Please assign labels to all annotations before submitting");
+      toast.error("Please assign a label to all annotations before submitting");
       return;
     }
 
     try {
-      await submitTask(annotations);
-      alert("Task submitted successfully!");
-      // navigate(-1); // Keep in workspace to see status change
+      await submitTask(annotations, annotatorNote, actualTimeSeconds);
+      toast.success("Task submitted successfully! 🎉", {
+        description: "Your work has been sent to a Reviewer.",
+      });
+      handleNextTask();
     } catch {
-      alert("Failed to submit task. Please try again.");
+      toast.error("Failed to submit task. Please try again.");
     }
   };
 
   const handleSkip = async () => {
-    if (confirm("Are you sure you want to skip this task?")) {
-      try {
-        await skipTask();
-        alert("Task skipped");
-        navigate(-1);
-      } catch {
-        alert("Failed to skip task");
-      }
+    if (!skipReason.trim()) {
+      toast.error("Please provide a reason before skipping.");
+      return;
+    }
+    
+    setIsSkipConfirmOpen(false);
+    try {
+      await skipTask(skipReason, actualTimeSeconds);
+      toast.info("Task skipped");
+      setSkipReason("");
+      handleNextTask();
+    } catch {
+      toast.error("Failed to skip task. Please try again.");
     }
   };
 
-  const handleApprove = async () => {
-    if (confirm("Are you sure you want to approve this task?")) {
-      try {
-        await approveTask();
-        // navigate(-1); // Keep in workspace to see status change
-      } catch {
-        // Error toast already shown in hook
-      }
-    }
+  const handleApprove = () => {
+    setReviewType("approve");
+    setIsReviewModalOpen(true);
   };
 
   const handleReject = () => {
-    setIsRejectModalOpen(true);
+    setReviewType("reject");
+    setIsReviewModalOpen(true);
   };
 
-  const handleRejectConfirm = async (reason: string) => {
-    setIsRejecting(true);
+  const handleNextTask = () => {
+    const store = useImageStore.getState();
+    const currentIdx = store.currentIndex;
+    // Auto-navigate to the next task if available
+    if (imageTasks.length > 0 && currentIdx >= 0 && currentIdx < imageTasks.length - 1) {
+      store.jumpToImage(currentIdx + 1);
+    } else {
+      // If no more tasks, return to previous page
+      navigate(-1);
+    }
+  };
+
+  const handleReviewConfirm = async (comment: string) => {
+    setIsReviewLoading(true);
     try {
-      await rejectTask(reason);
-      setIsRejectModalOpen(false);
-      // navigate(-1); // Keep in workspace to see status change
+      if (reviewType === "approve") {
+        await approveTask(comment);
+        toast.success("Task approved successfully! 🎉");
+      } else {
+        await rejectTask(comment);
+        toast.success("Task rejected successfully.");
+      }
+      setIsReviewModalOpen(false);
+      handleNextTask();
     } catch {
-      // Error toast already shown in hook
+      // Error handles in hook
     } finally {
-      setIsRejecting(false);
+      setIsReviewLoading(false);
     }
   };
 
@@ -330,12 +333,13 @@ export function WorkspacePage({
         mode={mode}
         taskStatus={taskStatus}
         onSubmit={handleSubmit}
-        onSkip={handleSkip}
+        onSkip={() => setIsSkipConfirmOpen(true)}
         onApprove={handleApprove}
         onReject={handleReject}
         onClose={handleClose}
         actualTimeSeconds={actualTimeSeconds}
         projectName={taskData.projectName}
+        annotator={taskData.annotator}
       />
 
       {/* Main Content */}
@@ -361,12 +365,52 @@ export function WorkspacePage({
         />
       </div>
 
-      <RejectReasonModal
-        isOpen={isRejectModalOpen}
-        onClose={() => setIsRejectModalOpen(false)}
-        onConfirm={handleRejectConfirm}
-        isLoading={isRejecting}
+      <ReviewScoringModal
+        isOpen={isReviewModalOpen}
+        onClose={() => setIsReviewModalOpen(false)}
+        onConfirm={handleReviewConfirm}
+        type={reviewType}
+        isLoading={isReviewLoading}
+        initialComment={taskData.annotatorNote} // default to annotator note as feedback start
       />
+
+      {/* Skip Confirm Dialog */}
+      {isSkipConfirmOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-slate-800 border border-slate-600 rounded-xl p-6 shadow-2xl max-w-md w-full mx-4 text-white">
+            <h3 className="text-lg font-bold mb-1">Skip this task?</h3>
+            <p className="text-slate-400 text-sm mb-4">
+              This task will be returned to the pool for someone else to complete.
+            </p>
+            <div className="mb-5">
+              <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                Reason <span className="text-red-400 ml-1">*</span>
+              </label>
+              <textarea
+                value={skipReason}
+                onChange={(e) => setSkipReason(e.target.value)}
+                placeholder="e.g. Image is too blurry to annotate..."
+                rows={3}
+                className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 resize-none focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500"
+              />
+            </div>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => { setIsSkipConfirmOpen(false); setSkipReason(""); }}
+                className="px-4 py-2 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-700 transition-colors text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSkip}
+                className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white transition-colors text-sm font-semibold"
+              >
+                Skip Task
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 }
