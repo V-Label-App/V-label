@@ -8,10 +8,12 @@ export interface TaskAssignmentListItem {
   updatedAt: string;
   annotatorNote?: string;
   reviewComment?: string;
-  reviewScore?: number;
-  annotations?: unknown;
-  actualTimeSeconds?: number;
-  task: {
+   reviewScore?: number;
+   annotations?: unknown;
+   actualTimeSeconds?: number;
+   rejectionCount?: number;
+   maxRejections?: number;
+   task: {
     id: string;
     priority: string;
     difficultyLevel: string;

@@ -21,6 +21,7 @@ export interface ReviewQueueItem {
   taskId: string;
   status: string;
   deadline: Date | null;
+  reviewedAt?: Date | string;
   annotations?: any;
   reviewScore?: number;
   reviewComment?: string;

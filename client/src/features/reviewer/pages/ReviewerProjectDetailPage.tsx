@@ -38,7 +38,6 @@ import {
   Search,
   Eye,
   RefreshCw,
-  Star,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -370,7 +369,7 @@ export function ReviewerProjectDetailPage() {
                     <TableRow>
                       <TableHead className="w-[100px]">Preview</TableHead>
                       <TableHead>Task / Image</TableHead>
-                      <TableHead>Annotator / Reputation</TableHead>
+                      <TableHead>Annotator</TableHead>
                       <TableHead className="w-[120px]">Status</TableHead>
                       <TableHead className="w-[140px]">Deadline</TableHead>
                       <TableHead className="w-[100px] text-right">Actions</TableHead>
@@ -419,18 +418,9 @@ export function ReviewerProjectDetailPage() {
                                 <div className="font-semibold text-sm text-gray-800">
                                   {task.annotator.fullName}
                                 </div>
-                                  <div className="flex items-center gap-1.5">
-                                    <div className="flex items-center text-amber-500 bg-amber-50 px-1 rounded shadow-sm">
-                                      <Star className="w-3 h-3 fill-current" />
-                                      <span className="text-[10px] font-bold ml-0.5">
-                                        {task.annotator.reputationScore?.toFixed(1) || "5.0"}
-                                      </span>
-                                      <span className="text-[10px] font-black text-amber-600/60 ml-0.5 uppercase">Rep</span>
-                                    </div>
-                                    <span className="text-[10px] text-muted-foreground italic truncate max-w-[100px]">
-                                      {task.annotator.email}
-                                    </span>
-                                  </div>
+                                <span className="text-[10px] text-muted-foreground italic truncate max-w-[100px]">
+                                  {task.annotator.email}
+                                </span>
                               </div>
                             </TableCell>
                             <TableCell>

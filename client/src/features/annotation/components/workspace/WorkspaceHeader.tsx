@@ -103,14 +103,6 @@ export function WorkspaceHeader({
               Reviewing
             </span>
             <span className="font-semibold">{annotator.fullName}</span>
-            {annotator.reputationScore !== undefined && (
-              <Badge
-                variant="outline"
-                className="h-4 px-1 bg-amber-500/20 border-amber-500/50 text-amber-500 text-[9px] font-bold"
-              >
-                {annotator.reputationScore.toFixed(1)} REP
-              </Badge>
-            )}
           </div>
         )}
       </div>
