@@ -14,7 +14,8 @@ import {
     DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu"
 import { useAuth } from "../../context/AuthContext"
-import { LogOut, User as UserIcon } from "lucide-react"
+import { LogOut, User as UserIcon, Award } from "lucide-react"
+import { Badge } from "../../components/ui/badge"
 import { useNavigate } from "react-router-dom"
 import { Button } from "../../components/ui/button"
 import { NotificationBell } from "../notifications/NotificationBell"
@@ -47,9 +48,21 @@ export function UserNav() {
                             <AvatarImage src={user.avatarUrl || ""} alt={user.fullName || user.email} className="object-cover" />
                             <AvatarFallback className="bg-primary/5 font-semibold text-primary">{initials}</AvatarFallback>
                         </Avatar>
-                        <div className="flex flex-col text-left text-sm max-w-[120px] hidden md:flex">
-                            <span className="font-semibold truncate leading-none mb-1">{user.fullName || 'User'}</span>
-                            <span className="text-xs text-muted-foreground truncate leading-none">{user.email}</span>
+                        <div className="flex flex-col text-left text-sm max-w-[150px] hidden md:flex">
+                            <div className="flex items-center gap-2 mb-0.5">
+                                <span className="font-semibold truncate leading-none">{user.fullName || 'User'}</span>
+                                {user.role === 'ANNOTATOR' && (
+                                    <Badge variant="outline" className="h-4 px-1 text-[10px] bg-yellow-50 text-yellow-700 border-yellow-200">
+                                        Lv.{Math.floor((user.reputationScore || 0) / 100) + 1}
+                                    </Badge>
+                                )}
+                            </div>
+                            {user.role === 'ANNOTATOR' && (
+                                <div className="flex items-center gap-1.5 text-xs text-muted-foreground leading-none">
+                                    <Award className="w-3 h-3 text-orange-500" />
+                                    <span>{user.reputationScore || 0} pts</span>
+                                </div>
+                            )}
                         </div>
                     </Button>
                 </DropdownMenuTrigger>
@@ -57,9 +70,12 @@ export function UserNav() {
                     <DropdownMenuLabel className="font-normal">
                         <div className="flex flex-col space-y-1">
                             <p className="text-sm font-medium leading-none">{user.fullName}</p>
-                            <p className="text-xs leading-none text-muted-foreground">
-                                {user.email}
-                            </p>
+                            {user.role === 'ANNOTATOR' && (
+                                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                    <Award className="w-3 h-3 text-orange-500" />
+                                    <span>Reputation Score: {user.reputationScore || 0}</span>
+                                </div>
+                            )}
                         </div>
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />

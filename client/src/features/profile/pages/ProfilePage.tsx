@@ -335,8 +335,8 @@ export default function ProfilePage() {
                 <TabsContent value="overview" className="space-y-6">
                     {/* Role Specific Stats / Dashboard */}
                     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                        {/* Reputation Score for non-admin/manager roles */}
-                        {user.role !== 'ADMIN' && user.role !== 'MANAGER' && (
+                        {/* Reputation Score for annotators only */}
+                        {user.role === 'ANNOTATOR' && (
                             <Card>
                                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                     <CardTitle className="text-sm font-medium">Reputation Score</CardTitle>

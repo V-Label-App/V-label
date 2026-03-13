@@ -2002,6 +2002,15 @@ export function ProjectDetailPage() {
                                                         .toLowerCase()
                                                         .replace("_", " ")}
                                                     </Badge>
+                                                    {taskAssignment && taskAssignment.rejectionCount >= 3 && (
+                                                      <Badge
+                                                        variant="destructive"
+                                                        className="animate-pulse bg-red-600 hover:bg-red-700 flex items-center gap-1 text-[10px] py-0 px-2 h-5"
+                                                      >
+                                                        <AlertTriangle className="h-3 w-3" />
+                                                        Needs Reassign
+                                                      </Badge>
+                                                    )}
                                                     {taskAssignment?.deadline && (
                                                       <div className="flex items-center gap-1 text-xs text-muted-foreground">
                                                         <Clock className="h-3 w-3" />
@@ -2960,72 +2969,73 @@ export function ProjectDetailPage() {
                                       getPaginatedUserTasks(
                                         userTasks,
                                         assigneeId,
-                                      ).map((task: any) => (
-                                        <TableRow
-                                          key={`rejected-task-${task.id}`}
-                                          className="hover:bg-red-50/50"
-                                        >
-                                          <TableCell>
-                                            <Checkbox
-                                              checked={selectedTasks.includes(
-                                                task.id,
-                                              )}
-                                              onCheckedChange={(checked) =>
-                                                handleSelectTask(
-                                                  task.id,
-                                                  !!checked,
-                                                )
-                                              }
-                                              onClick={(e) =>
-                                                e.stopPropagation()
-                                              }
-                                            />
-                                          </TableCell>
-                                          <TableCell>
-                                            <div className="flex items-center gap-3 pl-12">
-                                              <div className="w-12 h-12 rounded overflow-hidden bg-gray-100 border flex-shrink-0">
-                                                <img
-                                                  src={task.image?.storageUrl}
-                                                  alt={
-                                                    task.image
-                                                      ?.originalFilename ||
-                                                    "Task"
-                                                  }
-                                                  className="w-full h-full object-cover"
-                                                />
+                                      ).map((task: any) => {
+                                        const annotatorAssignment = task.assignments?.find(
+                                          (a: any) => a.annotatorId,
+                                        );
+                                        return (
+                                          <TableRow
+                                            key={`rejected-task-${task.id}`}
+                                            className="hover:bg-red-50/50"
+                                          >
+                                            <TableCell>
+                                              <Checkbox
+                                                checked={selectedTasks.includes(task.id)}
+                                                onCheckedChange={(checked) =>
+                                                  handleSelectTask(task.id, !!checked)
+                                                }
+                                                onClick={(e) => e.stopPropagation()}
+                                              />
+                                            </TableCell>
+                                            <TableCell>
+                                              <div className="flex items-center gap-3 pl-12">
+                                                <div className="w-12 h-12 rounded overflow-hidden bg-gray-100 border flex-shrink-0">
+                                                  <img
+                                                    src={task.image?.storageUrl}
+                                                    alt={task.image?.originalFilename || "Task"}
+                                                    className="w-full h-full object-cover"
+                                                  />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                  <div className="font-medium text-sm truncate">
+                                                    {task.image?.originalFilename || "Untitled"}
+                                                  </div>
+                                                  <div className="text-xs text-gray-500">
+                                                    ID: {task.id.slice(0, 8)}...
+                                                  </div>
+                                                  <div className="mt-1 flex gap-2">
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
+                                                      Rejected
+                                                    </span>
+                                                    {annotatorAssignment && annotatorAssignment.rejectionCount >= 3 && (
+                                                      <Badge
+                                                        variant="destructive"
+                                                        className="animate-pulse bg-red-600 hover:bg-red-700 flex items-center gap-1 text-[10px] py-0 px-2 h-5 border-none"
+                                                      >
+                                                        <AlertTriangle className="h-3 w-3" />
+                                                        Needs Reassign
+                                                      </Badge>
+                                                    )}
+                                                  </div>
+                                                </div>
                                               </div>
-                                              <div className="flex-1 min-w-0">
-                                                <div className="font-medium text-sm truncate">
-                                                  {task.image
-                                                    ?.originalFilename ||
-                                                    "Untitled"}
-                                                </div>
-                                                <div className="text-xs text-gray-500">
-                                                  ID: {task.id.slice(0, 8)}...
-                                                </div>
-                                                <div className="mt-1">
-                                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
-                                                    Rejected
-                                                  </span>
-                                                </div>
-                                              </div>
-                                            </div>
-                                          </TableCell>
-                                          <TableCell className="text-right">
-                                            <Button
-                                              variant="outline"
-                                              size="sm"
-                                              onClick={() => {
-                                                setTaskToAssign(task);
-                                                setSelectedAnnotatorId(assigneeId !== "unassigned" ? assigneeId : "");
-                                                setIsAssignDialogOpen(true);
-                                              }}
-                                            >
-                                              Reassign
-                                            </Button>
-                                          </TableCell>
-                                        </TableRow>
-                                      ))}
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                              <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => {
+                                                  setTaskToAssign(task);
+                                                  setSelectedAnnotatorId(assigneeId !== "unassigned" ? assigneeId : "");
+                                                  setIsAssignDialogOpen(true);
+                                                }}
+                                              >
+                                                Reassign
+                                              </Button>
+                                            </TableCell>
+                                          </TableRow>
+                                        );
+                                      })}
                                   </React.Fragment>
                                 );
                               },
@@ -4498,15 +4508,24 @@ export function ProjectDetailPage() {
                       .filter((a: any) => a.projectRole === "ANNOTATOR")
                       .map((annotator: any) => {
                         const taskCount = workloadMap[annotator.userId] || 0;
+                        
+                        // NEW: Disable logic for reassignment after 3+ rejections
+                        const currentAssignment = taskToAssign?.assignments?.find((a: any) => a.annotatorId);
+                        const isPreviousAnnotator = currentAssignment && annotator.userId === currentAssignment.annotatorId;
+                        const reachRejectionLimit = (currentAssignment?.rejectionCount || 0) >= 3;
+                        const isDisabled = isPreviousAnnotator && reachRejectionLimit;
+
                         return (
                           <SelectItem
                             key={annotator.userId}
                             value={annotator.userId}
+                            disabled={isDisabled}
                           >
                             <div className="flex items-center justify-between w-full">
-                              <span>
+                              <span className={isDisabled ? "text-muted-foreground line-through" : ""}>
                                 {annotator.user?.fullName ||
                                   annotator.user?.email}
+                                {isDisabled && " (Max rejections reached)"}
                               </span>
                               <Badge
                                 variant="secondary"
@@ -4569,7 +4588,27 @@ export function ProjectDetailPage() {
                     selectedAnnotatorId &&
                     currentAssignment.annotatorId !== selectedAnnotatorId;
 
-                  if (!isReassignment) return null;
+                  if (!isReassignment) {
+                    // NEW: Show warning if task already has 3+ rejections but not reassigned yet
+                    if ((currentAssignment?.rejectionCount || 0) >= 3) {
+                       return (
+                        <div className="space-y-2 p-4 bg-red-50 border border-red-200 rounded-lg animate-pulse">
+                          <div className="flex items-center gap-2 text-red-900">
+                            <AlertTriangle className="h-5 w-5" />
+                            <Label className="text-sm font-bold">
+                              Critical: Task Needs New Assignee
+                            </Label>
+                          </div>
+                          <p className="text-xs text-red-700">
+                            This task has been rejected {(currentAssignment?.rejectionCount || 3)} times.
+                            Leader rules: You <b>MUST</b> assign this to a different annotator to ensure quality.
+                            The previous annotator has been disabled in the list below.
+                          </p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }
 
                   const currentAnnotator = annotators.find(
                     (a: any) => a.userId === currentAssignment.annotatorId,
