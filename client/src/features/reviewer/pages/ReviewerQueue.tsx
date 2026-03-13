@@ -121,9 +121,7 @@ export function ReviewerQueue({ onOpenWorkspace }: ReviewerQueueProps) {
           <Card className="p-6">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm text-muted-foreground mb-1">
-                  Pending Review
-                </p>
+                <p className="text-sm text-muted-foreground mb-1">Pending</p>
                 <h3 className="text-3xl font-semibold">{queueTasks.length}</h3>
               </div>
               <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">

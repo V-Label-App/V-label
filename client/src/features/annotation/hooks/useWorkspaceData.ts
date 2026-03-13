@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import type { TaskAssignmentListItem } from "../../../services/annotator.api";
 import { annotatorApi } from "../../../services/annotator.api";
+import { reviewerApi } from "../../../services/reviewer.api";
 import { projectApi } from "../../../services/project.api";
 import { useImageStore } from "../stores";
 import type { Annotation } from "../stores";
@@ -51,16 +52,21 @@ export interface UseWorkspaceDataReturn {
   ) => Promise<void>;
   skipTask: (reason?: string, timeSeconds?: number) => Promise<void>;
   resumeTask: () => Promise<void>;
+  approveTask: (note?: string) => Promise<void>;
+  rejectTask: (reason: string) => Promise<void>;
 }
 
 /**
  * Custom hook to manage workspace task data and API interactions
  * @param assignmentId - The task assignment ID
+ * @param isManagerReview - If true, uses manager API endpoint
+ * @param mode - 'annotate' or 'review' mode
  * @returns Task data and methods to interact with the API
  */
 export const useWorkspaceData = (
   assignmentId: string,
   isManagerReview = false,
+  mode: "annotate" | "review" = "annotate",
 ): UseWorkspaceDataReturn => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
@@ -121,9 +127,18 @@ export const useWorkspaceData = (
       setLoading(true);
       setError(null);
 
-      const assignment = isManagerReview
-        ? await projectApi.getTaskAssignmentForReview(assignmentId)
-        : await annotatorApi.getTaskAssignment(assignmentId);
+      let assignment;
+      if (mode === "review") {
+        // Reviewer mode: use reviewer API
+        assignment = await reviewerApi.getAssignmentDetail(assignmentId);
+      } else if (isManagerReview) {
+        // Manager review mode
+        assignment = await projectApi.getTaskAssignmentForReview(assignmentId);
+      } else {
+        // Annotator mode
+        assignment = await annotatorApi.getTaskAssignment(assignmentId);
+      }
+
       const transformedData = transformTaskData(assignment);
 
       setTaskData(transformedData);
@@ -136,7 +151,7 @@ export const useWorkspaceData = (
     } finally {
       setLoading(false);
     }
-  }, [assignmentId, transformTaskData]);
+  }, [assignmentId, isManagerReview, mode, transformTaskData]);
 
   /**
    * Auto-save draft annotations
@@ -241,6 +256,44 @@ export const useWorkspaceData = (
     }
   }, [assignmentId, loadData]);
 
+  /**
+   * Approve task (Reviewer only)
+   */
+  const approveTask = useCallback(
+    async (note?: string) => {
+      try {
+        await reviewerApi.approveTask(assignmentId, { reviewComment: note });
+        toast.success("Task approved successfully");
+        updateImageStatus(assignmentId, "approved");
+        setTaskData((prev) => (prev ? { ...prev, status: "APPROVED" } : null));
+      } catch (err: any) {
+        console.error("Failed to approve task:", err);
+        toast.error(err.response?.data?.error || "Failed to approve task");
+        throw err;
+      }
+    },
+    [assignmentId, updateImageStatus],
+  );
+
+  /**
+   * Reject task (Reviewer only)
+   */
+  const rejectTask = useCallback(
+    async (reason: string) => {
+      try {
+        await reviewerApi.rejectTask(assignmentId, { reviewComment: reason });
+        toast.success("Task rejected successfully");
+        updateImageStatus(assignmentId, "rejected");
+        setTaskData((prev) => (prev ? { ...prev, status: "REJECTED" } : null));
+      } catch (err: any) {
+        console.error("Failed to reject task:", err);
+        toast.error(err.response?.data?.error || "Failed to reject task");
+        throw err;
+      }
+    },
+    [assignmentId, updateImageStatus],
+  );
+
   // Load data on mount
   useEffect(() => {
     if (assignmentId) {
@@ -257,5 +310,7 @@ export const useWorkspaceData = (
     submitTask,
     skipTask,
     resumeTask,
+    approveTask,
+    rejectTask,
   };
 };
