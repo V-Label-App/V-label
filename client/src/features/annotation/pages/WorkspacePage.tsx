@@ -6,7 +6,13 @@ import { WorkspaceToolbar } from "../components/workspace/WorkspaceToolbar";
 import { WorkspaceCanvas } from "../components/canvas/WorkspaceCanvas";
 import { WorkspaceSidebar } from "../components/workspace/WorkspaceSidebar";
 import { ImageNavigator } from "../components/workspace/ImageNavigator";
-import { useImageStore, useAnnotationStore, useLabelStore, type ImageTask } from "../stores";
+import {
+  useImageStore,
+  useLabelStore,
+  useAnnotationStore,
+  type ImageTask,
+} from "../stores";
+import { RejectReasonModal } from "../components/workspace/RejectReasonModal";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { useWorkspaceData } from "../hooks/useWorkspaceData";
 import { useProjectTasks } from "../hooks/useProjectTasks";
@@ -30,18 +36,44 @@ export function WorkspacePage({
   const { taskId } = useParams<{ taskId: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  
+
   // Read mode from URL query params, fallback to props
-  const mode = (searchParams.get("mode") as "annotate" | "review") || propMode || "annotate";
-  const taskStatus = propTaskStatus || "assigned";
+  const mode =
+    (searchParams.get("mode") as "annotate" | "review") ||
+    propMode ||
+    "annotate";
   
+  // Load task data from API
+  const {
+    loading,
+    error,
+    taskData,
+    submitTask,
+    skipTask,
+    saveDraft,
+    approveTask,
+    rejectTask,
+  } = useWorkspaceData(taskId || "", false, mode);
+
+  // Derive taskStatus dynamically from taskData, fallback to propTaskStatus/assigned
+  const taskStatus = (taskData?.status?.toLowerCase() ||
+    propTaskStatus ||
+    "assigned") as any;
+
   const { updateImages, getCurrentImage, currentIndex, jumpToImage } =
     useImageStore();
-  const { clearAnnotations, setAnnotations, annotations } =
-    useAnnotationStore();
+  const {
+    clearAnnotations,
+    setAnnotations,
+    annotations,
+    setAnnotatorNote,
+    setReviewComment,
+  } = useAnnotationStore();
   const { setLabels } = useLabelStore();
 
   const [actualTimeSeconds, setActualTimeSeconds] = useState(0);
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+  const [isRejecting, setIsRejecting] = useState(false);
 
   // Ref to prevent navigation loop
   const isUpdatingFromURL = useRef(false);
@@ -50,10 +82,6 @@ export function WorkspacePage({
   if (!taskId) {
     throw new Error("Task ID is required");
   }
-
-  // Load task data from API
-  const { loading, error, taskData, submitTask, skipTask, saveDraft } =
-    useWorkspaceData(taskId, false, mode);
 
   const isReadOnly =
     taskStatus === "approved" ||
@@ -77,7 +105,9 @@ export function WorkspacePage({
   const projectId = taskData?.projectId;
 
   // Load all tasks in the project for navigation (disabled in review mode)
-  const { imageTasks, findTaskIndex } = useProjectTasks(mode === "review" ? undefined : projectId);
+  const { imageTasks, findTaskIndex } = useProjectTasks(
+    mode === "review" ? undefined : projectId,
+  );
 
   // Initialize keyboard shortcuts
   useKeyboardShortcuts(isReadOnly);
@@ -97,23 +127,41 @@ export function WorkspacePage({
         clearAnnotations();
       }
 
+      // Sync notes and review comments to store
+      setAnnotatorNote(taskData.annotatorNote || "");
+      setReviewComment(taskData.reviewComment || "");
+
       // In review mode, manually set the image since we don't load task list
       if (mode === "review" && taskData.image) {
-        const imageStatus = (taskData.status?.toLowerCase() || 'in_progress') as ImageTask['status'];
-        updateImages([{
-          id: taskId!,
-          filename: taskData.image.filename,
-          status: imageStatus,
-          url: taskData.image.url,
-          thumbnail: taskData.image.url,
-          width: taskData.image.width,
-          height: taskData.image.height,
-          annotationCount: taskData.annotations?.length || 0
-        }]);
+        const imageStatus = (taskData.status?.toLowerCase() ||
+          "in_progress") as ImageTask["status"];
+        updateImages([
+          {
+            id: taskId!,
+            filename: taskData.image.filename,
+            status: imageStatus,
+            url: taskData.image.url,
+            thumbnail: taskData.image.url,
+            width: taskData.image.width,
+            height: taskData.image.height,
+            annotationCount: taskData.annotations?.length || 0,
+          },
+        ]);
         jumpToImage(0);
       }
     }
-  }, [taskData, setLabels, setAnnotations, clearAnnotations, mode, taskId, updateImages, jumpToImage]);
+  }, [
+    taskData,
+    setLabels,
+    setAnnotations,
+    clearAnnotations,
+    mode,
+    taskId,
+    updateImages,
+    jumpToImage,
+    setAnnotatorNote,
+    setReviewComment,
+  ]);
 
   // Update image tasks list and current index when project tasks are loaded
   useEffect(() => {
@@ -183,7 +231,7 @@ export function WorkspacePage({
     try {
       await submitTask(annotations);
       alert("Task submitted successfully!");
-      navigate(-1);
+      // navigate(-1); // Keep in workspace to see status change
     } catch {
       alert("Failed to submit task. Please try again.");
     }
@@ -201,16 +249,31 @@ export function WorkspacePage({
     }
   };
 
-  const handleApprove = () => {
-    alert("Task approved!");
-    navigate(-1);
+  const handleApprove = async () => {
+    if (confirm("Are you sure you want to approve this task?")) {
+      try {
+        await approveTask();
+        // navigate(-1); // Keep in workspace to see status change
+      } catch {
+        // Error toast already shown in hook
+      }
+    }
   };
 
   const handleReject = () => {
-    const reason = prompt("Please provide a rejection reason:");
-    if (reason && reason.trim()) {
-      alert(`Task rejected. Reason: ${reason}`);
-      navigate(-1);
+    setIsRejectModalOpen(true);
+  };
+
+  const handleRejectConfirm = async (reason: string) => {
+    setIsRejecting(true);
+    try {
+      await rejectTask(reason);
+      setIsRejectModalOpen(false);
+      // navigate(-1); // Keep in workspace to see status change
+    } catch {
+      // Error toast already shown in hook
+    } finally {
+      setIsRejecting(false);
     }
   };
 
@@ -297,6 +360,13 @@ export function WorkspacePage({
           initialTab={taskStatus === "rejected" ? "discussion" : "regions"}
         />
       </div>
+
+      <RejectReasonModal
+        isOpen={isRejectModalOpen}
+        onClose={() => setIsRejectModalOpen(false)}
+        onConfirm={handleRejectConfirm}
+        isLoading={isRejecting}
+      />
     </motion.div>
   );
 }

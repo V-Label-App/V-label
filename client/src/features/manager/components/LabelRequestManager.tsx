@@ -52,11 +52,13 @@ import {
 interface LabelRequestManagerProps {
   projectId: string;
   onUpdatePendingCount?: (count: number) => void;
+  onLabelApproved?: (labelId: string) => void;
 }
 
 export function LabelRequestManager({
   projectId,
   onUpdatePendingCount,
+  onLabelApproved,
 }: LabelRequestManagerProps) {
   const [activeTab, setActiveTab] = useState<
     "PENDING" | "APPROVED" | "REJECTED"
@@ -158,6 +160,10 @@ export function LabelRequestManager({
       );
       setIsApproveOpen(false);
       fetchRequests(); // Refresh list
+      
+      if (result.label && onLabelApproved) {
+        onLabelApproved(result.label.id);
+      }
     } catch (error: any) {
       toast.error(error.response?.data?.error || "Failed to approve request");
     } finally {

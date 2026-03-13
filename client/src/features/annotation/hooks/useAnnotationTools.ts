@@ -7,7 +7,7 @@ export function useAnnotationTools() {
   const { tool, imageSize, isModalOpen } = useCanvasStore();
   const { addAnnotation, defaultOpacity, defaultStrokeWidth } =
     useAnnotationStore();
-  const { labels } = useLabelStore();
+  const { labels, activeLabel } = useLabelStore();
 
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawStart, setDrawStart] = useState<{ x: number; y: number } | null>(
@@ -83,7 +83,7 @@ export function useAnnotationTools() {
       if (tempRect.width >= 5 && tempRect.height >= 5) {
         addAnnotation({
           id: generateId(),
-          label: labels[0]?.name || "Unlabeled", // Default to first label from project
+          label: (activeLabel || labels[0])?.name || "Unlabeled", // Use active label or default to first
           type: "rectangle",
           x: tempRect.x,
           y: tempRect.y,
@@ -106,6 +106,7 @@ export function useAnnotationTools() {
     tempRect,
     addAnnotation,
     labels,
+    activeLabel,
     defaultOpacity,
     defaultStrokeWidth,
   ]);

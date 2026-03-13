@@ -55,7 +55,7 @@ export function ReviewerProjectDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("reviews");
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterStatus, setFilterStatus] = useState<string>("SUBMITTED");
+  const [filterStatus, setFilterStatus] = useState<string>("ALL");
 
   // Fetch project details
   useEffect(() => {
@@ -118,8 +118,9 @@ export function ReviewerProjectDetailPage() {
       REJECTED: { className: "bg-red-100 text-red-700 border-red-300", label: "Rejected" },
       IN_PROGRESS: { className: "bg-yellow-100 text-yellow-700 border-yellow-300", label: "In Progress" },
       ASSIGNED: { className: "bg-gray-100 text-gray-700 border-gray-300", label: "Assigned" },
+      SKIPPED: { className: "bg-orange-100 text-orange-700 border-orange-300", label: "Skipped" },
     };
-    return styles[status as keyof typeof styles] || styles.SUBMITTED;
+    return (styles[status as keyof typeof styles] || { className: "bg-gray-100 text-gray-700 border-gray-300", label: status });
   };
 
   // Filter tasks based on search

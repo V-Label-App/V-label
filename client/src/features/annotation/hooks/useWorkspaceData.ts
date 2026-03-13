@@ -52,6 +52,8 @@ export interface UseWorkspaceDataReturn {
   ) => Promise<void>;
   skipTask: (reason?: string, timeSeconds?: number) => Promise<void>;
   resumeTask: () => Promise<void>;
+  approveTask: (note?: string) => Promise<void>;
+  rejectTask: (reason: string) => Promise<void>;
 }
 
 /**
@@ -136,7 +138,7 @@ export const useWorkspaceData = (
         // Annotator mode
         assignment = await annotatorApi.getTaskAssignment(assignmentId);
       }
-      
+
       const transformedData = transformTaskData(assignment);
 
       setTaskData(transformedData);
@@ -254,6 +256,44 @@ export const useWorkspaceData = (
     }
   }, [assignmentId, loadData]);
 
+  /**
+   * Approve task (Reviewer only)
+   */
+  const approveTask = useCallback(
+    async (note?: string) => {
+      try {
+        await reviewerApi.approveTask(assignmentId, { reviewComment: note });
+        toast.success("Task approved successfully");
+        updateImageStatus(assignmentId, "approved");
+        setTaskData((prev) => (prev ? { ...prev, status: "APPROVED" } : null));
+      } catch (err: any) {
+        console.error("Failed to approve task:", err);
+        toast.error(err.response?.data?.error || "Failed to approve task");
+        throw err;
+      }
+    },
+    [assignmentId, updateImageStatus],
+  );
+
+  /**
+   * Reject task (Reviewer only)
+   */
+  const rejectTask = useCallback(
+    async (reason: string) => {
+      try {
+        await reviewerApi.rejectTask(assignmentId, { reviewComment: reason });
+        toast.success("Task rejected successfully");
+        updateImageStatus(assignmentId, "rejected");
+        setTaskData((prev) => (prev ? { ...prev, status: "REJECTED" } : null));
+      } catch (err: any) {
+        console.error("Failed to reject task:", err);
+        toast.error(err.response?.data?.error || "Failed to reject task");
+        throw err;
+      }
+    },
+    [assignmentId, updateImageStatus],
+  );
+
   // Load data on mount
   useEffect(() => {
     if (assignmentId) {
@@ -270,5 +310,7 @@ export const useWorkspaceData = (
     submitTask,
     skipTask,
     resumeTask,
+    approveTask,
+    rejectTask,
   };
 };

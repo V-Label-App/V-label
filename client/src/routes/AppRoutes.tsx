@@ -87,7 +87,6 @@ export const AppRoutes = () => {
           }
         />
 
-
         {/* Manager Routes */}
         <Route
           path="/manager"
@@ -125,7 +124,6 @@ export const AppRoutes = () => {
             </ProtectedRoute>
           }
         />
-
 
         {/* Annotator Routes (Task List) */}
         <Route
@@ -165,7 +163,6 @@ export const AppRoutes = () => {
           }
         />
 
-
         {/* Reviewer Routes */}
         <Route
           path="/reviewer"
@@ -203,7 +200,6 @@ export const AppRoutes = () => {
             </ProtectedRoute>
           }
         />
-
 
         {/* Shared Routes */}
         <Route
