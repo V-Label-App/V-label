@@ -28,10 +28,18 @@ export interface WorkspaceTaskData {
   }>;
   annotatorNote?: string;
   reviewComment?: string;
+  annotator?: {
+    id: string;
+    fullName: string;
+    email: string;
+    avatarUrl?: string;
+    reputationScore?: number;
+  };
   projectName: string;
   actualTimeSeconds?: number;
   enableAiAssistance: boolean;
   updatedAt: string;
+  deadline?: string;
 }
 
 export interface UseWorkspaceDataReturn {
@@ -108,10 +116,12 @@ export const useWorkspaceData = (
         labels,
         annotatorNote: assignment.annotatorNote,
         reviewComment: assignment.reviewComment,
+        annotator: assignment.annotator,
         projectName: assignment.task.project.name,
         actualTimeSeconds: assignment.actualTimeSeconds,
         enableAiAssistance: assignment.task.project.enableAiAssistance ?? false,
         updatedAt: assignment.updatedAt,
+        deadline: assignment.deadline ? String(assignment.deadline) : undefined,
       };
     },
     [],
