@@ -460,9 +460,8 @@ export function Workspace({
       if (reviewType === 'approve') {
         await reviewerApi.approveTask(activeTaskId, { 
           reviewComment: annotatorNote, // Reuse note or add new field
-          reviewScore: reviewScore 
         });
-        toast.success(`Task approved with score: ${reviewScore}`);
+        toast.success(`Task approved`);
       } else {
         if (!annotatorNote.trim()) {
           toast.error("Please provide a rejection reason in the notes.");
@@ -471,9 +470,8 @@ export function Workspace({
         }
         await reviewerApi.rejectTask(activeTaskId, { 
           reviewComment: annotatorNote,
-          reviewScore: reviewScore 
         });
-        toast.success(`Task rejected with score: ${reviewScore}`);
+        toast.success(`Task rejected`);
       }
       setShowReviewModal(false);
       onClose();

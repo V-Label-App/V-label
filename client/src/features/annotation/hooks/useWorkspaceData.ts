@@ -112,7 +112,7 @@ export const useWorkspaceData = (
           width: image.width,
           height: image.height,
         },
-        annotations: assignment.annotations || [],
+        annotations: (assignment.annotations as Annotation[]) || [],
         labels,
         annotatorNote: assignment.annotatorNote,
         reviewComment: assignment.reviewComment,
