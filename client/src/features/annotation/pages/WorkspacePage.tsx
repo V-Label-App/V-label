@@ -10,9 +10,8 @@ import {
   useImageStore,
   useLabelStore,
   useAnnotationStore,
-  type ImageTask,
 } from "../stores";
-import { RejectReasonModal } from "../components/workspace/RejectReasonModal";
+import { ReviewScoringModal } from "../components/workspace/ReviewScoringModal";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { useWorkspaceData } from "../hooks/useWorkspaceData";
 import { useProjectTasks } from "../hooks/useProjectTasks";
@@ -72,8 +71,9 @@ export function WorkspacePage({
   const { setLabels } = useLabelStore();
 
   const [actualTimeSeconds, setActualTimeSeconds] = useState(0);
-  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
-  const [isRejecting, setIsRejecting] = useState(false);
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [reviewType, setReviewType] = useState<"approve" | "reject">("approve");
+  const [isReviewLoading, setIsReviewLoading] = useState(false);
 
   // Ref to prevent navigation loop
   const isUpdatingFromURL = useRef(false);
@@ -104,9 +104,10 @@ export function WorkspacePage({
   // Extract projectId from taskData for loading other tasks
   const projectId = taskData?.projectId;
 
-  // Load all tasks in the project for navigation (disabled in review mode)
+  // Load all tasks in the project for navigation (enabled for both modes)
   const { imageTasks, findTaskIndex } = useProjectTasks(
-    mode === "review" ? undefined : projectId,
+    projectId,
+    mode
   );
 
   // Initialize keyboard shortcuts
@@ -131,24 +132,8 @@ export function WorkspacePage({
       setAnnotatorNote(taskData.annotatorNote || "");
       setReviewComment(taskData.reviewComment || "");
 
-      // In review mode, manually set the image since we don't load task list
-      if (mode === "review" && taskData.image) {
-        const imageStatus = (taskData.status?.toLowerCase() ||
-          "in_progress") as ImageTask["status"];
-        updateImages([
-          {
-            id: taskId!,
-            filename: taskData.image.filename,
-            status: imageStatus,
-            url: taskData.image.url,
-            thumbnail: taskData.image.url,
-            width: taskData.image.width,
-            height: taskData.image.height,
-            annotationCount: taskData.annotations?.length || 0,
-          },
-        ]);
-        jumpToImage(0);
-      }
+      // In review mode, let useProjectTasks handle loading the images from the queue
+      // No manual set needed here if we have projectId
     }
   }, [
     taskData,
@@ -206,7 +191,7 @@ export function WorkspacePage({
       // Only navigate if taskId changed (user clicked on different task)
       if (newTaskId !== taskId) {
         // Update URL without page reload - this will trigger useWorkspaceData to reload
-        navigate(`/workspace/${newTaskId}`, { replace: true });
+        navigate(`/workspace/${newTaskId}?mode=${mode}`, { replace: true });
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -249,31 +234,29 @@ export function WorkspacePage({
     }
   };
 
-  const handleApprove = async () => {
-    if (confirm("Are you sure you want to approve this task?")) {
-      try {
-        await approveTask();
-        // navigate(-1); // Keep in workspace to see status change
-      } catch {
-        // Error toast already shown in hook
-      }
-    }
+  const handleApprove = () => {
+    setReviewType("approve");
+    setIsReviewModalOpen(true);
   };
 
   const handleReject = () => {
-    setIsRejectModalOpen(true);
+    setReviewType("reject");
+    setIsReviewModalOpen(true);
   };
 
-  const handleRejectConfirm = async (reason: string) => {
-    setIsRejecting(true);
+  const handleReviewConfirm = async (comment: string) => {
+    setIsReviewLoading(true);
     try {
-      await rejectTask(reason);
-      setIsRejectModalOpen(false);
-      // navigate(-1); // Keep in workspace to see status change
+      if (reviewType === "approve") {
+        await approveTask(comment);
+      } else {
+        await rejectTask(comment);
+      }
+      setIsReviewModalOpen(false);
     } catch {
-      // Error toast already shown in hook
+      // Error handles in hook
     } finally {
-      setIsRejecting(false);
+      setIsReviewLoading(false);
     }
   };
 
@@ -361,11 +344,13 @@ export function WorkspacePage({
         />
       </div>
 
-      <RejectReasonModal
-        isOpen={isRejectModalOpen}
-        onClose={() => setIsRejectModalOpen(false)}
-        onConfirm={handleRejectConfirm}
-        isLoading={isRejecting}
+      <ReviewScoringModal
+        isOpen={isReviewModalOpen}
+        onClose={() => setIsReviewModalOpen(false)}
+        onConfirm={handleReviewConfirm}
+        type={reviewType}
+        isLoading={isReviewLoading}
+        initialComment={taskData.annotatorNote} // default to annotator note as feedback start
       />
     </motion.div>
   );

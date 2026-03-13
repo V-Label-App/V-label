@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '../../../components/ui/button';
 import { Card } from '../../../components/ui/card';
 import { Textarea } from '../../../components/ui/textarea';
@@ -10,10 +10,23 @@ import {
   X, Send, CheckCircle, XCircle, MousePointer, Square,
   Move, Undo, Redo, AlertTriangle, Eye, EyeOff, Trash2,
   ChevronRight, Check, Loader2, SkipForward, ChevronLeft,
-  Grid3x3
+  Grid3x3, ThumbsUp, ThumbsDown
 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "../../../components/ui/dialog";
+import { Slider } from "../../../components/ui/slider";
 import { motion, AnimatePresence } from 'framer-motion';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
+import { annotatorApi } from '../../../services/annotator.api';
+import { reviewerApi } from '../../../services/reviewer.api';
+import { cn } from "../../../components/ui/utils";
 
 interface Annotation {
   id: string;
@@ -38,61 +51,35 @@ interface WorkspaceProps {
   mode?: 'annotate' | 'review';
   onClose?: () => void;
   taskStatus?: 'assigned' | 'in_progress' | 'submitted' | 'rejected' | 'approved';
-  existingAnnotatorNote?: string;
-  existingReviewComment?: string;
 }
 
-const labelColors: Record<string, { border: string; fill: string; bg: string }> = {
-  'Normal': { border: '#3B82F6', fill: 'rgba(59, 130, 246, 0.2)', bg: 'bg-blue-100 text-blue-700' },
-  'Abnormal': { border: '#EF4444', fill: 'rgba(239, 68, 68, 0.2)', bg: 'bg-red-100 text-red-700' },
-  'Uncertain': { border: '#F59E0B', fill: 'rgba(245, 158, 11, 0.2)', bg: 'bg-amber-100 text-amber-700' },
-};
-
-const availableLabels = ['Normal', 'Abnormal', 'Uncertain'];
+// Labels will be loaded from assignment data
 
 export function Workspace({
   taskId,
   mode = 'annotate',
   onClose = () => window.history.back(),
-  taskStatus = 'assigned',
-  existingAnnotatorNote,
-  existingReviewComment
+  taskStatus = 'assigned'
 }: WorkspaceProps) {
   const { taskId: paramTaskId } = useParams();
-  const activeTaskId = taskId || paramTaskId || 'T-001';
+  const [searchParams] = useSearchParams();
+  const activeTaskId = taskId || paramTaskId;
+  const activeMode = (searchParams.get('mode') as 'annotate' | 'review') || mode;
 
-  // Image navigation states
-  const [projectImages] = useState<ImageTask[]>([
-    { id: 'T-001', filename: 'chest_xray_001.jpg', status: 'approved', thumbnail: '🫁', annotationCount: 5 },
-    { id: 'T-002', filename: 'chest_xray_002.jpg', status: 'in_progress', thumbnail: '🫁', annotationCount: 2 },
-    { id: 'T-003', filename: 'chest_xray_003.jpg', status: 'assigned', thumbnail: '🫁', annotationCount: 0 },
-    { id: 'T-004', filename: 'chest_xray_004.jpg', status: 'rejected', thumbnail: '🫁', annotationCount: 3 },
-    { id: 'T-005', filename: 'chest_xray_005.jpg', status: 'submitted', thumbnail: '🫁', annotationCount: 4 },
-    { id: 'T-006', filename: 'chest_xray_006.jpg', status: 'assigned', thumbnail: '🫁', annotationCount: 0 },
-    { id: 'T-007', filename: 'chest_xray_007.jpg', status: 'assigned', thumbnail: '🫁', annotationCount: 0 },
-  ]);
-
-  const [currentImageIndex, setCurrentImageIndex] = useState(() => {
-    return projectImages.findIndex(img => img.id === activeTaskId);
-  });
+  const [assignment, setAssignment] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [projectImages, setProjectImages] = useState<ImageTask[]>([]);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showImageList, setShowImageList] = useState(false);
 
   const canvasRef = useRef<HTMLDivElement>(null);
-  const isReadOnly = taskStatus === 'approved' || mode === 'review';
-
-  const currentImage = projectImages[currentImageIndex] || projectImages[0];
-  const hasPrevious = currentImageIndex > 0;
-  const hasNext = currentImageIndex < projectImages.length - 1;
 
   // States
   const [tool, setTool] = useState<'select' | 'rectangle' | 'hand'>('select');
-  const [annotations, setAnnotations] = useState<Annotation[]>([
-    { id: '1', label: 'Normal', x: 100, y: 80, width: 200, height: 150, visible: true },
-    { id: '2', label: 'Abnormal', x: 350, y: 200, width: 180, height: 120, visible: true },
-  ]);
+  const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [selectedAnnotation, setSelectedAnnotation] = useState<string | null>(null);
-  const [annotatorNote, setAnnotatorNote] = useState(existingAnnotatorNote || '');
-  const [history, setHistory] = useState<Annotation[][]>([annotations]);
+  const [annotatorNote, setAnnotatorNote] = useState('');
+  const [history, setHistory] = useState<Annotation[][]>([[]]);
   const [historyIndex, setHistoryIndex] = useState(0);
   const [zoom, setZoom] = useState(100);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -103,25 +90,134 @@ export function Workspace({
   const [tempBox, setTempBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
   const [crosshair, setCrosshair] = useState<{ x: number; y: number } | null>(null);
+  
+  // Review Modal States
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewScore, setReviewScore] = useState(100);
+  const [reviewType, setReviewType] = useState<'approve' | 'reject'>('approve');
+  const [reviewLoading, setReviewLoading] = useState(false);
 
-  // Auto-save with debounce
-  useEffect(() => {
-    if (autoSaveStatus === 'unsaved') {
-      setAutoSaveStatus('saving');
-      const timer = setTimeout(() => {
-        // Simulate API call
-        setAutoSaveStatus('saved');
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [autoSaveStatus, annotations, annotatorNote]);
+  const isReadOnly = assignment?.status === 'APPROVED' || activeMode === 'review';
+  const effectiveTaskStatus = assignment?.status?.toLowerCase() || taskStatus;
 
-  // Mark as unsaved when data changes
-  useEffect(() => {
+  // Derived labels from assignment
+  const availableLabels = useMemo(() => assignment?.task?.project?.projectLabels || [], [assignment]);
+
+  // Function declarations (using useCallback for performance and to satisfy effects)
+  const addToHistory = useCallback((newAnnotations: Annotation[]) => {
+    const newHistory = history.slice(0, historyIndex + 1);
+    newHistory.push(newAnnotations);
+    setHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
+    setAnnotations(newAnnotations);
+  }, [history, historyIndex]);
+
+  const handleUndo = useCallback(() => {
     if (historyIndex > 0) {
-      setAutoSaveStatus('unsaved');
+      setHistoryIndex(historyIndex - 1);
+      setAnnotations(history[historyIndex - 1]);
     }
-  }, [annotations, annotatorNote]);
+  }, [history, historyIndex]);
+
+  const handleRedo = useCallback(() => {
+    if (historyIndex < history.length - 1) {
+      setHistoryIndex(historyIndex + 1);
+      setAnnotations(history[historyIndex + 1]);
+    }
+  }, [history, historyIndex]);
+
+  const handleDeleteAnnotation = useCallback((id: string) => {
+    const newAnnotations = annotations.filter(a => a.id !== id);
+    addToHistory(newAnnotations);
+    setSelectedAnnotation(null);
+  }, [annotations, addToHistory]);
+
+  const handleLabelChange = useCallback((id: string, label: string) => {
+    const newAnnotations = annotations.map(a =>
+      a.id === id ? { ...a, label } : a
+    );
+    addToHistory(newAnnotations);
+  }, [annotations, addToHistory]);
+
+  const handlePreviousImage = useCallback(() => {
+    toast.info("Previous task feature coming soon");
+  }, []);
+
+  const handleNextImage = useCallback(() => {
+    toast.info("Next task feature coming soon");
+  }, []);
+
+  // Fetch data
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!activeTaskId) return;
+
+      setIsLoading(true);
+      try {
+        let data;
+        if (activeMode === 'review') {
+          data = await reviewerApi.getAssignmentDetail(activeTaskId);
+        } else {
+          data = await annotatorApi.getTaskAssignment(activeTaskId);
+        }
+        
+        setAssignment(data);
+        setAnnotatorNote(data.annotatorNote || '');
+        
+        if (data.annotations) {
+          const loadedAnnotations = Array.isArray(data.annotations) ? data.annotations : [];
+          setAnnotations(loadedAnnotations);
+          setHistory([loadedAnnotations]);
+          setHistoryIndex(0);
+        }
+
+        setProjectImages([{
+          id: data.id,
+          filename: data.task.image?.originalFilename || 'unnamed-image.jpg',
+          status: data.status.toLowerCase() as any,
+          thumbnail: '🖼️',
+          annotationCount: data.annotations?.length || 0
+        }]);
+      } catch (error) {
+        console.error("Failed to fetch task details:", error);
+        toast.error("Failed to load task details");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [activeTaskId, activeMode]);
+
+  // Auto-save logic
+  useEffect(() => {
+    let timer: any;
+    if (autoSaveStatus === 'unsaved' && !isReadOnly && activeTaskId) {
+      setAutoSaveStatus('saving');
+      timer = window.setTimeout(async () => {
+        try {
+          await annotatorApi.saveDraft(activeTaskId, {
+            annotations,
+            annotatorNote
+          });
+          setAutoSaveStatus('saved');
+        } catch (error) {
+          console.error("[Workspace] Auto-save failed:", error);
+          setAutoSaveStatus('unsaved');
+        }
+      }, 3000);
+    }
+    return () => { if (timer) clearTimeout(timer); };
+  }, [autoSaveStatus, annotations, annotatorNote, activeTaskId, isReadOnly]);
+
+  // Mark status as unsaved when data changes
+  useEffect(() => {
+    if (!isReadOnly && (annotations.length > 0 || annotatorNote !== '')) {
+      if (assignment) {
+         setAutoSaveStatus('unsaved');
+      }
+    }
+  }, [annotations, annotatorNote, isReadOnly, assignment]);
 
   // Hotkeys
   useEffect(() => {
@@ -180,51 +276,13 @@ export function Workspace({
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('keypress', handleKeyPress);
     };
-  }, [selectedAnnotation, annotations, historyIndex, isPanning, tool, isReadOnly]);
+  }, [selectedAnnotation, annotations, historyIndex, isPanning, tool, isReadOnly, handleUndo, handleRedo, handleDeleteAnnotation, handleLabelChange, availableLabels]);
 
-  // History management
-  const addToHistory = useCallback((newAnnotations: Annotation[]) => {
-    const newHistory = history.slice(0, historyIndex + 1);
-    newHistory.push(newAnnotations);
-    setHistory(newHistory);
-    setHistoryIndex(newHistory.length - 1);
-    setAnnotations(newAnnotations);
-  }, [history, historyIndex]);
+  const hasPrevious = projectImages.length > 0 && currentImageIndex > 0;
+  const hasNext = projectImages.length > 0 && currentImageIndex < projectImages.length - 1;
+  const currentImage = projectImages[currentImageIndex];
 
-  const handleUndo = () => {
-    if (historyIndex > 0) {
-      setHistoryIndex(historyIndex - 1);
-      setAnnotations(history[historyIndex - 1]);
-    }
-  };
-
-  const handleRedo = () => {
-    if (historyIndex < history.length - 1) {
-      setHistoryIndex(historyIndex + 1);
-      setAnnotations(history[historyIndex + 1]);
-    }
-  };
-
-  const handleDeleteAnnotation = (id: string) => {
-    const newAnnotations = annotations.filter(a => a.id !== id);
-    addToHistory(newAnnotations);
-    setSelectedAnnotation(null);
-  };
-
-  const handleToggleVisibility = (id: string) => {
-    const newAnnotations = annotations.map(a =>
-      a.id === id ? { ...a, visible: !a.visible } : a
-    );
-    setAnnotations(newAnnotations);
-  };
-
-  const handleLabelChange = (id: string, label: string) => {
-    const newAnnotations = annotations.map(a =>
-      a.id === id ? { ...a, label } : a
-    );
-    addToHistory(newAnnotations);
-  };
-
+  // Canvas handlers
   const handleCanvasMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     if (isReadOnly && tool !== 'hand' && !isPanning) return;
 
@@ -269,7 +327,6 @@ export function Workspace({
     }
   };
 
-  // Removed unused 'e' parameter here
   const handleCanvasMouseUp = () => {
     if (isPanning) {
       setIsPanning(false);
@@ -278,7 +335,7 @@ export function Workspace({
     if (isDrawing && tempBox && tempBox.width > 2 && tempBox.height > 2) {
       const newAnnotation: Annotation = {
         id: Date.now().toString(),
-        label: availableLabels[0],
+        label: availableLabels[0]?.label.name || 'Default',
         x: tempBox.x,
         y: tempBox.y,
         width: tempBox.width,
@@ -308,39 +365,12 @@ export function Workspace({
   const handleZoomIn = () => setZoom(prev => Math.min(500, prev + 25));
   const handleZoomOut = () => setZoom(prev => Math.max(50, prev - 25));
 
-  const handlePreviousImage = () => {
-    if (hasPrevious) {
-      if (autoSaveStatus === 'unsaved') {
-        if (!confirm('You have unsaved changes. Do you want to continue?')) {
-          return;
-        }
-      }
-      setCurrentImageIndex(prev => prev - 1);
-      setAnnotations([]);
-      setHistory([[]]);
-      setHistoryIndex(0);
-      setZoom(100);
-      setPan({ x: 0, y: 0 });
-      setSelectedAnnotation(null);
-    }
-  };
-
-  const handleNextImage = () => {
-    if (hasNext) {
-      if (autoSaveStatus === 'unsaved') {
-        if (!confirm('You have unsaved changes. Do you want to continue?')) {
-          return;
-        }
-      }
-      setCurrentImageIndex(prev => prev + 1);
-      setAnnotations([]);
-      setHistory([[]]);
-      setHistoryIndex(0);
-      setZoom(100);
-      setPan({ x: 0, y: 0 });
-      setSelectedAnnotation(null);
-    }
-  };
+  const handleToggleVisibility = useCallback((id: string) => {
+    const newAnnotations = annotations.map(a =>
+      a.id === id ? { ...a, visible: !a.visible } : a
+    );
+    setAnnotations(newAnnotations);
+  }, [annotations]);
 
   const handleJumpToImage = (index: number) => {
     if (index === currentImageIndex) return;
@@ -373,38 +403,103 @@ export function Workspace({
 
     window.addEventListener('keydown', handleArrowKeys);
     return () => window.removeEventListener('keydown', handleArrowKeys);
-  }, [currentImageIndex, autoSaveStatus]);
+  }, [currentImageIndex, autoSaveStatus, handlePreviousImage, handleNextImage]);
 
-  const handleSkip = () => {
+  const handleSkip = async () => {
+    if (!activeTaskId) return;
     if (confirm('Are you sure you want to skip this task?')) {
-      alert('Task skipped!');
-      onClose();
+      try {
+        await annotatorApi.updateTaskAssignment(activeTaskId, {
+          status: 'SKIPPED'
+        });
+        toast.success('Task skipped');
+        onClose();
+      } catch (error) {
+        toast.error('Failed to skip task');
+      }
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    if (!activeTaskId) return;
     if (annotations.length === 0) {
-      alert('Please add at least one annotation before submitting.');
+      toast.error('Please add at least one annotation before submitting.');
       return;
     }
-    alert('Task submitted successfully!');
-    onClose();
+    
+    try {
+      await annotatorApi.updateTaskAssignment(activeTaskId, {
+        status: 'SUBMITTED',
+        annotations,
+        annotatorNote
+      });
+      toast.success('Task submitted successfully');
+      onClose();
+    } catch (error) {
+      toast.error('Failed to submit task');
+    }
   };
 
   const handleApprove = () => {
-    alert('Task approved!');
-    onClose();
+    setReviewType('approve');
+    setReviewScore(100);
+    setShowReviewModal(true);
   };
 
   const handleReject = () => {
-    const reason = prompt('Please provide a rejection reason:');
-    if (reason && reason.trim()) {
-      alert(`Task rejected. Reason: ${reason}`);
+    setReviewType('reject');
+    setReviewScore(0);
+    setShowReviewModal(true);
+  };
+
+  const submitReview = async () => {
+    if (!activeTaskId) return;
+    
+    setReviewLoading(true);
+    try {
+      if (reviewType === 'approve') {
+        await reviewerApi.approveTask(activeTaskId, { 
+          reviewComment: annotatorNote, // Reuse note or add new field
+          reviewScore: reviewScore 
+        });
+        toast.success(`Task approved with score: ${reviewScore}`);
+      } else {
+        if (!annotatorNote.trim()) {
+          toast.error("Please provide a rejection reason in the notes.");
+          setReviewLoading(false);
+          return;
+        }
+        await reviewerApi.rejectTask(activeTaskId, { 
+          reviewComment: annotatorNote,
+          reviewScore: reviewScore 
+        });
+        toast.success(`Task rejected with score: ${reviewScore}`);
+      }
+      setShowReviewModal(false);
       onClose();
+    } catch (error) {
+      toast.error(`Failed to ${reviewType} task`);
+    } finally {
+      setReviewLoading(false);
     }
   };
 
+  if (isLoading || !assignment) {
+    return (
+      <div className="fixed inset-0 bg-slate-900 z-50 flex items-center justify-center text-white font-medium">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-12 h-12 text-blue-500 animate-spin" />
+          <div className="flex flex-col items-center">
+            <p className="text-lg">Initializing Workspace</p>
+            <p className="text-sm text-slate-400">Loading task data and image assets...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
+    <>
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -562,7 +657,11 @@ export function Workspace({
               </div>
 
               {annotations.filter(a => a.visible).map(annotation => {
-                const colors = labelColors[annotation.label];
+                const labelConfig = availableLabels.find((pl: any) => pl.label.name === annotation.label)?.label;
+                const colors = {
+                   border: labelConfig?.color || '#3B82F6',
+                   fill: `${labelConfig?.color || '#3B82F6'}33`,
+                };
                 const isSelected = selectedAnnotation === annotation.id;
                 return (
                   <div
@@ -762,7 +861,7 @@ export function Workspace({
               ) : (
                 <div className="space-y-2">
                   {annotations.map((annotation, index) => {
-                    const colors = labelColors[annotation.label];
+                    const labelConfig = availableLabels.find((pl: any) => pl.label.name === annotation.label)?.label;
                     const isSelected = selectedAnnotation === annotation.id;
                     return (
                       <Card
@@ -786,13 +885,22 @@ export function Workspace({
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    {availableLabels.map(label => (
-                                      <SelectItem key={label} value={label}>{label}</SelectItem>
+                                    {availableLabels.map((pl: any) => (
+                                      <SelectItem key={pl.label.id} value={pl.label.name}>{pl.label.name}</SelectItem>
                                     ))}
                                   </SelectContent>
                                 </Select>
                               ) : (
-                                <Badge className={colors.bg}>{annotation.label}</Badge>
+                                <Badge 
+                                  style={{ 
+                                    backgroundColor: `${labelConfig?.color || '#3B82F6'}20`, 
+                                    borderColor: labelConfig?.color || '#3B82F6', 
+                                    color: labelConfig?.color || '#3B82F6' 
+                                  }}
+                                  variant="outline"
+                                >
+                                  {annotation.label}
+                                </Badge>
                               )}
                             </div>
                           </div>
@@ -858,7 +966,7 @@ export function Workspace({
             </TabsContent>
 
             <TabsContent value="discussion" className="flex-1 p-4 space-y-4 overflow-y-auto">
-              {existingReviewComment && (
+              {assignment?.reviewComment && (
                 <motion.div
                   initial={{ scale: 0.95, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
@@ -868,7 +976,7 @@ export function Workspace({
                     <AlertTriangle className="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0" />
                     <div>
                       <p className="text-sm font-semibold text-red-300 mb-1">Reviewer Feedback</p>
-                      <p className="text-sm text-red-200">{existingReviewComment}</p>
+                      <p className="text-sm text-red-200">{assignment?.reviewComment}</p>
                     </div>
                   </div>
                 </motion.div>
@@ -879,12 +987,12 @@ export function Workspace({
                 <Textarea
                   value={annotatorNote}
                   onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setAnnotatorNote(e.target.value)}
-                  placeholder={mode === 'annotate' ? 'Add notes about your annotation approach...' : 'Annotator\'s notes'}
+                  placeholder={activeMode === 'annotate' ? 'Add notes about your annotation approach...' : 'Annotator\'s notes'}
                   className="min-h-[120px] bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 resize-none"
-                  disabled={mode === 'review'}
+                  disabled={activeMode === 'review'}
                 />
                 <p className="text-xs text-slate-500">
-                  {mode === 'annotate'
+                  {activeMode === 'annotate'
                     ? 'Describe any uncertainties or special considerations'
                     : 'Read-only: Notes from the annotator'
                   }
@@ -896,46 +1004,126 @@ export function Workspace({
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-slate-400">Task ID</span>
-                    <span className="text-white font-mono">{activeTaskId}</span>
+                    <span className="text-white font-mono">{activeTaskId?.slice(0, 8)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Type</span>
-                    <span className="text-white">Bounding Box</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Dataset</span>
-                    <span className="text-white">Medical - Chest</span>
+                    <span className="text-slate-400">Project</span>
+                    <span className="text-white truncate max-w-[150px]">{assignment?.task?.project?.name}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-400">Status</span>
                     <Badge className={
-                      taskStatus === 'approved' ? 'bg-green-600' :
-                        taskStatus === 'rejected' ? 'bg-red-600' :
-                          taskStatus === 'submitted' ? 'bg-blue-600' :
+                      effectiveTaskStatus === 'approved' ? 'bg-green-600' :
+                        effectiveTaskStatus === 'rejected' ? 'bg-red-600' :
+                          effectiveTaskStatus === 'submitted' ? 'bg-blue-600' :
                             'bg-gray-600'
                     }>
-                      {taskStatus?.toUpperCase()}
+                      {effectiveTaskStatus?.toUpperCase()}
                     </Badge>
                   </div>
                 </div>
               </Card>
 
-              <Card className="p-4 bg-slate-900 border-slate-700">
-                <h4 className="text-sm font-semibold text-slate-300 mb-3">Available Labels</h4>
-                <div className="flex flex-wrap gap-2">
-                  {availableLabels.map((label, index) => (
-                    <Badge key={label} className={labelColors[label].bg}>
-                      <kbd className="mr-1.5 px-1 py-0.5 bg-white/20 rounded text-xs">{index + 1}</kbd>
-                      {label}
-                    </Badge>
-                  ))}
-                </div>
-              </Card>
+              {assignment?.task?.project?.projectLabels && (
+                <Card className="p-4 bg-slate-900 border-slate-700">
+                  <h4 className="text-sm font-semibold text-slate-300 mb-3">Available Labels</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {assignment.task.project.projectLabels.map((pl: any, index: number) => (
+                      <Badge 
+                        key={pl.label.id} 
+                        style={{ backgroundColor: `${pl.label.color}20`, borderColor: pl.label.color, color: pl.label.color }}
+                        variant="outline"
+                      >
+                        <kbd className="mr-1.5 px-1 py-0.5 bg-white/10 rounded text-xs">{index + 1}</kbd>
+                        {pl.label.name}
+                      </Badge>
+                    ))}
+                  </div>
+                </Card>
+              )}
             </TabsContent>
           </Tabs>
         </motion.div>
       </div>
     </motion.div>
+    
+    <Dialog open={showReviewModal} onOpenChange={setShowReviewModal}>
+      <DialogContent className="sm:max-w-md bg-slate-900 border-slate-700 text-white shadow-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+            {reviewType === 'approve' ? (
+              <ThumbsUp className="w-6 h-6 text-green-500" />
+            ) : (
+              <ThumbsDown className="w-6 h-6 text-red-500" />
+            )}
+            {reviewType === 'approve' ? 'Approve Task' : 'Reject Task'}
+          </DialogTitle>
+          <DialogDescription className="text-slate-400">
+            {reviewType === 'approve' 
+              ? "Rate the quality and provide feedback to the annotator." 
+              : "Explain why this work was rejected and adjust the score."}
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="space-y-8 py-6">
+          <div className="space-y-4">
+            <div className="flex justify-between items-end">
+              <Label className="text-sm font-semibold text-slate-300">Work Quality Score</Label>
+              <div className="text-2xl font-black text-blue-400 font-mono">{reviewScore}%</div>
+            </div>
+            <Slider
+              value={[reviewScore]}
+              max={100}
+              step={1}
+              onValueChange={(val) => setReviewScore(val[0])}
+              className="py-4 cursor-pointer"
+            />
+            <div className="flex justify-between text-[10px] text-slate-500 font-bold tracking-widest uppercase">
+              <span>Poor</span>
+              <span>Fair</span>
+              <span>Excellent</span>
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold text-slate-300">
+              {reviewType === 'approve' ? 'Review Comments (Optional)' : 'Rejection Reason (Required)'}
+            </Label>
+            <Textarea
+              value={annotatorNote}
+              onChange={(e) => setAnnotatorNote(e.target.value)}
+              placeholder={reviewType === 'approve' ? "Add a note of appreciation or guidance..." : "Explain exactly what needs improvement..."}
+              className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 min-h-[100px] focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+        </div>
+        
+        <DialogFooter className="gap-3 sm:gap-0">
+          <Button
+            variant="ghost"
+            onClick={() => setShowReviewModal(false)}
+            className="text-slate-400 hover:text-white hover:bg-slate-800"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={submitReview}
+            disabled={reviewLoading || (reviewType === 'reject' && !annotatorNote.trim())}
+            className={cn(
+              "min-w-[120px] font-bold shadow-lg shadow-black/20",
+              reviewType === 'approve' ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"
+            )}
+          >
+            {reviewLoading ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              reviewType === 'approve' ? 'Finalize Approval' : 'Submit Rejection'
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 
