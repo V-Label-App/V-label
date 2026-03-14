@@ -9,7 +9,7 @@ const router = Router();
 router.use(authMiddleware);
 
 // Reviewer routes (only accessible by REVIEWER role)
-router.use(requireRole(['REVIEWER']));
+router.use(requireRole(['REVIEWER','MANAGER']));
 
 router.get('/projects', ReviewerController.getMyProjects);
 router.get('/queue', ReviewerController.getReviewQueue);
