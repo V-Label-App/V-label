@@ -6,6 +6,7 @@ import {
   Folder,
   Image as ImageIcon,
   Upload,
+  Download,
 } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import {
@@ -29,6 +30,7 @@ import { projectApi } from "../../../services/project.api";
 import { DatasetCreateDialog } from "./DatasetCreateDialog";
 import { UploadImageDialog } from "./UploadImageDialog";
 import { ProjectGalleryDialog } from "./ProjectGalleryDialog";
+import { ImportDatasetDialog } from "./ImportDatasetDialog";
 import { format } from "date-fns";
 
 interface DatasetListProps {
@@ -44,6 +46,7 @@ export function DatasetList({ projectId }: DatasetListProps) {
   const [selectedDatasetIdForUpload, setSelectedDatasetIdForUpload] = useState<
     string | undefined
   >(undefined);
+  const [isImportOpen, setIsImportOpen] = useState(false);
 
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [selectedDatasetIdForGallery, setSelectedDatasetIdForGallery] =
@@ -128,6 +131,10 @@ export function DatasetList({ projectId }: DatasetListProps) {
           >
             <ImageIcon className="w-4 h-4 mr-2" />
             View Gallery
+          </Button>
+          <Button variant="outline" onClick={() => setIsImportOpen(true)}>
+            <Download className="w-4 h-4 mr-2" />
+            Import Dataset
           </Button>
           <Button variant="outline" onClick={() => handleUploadClick()}>
             <Upload className="w-4 h-4 mr-2" />
@@ -280,6 +287,13 @@ export function DatasetList({ projectId }: DatasetListProps) {
         initialDatasetId={selectedDatasetIdForGallery}
         open={isGalleryOpen}
         onOpenChange={setIsGalleryOpen}
+      />
+
+      <ImportDatasetDialog
+        projectId={projectId}
+        open={isImportOpen}
+        onOpenChange={setIsImportOpen}
+        onSuccess={loadDatasets}
       />
     </div>
   );
