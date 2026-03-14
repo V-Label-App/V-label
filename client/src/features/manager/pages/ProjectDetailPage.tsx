@@ -127,12 +127,19 @@ import { useDebounce } from "../../../hooks/useDebounce";
 import { calculateLevelLinear } from "../../../utils/levelUtils";
 
 export const getLatestAnnotatorAssignment = (task: any) => {
-  if (!task || !task.assignments || !Array.isArray(task.assignments)) return undefined;
-  const annotatorAssignments = task.assignments.filter((a: any) => a.annotatorId);
+  if (!task || !task.assignments || !Array.isArray(task.assignments))
+    return undefined;
+  const annotatorAssignments = task.assignments.filter(
+    (a: any) => a.annotatorId,
+  );
   if (annotatorAssignments.length === 0) return undefined;
   return [...annotatorAssignments].sort((a, b) => {
-    const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : new Date(a.createdAt).getTime();
-    const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : new Date(b.createdAt).getTime();
+    const dateA = a.updatedAt
+      ? new Date(a.updatedAt).getTime()
+      : new Date(a.createdAt).getTime();
+    const dateB = b.updatedAt
+      ? new Date(b.updatedAt).getTime()
+      : new Date(b.createdAt).getTime();
     return dateB - dateA;
   })[0];
 };
@@ -209,8 +216,6 @@ export function ProjectDetailPage() {
   const [memberRoleFilter, setMemberRoleFilter] = useState<string>("all");
   const [isSearchingMembers, setIsSearchingMembers] = useState(false);
   const [isAddingMembers, setIsAddingMembers] = useState(false);
-
-
 
   const handleSearchUsers = async (query: string) => {
     if (!project) return;
@@ -1242,7 +1247,6 @@ export function ProjectDetailPage() {
     }
   };
 
-
   const handleSelectTask = (taskId: string, checked: boolean) => {
     if (checked) {
       setSelectedTasks((prev) => [...prev, taskId]);
@@ -1959,15 +1963,17 @@ export function ProjectDetailPage() {
                                                         .toLowerCase()
                                                         .replace("_", " ")}
                                                     </Badge>
-                                                    {taskAssignment && taskAssignment.rejectionCount >= 3 && (
-                                                      <Badge
-                                                        variant="destructive"
-                                                        className="animate-pulse bg-red-600 hover:bg-red-700 flex items-center gap-1 text-[10px] py-0 px-2 h-5"
-                                                      >
-                                                        <AlertTriangle className="h-3 w-3" />
-                                                        Needs Reassign
-                                                      </Badge>
-                                                    )}
+                                                    {taskAssignment &&
+                                                      taskAssignment.rejectionCount >=
+                                                        3 && (
+                                                        <Badge
+                                                          variant="destructive"
+                                                          className="animate-pulse bg-red-600 hover:bg-red-700 flex items-center gap-1 text-[10px] py-0 px-2 h-5"
+                                                        >
+                                                          <AlertTriangle className="h-3 w-3" />
+                                                          Needs Reassign
+                                                        </Badge>
+                                                      )}
                                                     {taskAssignment?.deadline && (
                                                       <div className="flex items-center gap-1 text-xs text-muted-foreground">
                                                         <Clock className="h-3 w-3" />
@@ -2347,13 +2353,23 @@ export function ProjectDetailPage() {
                                             ) : (
                                               <ChevronRight className="h-5 w-5 text-gray-700 flex-shrink-0" />
                                             )}
-                                            <div className="h-10 w-10 rounded-full bg-purple-500 flex items-center justify-center ring-2 ring-white shadow-sm">
-                                              <span className="text-sm font-semibold text-white">
+                                            <Avatar className="h-10 w-10 ring-2 ring-white shadow-sm">
+                                              <AvatarImage
+                                                src={
+                                                  assignee?.avatarUrl ||
+                                                  undefined
+                                                }
+                                                alt={
+                                                  assignee?.fullName || "User"
+                                                }
+                                                className="object-cover"
+                                              />
+                                              <AvatarFallback className="bg-purple-500 text-white text-sm font-semibold">
                                                 {assignee?.fullName
                                                   ?.charAt(0)
                                                   .toUpperCase() || "A"}
-                                              </span>
-                                            </div>
+                                              </AvatarFallback>
+                                            </Avatar>
                                             <div className="flex-1">
                                               <div className="font-medium text-gray-900">
                                                 {assigneeId === "unassigned"
@@ -2907,7 +2923,13 @@ export function ProjectDetailPage() {
                                                   className="gap-2"
                                                 >
                                                   <Users className="h-4 w-4" />
-                                                  Reassign {selectedUserCount} Task{selectedUserCount > 1 ? "s" : ""}
+                                                  Reassign {
+                                                    selectedUserCount
+                                                  }{" "}
+                                                  Task
+                                                  {selectedUserCount > 1
+                                                    ? "s"
+                                                    : ""}
                                                 </Button>
                                               ) : null;
                                             })()}
@@ -2921,7 +2943,8 @@ export function ProjectDetailPage() {
                                         userTasks,
                                         assigneeId,
                                       ).map((task: any) => {
-                                        const annotatorAssignment = getLatestAnnotatorAssignment(task);
+                                        const annotatorAssignment =
+                                          getLatestAnnotatorAssignment(task);
                                         return (
                                           <TableRow
                                             key={`rejected-task-${task.id}`}
@@ -2929,11 +2952,18 @@ export function ProjectDetailPage() {
                                           >
                                             <TableCell>
                                               <Checkbox
-                                                checked={selectedTasks.includes(task.id)}
+                                                checked={selectedTasks.includes(
+                                                  task.id,
+                                                )}
                                                 onCheckedChange={(checked) =>
-                                                  handleSelectTask(task.id, !!checked)
+                                                  handleSelectTask(
+                                                    task.id,
+                                                    !!checked,
+                                                  )
                                                 }
-                                                onClick={(e) => e.stopPropagation()}
+                                                onClick={(e) =>
+                                                  e.stopPropagation()
+                                                }
                                               />
                                             </TableCell>
                                             <TableCell>
@@ -2941,13 +2971,19 @@ export function ProjectDetailPage() {
                                                 <div className="w-12 h-12 rounded overflow-hidden bg-gray-100 border flex-shrink-0">
                                                   <img
                                                     src={task.image?.storageUrl}
-                                                    alt={task.image?.originalFilename || "Task"}
+                                                    alt={
+                                                      task.image
+                                                        ?.originalFilename ||
+                                                      "Task"
+                                                    }
                                                     className="w-full h-full object-cover"
                                                   />
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                   <div className="font-medium text-sm truncate">
-                                                    {task.image?.originalFilename || "Untitled"}
+                                                    {task.image
+                                                      ?.originalFilename ||
+                                                      "Untitled"}
                                                   </div>
                                                   <div className="text-xs text-gray-500">
                                                     ID: {task.id.slice(0, 8)}...
@@ -2956,15 +2992,17 @@ export function ProjectDetailPage() {
                                                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
                                                       Rejected
                                                     </span>
-                                                    {annotatorAssignment && annotatorAssignment.rejectionCount >= 3 && (
-                                                      <Badge
-                                                        variant="destructive"
-                                                        className="animate-pulse bg-red-600 hover:bg-red-700 flex items-center gap-1 text-[10px] py-0 px-2 h-5 border-none"
-                                                      >
-                                                        <AlertTriangle className="h-3 w-3" />
-                                                        Needs Reassign
-                                                      </Badge>
-                                                    )}
+                                                    {annotatorAssignment &&
+                                                      annotatorAssignment.rejectionCount >=
+                                                        3 && (
+                                                        <Badge
+                                                          variant="destructive"
+                                                          className="animate-pulse bg-red-600 hover:bg-red-700 flex items-center gap-1 text-[10px] py-0 px-2 h-5 border-none"
+                                                        >
+                                                          <AlertTriangle className="h-3 w-3" />
+                                                          Needs Reassign
+                                                        </Badge>
+                                                      )}
                                                   </div>
                                                 </div>
                                               </div>
@@ -2975,7 +3013,11 @@ export function ProjectDetailPage() {
                                                 size="sm"
                                                 onClick={() => {
                                                   setTaskToAssign(task);
-                                                  setSelectedAnnotatorId(assigneeId !== "unassigned" ? assigneeId : "");
+                                                  setSelectedAnnotatorId(
+                                                    assigneeId !== "unassigned"
+                                                      ? assigneeId
+                                                      : "",
+                                                  );
                                                   setIsAssignDialogOpen(true);
                                                 }}
                                               >
@@ -4241,14 +4283,22 @@ export function ProjectDetailPage() {
                               <div className="flex-1 overflow-hidden">
                                 <div className="flex items-center gap-2">
                                   <p className="text-sm font-medium truncate">
-                                    {user.fullName || 'Unknown User'}
+                                    {user.fullName || "Unknown User"}
                                   </p>
                                   {user.role === "ANNOTATOR" && (
                                     <div className="flex items-center gap-1.5 px-1.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded text-[10px] font-bold">
                                       <Sparkles className="w-3 h-3" />
-                                      <span>{user.reputationScore || 0} pts</span>
+                                      <span>
+                                        {user.reputationScore || 0} pts
+                                      </span>
                                       <span className="text-amber-400">|</span>
-                                      <span>Lv.{calculateLevelLinear(user.reputationScore || 0, 10)}</span>
+                                      <span>
+                                        Lv.
+                                        {calculateLevelLinear(
+                                          user.reputationScore || 0,
+                                          10,
+                                        )}
+                                      </span>
                                     </div>
                                   )}
                                 </div>
@@ -4457,12 +4507,19 @@ export function ProjectDetailPage() {
                       .filter((a: any) => a.projectRole === "ANNOTATOR")
                       .map((annotator: any) => {
                         const taskCount = workloadMap[annotator.userId] || 0;
-                        
+
                         // NEW: Disable logic for reassignment after 3+ rejections
-                        const currentAssignment = taskToAssign?.assignments?.find((a: any) => a.annotatorId);
-                        const isPreviousAnnotator = currentAssignment && annotator.userId === currentAssignment.annotatorId;
-                        const reachRejectionLimit = (currentAssignment?.rejectionCount || 0) >= 3;
-                        const isDisabled = isPreviousAnnotator && reachRejectionLimit;
+                        const currentAssignment =
+                          taskToAssign?.assignments?.find(
+                            (a: any) => a.annotatorId,
+                          );
+                        const isPreviousAnnotator =
+                          currentAssignment &&
+                          annotator.userId === currentAssignment.annotatorId;
+                        const reachRejectionLimit =
+                          (currentAssignment?.rejectionCount || 0) >= 3;
+                        const isDisabled =
+                          isPreviousAnnotator && reachRejectionLimit;
 
                         return (
                           <SelectItem
@@ -4471,7 +4528,13 @@ export function ProjectDetailPage() {
                             disabled={isDisabled}
                           >
                             <div className="flex items-center justify-between w-full">
-                              <span className={isDisabled ? "text-muted-foreground line-through" : ""}>
+                              <span
+                                className={
+                                  isDisabled
+                                    ? "text-muted-foreground line-through"
+                                    : ""
+                                }
+                              >
                                 {annotator.user?.fullName ||
                                   annotator.user?.email}
                                 {isDisabled && " (Max rejections reached)"}
@@ -4540,7 +4603,7 @@ export function ProjectDetailPage() {
                   if (!isReassignment) {
                     // NEW: Show warning if task already has 3+ rejections but not reassigned yet
                     if ((currentAssignment?.rejectionCount || 0) >= 3) {
-                       return (
+                      return (
                         <div className="space-y-2 p-4 bg-red-50 border border-red-200 rounded-lg animate-pulse">
                           <div className="flex items-center gap-2 text-red-900">
                             <AlertTriangle className="h-5 w-5" />
@@ -4549,9 +4612,11 @@ export function ProjectDetailPage() {
                             </Label>
                           </div>
                           <p className="text-xs text-red-700">
-                            This task has been rejected {(currentAssignment?.rejectionCount || 3)} times.
-                            Leader rules: You <b>MUST</b> assign this to a different annotator to ensure quality.
-                            The previous annotator has been disabled in the list below.
+                            This task has been rejected{" "}
+                            {currentAssignment?.rejectionCount || 3} times.
+                            Leader rules: You <b>MUST</b> assign this to a
+                            different annotator to ensure quality. The previous
+                            annotator has been disabled in the list below.
                           </p>
                         </div>
                       );
@@ -5077,7 +5142,8 @@ export function ProjectDetailPage() {
                   userTaskIds.includes(id),
                 );
                 const firstTask = groupedTasks[bulkUnassignUserId][0];
-                const annotatorAssignment = getLatestAnnotatorAssignment(firstTask);
+                const annotatorAssignment =
+                  getLatestAnnotatorAssignment(firstTask);
                 const assignee = annotatorAssignment?.annotator;
 
                 return (
@@ -5167,7 +5233,8 @@ export function ProjectDetailPage() {
                 <div className="p-4 bg-gray-50 rounded-lg">
                   {(() => {
                     const firstTask = groupedTasks[bulkDeadlineUserId][0];
-                    const annotatorAssignment = getLatestAnnotatorAssignment(firstTask);
+                    const annotatorAssignment =
+                      getLatestAnnotatorAssignment(firstTask);
                     const assignee = annotatorAssignment?.annotator;
                     const taskCount = groupedTasks[bulkDeadlineUserId].length;
 
@@ -5333,7 +5400,6 @@ export function ProjectDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      </div>
+    </div>
   );
 }
