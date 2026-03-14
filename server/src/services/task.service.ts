@@ -523,7 +523,8 @@ export class TaskService {
         projectId: string,
         role: 'ANNOTATOR' | 'REVIEWER',
         excludeUserId?: string, // For conflict of interest (reviewer != annotator)
-        skipActivity?: boolean // Skip logging activity (for batch operations)
+        skipActivity?: boolean, // Skip logging activity (for batch operations)
+        forceReassign?: boolean // Bypass isAutoAssignEnabled gate (used when reassigning after max rejections)
     ): Promise<boolean> {
         try {
             // Get project assignment rules
@@ -539,8 +540,10 @@ export class TaskService {
 
             const rules = project.assignmentRule;
 
-            // Check if auto-assignment is enabled
-            if (role === 'ANNOTATOR' && !rules.isAutoAssignEnabled) {
+            // Check if auto-assignment is enabled.
+            // forceReassign bypasses this gate when called after max rejections threshold
+            // is exceeded (rejection-based reassign is independent of the initial auto-assign setting).
+            if (role === 'ANNOTATOR' && !rules.isAutoAssignEnabled && !forceReassign) {
                 logger.info('TASK_SERVICE', 'Auto-assignment disabled for annotators', { projectId });
                 return false;
             }
@@ -662,8 +665,16 @@ appEvents.on('TASK_SUBMITTED_AUTO_REVIEWER', async ({ taskId, projectId, annotat
 
 appEvents.on('TASK_SKIPPED_REASSIGN', async ({ taskId, projectId, excludeUserId }) => {
     try {
-        await TaskService.autoAssignTask(taskId, projectId, 'ANNOTATOR', excludeUserId);
-        logger.info('TASK_SERVICE', 'Handled auto-reassign event via skip', { taskId, projectId, excludeUserId });
+        // forceReassign=true bypasses isAutoAssignEnabled so projects using manual assignment
+        // still get automatic reassignment when the max-rejection threshold is exceeded.
+        const assigned = await TaskService.autoAssignTask(
+            taskId, projectId, 'ANNOTATOR', excludeUserId, false, true
+        );
+        if (assigned) {
+            logger.info('TASK_SERVICE', 'Handled auto-reassign after max rejections', { taskId, projectId, excludeUserId });
+        } else {
+            logger.warn('TASK_SERVICE', 'Auto-reassign after max rejections failed: no eligible annotator found', { taskId, projectId, excludeUserId });
+        }
     } catch (error) {
         logger.error('TASK_SERVICE', 'Failed to handle auto-reassign event', { error, taskId, projectId });
     }
