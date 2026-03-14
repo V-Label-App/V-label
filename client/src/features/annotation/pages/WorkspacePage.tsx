@@ -1,6 +1,9 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
+import { aiApi } from "../../../services/ai.api";
+import { Sparkles } from "lucide-react";
+import type { Annotation } from "../stores";
 import { WorkspaceHeader } from "../components/workspace/WorkspaceHeader";
 import { WorkspaceToolbar } from "../components/workspace/WorkspaceToolbar";
 import { WorkspaceCanvas } from "../components/canvas/WorkspaceCanvas";
@@ -68,6 +71,7 @@ export function WorkspacePage({
     setAnnotations,
     annotations,
     annotatorNote,
+    addAnnotation,
     setAnnotatorNote,
     setReviewComment,
   } = useAnnotationStore();
@@ -77,6 +81,7 @@ export function WorkspacePage({
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [reviewType, setReviewType] = useState<"approve" | "reject">("approve");
   const [isReviewLoading, setIsReviewLoading] = useState(false);
+  const [isAiLoading, setIsAiLoading] = useState(false);
 
   // Ref to prevent navigation loop
   const isUpdatingFromURL = useRef(false);
@@ -295,6 +300,71 @@ export function WorkspacePage({
     }
   };
 
+  const handleAiSuggest = useCallback(async () => {
+    if (!currentImage || !taskData || isAiLoading) return;
+    setIsAiLoading(true);
+    try {
+      // Get actual image dimensions from browser
+      const actualDims = await new Promise<{ width: number; height: number }>(
+        (resolve) => {
+          const img = new window.Image();
+          img.crossOrigin = "Anonymous";
+          img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+          img.onerror = () => resolve({ width: currentImage.width ?? 1000, height: currentImage.height ?? 1000 });
+          img.src = currentImage.url ?? "";
+        }
+      );
+
+      const imageUrl = currentImage.url ?? "";
+      const { suggestions } = await aiApi.suggestAnnotations(
+        imageUrl,
+        taskData.labels,
+        actualDims.width,
+        actualDims.height
+      );
+
+      if (suggestions.length === 0) {
+        toast.info("No matching objects detected.", {
+          description: "Try a different image or review the project labels.",
+          duration: 4000,
+        });
+        return;
+      }
+
+      // Remove previous AI-generated annotations before adding new ones
+      const currentAnnotations = useAnnotationStore.getState().annotations;
+      const manualAnnotations = currentAnnotations.filter((a) => !a.aiSuggested);
+      setAnnotations(manualAnnotations);
+
+      toast.success(`AI detected ${suggestions.length} object${suggestions.length > 1 ? "s" : ""}.`, {
+        description: "Review and adjust the regions if needed.",
+        duration: 3000,
+      });
+
+      suggestions.forEach((s) => {
+        const ann: Annotation = {
+          id: crypto.randomUUID(),
+          label: s.label,
+          type: "rectangle",
+          x: s.x,
+          y: s.y,
+          width: s.width,
+          height: s.height,
+          visible: true,
+          createdAt: new Date(),
+          aiSuggested: true,
+          confidence: s.confidence,
+          opacity: 0.7,
+        };
+        addAnnotation(ann);
+      });
+    } catch {
+      toast.error("AI suggestion failed. Please try again.");
+    } finally {
+      setIsAiLoading(false);
+    }
+  }, [currentImage, taskData, isAiLoading, addAnnotation, setAnnotations]);
+
   const handleClose = () => {
     navigate(-1);
   };
@@ -361,7 +431,12 @@ export function WorkspacePage({
       {/* Main Content */}
       <div className="flex flex-1 overflow-hidden">
         {/* Toolbar */}
-        <WorkspaceToolbar isReadOnly={isReadOnly} />
+        <WorkspaceToolbar
+          isReadOnly={isReadOnly}
+          enableAiAssistance={taskData?.enableAiAssistance}
+          onAiSuggest={handleAiSuggest}
+          isAiLoading={isAiLoading}
+        />
 
         {/* Canvas */}
         <div className="flex-1 relative">
@@ -369,6 +444,22 @@ export function WorkspacePage({
             imageUrl={currentImage.url || ""}
             isReadOnly={isReadOnly}
           />
+
+          {/* AI Loading Overlay */}
+          {isAiLoading && (
+            <div className="absolute inset-0 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center z-50">
+              <div className="bg-slate-800 border border-slate-600 rounded-xl px-6 py-5 w-72 shadow-2xl">
+                <div className="flex items-center gap-3 mb-3">
+                  <Sparkles className="w-4 h-4 text-purple-400 shrink-0" />
+                  <p className="text-white font-medium text-sm">AI Analyzing Image</p>
+                </div>
+                <div className="w-full h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                  <div className="h-full w-2/5 bg-gradient-to-r from-purple-500 to-blue-400 rounded-full animate-progress" />
+                </div>
+                <p className="text-slate-400 text-xs mt-2">Detecting objects and generating annotations...</p>
+              </div>
+            </div>
+          )}
 
           {/* Image Navigator */}
           <ImageNavigator />

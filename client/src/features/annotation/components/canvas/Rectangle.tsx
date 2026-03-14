@@ -124,6 +124,28 @@ export function Rectangle({
         cornerRadius={4}
       />
 
+      {/* AI Confidence Badge */}
+      {annotation.aiSuggested && annotation.confidence !== undefined && (
+        <Text
+          x={annotation.x + annotation.width - 44}
+          y={annotation.y - 25}
+          text={`AI ${Math.round(annotation.confidence * 100)}%`}
+          fontSize={11}
+          fontFamily="Inter, sans-serif"
+          fill="white"
+          padding={4}
+          align="center"
+          backgroundColor={
+            annotation.confidence >= 0.8
+              ? "#16a34a"
+              : annotation.confidence >= 0.6
+                ? "#d97706"
+                : "#dc2626"
+          }
+          cornerRadius={4}
+        />
+      )}
+
       {/* Transformer (Resize/Rotate handles) */}
       {isSelected && !isReadOnly && (
         <Transformer
