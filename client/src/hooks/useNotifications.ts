@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { socketService } from '../services/socket.service';
 import { notificationApi } from '../services/notification.api';
 import type { Notification } from '../services/notification.api';
@@ -19,6 +20,7 @@ interface SystemEvent {
 }
 
 export function useNotifications() {
+  const { refreshUserProfile } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -104,6 +106,12 @@ export function useNotifications() {
         console.log("[Notifications] New notification received:", notification);
         setNotifications((prev) => [notification, ...prev]);
         setUnreadCount((prev) => prev + 1);
+
+        // Auto-refresh profile if notification is related to task approval/rejection
+        if (notification.type === 'TASK_APPROVED' || notification.type === 'TASK_REJECTED') {
+          console.log("[Notifications] Task review event, refreshing user profile...");
+          refreshUserProfile();
+        }
       };
 
       const handleSystemEvent = (event: SystemEvent) => {
@@ -280,5 +288,25 @@ export function useNotifications() {
     }
   };
 
-  return { notifications, unreadCount, markAsRead };
+  const markAllAsRead = async () => {
+    try {
+      const unreadNotifications = notifications.filter((n) => !n.isRead);
+      if (unreadNotifications.length === 0) return;
+
+      // Mark all as read locally first for instant UI response
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      setUnreadCount(0);
+
+      // Call API for each notification (FE-only approach)
+      await Promise.all(
+        unreadNotifications.map((n) => notificationApi.markAsRead(n.id)),
+      );
+    } catch (error) {
+      console.error("[Notifications] Failed to mark all as read:", error);
+      // Optional: reload from DB if it fails to sync
+      loadNotificationsFromDB();
+    }
+  };
+
+  return { notifications, unreadCount, markAsRead, markAllAsRead };
 }

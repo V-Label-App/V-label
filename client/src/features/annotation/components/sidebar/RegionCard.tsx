@@ -115,6 +115,24 @@ export function RegionCard({ annotation, index, isReadOnly = false }: RegionCard
                 )}
             </div>
 
+            {/* AI Confidence Badge */}
+            {annotation.aiSuggested && annotation.confidence !== undefined && (
+                <div className="mt-2">
+                    <span
+                        className={cn(
+                            "inline-flex items-center gap-1 text-xs font-medium px-1.5 py-0.5 rounded",
+                            annotation.confidence >= 0.8
+                                ? "bg-green-900/50 text-green-400 border border-green-700"
+                                : annotation.confidence >= 0.6
+                                    ? "bg-yellow-900/50 text-yellow-400 border border-yellow-700"
+                                    : "bg-red-900/50 text-red-400 border border-red-700"
+                        )}
+                    >
+                        ✦ AI {Math.round(annotation.confidence * 100)}% confidence
+                    </span>
+                </div>
+            )}
+
             {/* Coordinates */}
             <div className="mt-2 text-xs text-slate-500 font-mono">
                 {Math.round(annotation.x)}, {Math.round(annotation.y)} • {Math.round(annotation.width)}×{Math.round(annotation.height)}

@@ -431,7 +431,7 @@ Example: [{"label":"cat","box_2d":[120,180,450,520],"confidence":0.91}]`;
 
         const model = this.genAI.getGenerativeModel({
             model: 'gemini-2.5-flash',
-            generationConfig: { thinkingConfig: { thinkingBudget: 8000 } } as any,
+            generationConfig: { thinkingConfig: { thinkingBudget: 5000 } } as any,
         });
         const result = await model.generateContent([
             prompt,

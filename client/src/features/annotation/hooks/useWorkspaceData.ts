@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import type { TaskAssignmentListItem } from "../../../services/annotator.api";
 import { annotatorApi } from "../../../services/annotator.api";
+import { reviewerApi } from "../../../services/reviewer.api";
+import { projectApi } from "../../../services/project.api";
 import { useImageStore } from "../stores";
 import type { Annotation } from "../stores";
 import { toast } from "sonner";
@@ -26,11 +28,18 @@ export interface WorkspaceTaskData {
   }>;
   annotatorNote?: string;
   reviewComment?: string;
-  reviewScore?: number;
+  annotator?: {
+    id: string;
+    fullName: string;
+    email: string;
+    avatarUrl?: string;
+    reputationScore?: number;
+  };
   projectName: string;
   actualTimeSeconds?: number;
   enableAiAssistance: boolean;
   updatedAt: string;
+  deadline?: string;
 }
 
 export interface UseWorkspaceDataReturn {
@@ -50,15 +59,21 @@ export interface UseWorkspaceDataReturn {
   ) => Promise<void>;
   skipTask: (reason?: string, timeSeconds?: number) => Promise<void>;
   resumeTask: () => Promise<void>;
+  approveTask: (note?: string) => Promise<void>;
+  rejectTask: (reason: string) => Promise<void>;
 }
 
 /**
  * Custom hook to manage workspace task data and API interactions
  * @param assignmentId - The task assignment ID
+ * @param isManagerReview - If true, uses manager API endpoint
+ * @param mode - 'annotate' or 'review' mode
  * @returns Task data and methods to interact with the API
  */
 export const useWorkspaceData = (
   assignmentId: string,
+  isManagerReview = false,
+  mode: "annotate" | "review" = "annotate",
 ): UseWorkspaceDataReturn => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
@@ -97,15 +112,16 @@ export const useWorkspaceData = (
           width: image.width,
           height: image.height,
         },
-        annotations: assignment.annotations || [],
+        annotations: (assignment.annotations as Annotation[]) || [],
         labels,
         annotatorNote: assignment.annotatorNote,
         reviewComment: assignment.reviewComment,
-        reviewScore: assignment.reviewScore,
+        annotator: assignment.annotator,
         projectName: assignment.task.project.name,
         actualTimeSeconds: assignment.actualTimeSeconds,
         enableAiAssistance: assignment.task.project.enableAiAssistance ?? false,
         updatedAt: assignment.updatedAt,
+        deadline: assignment.deadline ? String(assignment.deadline) : undefined,
       };
     },
     [],
@@ -119,7 +135,18 @@ export const useWorkspaceData = (
       setLoading(true);
       setError(null);
 
-      const assignment = await annotatorApi.getTaskAssignment(assignmentId);
+      let assignment;
+      if (mode === "review") {
+        // Reviewer mode: use reviewer API
+        assignment = await reviewerApi.getAssignmentDetail(assignmentId);
+      } else if (isManagerReview) {
+        // Manager review mode
+        assignment = await projectApi.getTaskAssignmentForReview(assignmentId);
+      } else {
+        // Annotator mode
+        assignment = await annotatorApi.getTaskAssignment(assignmentId);
+      }
+
       const transformedData = transformTaskData(assignment);
 
       setTaskData(transformedData);
@@ -132,7 +159,7 @@ export const useWorkspaceData = (
     } finally {
       setLoading(false);
     }
-  }, [assignmentId, transformTaskData]);
+  }, [assignmentId, isManagerReview, mode, transformTaskData]);
 
   /**
    * Auto-save draft annotations
@@ -140,11 +167,19 @@ export const useWorkspaceData = (
   const saveDraft = useCallback(
     async (annotations: Annotation[], note?: string, timeSeconds?: number) => {
       try {
-        await annotatorApi.saveDraft(assignmentId, {
+        const updatedAssignment = await annotatorApi.saveDraft(assignmentId, {
           annotations,
           annotatorNote: note,
           actualTimeSeconds: timeSeconds,
         });
+
+        // Update local task data if the status or annotations changed on the server
+        if (updatedAssignment) {
+          const transformed = transformTaskData(updatedAssignment);
+          setTaskData(transformed);
+          // Also sync with the image store to keep the navigator updated
+          updateImageStatus(assignmentId, transformed.status.toLowerCase() as any);
+        }
       } catch (err: any) {
         console.error("Failed to save draft:", err);
         if (err.response) {
@@ -153,7 +188,7 @@ export const useWorkspaceData = (
         throw err;
       }
     },
-    [assignmentId],
+    [assignmentId, transformTaskData, updateImageStatus],
   );
 
   /**
@@ -237,6 +272,48 @@ export const useWorkspaceData = (
     }
   }, [assignmentId, loadData]);
 
+  /**
+   * Approve task (Reviewer only)
+   */
+  const approveTask = useCallback(
+    async (note?: string) => {
+      try {
+        await reviewerApi.approveTask(assignmentId, { 
+          reviewComment: note
+        });
+        toast.success("Task approved successfully");
+        updateImageStatus(assignmentId, "approved");
+        setTaskData((prev) => (prev ? { ...prev, status: "APPROVED" } : null));
+      } catch (err: any) {
+        console.error("Failed to approve task:", err);
+        toast.error(err.response?.data?.error || "Failed to approve task");
+        throw err;
+      }
+    },
+    [assignmentId, updateImageStatus],
+  );
+
+  /**
+   * Reject task (Reviewer only)
+   */
+  const rejectTask = useCallback(
+    async (reason: string) => {
+      try {
+        await reviewerApi.rejectTask(assignmentId, { 
+          reviewComment: reason
+        });
+        toast.success("Task rejected successfully");
+        updateImageStatus(assignmentId, "rejected");
+        setTaskData((prev) => (prev ? { ...prev, status: "REJECTED" } : null));
+      } catch (err: any) {
+        console.error("Failed to reject task:", err);
+        toast.error(err.response?.data?.error || "Failed to reject task");
+        throw err;
+      }
+    },
+    [assignmentId, updateImageStatus],
+  );
+
   // Load data on mount
   useEffect(() => {
     if (assignmentId) {
@@ -253,5 +330,7 @@ export const useWorkspaceData = (
     submitTask,
     skipTask,
     resumeTask,
+    approveTask,
+    rejectTask,
   };
 };

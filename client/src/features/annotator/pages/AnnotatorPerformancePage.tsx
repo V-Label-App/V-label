@@ -14,30 +14,26 @@ import {
   PieChart,
   Pie,
   Cell,
-  AreaChart,
-  Area,
 } from "recharts";
 import { performanceApi } from "../../../services/performance.api";
-import type { WeeklyActivity, TaskDistribution, TodayProgress } from "../../../services/performance.api";
+import type { WeeklyActivity, TaskDistribution } from "../../../services/performance.api";
 
 export function AnnotatorPerformancePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [weeklyActivity, setWeeklyActivity] = useState<WeeklyActivity[]>([]);
   const [taskDistribution, setTaskDistribution] = useState<TaskDistribution[]>([]);
-  const [todayProgress, setTodayProgress] = useState<TodayProgress[]>([]);
+
 
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const [weekly, distribution, today] = await Promise.all([
+        const [weekly, distribution] = await Promise.all([
           performanceApi.getWeeklyActivity(),
           performanceApi.getTaskDistribution(),
-          performanceApi.getTodayProgress(),
         ]);
         setWeeklyActivity(weekly);
         setTaskDistribution(distribution);
-        setTodayProgress(today);
       } catch (error) {
         console.error("Failed to fetch performance data:", error);
         toast.error("Failed to load performance data");
@@ -137,7 +133,11 @@ export function AnnotatorPerformancePage() {
               <BarChart data={weeklyActivity}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" />
-                <YAxis />
+                <YAxis
+                  allowDecimals={false}
+                  domain={[0, 'auto']}
+                  tickFormatter={(value) => String(Math.floor(value))}
+                />
                 <Tooltip />
                 <Legend />
                 <Bar dataKey="completed" fill="#10B981" name="Completed" />
@@ -152,15 +152,18 @@ export function AnnotatorPerformancePage() {
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
-                  data={taskDistribution as any}
+                  data={taskDistribution.filter((d) => d.value > 0) as any[]}
                   cx="50%"
                   cy="50%"
-                  labelLine={false}
+                  labelLine={true}
                   label={(entry: any) => {
                     const percent = entry.percent || 0;
+                    if (percent === 0) return null;
                     return `${entry.name}: ${(percent * 100).toFixed(0)}%`;
                   }}
+                  innerRadius={60}
                   outerRadius={80}
+                  paddingAngle={5}
                   fill="#8884d8"
                   dataKey="value"
                 >
@@ -171,29 +174,22 @@ export function AnnotatorPerformancePage() {
                 <Tooltip />
               </PieChart>
             </ResponsiveContainer>
+            
+            <div className="flex flex-wrap justify-center gap-6 mt-4">
+              {taskDistribution.map((item, index) => (
+                <div key={`legend-${index}`} className="flex items-center gap-2">
+                  <div 
+                    className="w-3 h-3 rounded-sm" 
+                    style={{ backgroundColor: item.color }}
+                  />
+                  <span className="text-sm font-medium text-gray-600">
+                    {item.name}
+                  </span>
+                </div>
+              ))}
+            </div>
           </Card>
         </div>
-
-        {/* Today's Progress Area Chart */}
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold mb-4">Today's Progress</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={todayProgress}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="time" />
-              <YAxis />
-              <Tooltip />
-              <Area
-                type="monotone"
-                dataKey="tasks"
-                stroke="#8B5CF6"
-                fill="#8B5CF6"
-                fillOpacity={0.3}
-                name="Tasks Completed"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </Card>
       </div>
     </div>
   );

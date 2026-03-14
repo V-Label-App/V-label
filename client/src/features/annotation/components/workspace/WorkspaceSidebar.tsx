@@ -74,9 +74,11 @@ export function WorkspaceSidebar({
 
         <TabsContent
           value="discussion"
-          className="flex-1 overflow-hidden m-0 p-4"
+          className="flex-1 overflow-hidden m-0 p-4 flex flex-col gap-3"
         >
-          <DiscussionPanel isReadOnly={isReadOnly} />
+          <div className="flex-1 overflow-y-auto min-h-0">
+            <DiscussionPanel isReadOnly={isReadOnly} />
+          </div>
         </TabsContent>
       </Tabs>
 

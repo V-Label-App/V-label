@@ -112,10 +112,21 @@ export function WorkspaceCanvas({
     (e: Konva.KonvaEventObject<WheelEvent>) => {
       e.evt.preventDefault();
       const direction = e.evt.deltaY > 0 ? -1 : 1;
-      const newZoom = Math.max(50, Math.min(500, zoom + direction * 10));
-      setZoom(newZoom);
+      const step = 10;
+      const oldZoom = zoom;
+      const newZoom = Math.max(50, Math.min(500, zoom + direction * step));
+
+      if (newZoom !== oldZoom) {
+        setZoom(newZoom);
+
+        // Keep centered: if we want to keep it centered on the stage center
+        const newScale = newZoom / 100;
+        const newX = (stageSize.width - imageSize.width * newScale) / 2;
+        const newY = (stageSize.height - imageSize.height * newScale) / 2;
+        setPan({ x: newX, y: newY });
+      }
     },
-    [zoom, setZoom],
+    [zoom, setZoom, setPan, stageSize, imageSize],
   );
 
   // Drag end: sync pan store with stage position (only when Stage itself is dragged)

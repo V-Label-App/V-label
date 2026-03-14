@@ -384,4 +384,59 @@ export const projectApi = {
     );
     return response.data;
   },
+
+  /**
+   * Get a single task assignment for review (manager/admin only, no ownership check)
+   */
+  getTaskAssignmentForReview: async (assignmentId: string) => {
+    const response = await apiClient.get(
+      `${BASE_URL}/assignments/${assignmentId}`,
+    );
+    return response.data;
+  },
+
+  /**
+   * Manually assign a reviewer to a SUBMITTED task
+   */
+  assignReviewer: async (
+    projectId: string,
+    taskId: string,
+    reviewerId: string,
+    deadline?: Date,
+    reason?: string,
+    force?: boolean,
+  ) => {
+    const response = await apiClient.post(
+      `${BASE_URL}/${projectId}/tasks/${taskId}/assign-reviewer`,
+      {
+        reviewerId,
+        ...(deadline && { deadline: deadline.toISOString() }),
+        ...(reason && { reason }),
+        ...(force !== undefined && { force }),
+      },
+    );
+    return response.data;
+  },
+
+  /**
+   * Bulk assign a reviewer to multiple SUBMITTED tasks
+   */
+  bulkAssignReviewer: async (
+    projectId: string,
+    taskIds: string[],
+    reviewerId: string,
+    deadline?: Date,
+    force?: boolean,
+  ) => {
+    const response = await apiClient.post(
+      `${BASE_URL}/${projectId}/tasks/bulk-assign-reviewer`,
+      {
+        taskIds,
+        reviewerId,
+        ...(deadline && { deadline: deadline.toISOString() }),
+        ...(force !== undefined && { force }),
+      },
+    );
+    return response.data;
+  },
 };

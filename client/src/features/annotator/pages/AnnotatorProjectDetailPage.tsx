@@ -36,6 +36,8 @@ import {
   AlertTriangle,
   Search,
   Eye,
+  Sparkles,
+  RotateCcw,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -180,11 +182,19 @@ export function AnnotatorProjectDetailPage() {
               </p>
             </div>
 
-            {project.category && (
-              <Badge className="bg-blue-50 text-blue-700 border-blue-200">
-                {project.category.name}
-              </Badge>
-            )}
+            <div className="flex items-center gap-2">
+              {project.enableAiAssistance && (
+                <Badge className="bg-purple-50 text-purple-700 border border-purple-200 flex items-center gap-1">
+                  <Sparkles className="w-3 h-3" />
+                  AI Assisted
+                </Badge>
+              )}
+              {project.category && (
+                <Badge className="bg-blue-50 text-blue-700 border-blue-200">
+                  {project.category.name}
+                </Badge>
+              )}
+            </div>
           </div>
 
           {/* Project Labels Section */}
@@ -396,14 +406,21 @@ export function AnnotatorProjectDetailPage() {
                   </TableHeader>
                   <TableBody>
                     {filteredTasks.map((task) => {
-                      const statusBadge = getStatusBadge(task.status);
+                      const isLocked =
+                        task.status === "REJECTED" &&
+                        (task.rejectionCount || 0) >= (task.maxRejections || 3);
+                      
+                      const statusBadge = isLocked 
+                        ? { className: "bg-orange-100 text-orange-700 border-orange-300", label: "Reassigning..." }
+                        : getStatusBadge(task.status);
+                      
                       return (
                         <TableRow
                           key={task.id}
-                          className="hover:bg-gray-50 cursor-pointer"
+                          className={`hover:bg-gray-50 cursor-pointer ${isLocked ? "bg-gray-50/50" : ""}`}
                         >
                           <TableCell>
-                            <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-purple-100 rounded-lg flex items-center justify-center overflow-hidden">
+                            <div className={`w-16 h-16 bg-gradient-to-br from-blue-100 to-purple-100 rounded-lg flex items-center justify-center overflow-hidden ${isLocked ? "grayscale opacity-50" : ""}`}>
                               {task.task.image ? (
                                 <img
                                   src={task.task.image.storageUrl}
@@ -417,7 +434,7 @@ export function AnnotatorProjectDetailPage() {
                           </TableCell>
                           <TableCell>
                             <div className="space-y-1">
-                              <div className="font-medium">
+                              <div className={`font-medium ${isLocked ? "text-gray-400" : ""}`}>
                                 {task.task.image?.originalFilename ||
                                   `Task ${task.id.slice(0, 8)}`}
                               </div>
@@ -426,9 +443,9 @@ export function AnnotatorProjectDetailPage() {
                               </div>
                               {task.status === "REJECTED" &&
                                 task.reviewComment && (
-                                  <div className="text-xs text-red-600 flex items-center gap-1">
+                                  <div className={`text-xs flex items-center gap-1 ${isLocked ? "text-gray-400" : "text-red-600"}`}>
                                     <AlertTriangle className="w-3 h-3" />
-                                    {task.reviewComment}
+                                    {isLocked ? "This task is being reassigned to another annotator." : task.reviewComment}
                                   </div>
                                 )}
                             </div>
@@ -443,11 +460,11 @@ export function AnnotatorProjectDetailPage() {
                           </TableCell>
                           <TableCell>
                             {task.deadline ? (
-                              <div className="text-sm">
+                              <div className={`text-sm ${isLocked ? "text-gray-400" : ""}`}>
                                 {format(
                                   new Date(task.deadline),
                                   "MMM dd, yyyy",
-                                )}
+                                ) || "—"}
                               </div>
                             ) : (
                               <span className="text-muted-foreground text-sm">
@@ -459,16 +476,24 @@ export function AnnotatorProjectDetailPage() {
                             <Button
                               size="sm"
                               variant={
-                                task.status === "REJECTED"
+                                isLocked 
+                                  ? "outline"
+                                  : task.status === "REJECTED"
                                   ? "destructive"
                                   : "default"
                               }
-                              onClick={() => navigate(`/workspace/${task.id}`)}
+                              disabled={isLocked}
+                              onClick={() => !isLocked && navigate(`/workspace/${task.id}`)}
                             >
-                              {task.status === "REJECTED" ? (
+                              {isLocked ? (
                                 <>
-                                  <AlertTriangle className="w-3 h-3 mr-1" />
-                                  Fix
+                                  <Clock className="w-3 h-3 mr-1" />
+                                  Locked
+                                </>
+                              ) : task.status === "REJECTED" ? (
+                                <>
+                                  <RotateCcw className="w-3 h-3 mr-1" />
+                                  Restart
                                 </>
                               ) : task.status === "SUBMITTED" ||
                                 task.status === "APPROVED" ? (

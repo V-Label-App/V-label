@@ -18,6 +18,8 @@ import { useState, useEffect } from "react"
 import { toast } from "sonner"
 import api from "../../../api/axiosClient"
 import { authApi, type PerformanceStats } from "../../../services/auth.api"
+import { calculateLevelLinear, calculateLevelProgress } from "../../../utils/levelUtils"
+import { Progress } from "../../../components/ui/progress"
 
 
 
@@ -335,18 +337,36 @@ export default function ProfilePage() {
                 <TabsContent value="overview" className="space-y-6">
                     {/* Role Specific Stats / Dashboard */}
                     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                        {/* Reputation Score for non-admin/manager roles */}
-                        {user.role !== 'ADMIN' && user.role !== 'MANAGER' && (
+                        {/* Reputation Score for annotators only */}
+                        {user.role === 'ANNOTATOR' && (
                             <Card>
                                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                     <CardTitle className="text-sm font-medium">Reputation Score</CardTitle>
                                     <Shield className="h-4 w-4 text-muted-foreground" />
                                 </CardHeader>
-                                <CardContent>
-                                    <div className="text-2xl font-bold">{(user as any).reputationScore ?? 0}</div>
-                                    <p className="text-xs text-muted-foreground">
-                                        Current reliability score
-                                    </p>
+                                <CardContent className="space-y-4">
+                                    <div className="flex items-end justify-between">
+                                        <div>
+                                            <div className="text-2xl font-bold">{(user as any).reputationScore ?? 0} <span className="text-sm font-normal text-muted-foreground">pts</span></div>
+                                            <p className="text-xs text-muted-foreground">
+                                                Current reliability score
+                                            </p>
+                                        </div>
+                                        <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200 hover:bg-yellow-100">
+                                            Lv.{calculateLevelLinear((user as any).reputationScore || 0, 10)}
+                                        </Badge>
+                                    </div>
+                                    
+                                    <div className="space-y-1.5">
+                                        <div className="flex justify-between text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                                            <span>Progress to Level {calculateLevelLinear((user as any).reputationScore || 0, 10) + 1}</span>
+                                            <span>{Math.round(calculateLevelProgress((user as any).reputationScore || 0, 10 / 2))} %</span>
+                                        </div>
+                                        <Progress value={calculateLevelProgress((user as any).reputationScore || 0, 10 / 2)} className="h-1.5" />
+                                        <p className="text-[10px] text-muted-foreground text-right">
+                                            {10 - ((user as any).reputationScore % 10)} pts to level up
+                                        </p>
+                                    </div>
                                 </CardContent>
                             </Card>
                         )}

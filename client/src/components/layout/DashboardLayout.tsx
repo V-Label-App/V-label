@@ -31,7 +31,7 @@ export default function DashboardLayout() {
   return (
     <SidebarProvider>
       <AppSidebar />
-      <SidebarInset>
+      <SidebarInset className="min-w-0 overflow-x-hidden">
         <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12 border-b px-4">
           <div className="flex items-center gap-2">
             <SidebarTrigger className="-ml-1" />
@@ -52,7 +52,7 @@ export default function DashboardLayout() {
             {!isImpersonating && <UserNav />}
           </div>
         </header>
-        <main className="flex-1 p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-4rem)]">
+        <main className="flex-1 p-4 md:p-6 bg-slate-50 min-h-[calc(100vh-4rem)] overflow-x-hidden min-w-0">
           <Outlet />
         </main>
       </SidebarInset>

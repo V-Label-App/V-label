@@ -7,9 +7,11 @@ import {
 } from "../stores";
 
 export function useKeyboardShortcuts(isReadOnly: boolean = false) {
-  const { setTool } = useCanvasStore();
+  const { tool, setTool } = useCanvasStore();
   const {
     selectedAnnotationId,
+    selectAnnotation,
+    annotations,
     deleteAnnotation,
     updateAnnotation,
     undo,
@@ -17,12 +19,10 @@ export function useKeyboardShortcuts(isReadOnly: boolean = false) {
     canUndo,
     canRedo,
   } = useAnnotationStore();
-  const { labels } = useLabelStore();
+  const { labels, activeLabel, setActiveLabel } = useLabelStore();
   const { goToNext, goToPrevious, hasNext, hasPrevious } = useImageStore();
 
   useEffect(() => {
-    if (isReadOnly) return;
-
     const handleKeyDown = (e: KeyboardEvent) => {
       const { isModalOpen } = useCanvasStore.getState();
       if (isModalOpen) return;
@@ -49,7 +49,10 @@ export function useKeyboardShortcuts(isReadOnly: boolean = false) {
       if (e.key === "h" || e.key === "H") {
         e.preventDefault();
         setTool("hand");
+        return; // Allow 'h' even in read-only
       }
+
+      if (isReadOnly) return;
 
       // Delete selected annotation
       if (
@@ -88,8 +91,71 @@ export function useKeyboardShortcuts(isReadOnly: boolean = false) {
         e.preventDefault();
         useAnnotationStore.getState().selectAnnotation(null);
       }
+    };
 
-      // Navigate between tasks (Alt + Arrow keys)
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      const { isModalOpen } = useCanvasStore.getState();
+      if (isModalOpen) return;
+
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+
+      // Contextual arrow key navigation (Always active regardless of isReadOnly)
+      if (e.key === "ArrowLeft" && !e.altKey && !e.ctrlKey) {
+        e.preventDefault();
+        if (tool === "rectangle" && !isReadOnly) {
+          // Switch to previous drawn annotation
+          if (annotations.length > 0) {
+            if (selectedAnnotationId) {
+              const currentIndex = annotations.findIndex(
+                (a) => a.id === selectedAnnotationId,
+              );
+              if (currentIndex > 0) {
+                selectAnnotation(annotations[currentIndex - 1].id);
+              } else {
+                selectAnnotation(annotations[annotations.length - 1].id); // wrap around
+              }
+            } else {
+              selectAnnotation(annotations[annotations.length - 1].id);
+            }
+          }
+        } else {
+          // Switch to previous task (for other tools OR when in review/read-only mode)
+          if (hasPrevious()) goToPrevious();
+        }
+      }
+
+      if (e.key === "ArrowRight" && !e.altKey && !e.ctrlKey) {
+        e.preventDefault();
+        if (tool === "rectangle" && !isReadOnly) {
+          // Switch to next drawn annotation
+          if (annotations.length > 0) {
+            if (selectedAnnotationId) {
+              const currentIndex = annotations.findIndex(
+                (a) => a.id === selectedAnnotationId,
+              );
+              if (currentIndex < annotations.length - 1) {
+                selectAnnotation(annotations[currentIndex + 1].id);
+              } else {
+                selectAnnotation(annotations[0].id); // wrap around
+              }
+            } else {
+              selectAnnotation(annotations[0].id);
+            }
+          }
+        } else {
+          // Switch to next task (for other tools OR when in review/read-only mode)
+          if (hasNext()) goToNext();
+        }
+      }
+
+      // Alt + Arrow keys always navigate tasks
       if (e.altKey && e.key === "ArrowLeft" && hasPrevious()) {
         e.preventDefault();
         goToPrevious();
@@ -101,10 +167,17 @@ export function useKeyboardShortcuts(isReadOnly: boolean = false) {
     };
 
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keydown", handleGlobalKeyDown);
+    };
   }, [
     isReadOnly,
     selectedAnnotationId,
+    selectAnnotation,
+    annotations,
+    tool,
     setTool,
     deleteAnnotation,
     updateAnnotation,
@@ -113,9 +186,12 @@ export function useKeyboardShortcuts(isReadOnly: boolean = false) {
     canUndo,
     canRedo,
     labels,
+    activeLabel,
+    setActiveLabel,
     goToNext,
     goToPrevious,
     hasNext,
     hasPrevious,
   ]);
 }
+

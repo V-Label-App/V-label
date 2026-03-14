@@ -148,14 +148,17 @@ export class TaskService {
         projectId: string,
         role: ProjectRole,
         strategy: string,
-        rules: AssignmentRule
+        rules: AssignmentRule,
+        excludeUserId?: string // Conflict of Interest: exclude this user from candidates
     ): Promise<string | null> {
         try {
             // Get all project members with the specified role
             const members = await prisma.projectMember.findMany({
                 where: {
                     projectId,
-                    projectRole: role
+                    projectRole: role,
+                    // Exclude user for Conflict of Interest (reviewer != annotator)
+                    ...(excludeUserId && { userId: { not: excludeUserId } })
                 },
                 include: {
                     user: {
@@ -317,31 +320,100 @@ export class TaskService {
             // Calculate deadline based on difficulty or use custom deadline
             const deadline = customDeadline || this.calculateDeadline(task.difficultyLevel, role);
 
-            const data: any = {
-                taskId,
-                status: AssignmentStatus.ASSIGNED,
-                assignmentMethod: method,
-                deadline,
-                ...(assignedBy && { assignedBy })
-            };
-
             if (role === 'ANNOTATOR') {
-                data.annotatorId = userId;
-            } else {
-                data.reviewerId = userId;
-            }
+                // Cleanup: Find and remove any existing active or rejected assignments for this task
+                // This prevents "ghost" tasks showing up for old annotators and fixes stats
+                const existingAssignments = await prisma.taskAssignment.findMany({
+                    where: {
+                        taskId,
+                        status: {
+                            in: [AssignmentStatus.ASSIGNED, AssignmentStatus.IN_PROGRESS, AssignmentStatus.REJECTED]
+                        }
+                    },
+                    select: { annotatorId: true }
+                });
 
-            // Create assignment and update task (deadline + status) in a transaction
-            await prisma.$transaction([
-                prisma.taskAssignment.create({ data }),
-                prisma.task.update({
-                    where: { id: taskId },
-                    data: {
-                        deadline,
-                        status: 'IN_PROGRESS' // Mark task as in progress when assigned
+                if (existingAssignments.length > 0) {
+                    const oldAnnotatorIds = [...new Set(existingAssignments.map(a => a.annotatorId))];
+
+                    await prisma.taskAssignment.deleteMany({
+                        where: {
+                            taskId,
+                            status: {
+                                in: [AssignmentStatus.ASSIGNED, AssignmentStatus.IN_PROGRESS, AssignmentStatus.REJECTED]
+                            }
+                        }
+                    });
+
+                    // Recalculate workloads for old annotators (to keep stats in sync)
+                    const { UserWorkloadService } = await import('./user-workload.service.js');
+                    for (const oldId of oldAnnotatorIds) {
+                        try {
+                            await UserWorkloadService.recalculateWorkload(oldId, task.projectId);
+                        } catch (recalcError) {
+                            logger.error('TASK_SERVICE', 'Failed to recalculate workload during reassignment', {
+                                error: recalcError, userId: oldId, projectId: task.projectId
+                            });
+                        }
                     }
-                })
-            ]);
+                }
+
+                // ANNOTATOR: Create new assignment record
+                const data: any = {
+                    taskId,
+                    annotatorId: userId,
+                    status: AssignmentStatus.ASSIGNED,
+                    assignmentMethod: method,
+                    deadline,
+                    ...(assignedBy && { assignedBy })
+                };
+
+                await prisma.$transaction([
+                    prisma.taskAssignment.create({ data }),
+                    prisma.task.update({
+                        where: { id: taskId },
+                        data: {
+                            deadline,
+                            status: 'IN_PROGRESS'
+                        }
+                    })
+                ]);
+            } else {
+                // REVIEWER: Update existing SUBMITTED assignment (do NOT create new record)
+                // Reason: Reviewer must be added to the same record as the annotator who submitted,
+                // creating a new record would lose the annotatorId and violate DB constraints.
+                const existingAssignment = await prisma.taskAssignment.findFirst({
+                    where: {
+                        taskId,
+                        status: AssignmentStatus.SUBMITTED
+                    },
+                    orderBy: { updatedAt: 'desc' }
+                });
+
+                if (!existingAssignment) {
+                    throw new Error(`No submitted assignment found for task ${taskId} to assign reviewer`);
+                }
+
+                await prisma.$transaction([
+                    prisma.taskAssignment.update({
+                        where: { id: existingAssignment.id },
+                        data: {
+                            reviewerId: userId,
+                            status: AssignmentStatus.ASSIGNED,
+                            assignmentMethod: method,
+                            deadline,
+                            ...(assignedBy && { assignedBy })
+                        }
+                    }),
+                    prisma.task.update({
+                        where: { id: taskId },
+                        data: {
+                            deadline,
+                            status: 'IN_PROGRESS'
+                        }
+                    })
+                ]);
+            }
 
             // Update user workload (only for ANNOTATOR role)
             if (role === 'ANNOTATOR') {
@@ -478,27 +550,18 @@ export class TaskService {
                 return false;
             }
 
-            // Find next assignee
+            // Find next assignee (excludeUserId filters out the annotator for COI)
             const projectRole = role === 'ANNOTATOR' ? ProjectRole.ANNOTATOR : ProjectRole.REVIEWER;
             const selectedUserId = await this.findNextAssignee(
                 projectId,
                 projectRole,
                 rules.assignmentStrategy,
-                rules
+                rules,
+                excludeUserId
             );
 
             if (!selectedUserId) {
                 logger.warn('TASK_SERVICE', `No eligible ${role} found`, { taskId, projectId });
-                return false;
-            }
-
-            // Conflict of Interest check for Reviewers
-            if (role === 'REVIEWER' && excludeUserId && selectedUserId === excludeUserId) {
-                logger.warn('TASK_SERVICE', 'Conflict of Interest: Reviewer cannot be the annotator', {
-                    taskId,
-                    selectedUserId,
-                    excludeUserId
-                });
                 return false;
             }
 
@@ -567,17 +630,40 @@ import { appEvents } from '../utils/events.js';
 
 appEvents.on('TASK_SUBMITTED_AUTO_REVIEWER', async ({ taskId, projectId, annotatorId, assignmentId }) => {
     try {
-        await TaskService.autoAssignTask(taskId, projectId, 'REVIEWER', annotatorId);
-        logger.info('TASK_SERVICE', 'Handled auto-reviewer event', { taskId, assignmentId });
+        // Check reviewerDelayHours before assigning
+        const project = await prisma.project.findUnique({
+            where: { id: projectId },
+            include: { assignmentRule: true }
+        });
+
+        const delayHours = project?.assignmentRule?.reviewerDelayHours ?? 0;
+
+        if (delayHours > 0) {
+            const delayMs = delayHours * 3600 * 1000;
+            logger.info('TASK_SERVICE', 'Delaying auto-reviewer assignment', {
+                taskId, assignmentId, delayHours
+            });
+            setTimeout(async () => {
+                try {
+                    await TaskService.autoAssignTask(taskId, projectId, 'REVIEWER', annotatorId);
+                    logger.info('TASK_SERVICE', 'Delayed auto-reviewer assignment completed', { taskId, assignmentId });
+                } catch (delayedError) {
+                    logger.error('TASK_SERVICE', 'Failed delayed auto-reviewer assignment', { error: delayedError, taskId });
+                }
+            }, delayMs);
+        } else {
+            await TaskService.autoAssignTask(taskId, projectId, 'REVIEWER', annotatorId);
+            logger.info('TASK_SERVICE', 'Handled auto-reviewer event', { taskId, assignmentId });
+        }
     } catch (error) {
         logger.error('TASK_SERVICE', 'Failed to handle auto-reviewer event', { error, taskId, assignmentId });
     }
 });
 
-appEvents.on('TASK_SKIPPED_REASSIGN', async ({ taskId, projectId }) => {
+appEvents.on('TASK_SKIPPED_REASSIGN', async ({ taskId, projectId, excludeUserId }) => {
     try {
-        await TaskService.autoAssignTask(taskId, projectId, 'ANNOTATOR');
-        logger.info('TASK_SERVICE', 'Handled auto-reassign event via skip', { taskId, projectId });
+        await TaskService.autoAssignTask(taskId, projectId, 'ANNOTATOR', excludeUserId);
+        logger.info('TASK_SERVICE', 'Handled auto-reassign event via skip', { taskId, projectId, excludeUserId });
     } catch (error) {
         logger.error('TASK_SERVICE', 'Failed to handle auto-reassign event', { error, taskId, projectId });
     }

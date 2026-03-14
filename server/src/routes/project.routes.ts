@@ -14,6 +14,9 @@ router.use(authMiddleware)
 router.get('/:id/health', authMiddleware, requireRole(['MANAGER', 'ADMIN']), ProjectController.getHealthStats)
 router.get('/:id/rescue', authMiddleware, requireRole(['MANAGER', 'ADMIN']), ProjectController.getRescueTasks)
 
+// Manager: view any task assignment (for review)
+router.get('/assignments/:assignmentId', requireRole(['MANAGER', 'ADMIN']), ProjectController.getTaskAssignmentForReview)
+
 // GET: Anyone logged in can likely see projects (or we might restrict to members later)
 router.get('/', ProjectController.getAll)
 router.get('/:id', ProjectController.getById)
@@ -157,6 +160,12 @@ router.post( // Manually Assign Task
     ProjectController.assignTask
 )
 
+router.post( // Manually Assign Reviewer to SUBMITTED Task
+    '/:id/tasks/:taskId/assign-reviewer',
+    requireRole(['ADMIN', 'MANAGER']),
+    ProjectController.assignReviewer
+)
+
 router.delete( // Unassign Task
     '/:id/tasks/:taskId/unassign',
     requireRole(['ADMIN', 'MANAGER']),
@@ -167,6 +176,12 @@ router.post( // Bulk Assign Tasks
     '/:id/tasks/bulk-assign',
     requireRole(['ADMIN', 'MANAGER']),
     ProjectController.bulkAssignTasks
+)
+
+router.post( // Bulk Assign Reviewer to SUBMITTED Tasks
+    '/:id/tasks/bulk-assign-reviewer',
+    requireRole(['ADMIN', 'MANAGER']),
+    ProjectController.bulkAssignReviewer
 )
 
 router.post( // Bulk Unassign Tasks

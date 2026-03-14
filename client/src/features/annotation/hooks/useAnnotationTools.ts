@@ -1,13 +1,14 @@
 import { useState, useCallback } from "react";
 import Konva from "konva";
-import { useCanvasStore, useAnnotationStore, useLabelStore } from "../stores";
+import { useCanvasStore, useAnnotationStore, useLabelStore, useImageStore } from "../stores";
 import { generateId } from "../constants";
 
 export function useAnnotationTools() {
   const { tool, imageSize, isModalOpen } = useCanvasStore();
   const { addAnnotation, defaultOpacity, defaultStrokeWidth } =
     useAnnotationStore();
-  const { labels } = useLabelStore();
+  const { labels, activeLabel } = useLabelStore();
+  const { setHasInteracted } = useImageStore();
 
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawStart, setDrawStart] = useState<{ x: number; y: number } | null>(
@@ -83,7 +84,7 @@ export function useAnnotationTools() {
       if (tempRect.width >= 5 && tempRect.height >= 5) {
         addAnnotation({
           id: generateId(),
-          label: labels[0]?.name || "Unlabeled", // Default to first label from project
+          label: (activeLabel || labels[0])?.name || "Unlabeled", // Use active label or default to first
           type: "rectangle",
           x: tempRect.x,
           y: tempRect.y,
@@ -94,6 +95,7 @@ export function useAnnotationTools() {
           opacity: defaultOpacity,
           strokeWidth: defaultStrokeWidth,
         });
+        setHasInteracted(true);
       }
     }
 
@@ -106,8 +108,10 @@ export function useAnnotationTools() {
     tempRect,
     addAnnotation,
     labels,
+    activeLabel,
     defaultOpacity,
     defaultStrokeWidth,
+    setHasInteracted,
   ]);
 
   return {

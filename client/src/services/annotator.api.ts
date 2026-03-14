@@ -8,10 +8,12 @@ export interface TaskAssignmentListItem {
   updatedAt: string;
   annotatorNote?: string;
   reviewComment?: string;
-  reviewScore?: number;
-  annotations?: any;
-  actualTimeSeconds?: number;
-  task: {
+   reviewScore?: number;
+   annotations?: unknown;
+   actualTimeSeconds?: number;
+   rejectionCount?: number;
+   maxRejections?: number;
+   task: {
     id: string;
     priority: string;
     difficultyLevel: string;
@@ -25,7 +27,7 @@ export interface TaskAssignmentListItem {
     project: {
       id: string;
       name: string;
-      labelConfig: any[];
+      labelConfig: unknown[];
       enableAiAssistance: boolean;
       projectLabels?: {
         label: {
@@ -35,10 +37,18 @@ export interface TaskAssignmentListItem {
           category?: {
             id: string;
             name: string;
-          };
+            color?: string;
+          } | null;
         };
       }[];
     };
+  };
+  annotator?: {
+    id: string;
+    fullName: string;
+    email: string;
+    avatarUrl?: string;
+    reputationScore?: number;
   };
 }
 
@@ -48,6 +58,7 @@ export interface AnnotatorProject {
   description?: string;
   status: string;
   progress?: number;
+  enableAiAssistance: boolean;
   category?: {
     id: string;
     name: string;
@@ -121,7 +132,7 @@ export const annotatorApi = {
     assignmentId: string,
     updates: {
       status?: string;
-      annotations?: any;
+      annotations?: unknown;
       annotatorNote?: string;
       actualTimeSeconds?: number;
     },
@@ -139,7 +150,7 @@ export const annotatorApi = {
   saveDraft: async (
     assignmentId: string,
     data: {
-      annotations?: any;
+      annotations?: unknown;
       annotatorNote?: string;
       actualTimeSeconds?: number;
     },

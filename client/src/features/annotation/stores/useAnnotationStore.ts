@@ -12,6 +12,7 @@ export interface Annotation {
   createdBy?: string;
   createdAt: Date;
   aiSuggested?: boolean; // Flag if AI suggested this box
+  confidence?: number; // AI confidence score (0-1), only set when aiSuggested
   opacity?: number; // Custom opacity
   strokeWidth?: number; // Custom stroke width (px)
 }

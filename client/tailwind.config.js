@@ -55,6 +55,10 @@ export default {
         sm: "calc(var(--radius) - 4px)",
       },
       keyframes: {
+        progress: {
+          "0%": { transform: "translateX(-100%)" },
+          "100%": { transform: "translateX(200%)" },
+        },
         "collapsible-down": {
           from: { height: "0", opacity: "0" },
           to: {
@@ -73,6 +77,7 @@ export default {
       animation: {
         "collapsible-down": "collapsible-down 0.2s ease-out",
         "collapsible-up": "collapsible-up 0.2s ease-out",
+        progress: "progress 1.5s ease-in-out infinite",
       },
     },
   },

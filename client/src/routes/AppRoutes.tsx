@@ -19,6 +19,7 @@ import { AnnotatorProjectDetailPage } from "../features/annotator/pages/Annotato
 import { AnnotatorPerformancePage } from "../features/annotator/pages/AnnotatorPerformancePage";
 import { ReviewerProjects } from "../features/reviewer/pages/ReviewerProjects";
 import { ReviewerProjectDetailPage } from "../features/reviewer/pages/ReviewerProjectDetailPage";
+import { ReviewerPerformancePage } from "../features/reviewer/pages/ReviewerPerformancePage";
 import { ChatPage } from "../features/chat-widget/pages/ChatPage";
 
 // Other pages
@@ -87,7 +88,6 @@ export const AppRoutes = () => {
           }
         />
 
-
         {/* Manager Routes */}
         <Route
           path="/manager"
@@ -125,7 +125,6 @@ export const AppRoutes = () => {
             </ProtectedRoute>
           }
         />
-
 
         {/* Annotator Routes (Task List) */}
         <Route
@@ -165,7 +164,6 @@ export const AppRoutes = () => {
           }
         />
 
-
         {/* Reviewer Routes */}
         <Route
           path="/reviewer"
@@ -191,7 +189,7 @@ export const AppRoutes = () => {
           path="/reviewer/performance"
           element={
             <ProtectedRoute allowedRoles={["REVIEWER"]}>
-              <AnnotatorPerformancePage />
+              <ReviewerPerformancePage />
             </ProtectedRoute>
           }
         />
@@ -203,7 +201,6 @@ export const AppRoutes = () => {
             </ProtectedRoute>
           }
         />
-
 
         {/* Shared Routes */}
         <Route

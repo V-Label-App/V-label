@@ -7,6 +7,7 @@ import { logger } from "../../../utils/logger";
  * Hook to automatically save annotations when they change
  * @param saveDraft - The save function from useWorkspaceData
  * @param actualTimeSeconds - Current work duration in seconds
+ * @param enabled - Whether auto-save is enabled (default: true)
  */
 export const useAutoSave = (
   saveDraft: (
@@ -15,9 +16,10 @@ export const useAutoSave = (
     time?: number,
   ) => Promise<void>,
   actualTimeSeconds: number,
+  enabled: boolean = true,
 ) => {
   const { annotations } = useAnnotationStore();
-  const { setAutoSaveStatus } = useImageStore();
+  const { setAutoSaveStatus, hasInteracted } = useImageStore();
 
   const saveDraftRef = useRef(saveDraft);
   const timeRef = useRef(actualTimeSeconds);
@@ -36,6 +38,11 @@ export const useAutoSave = (
   }, [actualTimeSeconds]);
 
   useEffect(() => {
+    // 0. If auto-save is disabled, do nothing
+    if (!enabled) {
+      return;
+    }
+
     const currentJson = JSON.stringify(annotations);
 
     // 1. Initial initialization - don't mark as unsaved
@@ -47,6 +54,14 @@ export const useAutoSave = (
 
     // 2. If nothing changed, do nothing
     if (currentJson === lastSavedJsonRef.current) {
+      return;
+    }
+
+    // 3. Check if user has interacted (drawn a rectangle)
+    // Delay auto-save until first manual input
+    if (!hasInteracted) {
+      // Keep reference updated but don't trigger save
+      lastSavedJsonRef.current = currentJson;
       return;
     }
 
@@ -87,5 +102,5 @@ export const useAutoSave = (
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [annotations]); // ONLY trigger when annotations change
+  }, [annotations, enabled, hasInteracted]); // Trigger when annotations, enabled flag or hasInteracted changes
 };

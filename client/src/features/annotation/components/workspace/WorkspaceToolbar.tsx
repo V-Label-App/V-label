@@ -8,10 +8,13 @@ import {
   ZoomIn,
   ZoomOut,
   Maximize2,
+  Maximize,
+  Minimize,
   Sparkles,
 } from "lucide-react";
 import { useCanvasStore, useAnnotationStore } from "../../stores";
 import type { Tool } from "../../stores";
+import { useState, useEffect } from "react";
 import { cn } from "../../../../components/ui/utils";
 import {
   Popover,
@@ -88,8 +91,33 @@ export function WorkspaceToolbar({
     setDefaultStrokeWidth,
   } = useAnnotationStore();
 
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch((err) => {
+        console.error(`Error attempting to enable fullscreen: ${err.message}`);
+      });
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+  };
+
   const handleToolChange = (newTool: Tool) => {
-    if (!isReadOnly) setTool(newTool);
+    if (!isReadOnly || newTool === "hand") setTool(newTool);
   };
 
   const selectedAnnotation = annotations.find(
@@ -220,6 +248,14 @@ export function WorkspaceToolbar({
         icon={Maximize2}
         onClick={() => triggerFit()}
         tooltip="Fit to Screen"
+      />
+
+      <div className="w-10 h-px bg-slate-700 my-2"></div>
+
+      <ToolButton
+        icon={isFullscreen ? Minimize : Maximize}
+        onClick={toggleFullscreen}
+        tooltip="Toggle Fullscreen"
       />
 
       <div className="flex-1"></div>

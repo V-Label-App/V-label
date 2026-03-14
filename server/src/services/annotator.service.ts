@@ -364,7 +364,7 @@ export class AnnotatorService {
             const invalidStates: AssignmentStatus[] = [
                 AssignmentStatus.SUBMITTED,
                 AssignmentStatus.APPROVED,
-      ]
+            ]
 
             if (invalidStates.includes(existing.status)) {
                 throw new Error(`Cannot save draft when task is: ${existing.status}`);
@@ -381,6 +381,26 @@ export class AnnotatorService {
                     status: newStatus,
                     ...draft,
                     updatedAt: new Date()
+                },
+                include: {
+                    task: {
+                        include: {
+                            image: true,
+                            project: {
+                                include: {
+                                    projectLabels: {
+                                        include: {
+                                            label: {
+                                                include: {
+                                                    category: true
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             });
 
