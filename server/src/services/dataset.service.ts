@@ -131,8 +131,8 @@ export class DatasetService {
           projectId: targetProjectId,
           name: `${sourceDataset.name} (imported)`,
           description: sourceDataset.description
-            ? `${sourceDataset.description} (imported from ${sourceProjectId})`
-            : `Imported from ${sourceProjectId}`,
+            ? `${sourceDataset.description} (imported from ${sourceProjectId}/${datasetId})`
+            : `Imported from ${sourceProjectId}/${datasetId}`,
           source: sourceDataset.source || 'imported',
         },
       })
@@ -198,7 +198,11 @@ export class DatasetService {
 
               return taskId
             } catch (error) {
-              logger.error('DATASET', `Failed to create task for image ${img.id}`, error)
+              logger.error(
+                'DATASET',
+                `Failed to create task for image ${img.id}`,
+                error,
+              )
               return null
             }
           })
@@ -211,7 +215,11 @@ export class DatasetService {
             `Created ${successCount}/${newImages.length} tasks for imported images`,
           )
         } catch (error) {
-          logger.error('DATASET', 'Failed to create tasks for imported dataset', error)
+          logger.error(
+            'DATASET',
+            'Failed to create tasks for imported dataset',
+            error,
+          )
           // Don't fail the import if task creation fails
         }
       }

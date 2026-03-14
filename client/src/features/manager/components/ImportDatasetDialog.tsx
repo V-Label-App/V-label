@@ -73,10 +73,14 @@ export function ImportDatasetDialog({
   const [datasetImages, setDatasetImages] = useState<
     Record<string, ImagePreview[]>
   >({});
+  const [importedDatasetKeys, setImportedDatasetKeys] = useState<Set<string>>(
+    new Set(),
+  );
 
   useEffect(() => {
     if (open) {
       loadProjectsWithDatasets();
+      loadImportedDatasets();
     } else {
       // Reset state when dialog closes
       setSearchQuery("");
@@ -84,6 +88,7 @@ export function ImportDatasetDialog({
       setProjects([]);
       setExpandedDatasets(new Set());
       setDatasetImages({});
+      setImportedDatasetKeys(new Set());
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, projectId]);
@@ -139,6 +144,50 @@ export function ImportDatasetDialog({
     }
   };
 
+  const loadImportedDatasets = async () => {
+    try {
+      // Get current project's datasets
+      const currentDatasets = await datasetApi.getProjectDatasets(projectId);
+
+      // Find datasets that were imported (check description for "imported from")
+      const importedKeys = new Set<string>();
+      currentDatasets.forEach((dataset) => {
+        // Extract source project ID and dataset ID from description (case-insensitive)
+        if (dataset.description?.toLowerCase().includes("imported from")) {
+          // New format: "Imported from {sourceProjectId}/{datasetId}"
+          const newFormatMatch = dataset.description.match(
+            /imported from ([a-f0-9-]{36})\/([a-f0-9-]{36})/i,
+          );
+
+          if (newFormatMatch) {
+            const sourceProjectId = newFormatMatch[1];
+            const sourceDatasetId = newFormatMatch[2];
+            const key = `${sourceProjectId}-${sourceDatasetId}`;
+            importedKeys.add(key);
+          } else {
+            // Old format fallback: "Imported from {sourceProjectId}"
+            // Use name matching for backward compatibility
+            const oldFormatMatch = dataset.description.match(
+              /imported from ([a-f0-9-]{36})/i,
+            );
+            if (oldFormatMatch) {
+              const sourceProjectId = oldFormatMatch[1];
+              const baseName = dataset.name.replace(/\s*\(imported\)$/i, "");
+              // Mark by name (less accurate but works for old imports)
+              const key = `${sourceProjectId}-NAME-${baseName}`;
+              importedKeys.add(key);
+            }
+          }
+        }
+      });
+
+      setImportedDatasetKeys(importedKeys);
+    } catch (error) {
+      console.error("Failed to load imported datasets", error);
+      // Don't show error toast, just fail silently
+    }
+  };
+
   const toggleProject = (projectId: string) => {
     setProjects((prev) =>
       prev.map((p) =>
@@ -172,7 +221,6 @@ export function ImportDatasetDialog({
             limit: 20, // Load first 20 images
             page: 1,
           });
-          console.log("Dataset images response:", response);
           const images = Array.isArray(response.data) ? response.data : [];
           setDatasetImages((prev) => ({
             ...prev,
@@ -196,6 +244,20 @@ export function ImportDatasetDialog({
     datasetName: string,
     projectName: string,
   ) => {
+    // Check if already imported using both new and old format
+    const datasetKey = `${projectId}-${datasetId}`;
+    const oldFormatKey = `${projectId}-NAME-${datasetName}`;
+
+    if (
+      importedDatasetKeys.has(datasetKey) ||
+      importedDatasetKeys.has(oldFormatKey)
+    ) {
+      toast.error(
+        `Dataset "${datasetName}" has already been imported to this project`,
+      );
+      return;
+    }
+
     setSelectedDatasets((prev) => {
       const exists = prev.find(
         (d) => d.projectId === projectId && d.datasetId === datasetId,
@@ -398,20 +460,34 @@ export function ImportDatasetDialog({
                           const isDatasetExpanded =
                             expandedDatasets.has(datasetKey);
                           const images = datasetImages[datasetKey] || [];
+                          // Check using both new and old format for backward compatibility
+                          const isAlreadyImported =
+                            importedDatasetKeys.has(datasetKey) || // New format
+                            importedDatasetKeys.has(
+                              `${project.id}-NAME-${dataset.name}`,
+                            ); // Old format fallback
 
                           return (
                             <div key={dataset.id} className="space-y-1">
                               {/* Dataset row */}
                               <div
                                 className={`flex items-center gap-2 p-2.5 rounded-lg transition-colors ${
-                                  isSelected
-                                    ? "bg-blue-50"
-                                    : "hover:bg-gray-100"
+                                  isAlreadyImported
+                                    ? "opacity-50 bg-gray-100 cursor-not-allowed"
+                                    : isSelected
+                                      ? "bg-blue-50"
+                                      : "hover:bg-gray-100"
                                 }`}
+                                title={
+                                  isAlreadyImported
+                                    ? "This dataset has already been imported"
+                                    : ""
+                                }
                               >
                                 {/* Checkbox */}
                                 <Checkbox
                                   checked={isSelected}
+                                  disabled={isAlreadyImported}
                                   onCheckedChange={() =>
                                     toggleDatasetSelection(
                                       project.id,
@@ -425,12 +501,14 @@ export function ImportDatasetDialog({
                                 {/* Expand/Collapse button */}
                                 <button
                                   onClick={() =>
+                                    !isAlreadyImported &&
                                     toggleDatasetExpansion(
                                       project.id,
                                       dataset.id,
                                     )
                                   }
-                                  className="p-0.5 hover:bg-gray-200 rounded"
+                                  className={`p-0.5 rounded ${!isAlreadyImported ? "hover:bg-gray-200" : "cursor-not-allowed"}`}
+                                  disabled={isAlreadyImported}
                                 >
                                   {isDatasetExpanded ? (
                                     <ChevronDown className="w-3.5 h-3.5 text-gray-500" />
@@ -442,8 +520,18 @@ export function ImportDatasetDialog({
                                 {/* Dataset info */}
                                 <ImageIcon className="w-4 h-4 text-gray-600 flex-shrink-0" />
                                 <div className="flex-1 min-w-0">
-                                  <div className="text-sm font-medium truncate">
-                                    {dataset.name}
+                                  <div className="flex items-center gap-2">
+                                    <div className="text-sm font-medium truncate">
+                                      {dataset.name}
+                                    </div>
+                                    {isAlreadyImported && (
+                                      <Badge
+                                        variant="secondary"
+                                        className="text-xs bg-gray-200 text-gray-600 shrink-0"
+                                      >
+                                        Already Imported
+                                      </Badge>
+                                    )}
                                   </div>
                                   <div className="text-xs text-muted-foreground">
                                     {dataset._count?.images || 0} image
@@ -478,7 +566,8 @@ export function ImportDatasetDialog({
                                             >
                                               <img
                                                 src={
-                                                  img.thumbnailUrl || img.storageUrl
+                                                  img.thumbnailUrl ||
+                                                  img.storageUrl
                                                 }
                                                 alt={
                                                   img.originalFilename ||
