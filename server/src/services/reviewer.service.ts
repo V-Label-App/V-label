@@ -242,6 +242,16 @@ export class ReviewerService {
           task: {
             include: {
               image: true,
+              assignments: {
+                where: {
+                  id: { not: assignmentId },
+                  status: { in: [AssignmentStatus.REJECTED, AssignmentStatus.SKIPPED] },
+                },
+                include: {
+                  annotator: { select: { fullName: true, email: true } },
+                },
+                orderBy: { createdAt: 'desc' },
+              },
               project: {
                 include: {
                   projectLabels: {
@@ -756,6 +766,7 @@ export class ReviewerService {
                     : null,
                 }
               : null,
+            history: assignment.task.assignments || [],
           }
         : null,
     }

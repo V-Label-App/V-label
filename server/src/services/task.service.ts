@@ -323,27 +323,29 @@ export class TaskService {
             const deadline = customDeadline || this.calculateDeadline(task.difficultyLevel, role);
 
             if (role === 'ANNOTATOR') {
-                // Cleanup: Find and remove any existing active or rejected assignments for this task
-                // This prevents "ghost" tasks showing up for old annotators and fixes stats
+                // History Preservation: Find any existing active assignments for this task
+                // Instead of deleting them (which loses history), we mark ASSIGNED/IN_PROGRESS as SKIPPED
                 const existingAssignments = await prisma.taskAssignment.findMany({
                     where: {
                         taskId,
                         status: {
-                            in: [AssignmentStatus.ASSIGNED, AssignmentStatus.IN_PROGRESS, AssignmentStatus.REJECTED]
+                            in: [AssignmentStatus.ASSIGNED, AssignmentStatus.IN_PROGRESS]
                         }
                     },
-                    select: { annotatorId: true }
+                    select: { id: true, annotatorId: true }
                 });
 
                 if (existingAssignments.length > 0) {
                     const oldAnnotatorIds = [...new Set(existingAssignments.map(a => a.annotatorId))];
 
-                    await prisma.taskAssignment.deleteMany({
+                    // Mark active tasks as SKIPPED (REJECTED tasks are already preserved)
+                    await prisma.taskAssignment.updateMany({
                         where: {
-                            taskId,
-                            status: {
-                                in: [AssignmentStatus.ASSIGNED, AssignmentStatus.IN_PROGRESS, AssignmentStatus.REJECTED]
-                            }
+                            id: { in: existingAssignments.map(a => a.id) }
+                        },
+                        data: {
+                            status: AssignmentStatus.SKIPPED,
+                            updatedAt: new Date()
                         }
                     });
 
