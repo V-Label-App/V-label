@@ -149,7 +149,7 @@ export class TaskService {
         role: ProjectRole,
         strategy: string,
         rules: AssignmentRule,
-        excludeUserId?: string // Conflict of Interest: exclude this user from candidates
+        excludeUserIds?: string[] // Conflict of Interest: exclude these users from candidates
     ): Promise<string | null> {
         try {
             // Get all project members with the specified role
@@ -157,8 +157,10 @@ export class TaskService {
                 where: {
                     projectId,
                     projectRole: role,
-                    // Exclude user for Conflict of Interest (reviewer != annotator)
-                    ...(excludeUserId && { userId: { not: excludeUserId } })
+                    // Exclude users for Conflict of Interest or Loop Prevention
+                    ...(excludeUserIds && excludeUserIds.length > 0 && {
+                        userId: { notIn: excludeUserIds }
+                    })
                 },
                 include: {
                     user: {
@@ -539,28 +541,33 @@ export class TaskService {
             }
 
             const rules = project.assignmentRule;
+            const strategy = rules.assignmentStrategy;
 
-            // Check if auto-assignment is enabled.
-            // forceReassign bypasses this gate when called after max rejections threshold
-            // is exceeded (rejection-based reassign is independent of the initial auto-assign setting).
-            if (role === 'ANNOTATOR' && !rules.isAutoAssignEnabled && !forceReassign) {
-                logger.info('TASK_SERVICE', 'Auto-assignment disabled for annotators', { projectId });
-                return false;
+            // Loop Prevention: find all previous annotators for this task to exclude them
+            let excludeUserIds: string[] = [];
+            if (role === 'ANNOTATOR') {
+                const previousAssignments = await prisma.taskAssignment.findMany({
+                    where: { taskId },
+                    select: { annotatorId: true }
+                });
+                excludeUserIds = previousAssignments
+                    .map(a => a.annotatorId)
+                    .filter((id): id is string => !!id);
             }
 
-            if (role === 'REVIEWER' && !rules.autoAssignReviewer) {
-                logger.info('TASK_SERVICE', 'Auto-assignment disabled for reviewers', { projectId });
-                return false;
+            // If a specific exclusion was passed (e.g. COI), add it
+            if (excludeUserId && !excludeUserIds.includes(excludeUserId)) {
+                excludeUserIds.push(excludeUserId);
             }
 
-            // Find next assignee (excludeUserId filters out the annotator for COI)
+            // Find next assignee
             const projectRole = role === 'ANNOTATOR' ? ProjectRole.ANNOTATOR : ProjectRole.REVIEWER;
             const selectedUserId = await this.findNextAssignee(
                 projectId,
                 projectRole,
-                rules.assignmentStrategy,
-                rules,
-                excludeUserId
+                strategy,
+                rules as AssignmentRule,
+                excludeUserIds
             );
 
             if (!selectedUserId) {
@@ -569,9 +576,9 @@ export class TaskService {
             }
 
             // Create assignment
-            const method = rules.assignmentStrategy === 'ROUND_ROBIN'
+            const method = strategy === 'ROUND_ROBIN'
                 ? AssignmentMethod.AUTO_ROUND_ROBIN
-                : rules.assignmentStrategy === 'LEAST_BUSY'
+                : strategy === 'LEAST_BUSY'
                     ? AssignmentMethod.AUTO_LEAST_BUSY
                     : AssignmentMethod.AUTO_RANDOM;
 

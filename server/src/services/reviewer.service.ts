@@ -487,10 +487,15 @@ export class ReviewerService {
       }
 
       const newRejectionCount = assignment.rejectionCount + 1
+
+      // Fetch max rejections rule (Project Rule -> Assignment Level Default)
       const maxRejectionsRule =
         assignment.task.project.assignmentRule?.maxRejectionsBeforeReassign ??
         assignment.maxRejections
-      const exceedsMaxRejections = newRejectionCount >= maxRejectionsRule
+
+      // "More than X rejections" means it triggers on the (X+1)-th rejection
+      // Align with FE logic (e.g. if max is 3, trigger on the 4th reject)
+      const exceedsMaxRejections = newRejectionCount > maxRejectionsRule
 
       // Interactive transaction: all DB ops in one atomic block
       const updatedAssignment = await prisma.$transaction(async (tx) => {
