@@ -946,6 +946,16 @@ export class ProjectController {
                     task: {
                         include: {
                             image: true,
+                            assignments: {
+                                where: {
+                                    id: { not: assignmentId },
+                                    status: { in: ['REJECTED', 'SKIPPED'] },
+                                },
+                                include: {
+                                    annotator: { select: { fullName: true, email: true } },
+                                },
+                                orderBy: { createdAt: 'desc' },
+                            },
                             project: {
                                 include: {
                                     projectLabels: {
@@ -975,6 +985,11 @@ export class ProjectController {
             const result = JSON.parse(JSON.stringify(assignment, (_, value) =>
                 typeof value === 'bigint' ? Number(value) : value
             ))
+
+            if (result.task) {
+                result.task.history = result.task.assignments || []
+                delete result.task.assignments
+            }
 
             return res.json(result)
         } catch (error) {

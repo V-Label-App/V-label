@@ -271,36 +271,72 @@ export class AnnotatorService {
                 }
             }
 
-            const updated = await prisma.taskAssignment.update({
-                where: { id: assignmentId },
-                data: {
-                    ...updates,
-                    updatedAt: new Date()
-                },
-                include: {
-                    task: {
-                        include: {
-                            image: true,
-                            project: true
+            const updated = await prisma.$transaction(async (tx) => {
+                const innerUpdated = await tx.taskAssignment.update({
+                    where: { id: assignmentId },
+                    data: {
+                        ...updates,
+                        updatedAt: new Date()
+                    },
+                    include: {
+                        task: {
+                            include: {
+                                image: true,
+                                project: true
+                            }
+                        }
+                    }
+                });
+
+                if (updates.status) {
+                    const projectId = innerUpdated.task.projectId;
+
+                    if (updates.status === AssignmentStatus.IN_PROGRESS && existing.status === AssignmentStatus.ASSIGNED) {
+                        // Workload update: task started
+                        await tx.userWorkload.update({
+                            where: { userId_projectId: { userId, projectId } },
+                            data: {
+                                assignedTasks: { decrement: 1 },
+                                inProgressTasks: { increment: 1 }
+                            }
+                        });
+                    } else if (updates.status === AssignmentStatus.SUBMITTED) {
+                        // Workload update: task submitted
+                        await tx.userWorkload.update({
+                            where: { userId_projectId: { userId, projectId } },
+                            data: {
+                                inProgressTasks: { decrement: 1 },
+                                pendingReviewTasks: { increment: 1 }
+                            }
+                        });
+                    } else if (updates.status === AssignmentStatus.SKIPPED) {
+                        // Workload update: task skipped
+                        if (existing.status === AssignmentStatus.ASSIGNED || existing.status === AssignmentStatus.IN_PROGRESS) {
+                            const field = existing.status === AssignmentStatus.ASSIGNED ? 'assignedTasks' : 'inProgressTasks';
+                            await tx.userWorkload.update({
+                                where: { userId_projectId: { userId, projectId } },
+                                data: { [field]: { decrement: 1 } }
+                            });
                         }
                     }
                 }
+
+                return innerUpdated;
             });
 
             logger.info('SERVICE', 'Task assignment updated', { assignmentId, userId, status: updates.status });
-            // Handle Workload and Post-Update Logic (Auto Reassign/Reviewer)
+
+            // Post-Update Logic (Auto Reassign/Reviewer Events) - Outside transaction
             if (updates.status) {
                 const projectId = updated.task.projectId;
                 const taskId = updated.taskId;
                 const annotatorId = userId;
 
-                if (updates.status === AssignmentStatus.IN_PROGRESS && existing.status === AssignmentStatus.ASSIGNED) {
-                    const { UserWorkloadService } = await import('./user-workload.service.js');
-                    await UserWorkloadService.taskStarted(userId, projectId);
-                } else if (updates.status === AssignmentStatus.SUBMITTED) {
-                    const { UserWorkloadService } = await import('./user-workload.service.js');
-                    await UserWorkloadService.taskSubmitted(userId, projectId);
+                // Update availability after workload change
+                const { UserWorkloadService } = await import('./user-workload.service.js');
+                await UserWorkloadService.updateAvailabilityStatus(userId, projectId);
 
+                if (updates.status === AssignmentStatus.SUBMITTED) {
                     try {
                         const { appEvents } = await import('../utils/events.js');
                         appEvents.emit('TASK_SUBMITTED_AUTO_REVIEWER', { taskId, projectId, annotatorId, assignmentId });
@@ -309,11 +345,6 @@ export class AnnotatorService {
                         logger.error('SERVICE', 'Failed to emit auto-assign reviewer event', { error: reviewerError, assignmentId });
                     }
                 } else if (updates.status === AssignmentStatus.SKIPPED) {
-                    const { UserWorkloadService } = await import('./user-workload.service.js');
-                    if (existing.status === AssignmentStatus.ASSIGNED || existing.status === AssignmentStatus.IN_PROGRESS) {
-                        await UserWorkloadService.decrementAssignedTasks(userId, projectId);
-                    }
-
                     const project = await prisma.project.findUnique({
                         where: { id: projectId },
                         include: { assignmentRule: true }
@@ -321,7 +352,7 @@ export class AnnotatorService {
                     const rules = project?.assignmentRule;
                     if (rules?.autoReassignOnSkip) {
                         const { appEvents } = await import('../utils/events.js');
-                        appEvents.emit('TASK_SKIPPED_REASSIGN', { taskId, projectId });
+                        appEvents.emit('TASK_SKIPPED_REASSIGN', { taskId, projectId, excludeUserId: userId });
                         logger.info('SERVICE', 'Emitted auto-reassign event after skip', { taskId, assignmentId });
                     }
                 }
@@ -375,24 +406,26 @@ export class AnnotatorService {
                 newStatus = AssignmentStatus.IN_PROGRESS;
             }
 
-            const updated = await prisma.taskAssignment.update({
-                where: { id: assignmentId },
-                data: {
-                    status: newStatus,
-                    ...draft,
-                    updatedAt: new Date()
-                },
-                include: {
-                    task: {
-                        include: {
-                            image: true,
-                            project: {
-                                include: {
-                                    projectLabels: {
-                                        include: {
-                                            label: {
-                                                include: {
-                                                    category: true
+            const updated = await prisma.$transaction(async (tx) => {
+                const innerUpdated = await tx.taskAssignment.update({
+                    where: { id: assignmentId },
+                    data: {
+                        status: newStatus,
+                        ...draft,
+                        updatedAt: new Date()
+                    },
+                    include: {
+                        task: {
+                            include: {
+                                image: true,
+                                project: {
+                                    include: {
+                                        projectLabels: {
+                                            include: {
+                                                label: {
+                                                    include: {
+                                                        category: true
+                                                    }
                                                 }
                                             }
                                         }
@@ -401,8 +434,27 @@ export class AnnotatorService {
                             }
                         }
                     }
+                });
+
+                // If status changed to IN_PROGRESS, update workload
+                if (newStatus === AssignmentStatus.IN_PROGRESS && existing.status === AssignmentStatus.ASSIGNED) {
+                    await tx.userWorkload.update({
+                        where: { userId_projectId: { userId, projectId: existing.task.projectId } },
+                        data: {
+                            assignedTasks: { decrement: 1 },
+                            inProgressTasks: { increment: 1 }
+                        }
+                    });
                 }
+
+                return innerUpdated;
             });
+
+            // Update availability outside transaction
+            if (newStatus === AssignmentStatus.IN_PROGRESS && existing.status === AssignmentStatus.ASSIGNED) {
+                const { UserWorkloadService } = await import('./user-workload.service.js');
+                await UserWorkloadService.updateAvailabilityStatus(userId, existing.task.projectId);
+            }
 
             if (existing.status === AssignmentStatus.ASSIGNED) {
                 const { UserWorkloadService } = await import('./user-workload.service.js');
