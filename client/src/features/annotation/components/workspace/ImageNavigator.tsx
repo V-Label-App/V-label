@@ -126,11 +126,17 @@ export function ImageNavigator() {
         <ChevronRight className="w-5 h-5 rotate-90" />
       </Button>
 
-      {/* Counter Label */}
-      <div className="flex flex-col items-center gap-0.5 pb-2">
-        <span className="text-white font-black text-sm tabular-nums">{currentIndex + 1}</span>
-        <div className="w-4 h-px bg-slate-700"></div>
-        <span className="text-slate-500 font-bold text-[10px] tabular-nums">{images.length}</span>
+      {/* Counter Label - Luxurious Minimalist Design */}
+      <div className="mt-auto mb-8 flex flex-col items-center">
+        <div className="px-3 py-1 bg-white/[0.03] backdrop-blur-sm rounded-md border border-white/5 shadow-sm space-x-1.5 flex items-center transition-all hover:border-white/10">
+          <span className="text-white/90 text-[11px] font-semibold tracking-wider tabular-nums">
+            {String(currentIndex + 1).padStart(2, '0')}
+          </span>
+          <span className="text-white/10 text-[10px] font-light">/</span>
+          <span className="text-white/30 text-[11px] font-medium tracking-wider tabular-nums">
+            {String(images.length).padStart(2, '0')}
+          </span>
+        </div>
       </div>
     </div>
   );
