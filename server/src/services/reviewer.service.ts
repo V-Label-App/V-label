@@ -532,7 +532,7 @@ export class ReviewerService {
           data: {
             assignmentId: assignmentId,
             submissionNumber: newRejectionCount,
-            annotations: assignment.annotations, // Current annotations being rejected
+            annotations: assignment.annotations as any, // Current annotations being rejected
             reviewComment: reviewComment,
             status: AssignmentStatus.REJECTED,
             reviewedAt: new Date(),
