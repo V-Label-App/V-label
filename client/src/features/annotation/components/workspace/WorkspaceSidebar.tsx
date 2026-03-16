@@ -43,9 +43,9 @@ export function WorkspaceSidebar({
   const [isRequestModelOpen, setIsRequestModelOpen] = useState(false);
 
   return (
-    <div className="w-80 bg-slate-800 border-l border-slate-700 flex flex-col shadow-xl relative h-full">
-      {/* Collapse Toggle Button */}
-      {!isCollapsed && (
+    <div className="w-80 bg-slate-900/50 backdrop-blur-xl border-l border-white/10 flex flex-col shadow-2xl relative h-full">
+      {/* Collapse Toggle Button - external floating style */}
+      {!isCollapsed && onToggleCollapse && (
         <Button
           variant="ghost"
           size="sm"
