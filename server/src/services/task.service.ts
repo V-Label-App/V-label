@@ -543,6 +543,12 @@ export class TaskService {
             }
 
             const rules = project.assignmentRule;
+
+            if (!forceReassign && !rules.isAutoAssignEnabled) {
+                logger.info('TASK_SERVICE', 'Auto-assign is disabled for this project', { projectId });
+                return false;
+            }
+
             const strategy = rules.assignmentStrategy;
 
             // Loop Prevention: find all previous annotators for this task to exclude them
