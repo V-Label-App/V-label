@@ -329,7 +329,7 @@ export class TaskService {
                     where: {
                         taskId,
                         status: {
-                            in: [AssignmentStatus.ASSIGNED, AssignmentStatus.IN_PROGRESS]
+                            in: [AssignmentStatus.ASSIGNED, AssignmentStatus.IN_PROGRESS, AssignmentStatus.REJECTED]
                         }
                     },
                     select: { id: true, annotatorId: true }
@@ -338,7 +338,7 @@ export class TaskService {
                 if (existingAssignments.length > 0) {
                     const oldAnnotatorIds = [...new Set(existingAssignments.map(a => a.annotatorId))];
 
-                    // Mark active tasks as SKIPPED (REJECTED tasks are already preserved)
+                    // Mark active/rejected tasks as SKIPPED to revoke access permanentely 
                     await prisma.taskAssignment.updateMany({
                         where: {
                             id: { in: existingAssignments.map(a => a.id) }

@@ -280,7 +280,7 @@ export class AnnotatorService {
                     [AssignmentStatus.SUBMITTED]: [], // Cannot change once submitted
                     [AssignmentStatus.REJECTED]: [AssignmentStatus.IN_PROGRESS, AssignmentStatus.SUBMITTED],
                     [AssignmentStatus.APPROVED]: [], // Final state
-                    [AssignmentStatus.SKIPPED]: [AssignmentStatus.IN_PROGRESS]
+                    [AssignmentStatus.SKIPPED]: [] // Final state
                 };
 
                 const allowedNextStates = validTransitions[existing.status] || [];

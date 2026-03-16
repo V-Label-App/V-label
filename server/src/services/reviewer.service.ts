@@ -519,7 +519,7 @@ export class ReviewerService {
         const updated = await tx.taskAssignment.update({
           where: { id: assignmentId },
           data: {
-            status: AssignmentStatus.REJECTED,
+            status: exceedsMaxRejections ? AssignmentStatus.SKIPPED : AssignmentStatus.REJECTED,
             reviewComment,
             reviewedAt: new Date(),
             rejectionCount: { increment: 1 },
