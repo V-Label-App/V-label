@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import type { SubmissionHistoryItem } from "../../../services/annotator.api";
 
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { aiApi } from "../../../services/ai.api";
 import { Sparkles, ChevronLeft } from "lucide-react";
 import type { Annotation } from "../stores";
@@ -50,7 +50,7 @@ export function WorkspacePage({
   
   // Load task data from API
   const {
-    loading,
+    loading: dataLoading,
     error,
     taskData,
     submitTask,
@@ -60,6 +60,16 @@ export function WorkspacePage({
     rejectTask,
     resumeTask,
   } = useWorkspaceData(taskId || "", false, mode);
+
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+  const loading = dataLoading && !hasLoadedOnce;
+  const isSwitchingTask = dataLoading && hasLoadedOnce;
+
+  useEffect(() => {
+    if (taskData && !dataLoading) {
+      setHasLoadedOnce(true);
+    }
+  }, [taskData, dataLoading]);
 
   const { updateImages, getCurrentImage, currentIndex, jumpToImage } =
     useImageStore();
@@ -434,11 +444,20 @@ export function WorkspacePage({
     navigate(-1);
   };
 
-  // Loading state
+  // Loading state (Initial only)
   if (loading) {
     return (
-      <div className="fixed inset-0 bg-slate-900 flex items-center justify-center">
-        <div className="text-white text-lg">Loading task data...</div>
+      <div className="fixed inset-0 bg-slate-950 z-50 flex flex-col items-center justify-center gap-4">
+        <div className="relative">
+          <div className="w-16 h-16 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-8 h-8 bg-blue-500 rounded-full animate-pulse opacity-50"></div>
+          </div>
+        </div>
+        <div className="flex flex-col items-center">
+          <p className="text-xl font-bold text-white tracking-widest uppercase">Initializing Workspace</p>
+          <p className="text-sm text-slate-500">Preparing high-precision annotation tools...</p>
+        </div>
       </div>
     );
   }
@@ -494,17 +513,42 @@ export function WorkspacePage({
       />
 
       {/* Main Content */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Toolbar */}
-        <WorkspaceToolbar
-          isReadOnly={isReadOnly}
-          enableAiAssistance={taskData?.enableAiAssistance}
-          onAiSuggest={handleAiSuggest}
-          isAiLoading={isAiLoading}
-        />
+      <div className="flex flex-1 overflow-hidden relative">
+        {/* Left Navigator - Task List */}
+        <ImageNavigator />
 
-        {/* Canvas */}
-        <div className="flex-1 relative">
+        {/* Floating Toolbar */}
+        <div className="fixed bottom-0 left-0 right-0 h-0 pointer-events-none z-[100] flex justify-center">
+          <div className="pointer-events-auto pb-8">
+            <WorkspaceToolbar
+              isReadOnly={isReadOnly}
+              enableAiAssistance={taskData?.enableAiAssistance}
+              onAiSuggest={handleAiSuggest}
+              isAiLoading={isAiLoading}
+            />
+          </div>
+        </div>
+
+        {/* Canvas Area - Added ml-24 for the left navigator */}
+        <div className="flex-1 relative bg-slate-950 ml-24 transition-all duration-500 ease-in-out">
+          <AnimatePresence>
+            {isSwitchingTask && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 bg-slate-950/60 backdrop-blur-md z-[80] flex flex-col items-center justify-center gap-3"
+              >
+                <div className="relative">
+                   <div className="w-16 h-16 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
+                   <div className="absolute inset-0 flex items-center justify-center">
+                     <div className="w-8 h-8 bg-blue-500 rounded-full animate-pulse opacity-50"></div>
+                   </div>
+                </div>
+                <p className="text-blue-400 font-bold text-sm tracking-widest uppercase animate-pulse">Synchronizing Task...</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
           <WorkspaceCanvas
             imageUrl={currentImage.url || ""}
             isReadOnly={isReadOnly}
@@ -529,8 +573,6 @@ export function WorkspacePage({
             </div>
           )}
 
-          {/* Image Navigator */}
-          <ImageNavigator />
         </div>
 
         {/* Sidebar */}
@@ -539,10 +581,9 @@ export function WorkspacePage({
           animate={{ 
             width: isSidebarCollapsed ? 0 : 320,
             opacity: isSidebarCollapsed ? 0 : 1,
-            marginLeft: isSidebarCollapsed ? 0 : 0
           }}
-          transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          className="flex flex-col overflow-hidden border-l border-slate-700 bg-slate-800 shadow-xl"
+          transition={{ duration: 0.4, ease: "easeInOut" }}
+          className="flex flex-col overflow-hidden border-l border-white/10 shadow-2xl z-30"
         >
           <WorkspaceSidebar
             isReadOnly={isReadOnly}
