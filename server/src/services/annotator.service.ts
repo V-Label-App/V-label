@@ -208,6 +208,9 @@ export class AnnotatorService {
                             fullName: true,
                             email: true
                         }
+                    },
+                    submissionHistory: {
+                        orderBy: { submissionNumber: 'desc' }
                     }
                 }
             });
