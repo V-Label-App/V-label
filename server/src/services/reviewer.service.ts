@@ -249,6 +249,9 @@ export class ReviewerService {
                 },
                 include: {
                   annotator: { select: { fullName: true, email: true } },
+                  submissionHistory: {
+                    orderBy: { submissionNumber: 'desc' },
+                  },
                 },
                 orderBy: { createdAt: 'desc' },
               },
@@ -524,6 +527,18 @@ export class ReviewerService {
           },
         })
 
+        // 1.1 Create history record
+        await tx.taskSubmissionHistory.create({
+          data: {
+            assignmentId: assignmentId,
+            submissionNumber: newRejectionCount,
+            annotations: assignment.annotations as any, // Current annotations being rejected
+            reviewComment: reviewComment,
+            status: AssignmentStatus.REJECTED,
+            reviewedAt: new Date(),
+          },
+        })
+
         // 2. Reset task status to TODO for reannotation
         await tx.task.update({
           where: { id: assignment.task.id },
@@ -766,9 +781,13 @@ export class ReviewerService {
                     : null,
                 }
               : null,
-            history: assignment.task.assignments || [],
+            history: (assignment.task.assignments || []).map((a: any) => ({
+              ...a,
+              submissionHistory: a.submissionHistory || [],
+            })),
           }
         : null,
+      submissionHistory: assignment.submissionHistory || [],
     }
   }
 }

@@ -139,9 +139,24 @@ model TaskAssignment {
   assigner             User?            @relation("TaskAssigner", fields: [assignedBy], references: [id])
   reviewer             User?            @relation("Reviewer", fields: [reviewerId], references: [id])
   task                 Task             @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  submissionHistory    TaskSubmissionHistory[]
 
   @@index([aiModelId])
   @@map("task_assignments")
+}
+
+model TaskSubmissionHistory {
+  id               String           @id @default(uuid()) @db.Uuid
+  assignmentId     String           @map("assignment_id") @db.Uuid
+  submissionNumber Int              @map("submission_number")
+  annotations      Json?
+  reviewComment    String?          @map("review_comment")
+  status           AssignmentStatus
+  submittedAt      DateTime         @default(now()) @map("submitted_at")
+  reviewedAt       DateTime?        @map("reviewed_at")
+  assignment       TaskAssignment   @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  @@map("task_submission_histories")
 }
 
 model Notification {
