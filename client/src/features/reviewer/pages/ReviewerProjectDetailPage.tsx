@@ -41,7 +41,6 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "../../../components/ui/utils";
 
 import { projectApi } from "../../../services/project.api";
@@ -57,7 +56,6 @@ export function ReviewerProjectDetailPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<ReviewQueueItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState("reviews");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
@@ -84,7 +82,6 @@ export function ReviewerProjectDetailPage() {
     if (!projectId) return;
 
     if (!silent) setIsLoading(true);
-    else setIsRefreshing(true);
 
     try {
       const result = await reviewerApi.getReviewQueue({
@@ -100,7 +97,6 @@ export function ReviewerProjectDetailPage() {
       toast.error("Failed to load review queue");
     } finally {
       setIsLoading(false);
-      setIsRefreshing(false);
     }
   }, [projectId, filterStatus]);
 
@@ -191,16 +187,6 @@ export function ReviewerProjectDetailPage() {
                   {project.category.name}
                 </Badge>
               )}
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="gap-2 bg-white hover:bg-gray-50 shadow-sm transition-all"
-                onClick={() => fetchTasks(true)}
-                disabled={isRefreshing}
-              >
-                <RefreshCw className={cn("w-4 h-4", isRefreshing && "animate-spin")} />
-                {isRefreshing ? "Refreshing..." : "Refresh Tasks"}
-              </Button>
             </div>
           </div>
 
@@ -330,17 +316,29 @@ export function ReviewerProjectDetailPage() {
                   </div>
                 </div>
 
-                <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="All Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ALL">All Status</SelectItem>
-                    <SelectItem value="SUBMITTED">Pending</SelectItem>
-                    <SelectItem value="APPROVED">Approved</SelectItem>
-                    <SelectItem value="REJECTED">Rejected</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-2">
+                  <Select value={filterStatus} onValueChange={setFilterStatus}>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="All Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">All Status</SelectItem>
+                      <SelectItem value="SUBMITTED">Pending</SelectItem>
+                      <SelectItem value="APPROVED">Approved</SelectItem>
+                      <SelectItem value="REJECTED">Rejected</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2 bg-white hover:bg-gray-50"
+                    onClick={() => fetchTasks(true)}
+                    disabled={isLoading}
+                  >
+                    <RefreshCw className={cn("w-4 h-4", isLoading && "animate-spin")} />
+                    {isLoading ? "Refreshing..." : "Refresh"}
+                  </Button>
+                </div>
               </div>
             </Card>
 
@@ -366,102 +364,105 @@ export function ReviewerProjectDetailPage() {
               <Card>
                 <Table>
                   <TableHeader>
-                    <TableRow>
+                    <TableRow className="hover:bg-transparent">
                       <TableHead className="w-[100px]">Preview</TableHead>
                       <TableHead>Task / Image</TableHead>
                       <TableHead>Annotator</TableHead>
+                      <TableHead className="w-[100px] text-center">Rejections</TableHead>
                       <TableHead className="w-[120px]">Status</TableHead>
                       <TableHead className="w-[140px]">Deadline</TableHead>
                       <TableHead className="w-[100px] text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    <AnimatePresence mode="popLayout">
-                      {sortedTasks.map((task, index) => {
-                        const statusBadge = getStatusBadge(task.status);
-                        return (
-                          <motion.tr
-                            key={task.id}
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            transition={{ duration: 0.2, delay: index * 0.03 }}
-                            className="hover:bg-gray-50 cursor-pointer transition-colors group"
-                            onClick={() => navigate(`/workspace/${task.id}?mode=review`)}
-                          >
-                            <TableCell>
-                              <div className="w-16 h-16 bg-gradient-to-br from-purple-100 to-blue-100 rounded-xl flex items-center justify-center overflow-hidden border border-gray-100 shadow-sm group-hover:scale-105 transition-transform duration-300">
-                                {task.task.image ? (
-                                  <img
-                                    src={task.task.image.storageUrl}
-                                    alt={task.task.image.originalFilename}
-                                    className="w-full h-full object-cover"
-                                  />
-                                ) : (
-                                  <span className="text-2xl">🖼️</span>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="space-y-1">
-                                <div className="font-bold text-gray-900 group-hover:text-purple-600 transition-colors">
-                                  {task.task.image?.originalFilename ||
-                                    `Task ${task.id.slice(0, 8)}`}
-                                </div>
-                                <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">
-                                  ID: {task.id.slice(0, 8)}
-                                </div>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="space-y-1">
-                                <div className="font-semibold text-sm text-gray-800">
-                                  {task.annotator.fullName}
-                                </div>
-                                <span className="text-[10px] text-muted-foreground italic truncate max-w-[100px]">
-                                  {task.annotator.email}
-                                </span>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <Badge
-                                variant="outline"
-                                className={cn("font-semibold shadow-sm", statusBadge.className)}
-                              >
-                                {statusBadge.label}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              {task.deadline ? (
-                                <div className="flex items-center gap-2 text-sm text-gray-600 font-medium">
-                                  <Clock className="w-3.5 h-3.5" />
-                                  {format(new Date(task.deadline), "MMM dd, yyyy")}
-                                </div>
+                    {sortedTasks.map((task) => {
+                      const statusBadge = getStatusBadge(task.status);
+                      return (
+                        <TableRow
+                          key={task.id}
+                          className="hover:bg-gray-50/80 cursor-pointer transition-colors group h-[88px]"
+                          onClick={() => navigate(`/workspace/${task.id}?mode=review`)}
+                        >
+                          <TableCell>
+                            <div className="w-16 h-16 bg-gradient-to-br from-purple-100 to-blue-100 rounded-xl flex items-center justify-center overflow-hidden border border-gray-100 shadow-sm transition-transform duration-300 group-hover:scale-105">
+                              {task.task.image ? (
+                                <img
+                                  src={task.task.image.storageUrl}
+                                  alt={task.task.image.originalFilename}
+                                  className="w-full h-full object-cover"
+                                />
                               ) : (
-                                <span className="text-muted-foreground text-xs italic">No deadline</span>
+                                <span className="text-2xl">🖼️</span>
                               )}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Button
-                                size="sm"
-                                variant={task.status === "SUBMITTED" ? "default" : "outline"}
-                                className={cn(
-                                  "transition-all group-hover:px-6 shadow-sm",
-                                  task.status === "SUBMITTED" ? "bg-gray-900 hover:bg-black" : ""
-                                )}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigate(`/workspace/${task.id}?mode=review`);
-                                }}
-                              >
-                                <Eye className="w-4 h-4 mr-2" />
-                                {task.status === "SUBMITTED" ? "Review" : "View"}
-                              </Button>
-                            </TableCell>
-                          </motion.tr>
-                        );
-                      })}
-                    </AnimatePresence>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="space-y-1">
+                              <div className="font-bold text-gray-900 group-hover:text-purple-600 transition-colors truncate max-w-[200px]" title={task.task.image?.originalFilename}>
+                                {task.task.image?.originalFilename ||
+                                  `Task ${task.id.slice(0, 8)}`}
+                              </div>
+                              <div className="text-xs text-muted-foreground font-mono mt-0.5">
+                                ID: {task.id.slice(0, 8)}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="space-y-1">
+                              <div className="font-semibold text-sm text-gray-800">
+                                {task.annotator.fullName}
+                              </div>
+                              <div className="text-[10px] text-muted-foreground italic truncate max-w-[150px]">
+                                {task.annotator.email}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant="outline" className={cn(
+                              "font-medium",
+                              (task.rejectionCount || 0) > 0 ? "text-amber-600 border-amber-200 bg-amber-50" : "text-gray-400 border-gray-100"
+                            )}>
+                              {task.rejectionCount || 0}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant="outline"
+                              className={cn("font-semibold shadow-sm w-full justify-center max-w-[100px]", statusBadge.className)}
+                            >
+                              {statusBadge.label}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {task.deadline ? (
+                              <div className="flex items-center gap-2 text-sm text-gray-600 font-medium whitespace-nowrap">
+                                <Clock className="w-3.5 h-3.5 text-slate-400" />
+                                {format(new Date(task.deadline), "MMM dd, yyyy")}
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground text-[10px] italic">No deadline</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              size="sm"
+                              variant={task.status === "SUBMITTED" ? "default" : "outline"}
+                              className={cn(
+                                "transition-all shadow-sm",
+                                task.status === "SUBMITTED" ? "bg-gray-900 hover:bg-black" : ""
+                              )}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/workspace/${task.id}?mode=review`);
+                              }}
+                            >
+                              <Eye className="w-4 h-4 mr-2" />
+                              {task.status === "SUBMITTED" ? "Review" : "View"}
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </Card>
