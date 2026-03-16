@@ -132,7 +132,7 @@ export const AppRoutes = () => {
           element={
             <ProtectedRoute allowedRoles={["ANNOTATOR"]}>
               <AnnotatorTasks
-                onOpenWorkspace={(taskId) =>
+                onOpenWorkspace={(taskId: string) =>
                   (window.location.href = `/workspace/${taskId}`)
                 }
               />
@@ -169,11 +169,7 @@ export const AppRoutes = () => {
           path="/reviewer"
           element={
             <ProtectedRoute allowedRoles={["REVIEWER"]}>
-              <ReviewerProjects
-                onOpenWorkspace={(taskId) =>
-                  (window.location.href = `/workspace/${taskId}`)
-                }
-              />
+              <ReviewerProjects />
             </ProtectedRoute>
           }
         />
