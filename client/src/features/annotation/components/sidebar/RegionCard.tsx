@@ -137,6 +137,23 @@ export function RegionCard({ annotation, index, isReadOnly = false }: RegionCard
             <div className="mt-2 text-xs text-slate-500 font-mono">
                 {Math.round(annotation.x)}, {Math.round(annotation.y)} • {Math.round(annotation.width)}×{Math.round(annotation.height)}
             </div>
+
+            {/* Note Input */}
+            {!isReadOnly && (
+                <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+                    <input
+                        placeholder="Add note..."
+                        value={annotation.labelNote || ""}
+                        onChange={(e) => updateAnnotation(annotation.id, { labelNote: e.target.value })}
+                        className="w-full h-8 bg-slate-800 border border-slate-700 rounded px-2 text-[10px] text-slate-300 focus:outline-none focus:border-blue-500 focus:text-white placeholder:text-slate-600 transition-colors"
+                    />
+                </div>
+            )}
+            {isReadOnly && annotation.labelNote && (
+                <div className="mt-2 text-[10px] text-slate-400 italic bg-slate-800/50 p-1.5 rounded border border-slate-700/50">
+                    "{annotation.labelNote}"
+                </div>
+            )}
         </Card>
     );
 }

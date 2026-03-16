@@ -11,6 +11,7 @@ export interface Annotation {
   visible: boolean;
   createdBy?: string;
   createdAt: Date;
+  labelNote?: string;
   aiSuggested?: boolean; // Flag if AI suggested this box
   confidence?: number; // AI confidence score (0-1), only set when aiSuggested
   opacity?: number; // Custom opacity
