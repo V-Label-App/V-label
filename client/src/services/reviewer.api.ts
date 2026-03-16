@@ -1,5 +1,28 @@
 import { apiClient } from "./auth.api";
 
+export interface TaskHistoryItem {
+  id: string;
+  status: string;
+  reviewComment?: string;
+  annotations?: unknown[];
+  annotator: {
+    fullName: string;
+    email: string;
+  };
+  createdAt: string;
+}
+
+// New: from TaskSubmissionHistory table (BE v2)
+export interface SubmissionHistoryItem {
+  id: string;
+  submissionNumber: number;
+  reviewComment?: string;
+  annotations?: unknown[];
+  status: string;
+  submittedAt: string;
+  reviewedAt?: string;
+}
+
 export interface ReviewerProject {
   id: string;
   name: string;
@@ -21,6 +44,7 @@ export interface ReviewQueueItem {
   taskId: string;
   status: string;
   deadline: Date | null;
+  rejectionCount?: number;
   reviewedAt?: Date | string;
   annotations?: any;
   reviewScore?: number;
@@ -29,6 +53,9 @@ export interface ReviewQueueItem {
     id: string;
     priority: string;
     difficultyLevel: string;
+    history?: TaskHistoryItem[];
+    submissionHistory?: SubmissionHistoryItem[];
+
     image: {
       id: string;
       storageUrl: string;

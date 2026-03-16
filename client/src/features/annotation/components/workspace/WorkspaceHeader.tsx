@@ -24,6 +24,7 @@ interface WorkspaceHeaderProps {
   onSubmit?: () => void;
   onSkip?: () => void;
   onApprove?: () => void;
+
   onReject?: () => void;
   onResume?: () => void;
   onClose?: () => void;
@@ -42,6 +43,7 @@ export function WorkspaceHeader({
   onSubmit,
   onSkip,
   onApprove,
+
   onReject,
   onResume,
   onClose,
