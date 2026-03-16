@@ -113,6 +113,7 @@ export class AnnotatorService {
                                         id: true,
                                         name: true,
                                         labelConfig: true,
+                                        assignmentRule: true,
                                         projectLabels: {
                                             include: {
                                                 label: {
@@ -187,6 +188,20 @@ export class AnnotatorService {
                     task: {
                         include: {
                             image: true,
+                            assignments: {
+                                where: {
+                                    // Include ALL rejected/skipped assignments for this task,
+                                    // including the current one if it is rejected.
+                                    status: { in: [AssignmentStatus.REJECTED, AssignmentStatus.SKIPPED] },
+                                },
+                                include: {
+                                    annotator: { select: { fullName: true, email: true } },
+                                    submissionHistory: {
+                                        orderBy: { submissionNumber: 'desc' },
+                                    },
+                                },
+                                orderBy: { createdAt: 'desc' },
+                            },
                             project: {
                                 include: {
                                     projectLabels: {
