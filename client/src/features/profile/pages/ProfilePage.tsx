@@ -27,6 +27,8 @@ export default function ProfilePage() {
     const { user, refreshUserProfile } = useAuth()
     const navigate = useNavigate()
 
+    const reputationScore = Math.max(0, (user as any)?.reputationScore || 0);
+
     const [isEditOpen, setIsEditOpen] = useState(false)
     const [isSaving, setIsSaving] = useState(false)
     const [formData, setFormData] = useState({
@@ -347,24 +349,24 @@ export default function ProfilePage() {
                                 <CardContent className="space-y-4">
                                     <div className="flex items-end justify-between">
                                         <div>
-                                            <div className="text-2xl font-bold">{(user as any).reputationScore ?? 0} <span className="text-sm font-normal text-muted-foreground">pts</span></div>
+                                            <div className="text-2xl font-bold">{reputationScore} <span className="text-sm font-normal text-muted-foreground">pts</span></div>
                                             <p className="text-xs text-muted-foreground">
                                                 Current reliability score
                                             </p>
                                         </div>
                                         <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200 hover:bg-yellow-100">
-                                            Lv.{calculateLevelLinear((user as any).reputationScore || 0, 10)}
+                                            Lv.{calculateLevelLinear(reputationScore, 10)}
                                         </Badge>
                                     </div>
                                     
                                     <div className="space-y-1.5">
                                         <div className="flex justify-between text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                                            <span>Progress to Level {calculateLevelLinear((user as any).reputationScore || 0, 10) + 1}</span>
-                                            <span>{Math.round(calculateLevelProgress((user as any).reputationScore || 0, 10 / 2))} %</span>
+                                            <span>Progress to Level {calculateLevelLinear(reputationScore, 10) + 1}</span>
+                                            <span>{Math.round(calculateLevelProgress(reputationScore, 10 / 2))} %</span>
                                         </div>
-                                        <Progress value={calculateLevelProgress((user as any).reputationScore || 0, 10 / 2)} className="h-1.5" />
+                                        <Progress value={calculateLevelProgress(reputationScore, 10 / 2)} className="h-1.5" />
                                         <p className="text-[10px] text-muted-foreground text-right">
-                                            {10 - ((user as any).reputationScore % 10)} pts to level up
+                                            {10 - (reputationScore % 10)} pts to level up
                                         </p>
                                     </div>
                                 </CardContent>

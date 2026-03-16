@@ -156,7 +156,7 @@ export function AdminPanel() {
               | "REVIEWER"
               | "ANNOTATOR",
             is_active: u.isActive ?? false,
-            reputation_score: u.reputationScore || 0,
+            reputation_score: Math.max(0, u.reputationScore || 0),
           };
         })
         .filter((u): u is User => u !== null && u.role !== "ADMIN");

@@ -948,7 +948,8 @@ export class ProjectController {
                             image: true,
                             assignments: {
                                 where: {
-                                    id: { not: assignmentId },
+                                    // Include ALL rejected/skipped assignments,
+                                    // including the current one if it is rejected.
                                     status: { in: ['REJECTED', 'SKIPPED'] },
                                 },
                                 include: {
@@ -1123,6 +1124,9 @@ export class ProjectController {
                                         email: true,
                                         avatarUrl: true
                                     }
+                                },
+                                submissionHistory: {
+                                    orderBy: { submissionNumber: 'desc' }
                                 }
                             }
                         }

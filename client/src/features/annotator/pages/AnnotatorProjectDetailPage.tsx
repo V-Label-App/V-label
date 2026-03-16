@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "../../../components/ui/button";
 import { Card } from "../../../components/ui/card";
@@ -38,9 +38,11 @@ import {
   Eye,
   Sparkles,
   RotateCcw,
+  RefreshCw,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { cn } from "../../../components/ui/utils";
 
 import { projectApi } from "../../../services/project.api";
 import { annotatorApi } from "../../../services/annotator.api";
@@ -54,6 +56,7 @@ export function AnnotatorProjectDetailPage() {
   const [project, setProject] = useState<any>(null);
   const [tasks, setTasks] = useState<TaskAssignmentListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState("tasks");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
@@ -76,28 +79,32 @@ export function AnnotatorProjectDetailPage() {
   }, [projectId]);
 
   // Fetch my tasks for this project
-  useEffect(() => {
-    const fetchTasks = async () => {
-      if (!projectId) return;
+  const fetchTasks = useCallback(async (silent = false) => {
+    if (!projectId) return;
 
-      setIsLoading(true);
-      try {
-        const result = await annotatorApi.getMyTasks({
-          projectId,
-          page: 1,
-          limit: 100,
-        });
-        setTasks(result.data);
-      } catch (error) {
-        console.error("Failed to fetch tasks:", error);
-        toast.error("Failed to load tasks");
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    if (!silent) setIsLoading(true);
+    else setIsRefreshing(true);
 
-    fetchTasks();
+    try {
+      const result = await annotatorApi.getMyTasks({
+        projectId,
+        page: 1,
+        limit: 100,
+      });
+      setTasks(result.data);
+      if (silent) toast.success("Task list refreshed");
+    } catch (error) {
+      console.error("Failed to fetch tasks:", error);
+      toast.error("Failed to load tasks");
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
   }, [projectId]);
+
+  useEffect(() => {
+    fetchTasks();
+  }, [fetchTasks]);
 
   if (!project) {
     return (
@@ -156,7 +163,9 @@ export function AnnotatorProjectDetailPage() {
         .includes(searchQuery.toLowerCase()) ||
       task.id.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus =
-      filterStatus === "ALL" || task.status === filterStatus;
+      filterStatus === "ALL" || 
+      task.status === filterStatus || 
+      (filterStatus === "REJECTED" && task.status === "SKIPPED");
     return matchesSearch && matchesStatus;
   });
 
@@ -356,19 +365,31 @@ export function AnnotatorProjectDetailPage() {
                   </div>
                 </div>
 
-                <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="All Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ALL">All Status</SelectItem>
-                    <SelectItem value="ASSIGNED">Assigned</SelectItem>
-                    <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-                    <SelectItem value="SUBMITTED">Submitted</SelectItem>
-                    <SelectItem value="REJECTED">Rejected</SelectItem>
-                    <SelectItem value="APPROVED">Approved</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-2">
+                  <Select value={filterStatus} onValueChange={setFilterStatus}>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="All Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">All Status</SelectItem>
+                      <SelectItem value="ASSIGNED">Assigned</SelectItem>
+                      <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
+                      <SelectItem value="SUBMITTED">Submitted</SelectItem>
+                      <SelectItem value="REJECTED">Rejected</SelectItem>
+                      <SelectItem value="APPROVED">Approved</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Button 
+                    variant="outline" 
+                    className="gap-2 bg-white hover:bg-gray-50 shadow-sm transition-all whitespace-nowrap"
+                    onClick={() => fetchTasks(true)}
+                    disabled={isRefreshing}
+                  >
+                    <RefreshCw className={cn("w-4 h-4", isRefreshing && "animate-spin")} />
+                    {isRefreshing ? "Refresh" : "Refresh"}
+                  </Button>
+                </div>
               </div>
             </Card>
 
@@ -406,9 +427,10 @@ export function AnnotatorProjectDetailPage() {
                   </TableHeader>
                   <TableBody>
                     {filteredTasks.map((task) => {
+                      const projectMaxRejections = project?.assignmentRule?.maxRejectionsBeforeReassign;
                       const isLocked =
-                        task.status === "REJECTED" &&
-                        (task.rejectionCount || 0) >= (task.maxRejections || 3);
+                        (task.status === "REJECTED" || task.status === "SKIPPED") &&
+                        (task.rejectionCount || 0) >= (projectMaxRejections ?? task.maxRejections ?? 3);
                       
                       const statusBadge = isLocked 
                         ? { className: "bg-orange-100 text-orange-700 border-orange-300", label: "Reassigning..." }
@@ -441,7 +463,7 @@ export function AnnotatorProjectDetailPage() {
                               <div className="text-xs text-muted-foreground">
                                 ID: {task.id.slice(0, 8)}...
                               </div>
-                              {task.status === "REJECTED" &&
+                              {(task.status === "REJECTED" || task.status === "SKIPPED") &&
                                 task.reviewComment && (
                                   <div className={`text-xs flex items-center gap-1 ${isLocked ? "text-gray-400" : "text-red-600"}`}>
                                     <AlertTriangle className="w-3 h-3" />

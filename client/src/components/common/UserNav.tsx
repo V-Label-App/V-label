@@ -27,6 +27,8 @@ export function UserNav() {
     const { user, logout } = useAuth()
     const navigate = useNavigate()
 
+    const reputationScore = Math.max(0, user?.reputationScore || 0);
+
     if (!user) return null
 
     // Get initials from full name or email
@@ -54,14 +56,14 @@ export function UserNav() {
                                 <span className="font-semibold truncate leading-none">{user.fullName || 'User'}</span>
                                 {user.role === 'ANNOTATOR' && (
                                     <Badge variant="outline" className="h-4 px-1 text-[10px] bg-yellow-50 text-yellow-700 border-yellow-200">
-                                        Lv.{calculateLevelLinear(user.reputationScore || 0, 10)}
+                                        Lv.{calculateLevelLinear(reputationScore, 10)}
                                     </Badge>
                                 )}
                             </div>
                             {user.role === 'ANNOTATOR' && (
                                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground leading-none">
                                     <Award className="w-3 h-3 text-orange-500" />
-                                    <span>{user.reputationScore || 0} pts</span>
+                                    <span>{reputationScore} pts</span>
                                 </div>
                             )}
                         </div>
@@ -74,7 +76,7 @@ export function UserNav() {
                             {user.role === 'ANNOTATOR' && (
                                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                                     <Award className="w-3 h-3 text-orange-500" />
-                                    <span>Reputation Score: {user.reputationScore || 0}</span>
+                                    <span>Reputation Score: {reputationScore}</span>
                                 </div>
                             )}
                         </div>

@@ -274,6 +274,9 @@ export class ReviewerService {
           reviewer: {
             select: { id: true, fullName: true, email: true },
           },
+          submissionHistory: {
+            orderBy: { submissionNumber: 'desc' },
+          },
         },
       })
 
@@ -506,9 +509,9 @@ export class ReviewerService {
         assignment.task.project.assignmentRule?.maxRejectionsBeforeReassign ??
         assignment.maxRejections
 
-      // "More than X rejections" means it triggers on the (X+1)-th rejection
-      // Align with FE logic (e.g. if max is 3, trigger on the 4th reject)
-      const exceedsMaxRejections = newRejectionCount > maxRejectionsRule
+      // Reassignment triggers when the rejection count reaches or exceeds the limit
+      // e.g., if max is 3, the 3rd rejection will trigger reassignment (Strike 3 = Out)
+      const exceedsMaxRejections = newRejectionCount >= maxRejectionsRule
 
       // Interactive transaction: all DB ops in one atomic block
       const updatedAssignment = await prisma.$transaction(async (tx) => {

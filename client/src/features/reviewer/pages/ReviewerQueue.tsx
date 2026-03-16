@@ -11,9 +11,10 @@ import {
 } from "../../../components/ui/table";
 import { Avatar, AvatarFallback } from "../../../components/ui/avatar";
 import { Badge } from "../../../components/ui/badge";
-import { Clock, RefreshCw, Inbox, CheckCircle2, XCircle } from "lucide-react";
+import { Clock, RefreshCw, Inbox, CheckCircle2, BarChart3, AlertCircle } from "lucide-react";
 import { formatDistanceToNow, parseISO } from "date-fns";
 import { reviewerApi } from "../../../services/reviewer.api";
+import type { ReviewQueueItem } from "../../../services/reviewer.api";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -26,14 +27,17 @@ interface ReviewerQueueProps {
 }
 
 export function ReviewerQueue({ onOpenWorkspace }: ReviewerQueueProps) {
-  const [queueTasks, setQueueTasks] = useState<any[]>([]);
-  const [stats, setStats] = useState<any>(null);
+  const [queueTasks, setQueueTasks] = useState<ReviewQueueItem[]>([]);
+  const [stats, setStats] = useState<{
+    pending: number;
+    approved: number;
+    rejected: number;
+    total: number;
+  } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const fetchQueue = useCallback(async (silent = false) => {
     if (!silent) setIsLoading(true);
-    else setIsRefreshing(true);
     
     try {
       const result = await reviewerApi.getReviewQueue({
@@ -51,7 +55,6 @@ export function ReviewerQueue({ onOpenWorkspace }: ReviewerQueueProps) {
       toast.error("Failed to load review queue");
     } finally {
       setIsLoading(false);
-      setIsRefreshing(false);
     }
   }, []);
 
@@ -82,69 +85,61 @@ export function ReviewerQueue({ onOpenWorkspace }: ReviewerQueueProps) {
             size="sm" 
             className="gap-2 bg-white hover:bg-gray-50 transition-all duration-200"
             onClick={() => fetchQueue(true)}
-            disabled={isRefreshing}
+            disabled={isLoading}
           >
-            <RefreshCw className={cn("w-4 h-4", isRefreshing && "animate-spin")} />
-            {isRefreshing ? "Refreshing..." : "Refresh Queue"}
+            <RefreshCw className={cn("w-4 h-4", isLoading && "animate-spin")} />
+            {isLoading ? "Refreshing..." : "Refresh Queue"}
           </Button>
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-            <Card className="p-6 border-none shadow-sm bg-blue-50/50">
-              <div className="flex items-start justify-between">
+            <Card className="p-6">
+              <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-blue-600 mb-1 tracking-wide">PENDING REVIEW</p>
-                  <h3 className="text-3xl font-bold text-blue-900">{stats?.pending || 0}</h3>
+                  <p className="text-sm font-medium text-muted-foreground">Assigned</p>
+                  <h3 className="text-2xl font-bold">{stats?.pending || 0}</h3>
                 </div>
-                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center shadow-inner">
-                  <Clock className="w-6 h-6 text-blue-600" />
-                </div>
+                <Clock className="w-8 h-8 text-blue-500 opacity-20" />
               </div>
             </Card>
           </motion.div>
 
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-            <Card className="p-6 border-none shadow-sm bg-emerald-50/50">
-              <div className="flex items-start justify-between">
+            <Card className="p-6">
+              <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-emerald-600 mb-1 tracking-wide">REVIEWED TODAY</p>
-                  <h3 className="text-3xl font-bold text-emerald-900">{stats?.approved || 0}</h3>
+                  <p className="text-sm font-medium text-muted-foreground">Approved</p>
+                  <h3 className="text-2xl font-bold">{stats?.approved || 0}</h3>
                 </div>
-                <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center shadow-inner">
-                  <CheckCircle2 className="w-6 h-6 text-emerald-600" />
-                </div>
+                <CheckCircle2 className="w-8 h-8 text-green-500 opacity-20" />
               </div>
             </Card>
           </motion.div>
 
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-            <Card className="p-6 border-none shadow-sm bg-purple-50/50">
-              <div className="flex items-start justify-between">
+            <Card className="p-6">
+              <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-purple-600 mb-1 tracking-wide">REJECT RATE</p>
-                  <h3 className="text-3xl font-bold text-purple-900">
-                    {stats?.total > 0 ? ((stats?.rejected / stats?.total) * 100).toFixed(1) : "0"}%
+                  <p className="text-sm font-medium text-muted-foreground">Reject Rate</p>
+                  <h3 className="text-2xl font-bold">
+                    {stats && stats.total > 0 ? Math.round((stats.rejected / stats.total) * 100) : 0}%
                   </h3>
                 </div>
-                <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center shadow-inner">
-                  <XCircle className="w-6 h-6 text-purple-600" />
-                </div>
+                <AlertCircle className="w-8 h-8 text-red-500 opacity-20" />
               </div>
             </Card>
           </motion.div>
 
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-            <Card className="p-6 border-none shadow-sm bg-orange-50/50">
-              <div className="flex items-start justify-between">
+            <Card className="p-6">
+              <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-orange-600 mb-1 tracking-wide">TOTAL COMPLETED</p>
-                  <h3 className="text-3xl font-bold text-orange-900">{stats?.total || 0}</h3>
+                  <p className="text-sm font-medium text-muted-foreground">Total Processed</p>
+                  <h3 className="text-2xl font-bold">{stats?.total || 0}</h3>
                 </div>
-                <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center shadow-inner">
-                  <CheckCircle2 className="w-6 h-6 text-orange-600" />
-                </div>
+                <BarChart3 className="w-8 h-8 text-purple-500 opacity-20" />
               </div>
             </Card>
           </motion.div>
@@ -154,8 +149,8 @@ export function ReviewerQueue({ onOpenWorkspace }: ReviewerQueueProps) {
         <Card className="border-none shadow-sm overflow-hidden bg-white">
           <div className="p-6 border-b border-gray-100 flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-bold text-gray-900">Active Queue</h2>
-              <p className="text-sm text-muted-foreground">High priority tasks assigned for your review</p>
+              <h2 className="text-xl font-semibold">Active Queue</h2>
+              <p className="text-sm text-muted-foreground">Tasks awaiting your review</p>
             </div>
             {queueTasks.length > 0 && (
               <Badge variant="secondary" className="px-3 py-1 bg-gray-100 text-gray-700">
@@ -203,7 +198,7 @@ export function ReviewerQueue({ onOpenWorkspace }: ReviewerQueueProps) {
                         </TableCell>
                         <TableCell>
                           <div className="max-w-[200px]">
-                            <p className="font-bold text-gray-900 truncate">
+                            <p className="font-medium text-gray-900 truncate" title={assignment.task.image?.originalFilename}>
                               {assignment.task.image?.originalFilename || `Task ${assignment.id.slice(0, 8)}`}
                             </p>
                             <p className="text-xs text-muted-foreground font-mono mt-0.5">
@@ -234,13 +229,13 @@ export function ReviewerQueue({ onOpenWorkspace }: ReviewerQueueProps) {
                             <div className="flex items-center gap-1.5 text-gray-600">
                               <Clock className="w-3.5 h-3.5" />
                               <span className="text-xs font-semibold">
-                                {formatDistanceToNow(parseISO(assignment.createdAt), {
+                                {assignment.reviewedAt ? formatDistanceToNow(parseISO(assignment.reviewedAt.toString()), {
                                   addSuffix: true,
-                                })}
+                                }) : 'Just now'}
                               </span>
                             </div>
                             <span className="text-[10px] text-muted-foreground pl-5 uppercase tracking-tighter">
-                              TIMESTAMP: {new Date(assignment.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                              TIMESTAMP: {assignment.reviewedAt ? new Date(assignment.reviewedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '--:--'}
                             </span>
                           </div>
                         </TableCell>
@@ -254,19 +249,19 @@ export function ReviewerQueue({ onOpenWorkspace }: ReviewerQueueProps) {
                                 {assignment.task.project.name}
                               </Badge>
                             )}
-                            {assignment.rejectionCount > 0 && (
-                              <Badge
-                                variant="destructive"
-                                className="animate-pulse shadow-sm"
-                              >
-                                REJECTED {assignment.rejectionCount}X
-                              </Badge>
-                            )}
+                             {(assignment.rejectionCount ?? 0) > 0 && (
+                               <Badge
+                                 variant="destructive"
+                                 className="animate-pulse shadow-sm"
+                               >
+                                 REJECTED {assignment.rejectionCount}X
+                               </Badge>
+                             )}
                           </div>
                         </TableCell>
                         <TableCell className="text-right">
                           <Button
-                            className="bg-gray-900 hover:bg-black text-white px-6 shadow-sm hover:shadow-md transition-all group-hover:px-8"
+                            className="bg-gray-900 hover:bg-black text-white px-6 shadow-sm hover:shadow-md transition-all"
                             onClick={() => onOpenWorkspace(assignment.id, "review")}
                           >
                             Review Now

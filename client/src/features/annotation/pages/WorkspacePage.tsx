@@ -1,8 +1,10 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import type { SubmissionHistoryItem } from "../../../services/annotator.api";
+
 import { motion } from "framer-motion";
 import { aiApi } from "../../../services/ai.api";
-import { Sparkles } from "lucide-react";
+import { Sparkles, ChevronLeft } from "lucide-react";
 import type { Annotation } from "../stores";
 import { WorkspaceHeader } from "../components/workspace/WorkspaceHeader";
 import { WorkspaceToolbar } from "../components/workspace/WorkspaceToolbar";
@@ -19,7 +21,6 @@ import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { useWorkspaceData } from "../hooks/useWorkspaceData";
 import { useProjectTasks } from "../hooks/useProjectTasks";
 import { useAutoSave } from "../hooks/useAutoSave";
-import { useState } from "react";
 import { toast } from "sonner";
 
 interface WorkspacePageProps {
@@ -29,7 +30,8 @@ interface WorkspacePageProps {
     | "in_progress"
     | "submitted"
     | "rejected"
-    | "approved";
+    | "approved"
+    | "skipped";
 }
 
 export function WorkspacePage({
@@ -65,7 +67,8 @@ export function WorkspacePage({
   // Derive taskStatus dynamically from taskData, fallback to propTaskStatus/assigned
   const taskStatus = (taskData?.status?.toLowerCase() ||
     propTaskStatus ||
-    "assigned") as any;
+    "assigned") as WorkspacePageProps["taskStatus"];
+
   const {
     clearAnnotations,
     setAnnotations,
@@ -74,6 +77,7 @@ export function WorkspacePage({
     addAnnotation,
     setAnnotatorNote,
     setReviewComment,
+    setHistoricalAnnotations,
   } = useAnnotationStore();
   const { setLabels } = useLabelStore();
 
@@ -82,6 +86,12 @@ export function WorkspacePage({
   const [reviewType, setReviewType] = useState<"approve" | "reject">("approve");
   const [isReviewLoading, setIsReviewLoading] = useState(false);
   const [isAiLoading, setIsAiLoading] = useState(false);
+
+  // History preview state
+  const [previewingSubmission, setPreviewingSubmission] = useState<number | null>(null);
+
+  // Sidebar collapse state
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // Ref to prevent navigation loop
   const isUpdatingFromURL = useRef(false);
@@ -95,7 +105,8 @@ export function WorkspacePage({
     taskStatus === "approved" ||
     taskStatus === "submitted" ||
     taskStatus === "skipped" ||
-    mode === "review";
+    mode === "review" ||
+    previewingSubmission !== null;
 
   // Work Timer
   useEffect(() => {
@@ -152,12 +163,33 @@ export function WorkspacePage({
 
         // Update ref
         lastAssignmentIdRef.current = currentAssignmentId;
+
+        // Load historical annotations if available (for Canvas Comparison)
+        if (taskData.history && taskData.history.length > 0) {
+          // Find the most recent rejected/skipped assignment that has annotations
+          const latestHistoryWithAnnotations = taskData.history.find(
+            (h: SubmissionHistoryItem) =>
+              h.annotations && Array.isArray(h.annotations) && h.annotations.length > 0
+          );
+          
+          if (latestHistoryWithAnnotations) {
+            setHistoricalAnnotations(latestHistoryWithAnnotations.annotations as Annotation[]);
+          } else {
+            setHistoricalAnnotations([]);
+          }
+        } else {
+          setHistoricalAnnotations([]);
+        }
+
+        // Reset preview state
+        setPreviewingSubmission(null);
       }
     }
   }, [
     taskData,
     setLabels,
     setAnnotations,
+    setHistoricalAnnotations,
     clearAnnotations,
     setAnnotatorNote,
     setReviewComment,
@@ -259,6 +291,8 @@ export function WorkspacePage({
     }
   };
 
+
+
   const handleApprove = () => {
     setReviewType("approve");
     setIsReviewModalOpen(true);
@@ -271,13 +305,44 @@ export function WorkspacePage({
 
   const handleNextTask = () => {
     const store = useImageStore.getState();
+    const tasks = store.images;
     const currentIdx = store.currentIndex;
-    // Auto-navigate to the next task if available
-    if (imageTasks.length > 0 && currentIdx >= 0 && currentIdx < imageTasks.length - 1) {
+    
+    if (currentIdx < tasks.length - 1) {
       store.jumpToImage(currentIdx + 1);
     } else {
+      toast.success("All tasks completed!");
       // If no more tasks, return to previous page
       navigate(-1);
+    }
+  };
+
+  const handlePreviewAnnotations = (historyAnnots: Annotation[], submissionNumber: number) => {
+    setPreviewingSubmission(submissionNumber);
+    // Ensure all historical annotations are visible for the preview
+    const visibleAnnots = historyAnnots.map(ann => ({
+      ...ann,
+      id: ann.id || `hist-${submissionNumber}-${Math.random().toString(36).substr(2, 5)}`,
+      visible: true
+    }));
+    setHistoricalAnnotations(visibleAnnots);
+  };
+
+  const handleRestoreCurrent = () => {
+    setPreviewingSubmission(null);
+    // Restore historicalAnnotations to the most recent reject if available
+    if (taskData?.history && taskData.history.length > 0) {
+      const latestHistoryWithAnnotations = taskData.history.find(
+        (h: SubmissionHistoryItem) =>
+          h.annotations && Array.isArray(h.annotations) && h.annotations.length > 0
+      );
+      if (latestHistoryWithAnnotations) {
+        setHistoricalAnnotations(latestHistoryWithAnnotations.annotations as Annotation[]);
+      } else {
+        setHistoricalAnnotations([]);
+      }
+    } else {
+      setHistoricalAnnotations([]);
     }
   };
 
@@ -443,6 +508,9 @@ export function WorkspacePage({
           <WorkspaceCanvas
             imageUrl={currentImage.url || ""}
             isReadOnly={isReadOnly}
+            isPreviewMode={previewingSubmission !== null}
+            previewSubmissionNumber={previewingSubmission}
+            onRestoreCurrent={handleRestoreCurrent}
           />
 
           {/* AI Loading Overlay */}
@@ -466,13 +534,46 @@ export function WorkspacePage({
         </div>
 
         {/* Sidebar */}
-        <WorkspaceSidebar
-          isReadOnly={isReadOnly}
-          initialTab={taskStatus === "rejected" ? "discussion" : "regions"}
-        />
+        <motion.div
+          initial={false}
+          animate={{ 
+            width: isSidebarCollapsed ? 0 : 320,
+            opacity: isSidebarCollapsed ? 0 : 1,
+            marginLeft: isSidebarCollapsed ? 0 : 0
+          }}
+          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          className="flex flex-col overflow-hidden border-l border-slate-700 bg-slate-800 shadow-xl"
+        >
+          <WorkspaceSidebar
+            isReadOnly={isReadOnly}
+            initialTab={taskStatus === "rejected" || (taskData.history && taskData.history.length > 0) ? "history" : "regions"}
+            history={taskData.history}
+            projectId={projectId}
+            onPreviewAnnotations={handlePreviewAnnotations}
+            onRestoreCurrent={handleRestoreCurrent}
+            previewingSubmission={previewingSubmission}
+            isCollapsed={isSidebarCollapsed}
+            onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          />
+        </motion.div>
+
+        {/* Toggle button when collapsed - floating on the right edge of canvas */}
+        {isSidebarCollapsed && (
+          <motion.button
+            initial={{ opacity: 0, x: 40 }}
+            animate={{ opacity: 1, x: 0 }}
+            whileHover={{ x: -4, scale: 1.05 }}
+            onClick={() => setIsSidebarCollapsed(false)}
+            className="fixed right-0 top-1/2 -translate-y-1/2 z-[60] w-10 h-16 bg-blue-600/90 hover:bg-blue-600 border border-blue-500/50 border-r-0 rounded-l-2xl flex items-center justify-center text-white shadow-[0_0_20px_rgba(37,99,235,0.4)] transition-colors duration-300 group"
+            title="Expand Sidebar"
+          >
+            <ChevronLeft className="w-6 h-6 transition-transform group-hover:scale-110" />
+          </motion.button>
+        )}
       </div>
 
       <ReviewScoringModal
+        key={`${taskId}-${isReviewModalOpen}`}
         isOpen={isReviewModalOpen}
         onClose={() => setIsReviewModalOpen(false)}
         onConfirm={handleReviewConfirm}
