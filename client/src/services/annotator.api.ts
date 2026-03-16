@@ -1,5 +1,34 @@
 import { apiClient } from "./auth.api";
 
+export interface TaskHistoryItem {
+  id: string;
+  status: string;
+  reviewComment?: string;
+  annotations?: unknown[];
+  annotator: {
+    fullName: string;
+    email: string;
+  };
+  annotatorNote?: string;
+  createdAt: string;
+}
+
+// New: from TaskSubmissionHistory table (BE v2)
+export interface SubmissionHistoryItem {
+  id: string;
+  submissionNumber: number;
+  reviewComment?: string;
+  annotatorNote?: string;
+  annotations?: unknown[];
+  status: string;
+  submittedAt: string;
+  reviewedAt?: string;
+  annotator?: {
+    fullName: string;
+    email: string;
+  };
+}
+
 export interface TaskAssignmentListItem {
   id: string;
   taskId: string;
@@ -8,15 +37,18 @@ export interface TaskAssignmentListItem {
   updatedAt: string;
   annotatorNote?: string;
   reviewComment?: string;
-   reviewScore?: number;
-   annotations?: unknown;
-   actualTimeSeconds?: number;
-   rejectionCount?: number;
-   maxRejections?: number;
-   task: {
+  reviewScore?: number;
+  annotations?: unknown[];
+  actualTimeSeconds?: number;
+  rejectionCount?: number;
+  maxRejections?: number;
+  task: {
     id: string;
     priority: string;
     difficultyLevel: string;
+    history?: TaskHistoryItem[];
+    submissionHistory?: SubmissionHistoryItem[];
+
     image: {
       id: string;
       storageUrl: string;
@@ -24,24 +56,27 @@ export interface TaskAssignmentListItem {
       width: number;
       height: number;
     } | null;
-    project: {
-      id: string;
-      name: string;
-      labelConfig: unknown[];
-      enableAiAssistance: boolean;
-      projectLabels?: {
-        label: {
-          id: string;
-          name: string;
-          color: string;
-          category?: {
+      project: {
+        id: string;
+        name: string;
+        labelConfig: unknown[];
+        enableAiAssistance: boolean;
+        assignmentRule?: {
+          maxRejectionsBeforeReassign: number;
+        } | null;
+        projectLabels?: {
+          label: {
             id: string;
             name: string;
-            color?: string;
-          } | null;
-        };
-      }[];
-    };
+            color: string;
+            category?: {
+              id: string;
+              name: string;
+              color?: string;
+            } | null;
+          };
+        }[];
+      };
   };
   annotator?: {
     id: string;
@@ -50,6 +85,7 @@ export interface TaskAssignmentListItem {
     avatarUrl?: string;
     reputationScore?: number;
   };
+  submissionHistory?: SubmissionHistoryItem[];
 }
 
 export interface AnnotatorProject {
@@ -67,6 +103,9 @@ export interface AnnotatorProject {
     tasks: number;
     members: number;
   };
+  assignmentRule?: {
+    maxRejectionsBeforeReassign: number;
+  } | null;
 }
 
 export interface TaskListResponse {

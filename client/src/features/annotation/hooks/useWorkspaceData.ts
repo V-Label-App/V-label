@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import type { TaskAssignmentListItem } from "../../../services/annotator.api";
+import type { TaskAssignmentListItem, SubmissionHistoryItem } from "../../../services/annotator.api";
+
 import { annotatorApi } from "../../../services/annotator.api";
 import { reviewerApi } from "../../../services/reviewer.api";
 import { projectApi } from "../../../services/project.api";
@@ -40,6 +41,8 @@ export interface WorkspaceTaskData {
   enableAiAssistance: boolean;
   updatedAt: string;
   deadline?: string;
+  history?: SubmissionHistoryItem[];
+
 }
 
 export interface UseWorkspaceDataReturn {
@@ -122,6 +125,63 @@ export const useWorkspaceData = (
         enableAiAssistance: assignment.task.project.enableAiAssistance ?? false,
         updatedAt: assignment.updatedAt,
         deadline: assignment.deadline ? String(assignment.deadline) : undefined,
+        history: (() => {
+          const allHistory: SubmissionHistoryItem[] = [];
+          
+          // 1. Collect from current assignment's submissionHistory
+          if (assignment.submissionHistory && Array.isArray(assignment.submissionHistory)) {
+            allHistory.push(...assignment.submissionHistory);
+          }
+          
+          // 2. Collect from legacy assignments in task.history or task.assignments (depending on BE version)
+          // We cast to any to avoid complex nested Prisma types here
+          const taskObj = assignment.task as any;
+          const legacyAssignments = taskObj?.history || taskObj?.assignments || [];
+          
+          if (Array.isArray(legacyAssignments)) {
+            // Filter to only include assignments with actual submissions or rejections/skips
+            const relevantLegacy = legacyAssignments.filter(h => 
+              (h.submissionHistory && h.submissionHistory.length > 0) || 
+              h.status === "REJECTED" || 
+              h.status === "SKIPPED"
+            );
+
+            relevantLegacy.forEach((h: any) => {
+              const annotatorInfo = h.annotator || { fullName: "Previous Annotator", email: "" };
+              
+              // If this legacy assignment has its own submissionHistory
+              if (h.submissionHistory && Array.isArray(h.submissionHistory)) {
+                const historyWithAnnotator = h.submissionHistory.map((sh: any) => ({
+                  ...sh,
+                  annotator: annotatorInfo
+                }));
+                allHistory.push(...historyWithAnnotator);
+              } else {
+                // Pure legacy: Create a mock history item
+                allHistory.push({
+                  id: h.id,
+                  submissionNumber: h.submissionNumber || 1, 
+                  annotations: (h.annotations as any) || [],
+                  annotatorNote: h.annotatorNote,
+                  reviewComment: h.reviewComment,
+                  status: h.status,
+                  submittedAt: h.submittedAt || h.createdAt,
+                  reviewedAt: h.reviewedAt || h.updatedAt,
+                  annotator: annotatorInfo
+                });
+              }
+            });
+          }
+          
+          // 3. De-duplicate by ID (in case current assignment is also in task.assignments)
+          // and sort by submissionNumber desc
+          const uniqueMap = new Map<string, SubmissionHistoryItem>();
+          allHistory.forEach(item => uniqueMap.set(item.id, item));
+          
+          return Array.from(uniqueMap.values())
+            .sort((a, b) => b.submissionNumber - a.submissionNumber);
+        })(),
+
       };
     },
     [],

@@ -4,15 +4,23 @@ import Konva from "konva";
 import { useCanvasStore, useAnnotationStore } from "../../stores";
 import { AnnotationLayer } from "./AnnotationLayer";
 import { useAnnotationTools } from "../../hooks/useAnnotationTools";
+import { Eye, RotateCcw } from "lucide-react";
+
 
 interface WorkspaceCanvasProps {
   imageUrl: string;
   isReadOnly?: boolean;
+  isPreviewMode?: boolean;
+  previewSubmissionNumber?: number | null;
+  onRestoreCurrent?: () => void;
 }
 
 export function WorkspaceCanvas({
   imageUrl,
   isReadOnly = false,
+  isPreviewMode = false,
+  previewSubmissionNumber = null,
+  onRestoreCurrent,
 }: WorkspaceCanvasProps) {
   const {
     pan,
@@ -151,6 +159,24 @@ export function WorkspaceCanvas({
 
   return (
     <div className="w-full h-full bg-slate-900 flex items-center justify-center overflow-hidden relative">
+
+      {/* Preview Mode Banner */}
+      {isPreviewMode && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-amber-500/90 backdrop-blur-sm text-white text-sm font-semibold px-4 py-1.5 rounded-full shadow-lg border border-amber-400/50">
+          <Eye className="w-4 h-4" />
+          Preview — Submission #{previewSubmissionNumber}
+          {onRestoreCurrent && (
+            <button
+              onClick={onRestoreCurrent}
+              className="ml-2 flex items-center gap-1 text-xs bg-white/20 hover:bg-white/30 transition-colors px-2 py-0.5 rounded-full"
+            >
+              <RotateCcw className="w-3 h-3" />
+              Restore
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Loading/Error Overlay */}
       {(imageLoading || imageError) && (
         <div className="absolute inset-0 flex items-center justify-center bg-slate-900 z-10">
@@ -205,7 +231,7 @@ export function WorkspaceCanvas({
           )}
 
           {/* Annotations Layer */}
-          <AnnotationLayer isReadOnly={isReadOnly} />
+          <AnnotationLayer isReadOnly={isReadOnly} isPreviewMode={isPreviewMode} />
 
           {/* Temporary drawing rectangle */}
           {tempRect && (

@@ -22,6 +22,7 @@ interface AnnotationState {
   selectedAnnotationId: string | null;
   history: Annotation[][];
   historyIndex: number;
+  historicalAnnotations: Annotation[];
 
   defaultOpacity: number;
   defaultStrokeWidth: number;
@@ -33,6 +34,7 @@ interface AnnotationState {
   selectAnnotation: (id: string | null) => void;
   toggleVisibility: (id: string) => void;
   setAnnotations: (annotations: Annotation[]) => void;
+  setHistoricalAnnotations: (annotations: Annotation[]) => void;
   clearAnnotations: () => void;
   setDefaultOpacity: (opacity: number) => void;
   setDefaultStrokeWidth: (width: number) => void;
@@ -56,6 +58,7 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
   selectedAnnotationId: null,
   history: [[]],
   historyIndex: 0,
+  historicalAnnotations: [],
   defaultOpacity: 0.1,
   defaultStrokeWidth: 2,
 
@@ -99,10 +102,15 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
     set({ annotations, selectedAnnotationId: null });
     get().addToHistory(annotations);
   },
+  
+  setHistoricalAnnotations: (annotations) => {
+    set({ historicalAnnotations: annotations });
+  },
 
   clearAnnotations: () => {
     set({
       annotations: [],
+      historicalAnnotations: [],
       selectedAnnotationId: null,
       history: [[]],
       historyIndex: 0,
