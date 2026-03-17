@@ -35,6 +35,7 @@ interface WorkspaceHeaderProps {
     email?: string;
     reputationScore?: number;
   };
+  isTaskReassigned?: boolean;
 }
 
 export function WorkspaceHeader({
@@ -50,6 +51,7 @@ export function WorkspaceHeader({
   actualTimeSeconds = 0,
   projectName,
   annotator,
+  isTaskReassigned,
 }: WorkspaceHeaderProps) {
   const { getCurrentImage, autoSaveStatus } = useImageStore();
   const currentImage = getCurrentImage();
@@ -103,8 +105,10 @@ export function WorkspaceHeader({
           </Badge>
         )}
         {isSkipped && (
-          <Badge className="ml-3 bg-indigo-600 text-white animate-pulse shadow-[0_0_10px_rgba(79,70,229,0.3)]">
-            SKIPPED
+          <Badge
+            className={`ml-3 text-white animate-pulse ${isTaskReassigned ? "bg-indigo-600 shadow-[0_0_10px_rgba(79,70,229,0.3)]" : "bg-amber-600 shadow-[0_0_10px_rgba(217,119,6,0.3)]"}`}
+          >
+            {isTaskReassigned ? "REASSIGNED" : "REASSIGNING"}
           </Badge>
         )}
         {mode === "review" && annotator && (

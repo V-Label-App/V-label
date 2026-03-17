@@ -451,17 +451,19 @@ export function AnnotatorProjectDetailPage() {
                     {filteredTasks.map((task) => {
                       const projectMaxRejections =
                         project?.assignmentRule?.maxRejectionsBeforeReassign;
+                      // Permanently lock if SKIPPED (hit limit) regardless of project settings
                       const isLocked =
-                        (task.status === "REJECTED" ||
-                          task.status === "SKIPPED") &&
-                        (task.rejectionCount || 0) >=
-                          (projectMaxRejections ?? task.maxRejections ?? 3);
+                        task.status === "SKIPPED" ||
+                        (task.status === "REJECTED" &&
+                          (task.rejectionCount || 0) >=
+                            (projectMaxRejections ?? task.maxRejections ?? 3));
 
                       const statusBadge = isLocked
                         ? {
-                            className:
-                              "bg-orange-100 text-orange-700 border-orange-300 font-bold",
-                            label: "REASSIGNED",
+                            className: task.status === "SKIPPED" 
+                              ? "bg-amber-100 text-amber-700 border-amber-300 font-bold animate-pulse" 
+                              : "bg-orange-100 text-orange-700 border-orange-300 font-bold",
+                            label: task.status === "SKIPPED" ? "REASSIGNING" : "REASSIGNED",
                           }
                         : getStatusBadge(task.status);
 
@@ -552,7 +554,7 @@ export function AnnotatorProjectDetailPage() {
                               {isLocked ? (
                                 <>
                                   <Clock className="w-3 h-3 mr-1" />
-                                  REASSIGNED
+                                  {statusBadge.label}
                                 </>
                               ) : task.status === "REJECTED" ? (
                                 <>

@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
-import type { TaskAssignmentListItem, SubmissionHistoryItem } from "../../../services/annotator.api";
+import type {
+  TaskAssignmentListItem,
+  SubmissionHistoryItem,
+} from "../../../services/annotator.api";
 
 import { annotatorApi } from "../../../services/annotator.api";
 import { reviewerApi } from "../../../services/reviewer.api";
@@ -42,7 +45,7 @@ export interface WorkspaceTaskData {
   updatedAt: string;
   deadline?: string;
   history?: SubmissionHistoryItem[];
-
+  isTaskReassigned?: boolean;
 }
 
 export interface UseWorkspaceDataReturn {
@@ -103,7 +106,7 @@ export const useWorkspaceData = (
           category: pl.label.category?.name,
         })) || [];
 
-      return {
+      const transformed: WorkspaceTaskData = {
         assignmentId: assignment.id,
         taskId: assignment.taskId,
         projectId: assignment.task.project.id,
@@ -127,62 +130,85 @@ export const useWorkspaceData = (
         deadline: assignment.deadline ? String(assignment.deadline) : undefined,
         history: (() => {
           const allHistory: SubmissionHistoryItem[] = [];
-          
+
           // 1. Collect from current assignment's submissionHistory
-          if (assignment.submissionHistory && Array.isArray(assignment.submissionHistory)) {
-            allHistory.push(...assignment.submissionHistory);
+          if (
+            assignment.submissionHistory &&
+            Array.isArray(assignment.submissionHistory)
+          ) {
+            const currentWithAnnotator = assignment.submissionHistory.map(
+              (sh) => ({
+                ...sh,
+                annotator: assignment.annotator,
+              }),
+            );
+            allHistory.push(...currentWithAnnotator);
           }
-          
+
           // 2. Collect from legacy assignments in task.history or task.assignments (depending on BE version)
           // We cast to any to avoid complex nested Prisma types here
           const taskObj = assignment.task as any;
-          const legacyAssignments = taskObj?.history || taskObj?.assignments || [];
-          
+          const legacyAssignments =
+            taskObj?.history || taskObj?.assignments || [];
+
           if (Array.isArray(legacyAssignments)) {
             // Filter to only include assignments with actual submissions or rejections/skips
-            const relevantLegacy = legacyAssignments.filter(h => 
-              (h.submissionHistory && h.submissionHistory.length > 0) || 
-              h.status === "REJECTED" || 
-              h.status === "SKIPPED"
+            const relevantLegacy = legacyAssignments.filter(
+              (h) =>
+                (h.submissionHistory && h.submissionHistory.length > 0) ||
+                h.status === "REJECTED" ||
+                h.status === "SKIPPED",
             );
 
             relevantLegacy.forEach((h: any) => {
-              const annotatorInfo = h.annotator || { fullName: "Previous Annotator", email: "" };
-              
+              const annotatorInfo = h.annotator || {
+                fullName: "Previous Annotator",
+                email: "",
+              };
+
               // If this legacy assignment has its own submissionHistory
               if (h.submissionHistory && Array.isArray(h.submissionHistory)) {
-                const historyWithAnnotator = h.submissionHistory.map((sh: any) => ({
-                  ...sh,
-                  annotator: annotatorInfo
-                }));
+                const historyWithAnnotator = h.submissionHistory.map(
+                  (sh: any) => ({
+                    ...sh,
+                    annotator: annotatorInfo,
+                  }),
+                );
                 allHistory.push(...historyWithAnnotator);
               } else {
                 // Pure legacy: Create a mock history item
                 allHistory.push({
                   id: h.id,
-                  submissionNumber: h.submissionNumber || 1, 
+                  submissionNumber: h.submissionNumber || 1,
                   annotations: (h.annotations as any) || [],
                   annotatorNote: h.annotatorNote,
                   reviewComment: h.reviewComment,
                   status: h.status,
                   submittedAt: h.submittedAt || h.createdAt,
                   reviewedAt: h.reviewedAt || h.updatedAt,
-                  annotator: annotatorInfo
+                  annotator: annotatorInfo,
                 });
               }
             });
           }
-          
+
           // 3. De-duplicate by ID (in case current assignment is also in task.assignments)
           // and sort by submissionNumber desc
           const uniqueMap = new Map<string, SubmissionHistoryItem>();
-          allHistory.forEach(item => uniqueMap.set(item.id, item));
-          
-          return Array.from(uniqueMap.values())
-            .sort((a, b) => b.submissionNumber - a.submissionNumber);
-        })(),
+          allHistory.forEach((item) => uniqueMap.set(item.id, item));
 
+          return Array.from(uniqueMap.values()).sort(
+            (a, b) => b.submissionNumber - a.submissionNumber,
+          );
+        })(),
       };
+
+      // After history is calculated, determine if task was reassigned
+      transformed.isTaskReassigned = transformed.history?.some(
+        (h) => h.annotator?.email && h.annotator.email !== assignment.annotator?.email,
+      );
+
+      return transformed;
     },
     [],
   );
@@ -209,7 +235,20 @@ export const useWorkspaceData = (
 
       const transformedData = transformTaskData(assignment);
 
-      setTaskData(transformedData);
+      setTaskData((prev) => {
+        if (prev && prev.assignmentId === assignment.id) {
+          // Preserve history if the new fetch didn't include it (e.g. partial response)
+          const hasNewHistory =
+            transformedData.history && transformedData.history.length > 0;
+          return {
+            ...transformedData,
+            history: hasNewHistory ? transformedData.history : prev.history,
+            isTaskReassigned:
+              transformedData.isTaskReassigned || prev.isTaskReassigned,
+          };
+        }
+        return transformedData;
+      });
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to load task data";
@@ -236,9 +275,22 @@ export const useWorkspaceData = (
         // Update local task data if the status or annotations changed on the server
         if (updatedAssignment) {
           const transformed = transformTaskData(updatedAssignment);
-          setTaskData(transformed);
+          setTaskData((prev) => {
+            if (!prev) return transformed;
+            // Preserve history if the update didn't include it
+            const hasNewHistory =
+              transformed.history && transformed.history.length > 0;
+            return {
+              ...transformed,
+              history: hasNewHistory ? transformed.history : prev.history,
+              isTaskReassigned: transformed.isTaskReassigned || prev.isTaskReassigned,
+            };
+          });
           // Also sync with the image store to keep the navigator updated
-          updateImageStatus(assignmentId, transformed.status.toLowerCase() as any);
+          updateImageStatus(
+            assignmentId,
+            transformed.status.toLowerCase() as any,
+          );
         }
       } catch (err: any) {
         console.error("Failed to save draft:", err);
@@ -272,7 +324,17 @@ export const useWorkspaceData = (
           actualTimeSeconds: timeSeconds,
         });
         updateImageStatus(assignmentId, "submitted");
-        setTaskData((prev) => (prev ? { ...prev, status: "SUBMITTED" } : null));
+        setTaskData((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: "SUBMITTED",
+                // Preserve history during status update
+                history: prev.history,
+                isTaskReassigned: prev.isTaskReassigned,
+              }
+            : null,
+        );
       } catch (err: any) {
         console.error("Failed to submit task:", err);
         if (err.response) {
@@ -296,8 +358,17 @@ export const useWorkspaceData = (
           actualTimeSeconds: timeSeconds,
         });
         updateImageStatus(assignmentId, "skipped");
-        setTaskData((prev) => (prev ? { ...prev, status: "SKIPPED" } : null));
-        // Reloader after status change to get fresh state
+        setTaskData((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: "SKIPPED",
+                history: prev.history,
+                isTaskReassigned: prev.isTaskReassigned,
+              }
+            : null,
+        );
+        // Reload after status change to get fresh state (including full history)
         await loadData();
       } catch (err: any) {
         console.error("Failed to skip task:", err);
@@ -319,7 +390,16 @@ export const useWorkspaceData = (
         status: "IN_PROGRESS",
       });
       updateImageStatus(assignmentId, "in_progress");
-      setTaskData((prev) => (prev ? { ...prev, status: "IN_PROGRESS" } : null));
+      setTaskData((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: "IN_PROGRESS",
+              history: prev.history,
+              isTaskReassigned: prev.isTaskReassigned,
+            }
+          : null,
+      );
       // Refresh local data to reflect status change
       await loadData();
       toast.success("Task resumed. You can now continue annotating.");
@@ -338,8 +418,8 @@ export const useWorkspaceData = (
   const approveTask = useCallback(
     async (note?: string) => {
       try {
-        await reviewerApi.approveTask(assignmentId, { 
-          reviewComment: note
+        await reviewerApi.approveTask(assignmentId, {
+          reviewComment: note,
         });
         toast.success("Task approved successfully");
         updateImageStatus(assignmentId, "approved");
@@ -359,8 +439,8 @@ export const useWorkspaceData = (
   const rejectTask = useCallback(
     async (reason: string) => {
       try {
-        await reviewerApi.rejectTask(assignmentId, { 
-          reviewComment: reason
+        await reviewerApi.rejectTask(assignmentId, {
+          reviewComment: reason,
         });
         toast.success("Task rejected successfully");
         updateImageStatus(assignmentId, "rejected");
