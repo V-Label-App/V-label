@@ -597,16 +597,23 @@ export function WorkspacePage({
 
         {/* Toggle button when collapsed - floating on the right edge of canvas */}
         {isSidebarCollapsed && (
-          <motion.button
-            initial={{ opacity: 0, x: 40 }}
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            whileHover={{ x: -4, scale: 1.05 }}
+            className="fixed right-0 top-1/2 -translate-y-1/2 z-[60] flex items-center pr-2 pl-8 py-10 group/hitbox cursor-pointer"
             onClick={() => setIsSidebarCollapsed(false)}
-            className="fixed right-0 top-1/2 -translate-y-1/2 z-[60] w-10 h-16 bg-blue-600/90 hover:bg-blue-600 border border-blue-500/50 border-r-0 rounded-l-2xl flex items-center justify-center text-white shadow-[0_0_20px_rgba(37,99,235,0.4)] transition-colors duration-300 group"
-            title="Expand Sidebar"
           >
-            <ChevronLeft className="w-6 h-6 transition-transform group-hover:scale-110" />
-          </motion.button>
+            <motion.button
+              whileHover={{ width: 32, backgroundColor: "rgba(30, 41, 59, 0.8)" }}
+              className="w-1.5 h-24 bg-blue-500/40 backdrop-blur-md rounded-full border border-white/5 shadow-[0_0_15px_rgba(59,130,246,0.2)] transition-all duration-500 group flex items-center justify-center overflow-hidden relative"
+              title="Expand Sidebar"
+            >
+              <ChevronLeft className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 translate-x-1 group-hover:translate-x-0" />
+              
+              {/* Subtle pulsing glow */}
+              <div className="absolute inset-0 bg-blue-400/10 animate-pulse group-hover:hidden"></div>
+            </motion.button>
+          </motion.div>
         )}
       </div>
 

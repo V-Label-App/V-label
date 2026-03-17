@@ -14,6 +14,7 @@ import { PlusCircle, History as HistoryIcon, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { HistoryPanel } from "../sidebar/HistoryPanel";
 import type { SubmissionHistoryItem } from "../../../../services/annotator.api";
+import { motion } from "framer-motion";
 
 interface WorkspaceSidebarProps {
   isReadOnly?: boolean;
@@ -46,15 +47,20 @@ export function WorkspaceSidebar({
     <div className="w-80 bg-slate-900/50 backdrop-blur-xl border-l border-white/10 flex flex-col shadow-2xl relative h-full">
       {/* Collapse Toggle Button - external floating style */}
       {!isCollapsed && onToggleCollapse && (
-        <Button
-          variant="ghost"
-          size="sm"
+        <motion.button
+          whileHover={{ width: 32, backgroundColor: "rgba(30, 41, 59, 0.8)" }}
           onClick={onToggleCollapse}
-          className="absolute -left-4 top-1/2 -translate-y-1/2 z-50 w-8 h-12 p-0 bg-blue-600/90 hover:bg-blue-600 border border-blue-500/50 border-r-0 rounded-l-xl text-white shadow-[0_0_15px_rgba(37,99,235,0.3)] group transition-all duration-300"
+          className="absolute -left-4 top-1/2 -translate-y-1/2 z-50 w-8 h-32 flex items-center justify-center group overflow-visible"
           title="Collapse Sidebar"
         >
-          <ChevronRight className="w-5 h-5 transition-transform group-hover:scale-110" />
-        </Button>
+          {/* Visible sliver handle */}
+          <div className="w-1.5 h-24 bg-blue-500/40 backdrop-blur-md rounded-full border border-white/5 shadow-[0_0_15px_rgba(59,130,246,0.2)] transition-all duration-500 group-hover:w-full flex items-center justify-center overflow-hidden relative">
+            <ChevronRight className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 -translate-x-1 group-hover:translate-x-0" />
+            
+            {/* Subtle pulsing glow */}
+            <div className="absolute inset-0 bg-blue-400/10 animate-pulse group-hover:hidden"></div>
+          </div>
+        </motion.button>
       )}
 
       <Tabs defaultValue={initialTab} className="flex-1 flex flex-col h-full overflow-hidden">
