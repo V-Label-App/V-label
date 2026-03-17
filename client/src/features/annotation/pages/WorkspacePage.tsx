@@ -11,11 +11,7 @@ import { WorkspaceToolbar } from "../components/workspace/WorkspaceToolbar";
 import { WorkspaceCanvas } from "../components/canvas/WorkspaceCanvas";
 import { WorkspaceSidebar } from "../components/workspace/WorkspaceSidebar";
 import { ImageNavigator } from "../components/workspace/ImageNavigator";
-import {
-  useImageStore,
-  useLabelStore,
-  useAnnotationStore,
-} from "../stores";
+import { useImageStore, useLabelStore, useAnnotationStore } from "../stores";
 import { ReviewScoringModal } from "../components/workspace/ReviewScoringModal";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { useWorkspaceData } from "../hooks/useWorkspaceData";
@@ -47,7 +43,7 @@ export function WorkspacePage({
     (searchParams.get("mode") as "annotate" | "review") ||
     propMode ||
     "annotate";
-  
+
   // Load task data from API
   const {
     loading: dataLoading,
@@ -98,7 +94,9 @@ export function WorkspacePage({
   const [isAiLoading, setIsAiLoading] = useState(false);
 
   // History preview state
-  const [previewingSubmission, setPreviewingSubmission] = useState<number | null>(null);
+  const [previewingSubmission, setPreviewingSubmission] = useState<
+    number | null
+  >(null);
 
   // Sidebar collapse state
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -135,10 +133,7 @@ export function WorkspacePage({
   const projectId = taskData?.projectId;
 
   // Load all tasks in the project for navigation (enabled for both modes)
-  const { imageTasks, findTaskIndex } = useProjectTasks(
-    projectId,
-    mode
-  );
+  const { imageTasks, findTaskIndex } = useProjectTasks(projectId, mode);
 
   // Initialize keyboard shortcuts
   useKeyboardShortcuts(isReadOnly);
@@ -179,11 +174,15 @@ export function WorkspacePage({
           // Find the most recent rejected/skipped assignment that has annotations
           const latestHistoryWithAnnotations = taskData.history.find(
             (h: SubmissionHistoryItem) =>
-              h.annotations && Array.isArray(h.annotations) && h.annotations.length > 0
+              h.annotations &&
+              Array.isArray(h.annotations) &&
+              h.annotations.length > 0,
           );
-          
+
           if (latestHistoryWithAnnotations) {
-            setHistoricalAnnotations(latestHistoryWithAnnotations.annotations as Annotation[]);
+            setHistoricalAnnotations(
+              latestHistoryWithAnnotations.annotations as Annotation[],
+            );
           } else {
             setHistoricalAnnotations([]);
           }
@@ -289,7 +288,7 @@ export function WorkspacePage({
       toast.error("Please provide a reason before skipping.");
       return;
     }
-    
+
     setIsSkipConfirmOpen(false);
     try {
       await skipTask(skipReason, actualTimeSeconds);
@@ -300,8 +299,6 @@ export function WorkspacePage({
       toast.error("Failed to skip task. Please try again.");
     }
   };
-
-
 
   const handleApprove = () => {
     setReviewType("approve");
@@ -317,7 +314,7 @@ export function WorkspacePage({
     const store = useImageStore.getState();
     const tasks = store.images;
     const currentIdx = store.currentIndex;
-    
+
     if (currentIdx < tasks.length - 1) {
       store.jumpToImage(currentIdx + 1);
     } else {
@@ -327,13 +324,18 @@ export function WorkspacePage({
     }
   };
 
-  const handlePreviewAnnotations = (historyAnnots: Annotation[], submissionNumber: number) => {
+  const handlePreviewAnnotations = (
+    historyAnnots: Annotation[],
+    submissionNumber: number,
+  ) => {
     setPreviewingSubmission(submissionNumber);
     // Ensure all historical annotations are visible for the preview
-    const visibleAnnots = historyAnnots.map(ann => ({
+    const visibleAnnots = historyAnnots.map((ann) => ({
       ...ann,
-      id: ann.id || `hist-${submissionNumber}-${Math.random().toString(36).substr(2, 5)}`,
-      visible: true
+      id:
+        ann.id ||
+        `hist-${submissionNumber}-${Math.random().toString(36).substr(2, 5)}`,
+      visible: true,
     }));
     setHistoricalAnnotations(visibleAnnots);
   };
@@ -344,10 +346,14 @@ export function WorkspacePage({
     if (taskData?.history && taskData.history.length > 0) {
       const latestHistoryWithAnnotations = taskData.history.find(
         (h: SubmissionHistoryItem) =>
-          h.annotations && Array.isArray(h.annotations) && h.annotations.length > 0
+          h.annotations &&
+          Array.isArray(h.annotations) &&
+          h.annotations.length > 0,
       );
       if (latestHistoryWithAnnotations) {
-        setHistoricalAnnotations(latestHistoryWithAnnotations.annotations as Annotation[]);
+        setHistoricalAnnotations(
+          latestHistoryWithAnnotations.annotations as Annotation[],
+        );
       } else {
         setHistoricalAnnotations([]);
       }
@@ -384,10 +390,15 @@ export function WorkspacePage({
         (resolve) => {
           const img = new window.Image();
           img.crossOrigin = "Anonymous";
-          img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
-          img.onerror = () => resolve({ width: currentImage.width ?? 1000, height: currentImage.height ?? 1000 });
+          img.onload = () =>
+            resolve({ width: img.naturalWidth, height: img.naturalHeight });
+          img.onerror = () =>
+            resolve({
+              width: currentImage.width ?? 1000,
+              height: currentImage.height ?? 1000,
+            });
           img.src = currentImage.url ?? "";
-        }
+        },
       );
 
       const imageUrl = currentImage.url ?? "";
@@ -395,7 +406,7 @@ export function WorkspacePage({
         imageUrl,
         taskData.labels,
         actualDims.width,
-        actualDims.height
+        actualDims.height,
       );
 
       if (suggestions.length === 0) {
@@ -408,13 +419,18 @@ export function WorkspacePage({
 
       // Remove previous AI-generated annotations before adding new ones
       const currentAnnotations = useAnnotationStore.getState().annotations;
-      const manualAnnotations = currentAnnotations.filter((a) => !a.aiSuggested);
+      const manualAnnotations = currentAnnotations.filter(
+        (a) => !a.aiSuggested,
+      );
       setAnnotations(manualAnnotations);
 
-      toast.success(`AI detected ${suggestions.length} object${suggestions.length > 1 ? "s" : ""}.`, {
-        description: "Review and adjust the regions if needed.",
-        duration: 3000,
-      });
+      toast.success(
+        `AI detected ${suggestions.length} object${suggestions.length > 1 ? "s" : ""}.`,
+        {
+          description: "Review and adjust the regions if needed.",
+          duration: 3000,
+        },
+      );
 
       suggestions.forEach((s) => {
         const ann: Annotation = {
@@ -455,8 +471,12 @@ export function WorkspacePage({
           </div>
         </div>
         <div className="flex flex-col items-center">
-          <p className="text-xl font-bold text-white tracking-widest uppercase">Initializing Workspace</p>
-          <p className="text-sm text-slate-500">Preparing high-precision annotation tools...</p>
+          <p className="text-xl font-bold text-white tracking-widest uppercase">
+            Initializing Workspace
+          </p>
+          <p className="text-sm text-slate-500">
+            Preparing high-precision annotation tools...
+          </p>
         </div>
       </div>
     );
@@ -510,6 +530,7 @@ export function WorkspacePage({
         actualTimeSeconds={actualTimeSeconds}
         projectName={taskData.projectName}
         annotator={taskData.annotator}
+        isTaskReassigned={taskData.isTaskReassigned}
       />
 
       {/* Main Content */}
@@ -540,12 +561,14 @@ export function WorkspacePage({
                 className="absolute inset-0 bg-slate-950/60 backdrop-blur-md z-[80] flex flex-col items-center justify-center gap-3"
               >
                 <div className="relative">
-                   <div className="w-16 h-16 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
-                   <div className="absolute inset-0 flex items-center justify-center">
-                     <div className="w-8 h-8 bg-blue-500 rounded-full animate-pulse opacity-50"></div>
-                   </div>
+                  <div className="w-16 h-16 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-8 h-8 bg-blue-500 rounded-full animate-pulse opacity-50"></div>
+                  </div>
                 </div>
-                <p className="text-blue-400 font-bold text-sm tracking-widest uppercase animate-pulse">Synchronizing Task...</p>
+                <p className="text-blue-400 font-bold text-sm tracking-widest uppercase animate-pulse">
+                  Synchronizing Task...
+                </p>
               </motion.div>
             )}
           </AnimatePresence>
@@ -563,22 +586,25 @@ export function WorkspacePage({
               <div className="bg-slate-800 border border-slate-600 rounded-xl px-6 py-5 w-72 shadow-2xl">
                 <div className="flex items-center gap-3 mb-3">
                   <Sparkles className="w-4 h-4 text-purple-400 shrink-0" />
-                  <p className="text-white font-medium text-sm">AI Analyzing Image</p>
+                  <p className="text-white font-medium text-sm">
+                    AI Analyzing Image
+                  </p>
                 </div>
                 <div className="w-full h-1.5 bg-slate-700 rounded-full overflow-hidden">
                   <div className="h-full w-2/5 bg-gradient-to-r from-purple-500 to-blue-400 rounded-full animate-progress" />
                 </div>
-                <p className="text-slate-400 text-xs mt-2">Detecting objects and generating annotations...</p>
+                <p className="text-slate-400 text-xs mt-2">
+                  Detecting objects and generating annotations...
+                </p>
               </div>
             </div>
           )}
-
         </div>
 
         {/* Sidebar */}
         <motion.div
           initial={false}
-          animate={{ 
+          animate={{
             width: isSidebarCollapsed ? 0 : 320,
             opacity: isSidebarCollapsed ? 0 : 1,
           }}
@@ -587,7 +613,12 @@ export function WorkspacePage({
         >
           <WorkspaceSidebar
             isReadOnly={isReadOnly}
-            initialTab={taskStatus === "rejected" || (taskData.history && taskData.history.length > 0) ? "history" : "regions"}
+            initialTab={
+              taskStatus === "rejected" ||
+              (taskData.history && taskData.history.length > 0)
+                ? "history"
+                : "regions"
+            }
             history={taskData.history}
             projectId={projectId}
             onPreviewAnnotations={handlePreviewAnnotations}
@@ -629,7 +660,8 @@ export function WorkspacePage({
           <div className="bg-slate-800 border border-slate-600 rounded-xl p-6 shadow-2xl max-w-md w-full mx-4 text-white">
             <h3 className="text-lg font-bold mb-1">Skip this task?</h3>
             <p className="text-slate-400 text-sm mb-4">
-              This task will be returned to the pool for someone else to complete.
+              This task will be returned to the pool for someone else to
+              complete.
             </p>
             <div className="mb-5">
               <label className="block text-sm font-medium text-slate-300 mb-1.5">
@@ -645,7 +677,10 @@ export function WorkspacePage({
             </div>
             <div className="flex gap-3 justify-end">
               <button
-                onClick={() => { setIsSkipConfirmOpen(false); setSkipReason(""); }}
+                onClick={() => {
+                  setIsSkipConfirmOpen(false);
+                  setSkipReason("");
+                }}
                 className="px-4 py-2 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-700 transition-colors text-sm"
               >
                 Cancel
