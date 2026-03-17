@@ -174,7 +174,7 @@ export class AIController {
 
       // Call Gemini with simple prompt
       let refactoredText = await geminiService.chatCompletion(
-        config.modelName || 'gemini-2.0-flash-exp',
+        config.modelName || 'gemini-2.5-pro',
         systemPrompt,
         [],
         prompt,

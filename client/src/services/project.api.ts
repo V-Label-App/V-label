@@ -439,4 +439,30 @@ export const projectApi = {
     );
     return response.data;
   },
+
+  /**
+   * Export project annotations as a COCO ZIP (train/val/test split).
+   */
+  exportCOCO: async (
+    projectId: string,
+    projectName: string,
+    trainRatio: number,
+    valRatio: number,
+    testRatio: number,
+  ) => {
+    const response = await apiClient.post(
+      `${BASE_URL}/${projectId}/export/coco`,
+      { trainRatio, valRatio, testRatio },
+      { responseType: 'blob' },
+    );
+    const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/zip' }));
+    const link = document.createElement('a');
+    link.href = url;
+    const safeName = projectName.replace(/[^a-zA-Z0-9_\-\s]/g, '').trim().replace(/\s+/g, '_');
+    link.setAttribute('download', `Export_${safeName}-coco.zip`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  },
 };

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { ExportDialog } from "../components/ExportDialog";
 import { DatasetList } from "../components/DatasetList";
 import { UploadImageDialog } from "../components/UploadImageDialog";
 import { DatasetCreateDialog } from "../components/DatasetCreateDialog";
@@ -348,6 +349,8 @@ export function ProjectDetailPage() {
   // Bulk Delete State
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
 
   // Task History Dialog State
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
@@ -1253,12 +1256,24 @@ export function ProjectDetailPage() {
   // const annotatorData: any[] = [];
   // const progressData: any[] = [];
 
-  const exportProjectCSV = () => {
-    toast.success("CSV export coming soon");
-  };
-
-  const exportProjectJSON = () => {
-    toast.success("JSON export coming soon");
+  const exportProjectCOCO = async (
+    trainRatio: number,
+    valRatio: number,
+    testRatio: number,
+  ) => {
+    if (!project) return;
+    setIsExporting(true);
+    try {
+      await projectApi.exportCOCO(project.id, project.name, trainRatio, valRatio, testRatio);
+      setIsExportDialogOpen(false);
+      toast.success("Export thành công!", {
+        description: `Đã lưu Export_${project.name.replace(/\s+/g, '_')}-coco.zip`,
+      });
+    } catch {
+      toast.error("Export thất bại. Vui lòng thử lại.");
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   // Member Management Handlers
@@ -1326,32 +1341,19 @@ export function ProjectDetailPage() {
               Import
             </Button>
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  disabled={project.status !== ProjectStatus.COMPLETED}
-                  title={
-                    project.status !== ProjectStatus.COMPLETED
-                      ? "Project must be COMPLETED to export"
-                      : "Export Project Data"
-                  }
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Export
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={exportProjectCSV}>
-                  <FileText className="w-4 h-4 mr-2" />
-                  Export as CSV
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={exportProjectJSON}>
-                  <FileText className="w-4 h-4 mr-2" />
-                  Export as JSON
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <Button
+              variant="outline"
+              disabled={projectProgress < 100 || isExporting}
+              title={
+                projectProgress < 100
+                  ? "Project progress must be 100% to export"
+                  : "Export as COCO JSON"
+              }
+              onClick={() => setIsExportDialogOpen(true)}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              {isExporting ? "Exporting..." : "Export COCO"}
+            </Button>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -5748,6 +5750,13 @@ export function ProjectDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ExportDialog
+        open={isExportDialogOpen}
+        onClose={() => setIsExportDialogOpen(false)}
+        onExport={exportProjectCOCO}
+        isExporting={isExporting}
+      />
     </div>
   );
 }

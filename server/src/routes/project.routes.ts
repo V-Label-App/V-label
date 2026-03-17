@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { ProjectController } from '../controllers/project.controller.js'
 import { DatasetController } from '../controllers/dataset.controller.js'
+import { ExportController } from '../controllers/export.controller.js'
 import { authMiddleware } from '../middlewares/auth.middleware.js'
 import { requireRole } from '../middlewares/role.middleware.js'
 import {
@@ -224,6 +225,13 @@ router.get(
   // Get User Workloads
   '/:id/workloads',
   ProjectController.getWorkloads,
+)
+
+// Export Routes
+router.post(
+  '/:id/export/coco',
+  requireRole(['ADMIN', 'MANAGER']),
+  ExportController.exportCOCO,
 )
 
 export default router
