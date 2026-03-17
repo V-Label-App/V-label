@@ -1,6 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import type { SubmissionHistoryItem } from "../../../services/annotator.api";
 
 import { motion, AnimatePresence } from "framer-motion";
 import { aiApi } from "../../../services/ai.api";
@@ -169,26 +168,9 @@ export function WorkspacePage({
         // Update ref
         lastAssignmentIdRef.current = currentAssignmentId;
 
-        // Load historical annotations if available (for Canvas Comparison)
-        if (taskData.history && taskData.history.length > 0) {
-          // Find the most recent rejected/skipped assignment that has annotations
-          const latestHistoryWithAnnotations = taskData.history.find(
-            (h: SubmissionHistoryItem) =>
-              h.annotations &&
-              Array.isArray(h.annotations) &&
-              h.annotations.length > 0,
-          );
-
-          if (latestHistoryWithAnnotations) {
-            setHistoricalAnnotations(
-              latestHistoryWithAnnotations.annotations as Annotation[],
-            );
-          } else {
-            setHistoricalAnnotations([]);
-          }
-        } else {
-          setHistoricalAnnotations([]);
-        }
+        // Historical annotations should only be shown when manually selected
+        // from the history list, so we initialize as empty.
+        setHistoricalAnnotations([]);
 
         // Reset preview state
         setPreviewingSubmission(null);
@@ -342,24 +324,8 @@ export function WorkspacePage({
 
   const handleRestoreCurrent = () => {
     setPreviewingSubmission(null);
-    // Restore historicalAnnotations to the most recent reject if available
-    if (taskData?.history && taskData.history.length > 0) {
-      const latestHistoryWithAnnotations = taskData.history.find(
-        (h: SubmissionHistoryItem) =>
-          h.annotations &&
-          Array.isArray(h.annotations) &&
-          h.annotations.length > 0,
-      );
-      if (latestHistoryWithAnnotations) {
-        setHistoricalAnnotations(
-          latestHistoryWithAnnotations.annotations as Annotation[],
-        );
-      } else {
-        setHistoricalAnnotations([]);
-      }
-    } else {
-      setHistoricalAnnotations([]);
-    }
+    // When returning from a preview, clear historical annotations to maintain a clean workspace.
+    setHistoricalAnnotations([]);
   };
 
   const handleReviewConfirm = async (comment: string) => {
