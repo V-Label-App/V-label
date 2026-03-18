@@ -376,4 +376,32 @@ export class AdminController {
             return res.status(500).json({ error: 'Failed to update config' });
         }
     }
+
+    /**
+     * Get OTP Login Configuration
+     */
+    static async getOtpConfig(req: Request, res: Response) {
+        try {
+            const config = await SystemConfigService.getOtpConfig();
+            return res.json(config);
+        } catch (error) {
+            console.error('[Admin] Get OTP config error:', error);
+            return res.status(500).json({ error: 'Failed to fetch config' });
+        }
+    }
+
+    /**
+     * Update OTP Login Configuration
+     */
+    static async updateOtpConfig(req: Request, res: Response) {
+        try {
+            const newConfig = req.body;
+            const adminId = (req as any).user?.sub;
+            const updated = await SystemConfigService.updateOtpConfig(newConfig, adminId);
+            return res.json(updated.value);
+        } catch (error) {
+            console.error('[Admin] Update OTP config error:', error);
+            return res.status(500).json({ error: 'Failed to update config' });
+        }
+    }
 }

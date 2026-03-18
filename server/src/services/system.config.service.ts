@@ -16,6 +16,7 @@ export const SYSTEM_CONFIG_KEYS = {
   CHAT_WIDGET: 'chatWidget',
   AUDIT_LOG_RETENTION: 'auditLogRetention',
   IMAGE_QUALITY: 'imageQuality',
+  LOGIN_OTP: 'loginOtp',
 };
 
 export interface ChatWidgetConfig {
@@ -57,6 +58,11 @@ export interface AuditLogConfig {
   retentionDays: number; // 30, 60, 90, etc. 0 means keep forever
 }
 
+export interface OtpConfig {
+  enabled: boolean;
+  expirationMinutes: number;
+}
+
 const DEFAULT_CHAT_CONFIG: ChatWidgetConfig = {
   enabled: false,
   fullPageModeEnabled: true, // Enabled by default
@@ -83,6 +89,11 @@ const DEFAULT_IMAGE_QUALITY_CONFIG: ImageQualityConfig = {
 
 const DEFAULT_AUDIT_LOG_CONFIG: AuditLogConfig = {
   retentionDays: 30
+};
+
+const DEFAULT_OTP_CONFIG: OtpConfig = {
+  enabled: false,
+  expirationMinutes: 5,
 };
 
 export class SystemConfigService {
@@ -329,5 +340,61 @@ export class SystemConfigService {
     }
 
     return result.count;
+  }
+
+  /**
+   * Get OTP Login Configuration
+   */
+  static async getOtpConfig(): Promise<OtpConfig> {
+    const config = await prisma.systemConfig.findUnique({
+      where: { key: SYSTEM_CONFIG_KEYS.LOGIN_OTP }
+    });
+
+    if (!config || !config.value) {
+      return DEFAULT_OTP_CONFIG;
+    }
+
+    const saved = config.value as Partial<OtpConfig>;
+    return {
+      enabled: saved.enabled ?? DEFAULT_OTP_CONFIG.enabled,
+      expirationMinutes: saved.expirationMinutes ?? DEFAULT_OTP_CONFIG.expirationMinutes,
+    };
+  }
+
+  /**
+   * Update OTP Login Configuration
+   */
+  static async updateOtpConfig(newConfig: Partial<OtpConfig>, adminId?: string) {
+    const current = await this.getOtpConfig();
+    const updated = { ...current, ...newConfig };
+
+    if (adminId) {
+      let action = 'UPDATE_OTP_CONFIG';
+      if (newConfig.enabled !== undefined && newConfig.enabled !== current.enabled) {
+        action = updated.enabled ? 'ENABLE_LOGIN_OTP' : 'DISABLE_LOGIN_OTP';
+      }
+
+      await prisma.auditLog.create({
+        data: {
+          action,
+          actorId: adminId,
+          targetId: null,
+          metadata: {
+            target: 'loginOtp',
+            changes: {
+              enabled: newConfig.enabled !== undefined ? { old: current.enabled, new: updated.enabled } : undefined,
+              expirationMinutes: newConfig.expirationMinutes !== undefined ? { old: current.expirationMinutes, new: updated.expirationMinutes } : undefined,
+            },
+            timestamp: new Date().toISOString()
+          }
+        }
+      });
+    }
+
+    return prisma.systemConfig.upsert({
+      where: { key: SYSTEM_CONFIG_KEYS.LOGIN_OTP },
+      update: { value: updated as any },
+      create: { key: SYSTEM_CONFIG_KEYS.LOGIN_OTP, value: updated as any }
+    });
   }
 }

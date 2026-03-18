@@ -6,6 +6,9 @@ const router = Router()
 // Standard login
 router.post('/login', AuthController.login)
 
+// Verify OTP (step 2 of login when OTP is enabled)
+router.post('/verify-otp', AuthController.verifyOtp)
+
 // Developer bypass (dev only)
 router.post('/dev/login', AuthController.devLogin)
 

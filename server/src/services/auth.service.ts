@@ -79,6 +79,68 @@ export class AuthService {
   }
 
   /**
+   * Validate credentials only (no token generation)
+   * Used by OTP flow step 1
+   */
+  static async validateCredentials(email: string, password: string) {
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        email: true,
+        passwordHash: true,
+        role: true,
+        fullName: true,
+        avatarUrl: true,
+        isActive: true,
+        provider: true,
+      },
+    })
+
+    if (!user || user.provider !== 'LOCAL') {
+      return null
+    }
+
+    if (!user.isActive) {
+      throw new Error('Account is disabled')
+    }
+
+    if (!user.passwordHash) {
+      return null
+    }
+
+    const isValidPassword = await comparePassword(password, user.passwordHash)
+    if (!isValidPassword) {
+      return null
+    }
+
+    return {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      fullName: user.fullName,
+      avatarUrl: user.avatarUrl,
+    }
+  }
+
+  /**
+   * Get user by ID (used by OTP verify flow)
+   */
+  static async getUserById(userId: string) {
+    return prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        fullName: true,
+        avatarUrl: true,
+        isActive: true,
+      },
+    })
+  }
+
+  /**
    * Developer bypass login - only works in development
    */
   static async devLogin(role: UserRole): Promise<LoginResult | null> {

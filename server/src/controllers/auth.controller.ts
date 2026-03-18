@@ -1,5 +1,7 @@
 import { Request, Response } from 'express'
 import { AuthService } from '../services/auth.service.js'
+import { OtpService } from '../services/otp.service.js'
+import { SystemConfigService } from '../services/system.config.service.js'
 import { z } from 'zod'
 import { UserRole } from '@prisma/client'
 
@@ -19,12 +21,36 @@ const devLoginSchema = z.object({
 export class AuthController {
   /**
    * POST /api/v1/auth/login
-   * Standard email/password login
+   * Standard email/password login (with optional OTP step)
    */
   static async login(req: Request, res: Response) {
     try {
       const { email, password } = loginSchema.parse(req.body)
 
+      // Check if OTP is enabled
+      const otpConfig = await SystemConfigService.getOtpConfig()
+
+      if (otpConfig.enabled) {
+        // OTP enabled: validate credentials only, don't issue tokens yet
+        const user = await AuthService.validateCredentials(email, password)
+
+        if (!user) {
+          return res.status(401).json({
+            error: 'Invalid email or password',
+          })
+        }
+
+        // Generate OTP and send via email
+        const otpToken = await OtpService.generateOtp(user.id, user.email)
+
+        return res.status(200).json({
+          otpRequired: true,
+          otpToken,
+          message: 'OTP has been sent to your email',
+        })
+      }
+
+      // OTP disabled: standard login flow
       const result = await AuthService.login(email, password)
 
       if (!result) {
@@ -42,6 +68,7 @@ export class AuthController {
       })
 
       return res.status(200).json({
+        otpRequired: false,
         accessToken: result.accessToken,
         user: result.user,
       })
@@ -64,6 +91,64 @@ export class AuthController {
       return res.status(500).json({
         error: 'Internal server error',
       })
+    }
+  }
+
+  /**
+   * POST /api/v1/auth/verify-otp
+   * Step 2: Verify OTP code and issue JWT tokens
+   */
+  static async verifyOtp(req: Request, res: Response) {
+    try {
+      const { otpToken, code } = req.body
+
+      if (!otpToken || !code) {
+        return res.status(400).json({
+          error: 'otpToken and code are required',
+        })
+      }
+
+      // Verify OTP (stateless — decodes JWT temp token and compares hash)
+      const { userId } = OtpService.verifyOtp(otpToken, String(code))
+
+      // OTP valid — generate real JWT tokens
+      const user = await AuthService.getUserById(userId)
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' })
+      }
+
+      const { signAccessToken, signRefreshToken } = await import('../utils/jwt.utils.js')
+      const payload = { sub: user.id, email: user.email, role: user.role }
+      const accessToken = signAccessToken(payload)
+      const refreshToken = signRefreshToken(payload)
+
+      // Set refresh token in HTTP-only cookie
+      res.cookie('refreshToken', refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      })
+
+      return res.status(200).json({
+        accessToken,
+        user: {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          fullName: user.fullName,
+          avatarUrl: user.avatarUrl,
+        },
+      })
+    } catch (error: any) {
+      console.error('[AUTH] Verify OTP error:', error)
+
+      // OTP-specific errors
+      if (error.message?.includes('OTP')) {
+        return res.status(401).json({ error: error.message })
+      }
+
+      return res.status(500).json({ error: 'Internal server error' })
     }
   }
 
