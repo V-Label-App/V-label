@@ -2937,15 +2937,25 @@ export function ProjectDetailPage() {
                                             ) : (
                                               <ChevronRight className="h-5 w-5 text-gray-700 flex-shrink-0" />
                                             )}
-                                            <div className="h-10 w-10 rounded-full bg-red-500 flex items-center justify-center ring-2 ring-white shadow-sm">
-                                              <span className="text-sm font-semibold text-white">
+                                            <Avatar className="h-10 w-10 ring-2 ring-white shadow-sm">
+                                              <AvatarImage
+                                                src={
+                                                  assignee?.avatarUrl ||
+                                                  undefined
+                                                }
+                                                alt={
+                                                  assignee?.fullName || "User"
+                                                }
+                                                className="object-cover"
+                                              />
+                                              <AvatarFallback className="bg-red-500 text-white text-sm font-semibold">
                                                 {assigneeId === "unassigned"
                                                   ? "?"
                                                   : assignee?.fullName
                                                       ?.charAt(0)
                                                       .toUpperCase() || "A"}
-                                              </span>
-                                            </div>
+                                              </AvatarFallback>
+                                            </Avatar>
                                             <div className="flex-1">
                                               <div className="font-medium text-gray-900">
                                                 {assigneeId === "unassigned"
@@ -3279,13 +3289,30 @@ export function ProjectDetailPage() {
                                       <TableCell className="py-4"></TableCell>
                                       <TableCell>
                                         <div className="flex items-center gap-3">
-                                          <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0">
-                                            {assigneeId === "unassigned"
-                                              ? "?"
-                                              : assignee?.fullName
-                                                  ?.charAt(0)
-                                                  .toUpperCase() || "A"}
-                                          </div>
+                                          {isExpanded ? (
+                                            <ChevronDown className="h-5 w-5 text-gray-700 flex-shrink-0" />
+                                          ) : (
+                                            <ChevronRight className="h-5 w-5 text-gray-700 flex-shrink-0" />
+                                          )}
+                                          <Avatar className="h-10 w-10 ring-2 ring-white shadow-sm">
+                                            <AvatarImage
+                                              src={
+                                                assignee?.avatarUrl ||
+                                                undefined
+                                              }
+                                              alt={
+                                                assignee?.fullName || "User"
+                                              }
+                                              className="object-cover"
+                                            />
+                                            <AvatarFallback className="bg-green-500 text-white text-sm font-semibold">
+                                              {assigneeId === "unassigned"
+                                                ? "?"
+                                                : assignee?.fullName
+                                                    ?.charAt(0)
+                                                    .toUpperCase() || "A"}
+                                            </AvatarFallback>
+                                          </Avatar>
                                           <div className="flex-1">
                                             <div className="font-medium text-gray-900">
                                               {assigneeId === "unassigned"
