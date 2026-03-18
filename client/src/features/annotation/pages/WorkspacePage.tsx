@@ -7,6 +7,7 @@ import { Sparkles, ChevronLeft } from "lucide-react";
 import type { Annotation } from "../stores";
 import { WorkspaceHeader } from "../components/workspace/WorkspaceHeader";
 import { WorkspaceToolbar } from "../components/workspace/WorkspaceToolbar";
+import { AiAnalysisPanel } from "../components/workspace/AiAnalysisPanel";
 import { WorkspaceCanvas } from "../components/canvas/WorkspaceCanvas";
 import { WorkspaceSidebar } from "../components/workspace/WorkspaceSidebar";
 import { ImageNavigator } from "../components/workspace/ImageNavigator";
@@ -91,6 +92,8 @@ export function WorkspacePage({
   const [reviewType, setReviewType] = useState<"approve" | "reject">("approve");
   const [isReviewLoading, setIsReviewLoading] = useState(false);
   const [isAiLoading, setIsAiLoading] = useState(false);
+  const [isAiPanelOpen, setIsAiPanelOpen] = useState(false);
+  const [aiTips, setAiTips] = useState<string[]>([]);
 
   // History preview state
   const [previewingSubmission, setPreviewingSubmission] = useState<
@@ -390,13 +393,12 @@ export function WorkspacePage({
       );
       setAnnotations(manualAnnotations);
 
-      toast.success(
-        `AI detected ${suggestions.length} object${suggestions.length > 1 ? "s" : ""}.`,
-        {
-          description: "Review and adjust the regions if needed.",
-          duration: 3000,
-        },
-      );
+      // Fetch AI-generated tips in background (non-blocking)
+      setAiTips([]);
+      setIsAiPanelOpen(true);
+      aiApi.getAnnotationTips(
+        suggestions.map((s) => ({ label: s.label, confidence: s.confidence, reason: s.reason }))
+      ).then(({ tips }) => setAiTips(tips)).catch(() => {});
 
       suggestions.forEach((s) => {
         const ann: Annotation = {
@@ -503,6 +505,16 @@ export function WorkspacePage({
       <div className="flex flex-1 overflow-hidden relative">
         {/* Left Navigator - Task List */}
         <ImageNavigator />
+
+        {/* AI Analysis Panel — appears after AI suggest completes */}
+        <AiAnalysisPanel
+          isOpen={isAiPanelOpen}
+          onClose={() => setIsAiPanelOpen(false)}
+          tips={aiTips}
+          labelColors={Object.fromEntries(
+            (taskData?.labels ?? []).map((l: any) => [l.name, l.color]),
+          )}
+        />
 
         {/* Floating Toolbar */}
         <div className="fixed bottom-0 left-0 right-0 h-0 pointer-events-none z-[100] flex justify-center">

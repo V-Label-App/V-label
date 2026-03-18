@@ -11,8 +11,8 @@ interface TableRendererProps {
  */
 export function TableRenderer({ content, onAction }: TableRendererProps) {
     return (
-        <div className="space-y-3">
-            <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+        <div className="space-y-3 w-full max-w-full">
+            <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700 max-w-full">
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                     <thead className="bg-gray-50 dark:bg-gray-800">
                         <tr>

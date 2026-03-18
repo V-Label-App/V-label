@@ -101,7 +101,7 @@ export function NotificationInbox({ notifications, onMarkAsRead, onMarkAllAsRead
                                             <span className="w-2 h-2 bg-blue-600 rounded-full flex-shrink-0 mt-1.5" />
                                         )}
                                     </div>
-                                    <p className="text-sm text-muted-foreground mt-1">
+                                    <p className="text-sm text-muted-foreground mt-1 whitespace-pre-line">
                                         {notification.message}
                                     </p>
                                     <p className="text-xs text-muted-foreground mt-2">
