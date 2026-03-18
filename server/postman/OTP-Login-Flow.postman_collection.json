@@ -1,0 +1,380 @@
+{
+  "info": {
+    "name": "V-Label OTP Login Flow Test",
+    "_postman_id": "otp-login-flow-v1",
+    "description": "Test toàn bộ luồng OTP Login:\n\n**Cách dùng:**\n1. Chạy `npx tsx src/scripts/seed-otp-test.ts` để tạo user test\n2. Server phải đang chạy ở http://localhost:4000\n3. Chạy từng request theo thứ tự từ 01 → 12\n4. Ở bước 09, bạn nhập mã OTP nhận được qua email vào body\n\n**Biến tự động:**\n- `adminToken` tự lưu sau khi login thành công\n- `otpToken` tự lưu khi login với OTP bật\n- `otpAccessToken` tự lưu sau khi verify OTP đúng",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:4000" },
+    { "key": "testEmail", "value": "vannguyentuyen2004@gmail.com" },
+    { "key": "testPassword", "value": "Test@123" },
+    { "key": "adminToken", "value": "" },
+    { "key": "otpToken", "value": "" },
+    { "key": "otpAccessToken", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "01. Health Check",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/v1/health",
+        "description": "Kiểm tra server đang chạy"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Server is running', function () {",
+              "    pm.response.to.have.status(200);",
+              "    pm.expect(pm.response.json().status).to.eql('ok');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02. Public OTP Config (Check Status)",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/v1/config/otp",
+        "description": "Kiểm tra trạng thái OTP hiện tại (public, không cần auth)"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Get OTP config successfully', function () {",
+              "    pm.response.to.have.status(200);",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('enabled');",
+              "    console.log('OTP enabled:', json.enabled);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03. Login (OTP OFF) → Get Admin Token",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/v1/auth/login",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}"
+        },
+        "description": "Login khi OTP tắt → nhận accessToken trực tiếp.\nNếu OTP đang bật thì chạy step 11 trước để tắt OTP."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Login without OTP', function () {",
+              "    pm.response.to.have.status(200);",
+              "    var json = pm.response.json();",
+              "",
+              "    if (json.otpRequired === false && json.accessToken) {",
+              "        pm.collectionVariables.set('adminToken', json.accessToken);",
+              "        console.log('✅ Got admin token');",
+              "        console.log('User:', json.user.fullName, '-', json.user.role);",
+              "    } else if (json.otpRequired === true) {",
+              "        console.log('⚠️ OTP is enabled! Run step 11 first to disable, or use the otpToken to verify.');",
+              "        pm.collectionVariables.set('otpToken', json.otpToken);",
+              "    }",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04. Admin GET OTP Config",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/v1/admin/config/otp",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+        ],
+        "description": "Admin xem OTP config chi tiết (cần token)"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Admin GET OTP config', function () {",
+              "    pm.response.to.have.status(200);",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('enabled');",
+              "    pm.expect(json).to.have.property('expirationMinutes');",
+              "    console.log('OTP Config:', JSON.stringify(json));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05. Admin ENABLE OTP",
+      "request": {
+        "method": "PUT",
+        "url": "{{baseUrl}}/api/v1/admin/config/otp",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"enabled\": true,\n  \"expirationMinutes\": 5\n}"
+        },
+        "description": "Admin bật OTP. Sau bước này mọi login đều yêu cầu OTP."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Admin ENABLE OTP', function () {",
+              "    pm.response.to.have.status(200);",
+              "    console.log('✅ OTP is now ENABLED');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06. Verify OTP Enabled (Public)",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/v1/config/otp",
+        "description": "Xác nhận OTP đã được bật qua public endpoint"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('OTP is now enabled', function () {",
+              "    pm.response.to.have.status(200);",
+              "    pm.expect(pm.response.json().enabled).to.eql(true);",
+              "    console.log('✅ OTP enabled = true');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07. Login with OTP ON → Get otpToken",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/v1/auth/login",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}"
+        },
+        "description": "Login khi OTP bật → KHÔNG nhận JWT, chỉ nhận otpToken.\nOTP code sẽ được gửi về email."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Login returns otpRequired', function () {",
+              "    pm.response.to.have.status(200);",
+              "    var json = pm.response.json();",
+              "    pm.expect(json.otpRequired).to.eql(true);",
+              "    pm.expect(json.otpToken).to.be.a('string');",
+              "    pm.expect(json).to.not.have.property('accessToken');",
+              "",
+              "    pm.collectionVariables.set('otpToken', json.otpToken);",
+              "    console.log('✅ otpRequired = true');",
+              "    console.log('📧 OTP sent to email! Check inbox.');",
+              "    console.log('otpToken saved to variable');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08. Verify OTP (WRONG CODE) → Reject",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/v1/auth/verify-otp",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"otpToken\": \"{{otpToken}}\",\n  \"code\": \"000000\"\n}"
+        },
+        "description": "Gửi mã OTP sai → phải bị reject 401"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Wrong OTP is rejected', function () {",
+              "    pm.response.to.have.status(401);",
+              "    console.log('✅ Wrong OTP correctly rejected');",
+              "    console.log('Error:', pm.response.json().error);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "09. ✋ Verify OTP (CORRECT CODE) → NHẬP TAY",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/v1/auth/verify-otp",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"otpToken\": \"{{otpToken}}\",\n  \"code\": \"NHẬP_MÃ_OTP_TỪ_EMAIL_VÀO_ĐÂY\"\n}"
+        },
+        "description": "⚡ BƯỚC QUAN TRỌNG:\n1. Mở email (vannguyentuyen2004@gmail.com)\n2. Copy mã OTP 6 số\n3. Thay \"NHẬP_MÃ_OTP_TỪ_EMAIL_VÀO_ĐÂY\" bằng mã OTP thật\n4. Send request\n\nNếu đúng → nhận accessToken + user info"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "var json = pm.response.json();",
+              "",
+              "if (pm.response.code === 200) {",
+              "    pm.test('OTP verified - Login successful!', function () {",
+              "        pm.expect(json.accessToken).to.be.a('string');",
+              "        pm.expect(json.user).to.be.an('object');",
+              "",
+              "        pm.collectionVariables.set('otpAccessToken', json.accessToken);",
+              "        console.log('🎉 Login thành công!');",
+              "        console.log('User:', json.user.fullName, '-', json.user.role);",
+              "        console.log('Token saved to otpAccessToken');",
+              "    });",
+              "} else {",
+              "    pm.test('OTP verification failed', function () {",
+              "        pm.expect.fail('OTP wrong or expired: ' + json.error);",
+              "    });",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10. Use OTP Token → Access Protected API",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/v1/admin/config/otp",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{otpAccessToken}}" }
+        ],
+        "description": "Dùng token nhận từ OTP verify để truy cập API cần auth.\nChứng minh token hoạt động bình thường."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('OTP token works for protected APIs', function () {",
+              "    pm.response.to.have.status(200);",
+              "    console.log('✅ OTP token can access protected resources');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11. Admin DISABLE OTP (Cleanup)",
+      "request": {
+        "method": "PUT",
+        "url": "{{baseUrl}}/api/v1/admin/config/otp",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"enabled\": false\n}"
+        },
+        "description": "Admin tắt OTP. Login sẽ trở lại bình thường."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Admin DISABLE OTP', function () {",
+              "    pm.response.to.have.status(200);",
+              "    console.log('✅ OTP is now DISABLED');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12. Login After OTP Disabled → Normal",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/v1/auth/login",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}"
+        },
+        "description": "Login sau khi tắt OTP → nhận token trực tiếp, không cần OTP"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Login works normally after OTP disabled', function () {",
+              "    pm.response.to.have.status(200);",
+              "    var json = pm.response.json();",
+              "    pm.expect(json.otpRequired).to.eql(false);",
+              "    pm.expect(json.accessToken).to.be.a('string');",
+              "    console.log('✅ Normal login works again!');",
+              "    console.log('User:', json.user.fullName);",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

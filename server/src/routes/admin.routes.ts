@@ -46,4 +46,8 @@ router.get('/cloudinary-resources', authMiddleware, requireRole(['ADMIN']), Admi
 router.get('/config/image-quality', authMiddleware, requireRole(['ADMIN']), AdminController.getImageQualityConfig);
 router.put('/config/image-quality', authMiddleware, requireRole(['ADMIN']), AdminController.updateImageQualityConfig);
 
+// OTP Login Config
+router.get('/config/otp', authMiddleware, requireRole(['ADMIN']), AdminController.getOtpConfig);
+router.put('/config/otp', authMiddleware, requireRole(['ADMIN']), AdminController.updateOtpConfig);
+
 export default router;

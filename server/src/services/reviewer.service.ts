@@ -242,6 +242,19 @@ export class ReviewerService {
           task: {
             include: {
               image: true,
+              assignments: {
+                where: {
+                  id: { not: assignmentId },
+                  status: { in: [AssignmentStatus.REJECTED, AssignmentStatus.SKIPPED] },
+                },
+                include: {
+                  annotator: { select: { fullName: true, email: true } },
+                  submissionHistory: {
+                    orderBy: { submissionNumber: 'desc' },
+                  },
+                },
+                orderBy: { createdAt: 'desc' },
+              },
               project: {
                 include: {
                   projectLabels: {
@@ -260,6 +273,9 @@ export class ReviewerService {
           },
           reviewer: {
             select: { id: true, fullName: true, email: true },
+          },
+          submissionHistory: {
+            orderBy: { submissionNumber: 'desc' },
           },
         },
       })
@@ -487,9 +503,14 @@ export class ReviewerService {
       }
 
       const newRejectionCount = assignment.rejectionCount + 1
+
+      // Fetch max rejections rule (Project Rule -> Assignment Level Default)
       const maxRejectionsRule =
         assignment.task.project.assignmentRule?.maxRejectionsBeforeReassign ??
         assignment.maxRejections
+
+      // Reassignment triggers when the rejection count reaches or exceeds the limit
+      // e.g., if max is 3, the 3rd rejection will trigger reassignment (Strike 3 = Out)
       const exceedsMaxRejections = newRejectionCount >= maxRejectionsRule
 
       // Interactive transaction: all DB ops in one atomic block
@@ -498,7 +519,7 @@ export class ReviewerService {
         const updated = await tx.taskAssignment.update({
           where: { id: assignmentId },
           data: {
-            status: AssignmentStatus.REJECTED,
+            status: exceedsMaxRejections ? AssignmentStatus.SKIPPED : AssignmentStatus.REJECTED,
             reviewComment,
             reviewedAt: new Date(),
             rejectionCount: { increment: 1 },
@@ -506,6 +527,18 @@ export class ReviewerService {
           include: {
             task: { include: { image: true } },
             annotator: { select: { id: true, fullName: true, email: true } },
+          },
+        })
+
+        // 1.1 Create history record
+        await tx.taskSubmissionHistory.create({
+          data: {
+            assignmentId: assignmentId,
+            submissionNumber: newRejectionCount,
+            annotations: assignment.annotations as any, // Current annotations being rejected
+            reviewComment: reviewComment,
+            status: AssignmentStatus.REJECTED,
+            reviewedAt: new Date(),
           },
         })
 
@@ -751,8 +784,13 @@ export class ReviewerService {
                     : null,
                 }
               : null,
+            history: (assignment.task.assignments || []).map((a: any) => ({
+              ...a,
+              submissionHistory: a.submissionHistory || [],
+            })),
           }
         : null,
+      submissionHistory: assignment.submissionHistory || [],
     }
   }
 }

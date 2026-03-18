@@ -68,6 +68,7 @@ export function Workspace({
 
   const [assignment, setAssignment] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [projectImages, setProjectImages] = useState<ImageTask[]>([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showImageList, setShowImageList] = useState(false);
@@ -99,6 +100,8 @@ export function Workspace({
 
   const isReadOnly = assignment?.status === 'APPROVED' || activeMode === 'review';
   const effectiveTaskStatus = assignment?.status?.toLowerCase() || taskStatus;
+
+  const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
 
   // Derived labels from assignment
   const availableLabels = useMemo(() => assignment?.task?.project?.projectLabels || [], [assignment]);
@@ -178,6 +181,7 @@ export function Workspace({
           thumbnail: '🖼️',
           annotationCount: data.annotations?.length || 0
         }]);
+        setHasLoadedOnce(true);
       } catch (error) {
         console.error("Failed to fetch task details:", error);
         toast.error("Failed to load task details");
@@ -482,7 +486,7 @@ export function Workspace({
     }
   };
 
-  if (isLoading || !assignment) {
+  if (isLoading && !hasLoadedOnce) {
     return (
       <div className="fixed inset-0 bg-slate-900 z-50 flex items-center justify-center text-white font-medium">
         <div className="flex flex-col items-center gap-4">
@@ -524,6 +528,7 @@ export function Workspace({
           {taskStatus === 'approved' && (
             <Badge className="ml-3 bg-green-600 text-white">APPROVED (Read-Only)</Badge>
           )}
+          <Badge variant="outline" className="ml-2 border-blue-500/50 text-blue-400 bg-blue-500/10 backdrop-blur-sm animate-pulse">UI v2.0 Premium</Badge>
         </div>
 
         <div className="flex items-center gap-2 text-sm">
@@ -575,62 +580,83 @@ export function Workspace({
         </div>
       </motion.div>
 
-      <div className="flex h-[calc(100vh-3.5rem)]">
-        <motion.div
-          initial={{ x: -20, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ duration: 0.4, delay: 0.1 }}
-          className="w-16 bg-slate-800 border-r border-slate-700 flex flex-col items-center py-4 gap-1 z-10"
-        >
-          <ToolButton
-            icon={MousePointer}
-            active={tool === 'select'}
-            onClick={() => setTool('select')}
-            tooltip="Select (V)"
-            disabled={isReadOnly}
-          />
-          <ToolButton
-            icon={Square}
-            active={tool === 'rectangle'}
-            onClick={() => setTool('rectangle')}
-            tooltip="Rectangle (R)"
-            disabled={isReadOnly}
-          />
-          <ToolButton
-            icon={Move}
-            active={tool === 'hand'}
-            onClick={() => setTool('hand')}
-            tooltip="Hand (H)"
-            disabled={isReadOnly}
-          />
-
-          <div className="w-10 h-px bg-slate-700 my-2"></div>
-
-          <ToolButton
-            icon={Undo}
-            onClick={handleUndo}
-            tooltip="Undo (Ctrl+Z)"
-            disabled={historyIndex === 0 || isReadOnly}
-          />
-          <ToolButton
-            icon={Redo}
-            onClick={handleRedo}
-            tooltip="Redo (Ctrl+Shift+Z)"
-            disabled={historyIndex === history.length - 1 || isReadOnly}
-          />
-
-          <div className="flex-1"></div>
-          <div className="text-xs text-slate-400 text-center">
-            <div className="font-mono">{zoom}%</div>
-          </div>
-        </motion.div>
-
+      <div className="flex h-[calc(100vh-3.5rem)] relative overflow-hidden">
         <motion.div
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.2 }}
-          className="flex-1 overflow-hidden relative bg-slate-900"
+          className="flex-1 overflow-hidden relative bg-slate-950"
         >
+          {/* Localized loading overlay for task switching */}
+          <AnimatePresence>
+            {isLoading && hasLoadedOnce && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex flex-col items-center justify-center gap-3"
+              >
+                <div className="relative">
+                   <div className="w-16 h-16 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
+                   <div className="absolute inset-0 flex items-center justify-center">
+                     <div className="w-8 h-8 bg-blue-500 rounded-full animate-pulse opacity-50"></div>
+                   </div>
+                </div>
+                <p className="text-blue-400 font-bold text-sm tracking-widest uppercase animate-pulse">Switching Task...</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+          {/* Floating Toolbar with WOW Glow */}
+          <motion.div 
+            initial={{ y: 50, x: "-50%", opacity: 0 }}
+            animate={{ y: 0, x: "-50%", opacity: 1 }}
+            className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-1 p-2 rounded-2xl bg-slate-900/60 backdrop-blur-2xl border border-white/20 shadow-[0_0_30px_rgba(37,99,235,0.3)] z-40 transition-all hover:shadow-[0_0_50px_rgba(37,99,235,0.5)] hover:bg-slate-900/80 group"
+          >
+            <div className="absolute inset-0 bg-blue-500/10 rounded-2xl blur-xl group-hover:bg-blue-500/20 transition-colors pointer-events-none"></div>
+            <ToolButton
+              icon={MousePointer}
+              active={tool === 'select'}
+              onClick={() => setTool('select')}
+              tooltip="Select (V)"
+              disabled={isReadOnly}
+            />
+            <ToolButton
+              icon={Square}
+              active={tool === 'rectangle'}
+              onClick={() => setTool('rectangle')}
+              tooltip="Rectangle (R)"
+              disabled={isReadOnly}
+            />
+            <ToolButton
+              icon={Move}
+              active={tool === 'hand'}
+              onClick={() => setTool('hand')}
+              tooltip="Hand (H)"
+              disabled={isReadOnly}
+            />
+
+            <div className="w-px h-8 bg-white/10 mx-2"></div>
+
+            <ToolButton
+              icon={Undo}
+              onClick={handleUndo}
+              tooltip="Undo (Ctrl+Z)"
+              disabled={historyIndex === 0 || isReadOnly}
+            />
+            <ToolButton
+              icon={Redo}
+              onClick={handleRedo}
+              tooltip="Redo (Ctrl+Shift+Z)"
+              disabled={historyIndex === history.length - 1 || isReadOnly}
+            />
+
+            <div className="w-px h-8 bg-white/10 mx-2"></div>
+
+            <div className="px-3 flex flex-col items-center justify-center">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">Zoom</span>
+              <span className="text-xs font-mono text-white font-black">{zoom}%</span>
+            </div>
+          </motion.div>
           <div
             ref={canvasRef}
             className="w-full h-full flex items-center justify-center overflow-auto cursor-crosshair relative"
@@ -833,12 +859,25 @@ export function Workspace({
           </div>
         </motion.div>
 
+        {/* Smart Sidebar */}
         <motion.div
-          initial={{ x: 20, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ duration: 0.4, delay: 0.1 }}
-          className="w-80 bg-slate-800 border-l border-slate-700 flex flex-col z-10 shadow-xl"
+          initial={false}
+          animate={{ 
+            width: isSidebarExpanded ? "20rem" : "0rem",
+            opacity: isSidebarExpanded ? 1 : 0
+          }}
+          transition={{ duration: 0.4, ease: "easeInOut" }}
+          className="bg-slate-900/50 backdrop-blur-xl border-l border-white/10 flex flex-col z-30 shadow-2xl relative overflow-hidden"
         >
+          {/* Internal Toggle for Sidebar (Optional, but useful) */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsSidebarExpanded(false)}
+            className="absolute top-2 right-2 z-50 text-slate-400 hover:text-white hover:bg-white/10"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </Button>
           <Tabs defaultValue={taskStatus === 'rejected' ? 'discussion' : 'regions'} className="flex-1 flex flex-col h-full max-h-[calc(100vh-3.5rem)]">
             <TabsList className="w-full rounded-none bg-slate-900 border-b border-slate-700 grid grid-cols-2 p-0 h-10">
               <TabsTrigger value="regions" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:bg-slate-800 data-[state=active]:text-white text-slate-400">
@@ -1042,6 +1081,26 @@ export function Workspace({
             </TabsContent>
           </Tabs>
         </motion.div>
+
+        {/* Floating Sidebar Toggle when collapsed */}
+        <AnimatePresence>
+          {!isSidebarExpanded && (
+            <motion.div
+              initial={{ x: 100 }}
+              animate={{ x: 0 }}
+              exit={{ x: 100 }}
+              className="absolute right-6 top-1/2 -translate-y-1/2 z-40"
+            >
+              <Button
+                onClick={() => setIsSidebarExpanded(true)}
+                className="w-12 h-12 rounded-full bg-blue-600 hover:bg-blue-500 text-white shadow-lg flex items-center justify-center group"
+                size="icon"
+              >
+                <ChevronLeft className="w-6 h-6 transition-transform group-hover:-translate-x-0.5" />
+              </Button>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </motion.div>
     
@@ -1153,7 +1212,7 @@ function ToolButton({
         }
       `}
     >
-      <Icon className="w-5 h-5" />
+      <Icon className={cn("w-5 h-5", active ? "scale-110" : "group-hover:scale-110 transition-transform")} />
     </button>
   );
 }

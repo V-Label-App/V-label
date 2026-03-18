@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { ExportDialog } from "../components/ExportDialog";
 import { DatasetList } from "../components/DatasetList";
 import { UploadImageDialog } from "../components/UploadImageDialog";
 import { DatasetCreateDialog } from "../components/DatasetCreateDialog";
@@ -92,6 +93,8 @@ import {
   UserMinus,
   AlertTriangle,
   Eye,
+  Award,
+  History,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -126,7 +129,7 @@ import {
 import { useDebounce } from "../../../hooks/useDebounce";
 import { calculateLevelLinear } from "../../../utils/levelUtils";
 
-export const getLatestAnnotatorAssignment = (task: any) => {
+const getLatestAnnotatorAssignment = (task: any) => {
   if (!task || !task.assignments || !Array.isArray(task.assignments))
     return undefined;
   const annotatorAssignments = task.assignments.filter(
@@ -217,21 +220,27 @@ export function ProjectDetailPage() {
   const [isSearchingMembers, setIsSearchingMembers] = useState(false);
   const [isAddingMembers, setIsAddingMembers] = useState(false);
 
-  const handleSearchUsers = async (query: string) => {
-    if (!project) return;
-    setMemberSearchQuery(query);
+  const handleSearchUsers = React.useCallback(
+    async (query: string) => {
+      if (!project) return;
+      setMemberSearchQuery(query);
 
-    setIsSearchingMembers(true);
-    try {
-      // Debounce could be added here, but for now direct call
-      const users = await projectApi.searchPotentialMembers(project.id, query);
-      setPotentialMembers(users);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setIsSearchingMembers(false);
-    }
-  };
+      setIsSearchingMembers(true);
+      try {
+        // Debounce could be added here, but for now direct call
+        const users = await projectApi.searchPotentialMembers(
+          project.id,
+          query,
+        );
+        setPotentialMembers(users);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setIsSearchingMembers(false);
+      }
+    },
+    [project],
+  );
 
   const handleToggleMemberSelection = (user: any) => {
     setSelectedMembers((prev) => {
@@ -340,6 +349,13 @@ export function ProjectDetailPage() {
   // Bulk Delete State
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+
+  // Task History Dialog State
+  const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
+  const [selectedTaskForHistory, setSelectedTaskForHistory] =
+    useState<any>(null);
 
   // Bulk Unassign State
   const [isBulkUnassignDialogOpen, setIsBulkUnassignDialogOpen] =
@@ -350,7 +366,7 @@ export function ProjectDetailPage() {
   );
 
   // Fetch tasks function
-  const fetchTasks = async () => {
+  const fetchTasks = React.useCallback(async () => {
     if (!projectId) return;
 
     setIsTasksLoading(true);
@@ -376,10 +392,10 @@ export function ProjectDetailPage() {
     } finally {
       setIsTasksLoading(false);
     }
-  };
+  }, [projectId, taskFilterStatus, taskFilterAssignee]);
 
   // Fetch workloads function
-  const fetchWorkloads = async () => {
+  const fetchWorkloads = React.useCallback(async () => {
     if (!projectId) return;
 
     try {
@@ -395,7 +411,7 @@ export function ProjectDetailPage() {
     } catch (error) {
       console.error("Failed to fetch workloads:", error);
     }
-  };
+  }, [projectId]);
 
   // Handle task assignment (single or bulk)
   const handleAssignTask = async () => {
@@ -639,6 +655,11 @@ export function ProjectDetailPage() {
     }
   };
 
+  const handleViewHistory = (task: any) => {
+    setSelectedTaskForHistory(task);
+    setIsHistoryDialogOpen(true);
+  };
+
   // Handle task unassignment
   const handleUnassignTask = async () => {
     if (!projectId || !taskToUnassign) return;
@@ -837,7 +858,7 @@ export function ProjectDetailPage() {
       fetchTasks();
       fetchWorkloads();
     }
-  }, [project, activeTab]);
+  }, [project, activeTab, fetchTasks, fetchWorkloads]);
 
   // Fetch tasks when filters change
   useEffect(() => {
@@ -845,7 +866,15 @@ export function ProjectDetailPage() {
       fetchTasks();
       fetchWorkloads();
     }
-  }, [taskFilterStatus, taskFilterAssignee, debouncedSearchQuery]);
+  }, [
+    projectId,
+    activeTab,
+    fetchTasks,
+    fetchWorkloads,
+    taskFilterStatus,
+    taskFilterAssignee,
+    debouncedSearchQuery,
+  ]);
 
   // Load available categories
   useEffect(() => {
@@ -865,7 +894,7 @@ export function ProjectDetailPage() {
       setPotentialMembers([]);
       setSelectedMembers([]);
     }
-  }, [isAddMemberOpen]);
+  }, [isAddMemberOpen, handleSearchUsers]);
 
   // Removed client-side page reset effect as we handle it above with debounced query
   // useEffect(() => {
@@ -893,11 +922,13 @@ export function ProjectDetailPage() {
     const assignment = getLatestAnnotatorAssignment(t);
     if (!assignment) return true; // No assignment yet = unassigned active task
     const status = assignment?.status;
+    const isSkipWithoutRejection =
+      status === "SKIPPED" && (assignment?.rejectionCount || 0) === 0;
+
     return (
       status === "ASSIGNED" ||
       status === "IN_PROGRESS" ||
-      status === "REJECTED" ||
-      status === "SKIPPED"
+      isSkipWithoutRejection
     );
   });
 
@@ -911,9 +942,29 @@ export function ProjectDetailPage() {
     return assignment?.status === "APPROVED";
   });
 
-  const rejectedTasks = tasks.filter((t: any) => {
-    const assignment = getLatestAnnotatorAssignment(t);
-    return assignment?.status === "REJECTED";
+  const rejectedTasks = tasks.flatMap((t: any) => {
+    // Hide from rejected tab if the task itself is currently being handled
+    // We check both the task status and its assignments for maximum reliability
+    const isHandled =
+      ["IN_PROGRESS", "SUBMITTED", "APPROVED"].includes(
+        t.status?.toUpperCase(),
+      ) ||
+      t.assignments?.some((a: any) =>
+        ["ASSIGNED", "IN_PROGRESS", "SUBMITTED", "APPROVED"].includes(
+          a.status?.toUpperCase(),
+        ),
+      );
+
+    if (isHandled) return [];
+
+    const historicalRejections =
+      t.assignments?.filter((a: any) => (a.rejectionCount || 0) > 0) || [];
+
+    return historicalRejections.map((a: any) => ({
+      ...t,
+      _specificAssignment: a,
+      _isHistoricalSkip: a.status === "SKIPPED",
+    }));
   });
 
   const groupedTasks = tasks.reduce((acc: Record<string, any[]>, task: any) => {
@@ -974,13 +1025,13 @@ export function ProjectDetailPage() {
   );
 
   const groupedRejectedTasks = rejectedTasks.reduce(
-    (acc: Record<string, any[]>, task: any) => {
-      const annotatorAssignment = getLatestAnnotatorAssignment(task);
-      const assigneeId = annotatorAssignment?.annotatorId || "unassigned";
+    (acc: Record<string, any[]>, taskWrapper: any) => {
+      const assignment = taskWrapper._specificAssignment;
+      const assigneeId = assignment?.annotatorId || "unassigned";
       if (!acc[assigneeId]) {
         acc[assigneeId] = [];
       }
-      acc[assigneeId].push(task);
+      acc[assigneeId].push(taskWrapper);
       return acc;
     },
     {},
@@ -1205,12 +1256,24 @@ export function ProjectDetailPage() {
   // const annotatorData: any[] = [];
   // const progressData: any[] = [];
 
-  const exportProjectCSV = () => {
-    toast.success("CSV export coming soon");
-  };
-
-  const exportProjectJSON = () => {
-    toast.success("JSON export coming soon");
+  const exportProjectCOCO = async (
+    trainRatio: number,
+    valRatio: number,
+    testRatio: number,
+  ) => {
+    if (!project) return;
+    setIsExporting(true);
+    try {
+      await projectApi.exportCOCO(project.id, project.name, trainRatio, valRatio, testRatio);
+      setIsExportDialogOpen(false);
+      toast.success("Export thành công!", {
+        description: `Đã lưu Export_${project.name.replace(/\s+/g, '_')}-coco.zip`,
+      });
+    } catch {
+      toast.error("Export thất bại. Vui lòng thử lại.");
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   // Member Management Handlers
@@ -1278,32 +1341,19 @@ export function ProjectDetailPage() {
               Import
             </Button>
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  disabled={project.status !== ProjectStatus.COMPLETED}
-                  title={
-                    project.status !== ProjectStatus.COMPLETED
-                      ? "Project must be COMPLETED to export"
-                      : "Export Project Data"
-                  }
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Export
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={exportProjectCSV}>
-                  <FileText className="w-4 h-4 mr-2" />
-                  Export as CSV
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={exportProjectJSON}>
-                  <FileText className="w-4 h-4 mr-2" />
-                  Export as JSON
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <Button
+              variant="outline"
+              disabled={projectProgress < 100 || isExporting}
+              title={
+                projectProgress < 100
+                  ? "Project progress must be 100% to export"
+                  : "Export as COCO JSON"
+              }
+              onClick={() => setIsExportDialogOpen(true)}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              {isExporting ? "Exporting..." : "Export COCO"}
+            </Button>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -1964,8 +2014,11 @@ export function ProjectDetailPage() {
                                                         .replace("_", " ")}
                                                     </Badge>
                                                     {taskAssignment &&
+                                                      project &&
                                                       taskAssignment.rejectionCount >=
-                                                        3 && (
+                                                        (project.assignmentRule
+                                                          ?.maxRejectionsBeforeReassign ||
+                                                          3) && (
                                                         <Badge
                                                           variant="destructive"
                                                           className="animate-pulse bg-red-600 hover:bg-red-700 flex items-center gap-1 text-[10px] py-0 px-2 h-5"
@@ -2615,6 +2668,15 @@ export function ProjectDetailPage() {
                                                   </DropdownMenuItem>
                                                   <DropdownMenuSeparator />
                                                   <DropdownMenuItem
+                                                    onClick={() =>
+                                                      handleViewHistory(task)
+                                                    }
+                                                  >
+                                                    <History className="mr-2 h-4 w-4" />
+                                                    View History
+                                                  </DropdownMenuItem>
+                                                  <DropdownMenuSeparator />
+                                                  <DropdownMenuItem
                                                     onClick={() => {
                                                       setSelectedTasks([
                                                         task.id,
@@ -2838,7 +2900,7 @@ export function ProjectDetailPage() {
                               ([assigneeId, userTasks]) => {
                                 const firstTask = userTasks[0];
                                 const annotatorAssignment =
-                                  getLatestAnnotatorAssignment(firstTask);
+                                  firstTask._specificAssignment;
                                 const assignee = annotatorAssignment?.annotator;
                                 const isExpanded =
                                   expandedUsers.has(assigneeId);
@@ -2905,9 +2967,15 @@ export function ProjectDetailPage() {
                                             className="flex items-center gap-2"
                                           >
                                             {(() => {
-                                              const userTaskIds = userTasks.map(
-                                                (t: any) => t.id,
-                                              );
+                                              const unskippedTasks =
+                                                userTasks.filter(
+                                                  (t: any) =>
+                                                    !t._isHistoricalSkip,
+                                                );
+                                              const userTaskIds =
+                                                unskippedTasks.map(
+                                                  (t: any) => t.id,
+                                                );
                                               const selectedUserCount =
                                                 selectedTasks.filter((id) =>
                                                   userTaskIds.includes(id),
@@ -2944,6 +3012,7 @@ export function ProjectDetailPage() {
                                         assigneeId,
                                       ).map((task: any) => {
                                         const annotatorAssignment =
+                                          task._specificAssignment ||
                                           getLatestAnnotatorAssignment(task);
                                         return (
                                           <TableRow
@@ -2989,12 +3058,36 @@ export function ProjectDetailPage() {
                                                     ID: {task.id.slice(0, 8)}...
                                                   </div>
                                                   <div className="mt-1 flex gap-2">
-                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
-                                                      Rejected
-                                                    </span>
+                                                    {(() => {
+                                                      const label = "Rejected";
+                                                      const colorClass =
+                                                        "bg-red-100 text-red-700";
+                                                      return (
+                                                        <span
+                                                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${colorClass}`}
+                                                        >
+                                                          {label}
+                                                        </span>
+                                                      );
+                                                    })()}
+                                                    {annotatorAssignment && (
+                                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
+                                                        <AlertCircle className="h-3 w-3" />
+                                                        {annotatorAssignment.rejectionCount ||
+                                                          0}{" "}
+                                                        Rejection
+                                                        {annotatorAssignment.rejectionCount !==
+                                                        1
+                                                          ? "s"
+                                                          : ""}
+                                                      </span>
+                                                    )}
                                                     {annotatorAssignment &&
+                                                      project &&
                                                       annotatorAssignment.rejectionCount >=
-                                                        3 && (
+                                                        (project.assignmentRule
+                                                          ?.maxRejectionsBeforeReassign ||
+                                                          3) && (
                                                         <Badge
                                                           variant="destructive"
                                                           className="animate-pulse bg-red-600 hover:bg-red-700 flex items-center gap-1 text-[10px] py-0 px-2 h-5 border-none"
@@ -3008,21 +3101,65 @@ export function ProjectDetailPage() {
                                               </div>
                                             </TableCell>
                                             <TableCell className="text-right">
-                                              <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => {
-                                                  setTaskToAssign(task);
-                                                  setSelectedAnnotatorId(
-                                                    assigneeId !== "unassigned"
-                                                      ? assigneeId
-                                                      : "",
-                                                  );
-                                                  setIsAssignDialogOpen(true);
-                                                }}
-                                              >
-                                                Reassign
-                                              </Button>
+                                              <div className="flex items-center justify-end gap-2">
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  onClick={() =>
+                                                    handleViewHistory(task)
+                                                  }
+                                                  title="View Task History"
+                                                >
+                                                  <History className="h-4 w-4" />
+                                                </Button>
+                                                {
+                                                  /* Reassign Button: Allow reassign only if max rejections reached and not currently handled */
+                                                  annotatorAssignment &&
+                                                    annotatorAssignment.rejectionCount >=
+                                                      (project?.assignmentRule
+                                                        ?.maxRejectionsBeforeReassign ||
+                                                        3) &&
+                                                    !(
+                                                      [
+                                                        "IN_PROGRESS",
+                                                        "SUBMITTED",
+                                                        "APPROVED",
+                                                      ].includes(
+                                                        task.status?.toUpperCase(),
+                                                      ) ||
+                                                      task.assignments?.some(
+                                                        (a: any) =>
+                                                          [
+                                                            "ASSIGNED",
+                                                            "IN_PROGRESS",
+                                                            "SUBMITTED",
+                                                            "APPROVED",
+                                                          ].includes(
+                                                            a.status?.toUpperCase(),
+                                                          ),
+                                                      )
+                                                    ) && (
+                                                      <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => {
+                                                          setTaskToAssign(task);
+                                                          setSelectedAnnotatorId(
+                                                            assigneeId !==
+                                                              "unassigned"
+                                                              ? assigneeId
+                                                              : "",
+                                                          );
+                                                          setIsAssignDialogOpen(
+                                                            true,
+                                                          );
+                                                        }}
+                                                      >
+                                                        Reassign
+                                                      </Button>
+                                                    )
+                                                }
+                                              </div>
                                             </TableCell>
                                           </TableRow>
                                         );
@@ -4286,20 +4423,31 @@ export function ProjectDetailPage() {
                                     {user.fullName || "Unknown User"}
                                   </p>
                                   {user.role === "ANNOTATOR" && (
-                                    <div className="flex items-center gap-1.5 px-1.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded text-[10px] font-bold">
-                                      <Sparkles className="w-3 h-3" />
-                                      <span>
-                                        {user.reputationScore || 0} pts
-                                      </span>
-                                      <span className="text-amber-400">|</span>
-                                      <span>
-                                        Lv.
-                                        {calculateLevelLinear(
-                                          user.reputationScore || 0,
-                                          10,
-                                        )}
-                                      </span>
-                                    </div>
+                                    <>
+                                      <div className="flex items-center gap-1.5 px-1.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded text-[10px] font-bold">
+                                        <Sparkles className="w-3 h-3" />
+                                        <span>
+                                          {Math.max(
+                                            0,
+                                            user.reputationScore || 0,
+                                          )}{" "}
+                                          pts
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center gap-1.5">
+                                        <Award className="w-3.5 h-3.5 text-orange-500" />
+                                        <span>
+                                          Lv.
+                                          {calculateLevelLinear(
+                                            Math.max(
+                                              0,
+                                              user.reputationScore || 0,
+                                            ),
+                                            10,
+                                          )}
+                                        </span>
+                                      </div>
+                                    </>
                                   )}
                                 </div>
                                 <p className="text-xs text-muted-foreground truncate">
@@ -4507,8 +4655,7 @@ export function ProjectDetailPage() {
                       .filter((a: any) => a.projectRole === "ANNOTATOR")
                       .map((annotator: any) => {
                         const taskCount = workloadMap[annotator.userId] || 0;
-
-                        // NEW: Disable logic for reassignment after 3+ rejections
+                        // NEW: Disable logic for reassignment after max rejections reached
                         const currentAssignment =
                           taskToAssign?.assignments?.find(
                             (a: any) => a.annotatorId,
@@ -4517,7 +4664,10 @@ export function ProjectDetailPage() {
                           currentAssignment &&
                           annotator.userId === currentAssignment.annotatorId;
                         const reachRejectionLimit =
-                          (currentAssignment?.rejectionCount || 0) >= 3;
+                          currentAssignment &&
+                          currentAssignment.rejectionCount >=
+                            (project?.assignmentRule
+                              ?.maxRejectionsBeforeReassign || 3);
                         const isDisabled =
                           isPreviousAnnotator && reachRejectionLimit;
 
@@ -4592,64 +4742,70 @@ export function ProjectDetailPage() {
               {!isBulkAssign &&
                 taskToAssign &&
                 (() => {
-                  const currentAssignment = taskToAssign.assignments?.find(
-                    (a: any) => a.annotatorId,
-                  );
+                  const currentAssignment =
+                    getLatestAnnotatorAssignment(taskToAssign);
                   const isReassignment =
                     currentAssignment &&
                     selectedAnnotatorId &&
                     currentAssignment.annotatorId !== selectedAnnotatorId;
 
-                  if (!isReassignment) {
-                    // NEW: Show warning if task already has 3+ rejections but not reassigned yet
-                    if ((currentAssignment?.rejectionCount || 0) >= 3) {
-                      return (
-                        <div className="space-y-2 p-4 bg-red-50 border border-red-200 rounded-lg animate-pulse">
-                          <div className="flex items-center gap-2 text-red-900">
-                            <AlertTriangle className="h-5 w-5" />
-                            <Label className="text-sm font-bold">
-                              Critical: Task Needs New Assignee
-                            </Label>
-                          </div>
-                          <p className="text-xs text-red-700">
-                            This task has been rejected{" "}
-                            {currentAssignment?.rejectionCount || 3} times.
-                            Leader rules: You <b>MUST</b> assign this to a
-                            different annotator to ensure quality. The previous
-                            annotator has been disabled in the list below.
-                          </p>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }
+                  if (!isReassignment) return null;
 
+                  const rejectionLimit =
+                    project?.assignmentRule?.maxRejectionsBeforeReassign || 3;
+                  const isLimitReached =
+                    (currentAssignment?.rejectionCount || 0) >= rejectionLimit;
                   const currentAnnotator = annotators.find(
                     (a: any) => a.userId === currentAssignment.annotatorId,
                   );
 
                   return (
-                    <div className="space-y-2 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                      <div className="flex items-center gap-2 text-amber-900">
-                        <AlertCircle className="h-4 w-4" />
-                        <Label className="text-sm font-semibold">
-                          Reassignment Reason (Required)
-                        </Label>
+                    <div className="space-y-4">
+                      {/* Warning if task already has reached rejections limit */}
+                      {isLimitReached && (
+                        <div className="space-y-2 p-4 bg-red-50 border border-red-200 rounded-lg animate-pulse">
+                          <div className="flex items-center gap-2 text-red-900">
+                            <AlertTriangle className="h-5 w-5" />
+                            <Label className="text-sm font-bold uppercase">
+                              Critical: Project Rules Notice
+                            </Label>
+                          </div>
+                          <p className="text-xs text-red-700 leading-relaxed">
+                            This task has already been rejected{" "}
+                            {currentAssignment?.rejectionCount ||
+                              rejectionLimit}{" "}
+                            times. Team policy requires assigning this to a
+                            different annotator to ensure quality standards. The
+                            previous annotator is currently disabled in the
+                            selection list.
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="space-y-2 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                        <div className="flex items-center gap-2 text-amber-900">
+                          <AlertCircle className="h-4 w-4" />
+                          <Label className="text-sm font-semibold">
+                            Reassignment Reason (Required)
+                          </Label>
+                        </div>
+                        <p className="text-xs text-amber-700">
+                          Current assignee:{" "}
+                          {currentAnnotator?.user?.fullName ||
+                            currentAnnotator?.user?.email ||
+                            "Unknown"}
+                          . Please provide a reason for picking a new annotator.
+                        </p>
+                        <Textarea
+                          placeholder="Why is a new annotator being assigned?"
+                          value={reassignmentReason}
+                          onChange={(e) =>
+                            setReassignmentReason(e.target.value)
+                          }
+                          rows={3}
+                          className="bg-white border-amber-200 focus-visible:ring-amber-500"
+                        />
                       </div>
-                      <p className="text-xs text-amber-700">
-                        This task is currently assigned to{" "}
-                        {currentAnnotator?.user?.fullName ||
-                          currentAnnotator?.user?.email}
-                        . Please provide a reason for reassigning to a different
-                        annotator.
-                      </p>
-                      <Textarea
-                        placeholder="Explain why this task needs to be reassigned..."
-                        value={reassignmentReason}
-                        onChange={(e) => setReassignmentReason(e.target.value)}
-                        rows={3}
-                        className="bg-white"
-                      />
                     </div>
                   );
                 })()}
@@ -5400,6 +5556,207 @@ export function ProjectDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Task History Dialog */}
+      <Dialog open={isHistoryDialogOpen} onOpenChange={setIsHistoryDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <History className="h-5 w-5 text-purple-600" />
+              Task History
+            </DialogTitle>
+            <DialogDescription>
+              View past assignments and rejections for this task.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedTaskForHistory && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg border">
+                <div className="w-16 h-16 rounded overflow-hidden bg-gray-100 border flex-shrink-0">
+                  {selectedTaskForHistory.image?.storageUrl ? (
+                    <img
+                      src={selectedTaskForHistory.image.storageUrl}
+                      alt="Task"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                      <Eye className="w-6 h-6 text-gray-400" />
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <div className="font-semibold text-sm">
+                    {selectedTaskForHistory.image?.originalFilename ||
+                      "Untitled Task"}
+                  </div>
+                  <div className="text-xs text-muted-foreground font-mono">
+                    ID: {selectedTaskForHistory.id}
+                  </div>
+                </div>
+              </div>
+
+              <ScrollArea className="h-[400px] pr-4">
+                <div className="space-y-4 py-2">
+                  {(() => {
+                    let rawHistory: any[] = [];
+                    if (
+                      selectedTaskForHistory.assignments &&
+                      Array.isArray(selectedTaskForHistory.assignments)
+                    ) {
+                      selectedTaskForHistory.assignments.forEach(
+                        (assignment: any) => {
+                          if (
+                            assignment.submissionHistory &&
+                            Array.isArray(assignment.submissionHistory)
+                          ) {
+                            assignment.submissionHistory.forEach((sh: any) => {
+                              rawHistory.push({
+                                id: sh.id,
+                                status: sh.status,
+                                createdAt: sh.reviewedAt || sh.createdAt,
+                                reviewComment: sh.reviewComment,
+                                annotator: assignment.annotator,
+                                reviewer: assignment.reviewer,
+                              });
+                            });
+                          }
+
+                          // avoid duplicating the final state if it's already in submissionHistory
+                          if (
+                            !assignment.submissionHistory ||
+                            assignment.submissionHistory.length === 0 ||
+                            ["ASSIGNED", "IN_PROGRESS"].includes(
+                              assignment.status,
+                            )
+                          ) {
+                            rawHistory.push({
+                              id: assignment.id,
+                              status: assignment.status,
+                              createdAt:
+                                assignment.updatedAt || assignment.createdAt,
+                              reviewComment: assignment.reviewComment,
+                              annotator: assignment.annotator,
+                              reviewer: assignment.reviewer,
+                            });
+                          }
+                        },
+                      );
+                    } else if (selectedTaskForHistory.history) {
+                      rawHistory = selectedTaskForHistory.history;
+                    }
+
+                    const displayHistory = [...rawHistory].sort(
+                      (a: any, b: any) =>
+                        new Date(b.createdAt).getTime() -
+                        new Date(a.createdAt).getTime(),
+                    );
+
+                    if (displayHistory.length === 0) {
+                      return (
+                        <div className="text-center py-12 text-muted-foreground flex flex-col items-center gap-4">
+                          <div className="w-16 h-16 rounded-full bg-gray-50 flex items-center justify-center">
+                            <History className="w-8 h-8 opacity-20" />
+                          </div>
+                          <div>
+                            <p className="font-medium">No historical records</p>
+                            <p className="text-xs">
+                              No previous assignments found for this task.
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    return displayHistory.map((item: any, index: number) => (
+                      <div
+                        key={item.id || index}
+                        className="relative pl-8 pb-6 last:pb-0"
+                      >
+                        {/* Timeline line */}
+                        {index < displayHistory.length - 1 && (
+                          <div className="absolute left-[15px] top-8 bottom-0 w-0.5 bg-gray-100" />
+                        )}
+                        {/* Dot */}
+                        <div className="absolute left-0 top-1.5 w-[30px] h-[30px] rounded-full bg-white border-2 border-purple-100 flex items-center justify-center shadow-sm z-10">
+                          <div
+                            className={`w-2.5 h-2.5 rounded-full ${item.status === "REJECTED" ? "bg-red-500" : "bg-green-500"}`}
+                          />
+                        </div>
+
+                        <div className="bg-white border rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
+                          <div className="flex justify-between items-start mb-3">
+                            <div className="flex items-center gap-3">
+                              <Avatar className="h-8 w-8">
+                                <AvatarFallback className="text-[10px] bg-purple-50 text-purple-600">
+                                  {item.annotator?.fullName
+                                    ?.charAt(0)
+                                    .toUpperCase() || "A"}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <div className="font-medium text-sm text-gray-900">
+                                  {item.annotator?.fullName || "Annotator"}
+                                </div>
+                                <div className="text-[10px] text-muted-foreground">
+                                  {item.annotator?.email}
+                                </div>
+                              </div>
+                            </div>
+                            <Badge
+                              className={`${
+                                item.status === "REJECTED"
+                                  ? "bg-red-50 text-red-600 border-red-100"
+                                  : item.status === "SKIPPED"
+                                    ? "bg-amber-50 text-amber-600 border-amber-100"
+                                    : "bg-purple-50 text-purple-600 border-purple-100"
+                              } text-[10px] px-2 py-0.5 border`}
+                            >
+                              {item.status}
+                            </Badge>
+                          </div>
+
+                          {item.reviewComment && (
+                            <div className="mt-2 p-3 bg-red-50/50 border border-red-100 rounded-lg text-xs text-red-700 relative italic">
+                              <span className="absolute -top-2 left-3 bg-white px-1 text-[10px] font-medium text-red-400 non-italic">
+                                Reviewer Comment
+                              </span>
+                              "{item.reviewComment}"
+                            </div>
+                          )}
+
+                          <div className="mt-3 text-[10px] text-muted-foreground flex items-center gap-1.5 pt-2 border-t border-gray-50">
+                            <Clock className="w-3.5 h-3.5" />
+                            {format(new Date(item.createdAt), "PPP p")}
+                          </div>
+                        </div>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              </ScrollArea>
+            </div>
+          )}
+
+          <DialogFooter className="bg-gray-50 -mx-6 -mb-6 p-4 rounded-b-lg">
+            <Button
+              variant="secondary"
+              onClick={() => setIsHistoryDialogOpen(false)}
+              className="w-full sm:w-auto"
+            >
+              Close History
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <ExportDialog
+        open={isExportDialogOpen}
+        onClose={() => setIsExportDialogOpen(false)}
+        onExport={exportProjectCOCO}
+        isExporting={isExporting}
+      />
     </div>
   );
 }

@@ -184,7 +184,7 @@ export function AdminUserDetailPage() {
                                 <>
                                     <div className="flex items-center justify-between py-2 border-b border-gray-100">
                                         <span className="text-gray-500">Reputation Score</span>
-                                        <span className="font-medium text-yellow-600">{user.reputationScore}%</span>
+                                        <span className="font-medium text-yellow-600">{Math.max(0, user.reputationScore)}%</span>
                                     </div>
                                     <div className="flex items-center justify-between py-2 border-b border-gray-100">
                                         <span className="text-gray-500">Tasks Completed</span>
@@ -206,7 +206,7 @@ export function AdminUserDetailPage() {
                                 <>
                                     <div className="flex items-center justify-between py-2 border-b border-gray-100">
                                         <span className="text-gray-500">Reputation Score</span>
-                                        <span className="font-medium text-yellow-600">{user.reputationScore}%</span>
+                                        <span className="font-medium text-yellow-600">{Math.max(0, user.reputationScore)}%</span>
                                     </div>
                                     <div className="flex items-center justify-between py-2 border-b border-gray-100">
                                         <span className="text-gray-500">Tasks Reviewed</span>

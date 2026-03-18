@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -30,13 +30,7 @@ export function ReviewScoringModal({
   isLoading = false,
   initialComment = "",
 }: ReviewScoringModalProps) {
-  const [comment, setComment] = useState("");
-
-  useEffect(() => {
-    if (isOpen) {
-      setComment(initialComment || "");
-    }
-  }, [isOpen, initialComment]);
+  const [comment, setComment] = useState(initialComment || "");
 
   const handleConfirm = () => {
     onConfirm(comment);
@@ -65,27 +59,25 @@ export function ReviewScoringModal({
 
 
         <div className="space-y-8 py-6">
-          <div className="space-y-3">
-            <Label className="text-xs font-black text-slate-100 uppercase tracking-widest">
-              {type === "approve" ? "Review Comments (Optional)" : "Rejection Reason (Required)"}
-            </Label>
-            <Textarea
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              placeholder={
-                type === "approve"
-                  ? "Add a note of appreciation or guidance..."
-                  : "Explain exactly what needs improvement..."
-              }
-              className="bg-slate-950 border-slate-600 text-white placeholder:text-slate-500 min-h-[120px] focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 text-base shadow-inner"
-              disabled={isLoading}
-            />
-            {isInvalid && (
-              <p className="text-[11px] text-red-100 bg-red-600/20 px-2 py-1 rounded inline-block font-black animate-pulse">
-                ⚠ Reason is required to reject this task.
-              </p>
-            )}
-          </div>
+          {type === "reject" && (
+            <div className="space-y-3">
+              <Label className="text-xs font-black text-slate-100 uppercase tracking-widest">
+                Rejection Reason (Required)
+              </Label>
+              <Textarea
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder="Explain exactly what needs improvement..."
+                className="bg-slate-950 border-slate-600 text-white placeholder:text-slate-500 min-h-[120px] focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 text-base shadow-inner"
+                disabled={isLoading}
+              />
+              {isInvalid && (
+                <p className="text-[11px] text-red-100 bg-red-600/20 px-2 py-1 rounded inline-block font-black animate-pulse">
+                  ⚠ Reason is required to reject this task.
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         <DialogFooter className="gap-3 sm:gap-0">

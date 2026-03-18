@@ -1,25 +1,21 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { motion } from "framer-motion";
+
+import { motion, AnimatePresence } from "framer-motion";
 import { aiApi } from "../../../services/ai.api";
-import { Sparkles } from "lucide-react";
+import { Sparkles, ChevronLeft } from "lucide-react";
 import type { Annotation } from "../stores";
 import { WorkspaceHeader } from "../components/workspace/WorkspaceHeader";
 import { WorkspaceToolbar } from "../components/workspace/WorkspaceToolbar";
 import { WorkspaceCanvas } from "../components/canvas/WorkspaceCanvas";
 import { WorkspaceSidebar } from "../components/workspace/WorkspaceSidebar";
 import { ImageNavigator } from "../components/workspace/ImageNavigator";
-import {
-  useImageStore,
-  useLabelStore,
-  useAnnotationStore,
-} from "../stores";
+import { useImageStore, useLabelStore, useAnnotationStore } from "../stores";
 import { ReviewScoringModal } from "../components/workspace/ReviewScoringModal";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { useWorkspaceData } from "../hooks/useWorkspaceData";
 import { useProjectTasks } from "../hooks/useProjectTasks";
 import { useAutoSave } from "../hooks/useAutoSave";
-import { useState } from "react";
 import { toast } from "sonner";
 
 interface WorkspacePageProps {
@@ -29,7 +25,8 @@ interface WorkspacePageProps {
     | "in_progress"
     | "submitted"
     | "rejected"
-    | "approved";
+    | "approved"
+    | "skipped";
 }
 
 export function WorkspacePage({
@@ -45,10 +42,10 @@ export function WorkspacePage({
     (searchParams.get("mode") as "annotate" | "review") ||
     propMode ||
     "annotate";
-  
+
   // Load task data from API
   const {
-    loading,
+    loading: dataLoading,
     error,
     taskData,
     submitTask,
@@ -59,13 +56,24 @@ export function WorkspacePage({
     resumeTask,
   } = useWorkspaceData(taskId || "", false, mode);
 
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+  const loading = dataLoading && !hasLoadedOnce;
+  const isSwitchingTask = dataLoading && hasLoadedOnce;
+
+  useEffect(() => {
+    if (taskData && !dataLoading) {
+      setHasLoadedOnce(true);
+    }
+  }, [taskData, dataLoading]);
+
   const { updateImages, getCurrentImage, currentIndex, jumpToImage } =
     useImageStore();
 
   // Derive taskStatus dynamically from taskData, fallback to propTaskStatus/assigned
   const taskStatus = (taskData?.status?.toLowerCase() ||
     propTaskStatus ||
-    "assigned") as any;
+    "assigned") as WorkspacePageProps["taskStatus"];
+
   const {
     clearAnnotations,
     setAnnotations,
@@ -74,6 +82,7 @@ export function WorkspacePage({
     addAnnotation,
     setAnnotatorNote,
     setReviewComment,
+    setHistoricalAnnotations,
   } = useAnnotationStore();
   const { setLabels } = useLabelStore();
 
@@ -82,6 +91,14 @@ export function WorkspacePage({
   const [reviewType, setReviewType] = useState<"approve" | "reject">("approve");
   const [isReviewLoading, setIsReviewLoading] = useState(false);
   const [isAiLoading, setIsAiLoading] = useState(false);
+
+  // History preview state
+  const [previewingSubmission, setPreviewingSubmission] = useState<
+    number | null
+  >(null);
+
+  // Sidebar collapse state
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // Ref to prevent navigation loop
   const isUpdatingFromURL = useRef(false);
@@ -95,7 +112,8 @@ export function WorkspacePage({
     taskStatus === "approved" ||
     taskStatus === "submitted" ||
     taskStatus === "skipped" ||
-    mode === "review";
+    mode === "review" ||
+    previewingSubmission !== null;
 
   // Work Timer
   useEffect(() => {
@@ -114,10 +132,7 @@ export function WorkspacePage({
   const projectId = taskData?.projectId;
 
   // Load all tasks in the project for navigation (enabled for both modes)
-  const { imageTasks, findTaskIndex } = useProjectTasks(
-    projectId,
-    mode
-  );
+  const { imageTasks, findTaskIndex } = useProjectTasks(projectId, mode);
 
   // Initialize keyboard shortcuts
   useKeyboardShortcuts(isReadOnly);
@@ -152,12 +167,20 @@ export function WorkspacePage({
 
         // Update ref
         lastAssignmentIdRef.current = currentAssignmentId;
+
+        // Historical annotations should only be shown when manually selected
+        // from the history list, so we initialize as empty.
+        setHistoricalAnnotations([]);
+
+        // Reset preview state
+        setPreviewingSubmission(null);
       }
     }
   }, [
     taskData,
     setLabels,
     setAnnotations,
+    setHistoricalAnnotations,
     clearAnnotations,
     setAnnotatorNote,
     setReviewComment,
@@ -247,7 +270,7 @@ export function WorkspacePage({
       toast.error("Please provide a reason before skipping.");
       return;
     }
-    
+
     setIsSkipConfirmOpen(false);
     try {
       await skipTask(skipReason, actualTimeSeconds);
@@ -271,14 +294,38 @@ export function WorkspacePage({
 
   const handleNextTask = () => {
     const store = useImageStore.getState();
+    const tasks = store.images;
     const currentIdx = store.currentIndex;
-    // Auto-navigate to the next task if available
-    if (imageTasks.length > 0 && currentIdx >= 0 && currentIdx < imageTasks.length - 1) {
+
+    if (currentIdx < tasks.length - 1) {
       store.jumpToImage(currentIdx + 1);
     } else {
+      toast.success("All tasks completed!");
       // If no more tasks, return to previous page
       navigate(-1);
     }
+  };
+
+  const handlePreviewAnnotations = (
+    historyAnnots: Annotation[],
+    submissionNumber: number,
+  ) => {
+    setPreviewingSubmission(submissionNumber);
+    // Ensure all historical annotations are visible for the preview
+    const visibleAnnots = historyAnnots.map((ann) => ({
+      ...ann,
+      id:
+        ann.id ||
+        `hist-${submissionNumber}-${Math.random().toString(36).substr(2, 5)}`,
+      visible: true,
+    }));
+    setHistoricalAnnotations(visibleAnnots);
+  };
+
+  const handleRestoreCurrent = () => {
+    setPreviewingSubmission(null);
+    // When returning from a preview, clear historical annotations to maintain a clean workspace.
+    setHistoricalAnnotations([]);
   };
 
   const handleReviewConfirm = async (comment: string) => {
@@ -309,10 +356,15 @@ export function WorkspacePage({
         (resolve) => {
           const img = new window.Image();
           img.crossOrigin = "Anonymous";
-          img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
-          img.onerror = () => resolve({ width: currentImage.width ?? 1000, height: currentImage.height ?? 1000 });
+          img.onload = () =>
+            resolve({ width: img.naturalWidth, height: img.naturalHeight });
+          img.onerror = () =>
+            resolve({
+              width: currentImage.width ?? 1000,
+              height: currentImage.height ?? 1000,
+            });
           img.src = currentImage.url ?? "";
-        }
+        },
       );
 
       const imageUrl = currentImage.url ?? "";
@@ -320,7 +372,7 @@ export function WorkspacePage({
         imageUrl,
         taskData.labels,
         actualDims.width,
-        actualDims.height
+        actualDims.height,
       );
 
       if (suggestions.length === 0) {
@@ -333,13 +385,18 @@ export function WorkspacePage({
 
       // Remove previous AI-generated annotations before adding new ones
       const currentAnnotations = useAnnotationStore.getState().annotations;
-      const manualAnnotations = currentAnnotations.filter((a) => !a.aiSuggested);
+      const manualAnnotations = currentAnnotations.filter(
+        (a) => !a.aiSuggested,
+      );
       setAnnotations(manualAnnotations);
 
-      toast.success(`AI detected ${suggestions.length} object${suggestions.length > 1 ? "s" : ""}.`, {
-        description: "Review and adjust the regions if needed.",
-        duration: 3000,
-      });
+      toast.success(
+        `AI detected ${suggestions.length} object${suggestions.length > 1 ? "s" : ""}.`,
+        {
+          description: "Review and adjust the regions if needed.",
+          duration: 3000,
+        },
+      );
 
       suggestions.forEach((s) => {
         const ann: Annotation = {
@@ -369,11 +426,24 @@ export function WorkspacePage({
     navigate(-1);
   };
 
-  // Loading state
+  // Loading state (Initial only)
   if (loading) {
     return (
-      <div className="fixed inset-0 bg-slate-900 flex items-center justify-center">
-        <div className="text-white text-lg">Loading task data...</div>
+      <div className="fixed inset-0 bg-slate-950 z-50 flex flex-col items-center justify-center gap-4">
+        <div className="relative">
+          <div className="w-16 h-16 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-8 h-8 bg-blue-500 rounded-full animate-pulse opacity-50"></div>
+          </div>
+        </div>
+        <div className="flex flex-col items-center">
+          <p className="text-xl font-bold text-white tracking-widest uppercase">
+            Initializing Workspace
+          </p>
+          <p className="text-sm text-slate-500">
+            Preparing high-precision annotation tools...
+          </p>
+        </div>
       </div>
     );
   }
@@ -426,23 +496,54 @@ export function WorkspacePage({
         actualTimeSeconds={actualTimeSeconds}
         projectName={taskData.projectName}
         annotator={taskData.annotator}
+        isTaskReassigned={taskData.isTaskReassigned}
       />
 
       {/* Main Content */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Toolbar */}
-        <WorkspaceToolbar
-          isReadOnly={isReadOnly}
-          enableAiAssistance={taskData?.enableAiAssistance}
-          onAiSuggest={handleAiSuggest}
-          isAiLoading={isAiLoading}
-        />
+      <div className="flex flex-1 overflow-hidden relative">
+        {/* Left Navigator - Task List */}
+        <ImageNavigator />
 
-        {/* Canvas */}
-        <div className="flex-1 relative">
+        {/* Floating Toolbar */}
+        <div className="fixed bottom-0 left-0 right-0 h-0 pointer-events-none z-[100] flex justify-center">
+          <div className="pointer-events-auto pb-8">
+            <WorkspaceToolbar
+              isReadOnly={isReadOnly}
+              enableAiAssistance={taskData?.enableAiAssistance}
+              onAiSuggest={handleAiSuggest}
+              isAiLoading={isAiLoading}
+            />
+          </div>
+        </div>
+
+        {/* Canvas Area - Added ml-24 for the left navigator */}
+        <div className="flex-1 relative bg-slate-950 ml-24 transition-all duration-500 ease-in-out">
+          <AnimatePresence>
+            {isSwitchingTask && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 bg-slate-950/60 backdrop-blur-md z-[80] flex flex-col items-center justify-center gap-3"
+              >
+                <div className="relative">
+                  <div className="w-16 h-16 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-8 h-8 bg-blue-500 rounded-full animate-pulse opacity-50"></div>
+                  </div>
+                </div>
+                <p className="text-blue-400 font-bold text-sm tracking-widest uppercase animate-pulse">
+                  Synchronizing Task...
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
           <WorkspaceCanvas
             imageUrl={currentImage.url || ""}
             isReadOnly={isReadOnly}
+            isPreviewMode={previewingSubmission !== null}
+            previewSubmissionNumber={previewingSubmission}
+            onRestoreCurrent={handleRestoreCurrent}
           />
 
           {/* AI Loading Overlay */}
@@ -451,28 +552,73 @@ export function WorkspacePage({
               <div className="bg-slate-800 border border-slate-600 rounded-xl px-6 py-5 w-72 shadow-2xl">
                 <div className="flex items-center gap-3 mb-3">
                   <Sparkles className="w-4 h-4 text-purple-400 shrink-0" />
-                  <p className="text-white font-medium text-sm">AI Analyzing Image</p>
+                  <p className="text-white font-medium text-sm">
+                    AI Analyzing Image
+                  </p>
                 </div>
                 <div className="w-full h-1.5 bg-slate-700 rounded-full overflow-hidden">
                   <div className="h-full w-2/5 bg-gradient-to-r from-purple-500 to-blue-400 rounded-full animate-progress" />
                 </div>
-                <p className="text-slate-400 text-xs mt-2">Detecting objects and generating annotations...</p>
+                <p className="text-slate-400 text-xs mt-2">
+                  Detecting objects and generating annotations...
+                </p>
               </div>
             </div>
           )}
-
-          {/* Image Navigator */}
-          <ImageNavigator />
         </div>
 
         {/* Sidebar */}
-        <WorkspaceSidebar
-          isReadOnly={isReadOnly}
-          initialTab={taskStatus === "rejected" ? "discussion" : "regions"}
-        />
+        <motion.div
+          initial={false}
+          animate={{
+            width: isSidebarCollapsed ? 0 : 320,
+            opacity: isSidebarCollapsed ? 0 : 1,
+          }}
+          transition={{ duration: 0.4, ease: "easeInOut" }}
+          className="flex flex-col overflow-hidden border-l border-white/10 shadow-2xl z-30"
+        >
+          <WorkspaceSidebar
+            isReadOnly={isReadOnly}
+            initialTab={
+              taskStatus === "rejected" ||
+              (taskData.history && taskData.history.length > 0)
+                ? "history"
+                : "regions"
+            }
+            history={taskData.history}
+            projectId={projectId}
+            onPreviewAnnotations={handlePreviewAnnotations}
+            onRestoreCurrent={handleRestoreCurrent}
+            previewingSubmission={previewingSubmission}
+            isCollapsed={isSidebarCollapsed}
+            onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          />
+        </motion.div>
+
+        {/* Toggle button when collapsed - floating on the right edge of canvas */}
+        {isSidebarCollapsed && (
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="fixed right-0 top-1/2 -translate-y-1/2 z-[60] flex items-center pr-2 pl-8 py-10 group/hitbox cursor-pointer"
+            onClick={() => setIsSidebarCollapsed(false)}
+          >
+            <motion.button
+              whileHover={{ width: 32, backgroundColor: "rgba(30, 41, 59, 0.8)" }}
+              className="w-1.5 h-24 bg-blue-500/40 backdrop-blur-md rounded-full border border-white/5 shadow-[0_0_15px_rgba(59,130,246,0.2)] transition-all duration-500 group flex items-center justify-center overflow-hidden relative"
+              title="Expand Sidebar"
+            >
+              <ChevronLeft className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 translate-x-1 group-hover:translate-x-0" />
+              
+              {/* Subtle pulsing glow */}
+              <div className="absolute inset-0 bg-blue-400/10 animate-pulse group-hover:hidden"></div>
+            </motion.button>
+          </motion.div>
+        )}
       </div>
 
       <ReviewScoringModal
+        key={`${taskId}-${isReviewModalOpen}`}
         isOpen={isReviewModalOpen}
         onClose={() => setIsReviewModalOpen(false)}
         onConfirm={handleReviewConfirm}
@@ -487,7 +633,8 @@ export function WorkspacePage({
           <div className="bg-slate-800 border border-slate-600 rounded-xl p-6 shadow-2xl max-w-md w-full mx-4 text-white">
             <h3 className="text-lg font-bold mb-1">Skip this task?</h3>
             <p className="text-slate-400 text-sm mb-4">
-              This task will be returned to the pool for someone else to complete.
+              This task will be returned to the pool for someone else to
+              complete.
             </p>
             <div className="mb-5">
               <label className="block text-sm font-medium text-slate-300 mb-1.5">
@@ -503,7 +650,10 @@ export function WorkspacePage({
             </div>
             <div className="flex gap-3 justify-end">
               <button
-                onClick={() => { setIsSkipConfirmOpen(false); setSkipReason(""); }}
+                onClick={() => {
+                  setIsSkipConfirmOpen(false);
+                  setSkipReason("");
+                }}
                 className="px-4 py-2 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-700 transition-colors text-sm"
               >
                 Cancel

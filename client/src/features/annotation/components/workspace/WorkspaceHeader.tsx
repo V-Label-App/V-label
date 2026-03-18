@@ -24,6 +24,7 @@ interface WorkspaceHeaderProps {
   onSubmit?: () => void;
   onSkip?: () => void;
   onApprove?: () => void;
+
   onReject?: () => void;
   onResume?: () => void;
   onClose?: () => void;
@@ -34,6 +35,7 @@ interface WorkspaceHeaderProps {
     email?: string;
     reputationScore?: number;
   };
+  isTaskReassigned?: boolean;
 }
 
 export function WorkspaceHeader({
@@ -42,12 +44,14 @@ export function WorkspaceHeader({
   onSubmit,
   onSkip,
   onApprove,
+
   onReject,
   onResume,
   onClose,
   actualTimeSeconds = 0,
   projectName,
   annotator,
+  isTaskReassigned,
 }: WorkspaceHeaderProps) {
   const { getCurrentImage, autoSaveStatus } = useImageStore();
   const currentImage = getCurrentImage();
@@ -76,32 +80,37 @@ export function WorkspaceHeader({
         </span>
 
         {taskStatus.toLowerCase() === "assigned" && (
-          <Badge className="ml-3 bg-blue-500 text-white">ASSIGNED</Badge>
+          <Badge className="ml-3 bg-blue-500 text-white animate-pulse shadow-[0_0_10px_rgba(59,130,246,0.3)]">
+            ASSIGNED
+          </Badge>
         )}
         {taskStatus.toLowerCase() === "in_progress" && (
-          <Badge className="ml-3 bg-yellow-500 text-white font-semibold">
+          <Badge className="ml-3 bg-yellow-500 text-white font-semibold animate-pulse shadow-[0_0_10px_rgba(234,179,8,0.3)]">
             IN PROGRESS
           </Badge>
         )}
         {taskStatus === "rejected" && (
-          <Badge className="ml-3 bg-red-600 text-white">
+          <Badge className="ml-3 bg-red-600 text-white animate-pulse shadow-[0_0_10px_rgba(220,38,38,0.3)]">
             {mode === "review" ? "REJECTED (Read-Only)" : "REJECTED"}
           </Badge>
         )}
         {taskStatus === "approved" && (
-          <Badge className="ml-3 bg-green-600 text-white">
+          <Badge className="ml-3 bg-green-600 text-white animate-pulse shadow-[0_0_10px_rgba(22,163,74,0.3)]">
             APPROVED (Read-Only)
           </Badge>
         )}
         {taskStatus === "submitted" && (
-          <Badge className="ml-3 bg-blue-600 text-white">
+          <Badge className="ml-3 bg-blue-600 text-white animate-pulse shadow-[0_0_10px_rgba(37,99,235,0.3)]">
             {mode === "review" ? "PENDING REVIEW" : "SUBMITTED"}
           </Badge>
         )}
         {isSkipped && (
-          <Badge className="ml-3 bg-indigo-600 text-white">SKIPPED</Badge>
+          <Badge
+            className={`ml-3 text-white animate-pulse ${isTaskReassigned ? "bg-indigo-600 shadow-[0_0_10px_rgba(79,70,229,0.3)]" : "bg-amber-600 shadow-[0_0_10px_rgba(217,119,6,0.3)]"}`}
+          >
+            {isTaskReassigned ? "REASSIGNED" : "REASSIGNING"}
+          </Badge>
         )}
-
         {mode === "review" && annotator && (
           <div className="ml-4 flex items-center gap-2 px-3 py-1 bg-purple-900/30 border border-purple-500/30 rounded-full text-purple-200">
             <span className="text-[10px] font-bold uppercase text-purple-400 tracking-wider">

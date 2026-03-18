@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "../../../components/ui/button";
 import { Card } from "../../../components/ui/card";
@@ -38,9 +38,11 @@ import {
   Eye,
   Sparkles,
   RotateCcw,
+  RefreshCw,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { cn } from "../../../components/ui/utils";
 
 import { projectApi } from "../../../services/project.api";
 import { annotatorApi } from "../../../services/annotator.api";
@@ -54,6 +56,7 @@ export function AnnotatorProjectDetailPage() {
   const [project, setProject] = useState<any>(null);
   const [tasks, setTasks] = useState<TaskAssignmentListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState("tasks");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
@@ -76,11 +79,13 @@ export function AnnotatorProjectDetailPage() {
   }, [projectId]);
 
   // Fetch my tasks for this project
-  useEffect(() => {
-    const fetchTasks = async () => {
+  const fetchTasks = useCallback(
+    async (silent = false) => {
       if (!projectId) return;
 
-      setIsLoading(true);
+      if (!silent) setIsLoading(true);
+      else setIsRefreshing(true);
+
       try {
         const result = await annotatorApi.getMyTasks({
           projectId,
@@ -88,16 +93,21 @@ export function AnnotatorProjectDetailPage() {
           limit: 100,
         });
         setTasks(result.data);
+        if (silent) toast.success("Task list refreshed");
       } catch (error) {
         console.error("Failed to fetch tasks:", error);
         toast.error("Failed to load tasks");
       } finally {
         setIsLoading(false);
+        setIsRefreshing(false);
       }
-    };
+    },
+    [projectId],
+  );
 
+  useEffect(() => {
     fetchTasks();
-  }, [projectId]);
+  }, [fetchTasks]);
 
   if (!project) {
     return (
@@ -134,8 +144,8 @@ export function AnnotatorProjectDetailPage() {
         label: "Approved",
       },
       SKIPPED: {
-        className: "bg-indigo-100 text-indigo-700 border-indigo-300",
-        label: "Skipped",
+        className: "bg-orange-100 text-orange-700 border-orange-300 font-bold",
+        label: "REASSIGNED",
       },
     };
     return styles[status as keyof typeof styles] || styles.ASSIGNED;
@@ -144,7 +154,8 @@ export function AnnotatorProjectDetailPage() {
   // Detect stuck tasks: IN_PROGRESS and not updated for >24h
   const stuckTasks = tasks.filter((task) => {
     if (task.status !== "IN_PROGRESS") return false;
-    const hoursSince = (Date.now() - new Date(task.updatedAt).getTime()) / (1000 * 60 * 60);
+    const hoursSince =
+      (Date.now() - new Date(task.updatedAt).getTime()) / (1000 * 60 * 60);
     return hoursSince >= 24;
   });
 
@@ -156,7 +167,9 @@ export function AnnotatorProjectDetailPage() {
         .includes(searchQuery.toLowerCase()) ||
       task.id.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus =
-      filterStatus === "ALL" || task.status === filterStatus;
+      filterStatus === "ALL" ||
+      task.status === filterStatus ||
+      (filterStatus === "REASSIGNED" && task.status === "SKIPPED");
     return matchesSearch && matchesStatus;
   });
 
@@ -314,19 +327,34 @@ export function AnnotatorProjectDetailPage() {
                 <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5 shrink-0" />
                 <div>
                   <p className="font-semibold text-yellow-800">
-                    {stuckTasks.length} stuck task{stuckTasks.length > 1 ? "s" : ""} detected
+                    {stuckTasks.length} stuck task
+                    {stuckTasks.length > 1 ? "s" : ""} detected
                   </p>
                   <p className="text-sm text-yellow-700 mt-0.5">
-                    The following {stuckTasks.length > 1 ? "tasks have" : "task has"} been in progress for more than 24 hours without any update. Please resume or skip {stuckTasks.length > 1 ? "them" : "it"}.
+                    The following{" "}
+                    {stuckTasks.length > 1 ? "tasks have" : "task has"} been in
+                    progress for more than 24 hours without any update. Please
+                    resume or skip {stuckTasks.length > 1 ? "them" : "it"}.
                   </p>
                   <ul className="mt-2 space-y-1">
                     {stuckTasks.map((task) => {
-                      const hours = Math.floor((Date.now() - new Date(task.updatedAt).getTime()) / (1000 * 60 * 60));
+                      const hours = Math.floor(
+                        (Date.now() - new Date(task.updatedAt).getTime()) /
+                          (1000 * 60 * 60),
+                      );
                       return (
-                        <li key={task.id} className="flex items-center gap-2 text-sm text-yellow-800">
+                        <li
+                          key={task.id}
+                          className="flex items-center gap-2 text-sm text-yellow-800"
+                        >
                           <Clock className="w-3.5 h-3.5 shrink-0" />
-                          <span className="font-medium">{task.task.image?.originalFilename || `Task ${task.id.slice(0, 8)}`}</span>
-                          <span className="text-yellow-600">— idle for {hours}h</span>
+                          <span className="font-medium">
+                            {task.task.image?.originalFilename ||
+                              `Task ${task.id.slice(0, 8)}`}
+                          </span>
+                          <span className="text-yellow-600">
+                            — idle for {hours}h
+                          </span>
                           <button
                             className="ml-auto text-xs underline text-yellow-700 hover:text-yellow-900"
                             onClick={() => navigate(`/workspace/${task.id}`)}
@@ -356,19 +384,34 @@ export function AnnotatorProjectDetailPage() {
                   </div>
                 </div>
 
-                <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="All Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ALL">All Status</SelectItem>
-                    <SelectItem value="ASSIGNED">Assigned</SelectItem>
-                    <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-                    <SelectItem value="SUBMITTED">Submitted</SelectItem>
-                    <SelectItem value="REJECTED">Rejected</SelectItem>
-                    <SelectItem value="APPROVED">Approved</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-2">
+                  <Select value={filterStatus} onValueChange={setFilterStatus}>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="All Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">All Status</SelectItem>
+                      <SelectItem value="ASSIGNED">Assigned</SelectItem>
+                      <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
+                      <SelectItem value="SUBMITTED">Submitted</SelectItem>
+                      <SelectItem value="REJECTED">Rejected</SelectItem>
+                      <SelectItem value="REASSIGNED">Reassigned</SelectItem>
+                      <SelectItem value="APPROVED">Approved</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Button
+                    variant="outline"
+                    className="gap-2 bg-white hover:bg-gray-50 shadow-sm transition-all whitespace-nowrap"
+                    onClick={() => fetchTasks(true)}
+                    disabled={isRefreshing}
+                  >
+                    <RefreshCw
+                      className={cn("w-4 h-4", isRefreshing && "animate-spin")}
+                    />
+                    {isRefreshing ? "Refresh" : "Refresh"}
+                  </Button>
+                </div>
               </div>
             </Card>
 
@@ -406,21 +449,33 @@ export function AnnotatorProjectDetailPage() {
                   </TableHeader>
                   <TableBody>
                     {filteredTasks.map((task) => {
+                      const projectMaxRejections =
+                        project?.assignmentRule?.maxRejectionsBeforeReassign;
+                      // Permanently lock if SKIPPED (hit limit) regardless of project settings
                       const isLocked =
-                        task.status === "REJECTED" &&
-                        (task.rejectionCount || 0) >= (task.maxRejections || 3);
-                      
-                      const statusBadge = isLocked 
-                        ? { className: "bg-orange-100 text-orange-700 border-orange-300", label: "Reassigning..." }
+                        task.status === "SKIPPED" ||
+                        (task.status === "REJECTED" &&
+                          (task.rejectionCount || 0) >=
+                            (projectMaxRejections ?? task.maxRejections ?? 3));
+
+                      const statusBadge = isLocked
+                        ? {
+                            className: task.status === "SKIPPED" 
+                              ? "bg-amber-100 text-amber-700 border-amber-300 font-bold animate-pulse" 
+                              : "bg-orange-100 text-orange-700 border-orange-300 font-bold",
+                            label: task.status === "SKIPPED" ? "REASSIGNING" : "REASSIGNED",
+                          }
                         : getStatusBadge(task.status);
-                      
+
                       return (
                         <TableRow
                           key={task.id}
                           className={`hover:bg-gray-50 cursor-pointer ${isLocked ? "bg-gray-50/50" : ""}`}
                         >
                           <TableCell>
-                            <div className={`w-16 h-16 bg-gradient-to-br from-blue-100 to-purple-100 rounded-lg flex items-center justify-center overflow-hidden ${isLocked ? "grayscale opacity-50" : ""}`}>
+                            <div
+                              className={`w-16 h-16 bg-gradient-to-br from-blue-100 to-purple-100 rounded-lg flex items-center justify-center overflow-hidden ${isLocked ? "grayscale opacity-50" : ""}`}
+                            >
                               {task.task.image ? (
                                 <img
                                   src={task.task.image.storageUrl}
@@ -434,18 +489,25 @@ export function AnnotatorProjectDetailPage() {
                           </TableCell>
                           <TableCell>
                             <div className="space-y-1">
-                              <div className={`font-medium ${isLocked ? "text-gray-400" : ""}`}>
+                              <div
+                                className={`font-medium ${isLocked ? "text-gray-400" : ""}`}
+                              >
                                 {task.task.image?.originalFilename ||
                                   `Task ${task.id.slice(0, 8)}`}
                               </div>
                               <div className="text-xs text-muted-foreground">
                                 ID: {task.id.slice(0, 8)}...
                               </div>
-                              {task.status === "REJECTED" &&
+                              {(task.status === "REJECTED" ||
+                                task.status === "SKIPPED") &&
                                 task.reviewComment && (
-                                  <div className={`text-xs flex items-center gap-1 ${isLocked ? "text-gray-400" : "text-red-600"}`}>
+                                  <div
+                                    className={`text-xs flex items-center gap-1 ${isLocked ? "text-gray-400" : "text-red-600"}`}
+                                  >
                                     <AlertTriangle className="w-3 h-3" />
-                                    {isLocked ? "This task is being reassigned to another annotator." : task.reviewComment}
+                                    {isLocked
+                                      ? "This task is being reassigned to another annotator."
+                                      : task.reviewComment}
                                   </div>
                                 )}
                             </div>
@@ -460,7 +522,9 @@ export function AnnotatorProjectDetailPage() {
                           </TableCell>
                           <TableCell>
                             {task.deadline ? (
-                              <div className={`text-sm ${isLocked ? "text-gray-400" : ""}`}>
+                              <div
+                                className={`text-sm ${isLocked ? "text-gray-400" : ""}`}
+                              >
                                 {format(
                                   new Date(task.deadline),
                                   "MMM dd, yyyy",
@@ -476,19 +540,21 @@ export function AnnotatorProjectDetailPage() {
                             <Button
                               size="sm"
                               variant={
-                                isLocked 
+                                isLocked
                                   ? "outline"
                                   : task.status === "REJECTED"
-                                  ? "destructive"
-                                  : "default"
+                                    ? "destructive"
+                                    : "default"
                               }
                               disabled={isLocked}
-                              onClick={() => !isLocked && navigate(`/workspace/${task.id}`)}
+                              onClick={() =>
+                                !isLocked && navigate(`/workspace/${task.id}`)
+                              }
                             >
                               {isLocked ? (
                                 <>
                                   <Clock className="w-3 h-3 mr-1" />
-                                  Locked
+                                  {statusBadge.label}
                                 </>
                               ) : task.status === "REJECTED" ? (
                                 <>

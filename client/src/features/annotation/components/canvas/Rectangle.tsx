@@ -10,6 +10,8 @@ interface RectangleProps {
   isSelected: boolean;
   isReadOnly: boolean;
   onSelect: () => void;
+  isHistorical?: boolean;
+  isPreviewMode?: boolean;
 }
 
 export function Rectangle({
@@ -17,17 +19,21 @@ export function Rectangle({
   isSelected,
   isReadOnly,
   onSelect,
+  isHistorical = false,
+  isPreviewMode = false,
 }: RectangleProps) {
   const shapeRef = useRef<Konva.Rect>(null);
   const trRef = useRef<Konva.Transformer>(null);
   const { updateAnnotation, defaultOpacity, defaultStrokeWidth } =
     useAnnotationStore();
 
-  const borderColor = getLabelColor(annotation.label);
+  const applyHistoricalStyle = isHistorical && !isPreviewMode;
+
+  const borderColor = applyHistoricalStyle ? "#94a3b8" : getLabelColor(annotation.label);
   const strokeW = annotation.strokeWidth ?? defaultStrokeWidth;
-  const opacityVal = annotation.opacity ?? defaultOpacity;
+  const opacityVal = applyHistoricalStyle ? 0.3 : (annotation.opacity ?? defaultOpacity);
   const fillAlpha = isSelected ? Math.min(1, opacityVal + 0.2) : opacityVal;
-  const fillColor = getLabelColor(annotation.label, fillAlpha);
+  const fillColor = applyHistoricalStyle ? "transparent" : getLabelColor(annotation.label, fillAlpha);
 
   // Attach transformer to selected annotation
   useEffect(() => {
@@ -108,21 +114,24 @@ export function Rectangle({
         shadowColor={isSelected ? borderColor : "transparent"}
         shadowBlur={isSelected ? 20 : 0}
         shadowOpacity={isSelected ? 0.5 : 0}
+        dash={applyHistoricalStyle ? [5, 5] : undefined}
       />
 
       {/* Label Text */}
-      <Text
-        x={annotation.x}
-        y={annotation.y - 25}
-        text={annotation.label}
-        fontSize={14}
-        fontFamily="Inter, sans-serif"
-        fill="white"
-        padding={6}
-        align="center"
-        backgroundColor={borderColor}
-        cornerRadius={4}
-      />
+      {(!isHistorical || isPreviewMode) && (
+        <Text
+          x={annotation.x}
+          y={annotation.y - 25}
+          text={annotation.label}
+          fontSize={14}
+          fontFamily="Inter, sans-serif"
+          fill="white"
+          padding={6}
+          align="center"
+          backgroundColor={borderColor}
+          cornerRadius={4}
+        />
+      )}
 
       {/* AI Confidence Badge */}
       {annotation.aiSuggested && annotation.confidence !== undefined && (

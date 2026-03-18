@@ -3,6 +3,23 @@ import { getRolePrompt, DEFAULT_SYSTEM_PROMPT } from '../config/rolePrompts.js';
 import { ChatFunctionDefinition } from './system.config.service.js';
 import { FunctionRegistry } from './ai/function.registry.js';
 
+// Fallback model chain: if primary model is overloaded, try these in order
+const FALLBACK_MODELS = ['gemini-2.5-pro', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+
+function sleep(ms: number) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function is503(error: any): boolean {
+    return (
+        error?.status === 503 ||
+        error?.statusText === 'Service Unavailable' ||
+        error?.message?.includes('503') ||
+        error?.message?.includes('Service Unavailable') ||
+        error?.message?.includes('high demand')
+    );
+}
+
 export class GeminiService {
     private genAI: GoogleGenerativeAI;
 
@@ -12,6 +29,29 @@ export class GeminiService {
             throw new Error('GEMINI_API_KEY is not defined in environment variables');
         }
         this.genAI = new GoogleGenerativeAI(apiKey);
+    }
+
+    /**
+     * Retry a function up to maxRetries times on 503 errors,
+     * with exponential backoff (1s → 2s → 4s).
+     */
+    private async withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
+        let lastError: any;
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+            try {
+                return await fn();
+            } catch (err: any) {
+                lastError = err;
+                if (is503(err) && attempt < maxRetries - 1) {
+                    const delay = 1000 * Math.pow(2, attempt); // 1s, 2s, 4s
+                    console.warn(`[Gemini] 503 on attempt ${attempt + 1}, retrying in ${delay}ms...`);
+                    await sleep(delay);
+                } else {
+                    throw err;
+                }
+            }
+        }
+        throw lastError;
     }
 
     /**
@@ -177,12 +217,6 @@ AI: [NOW call create_labels_auto function]
                 }))
             }] : undefined;
 
-            const model = this.genAI.getGenerativeModel({
-                model: modelName,
-                systemInstruction: augmentedSystemPrompt,
-                tools: tools as any // Cast to avoid strict type issues with SDK versions
-            });
-
             // Sanitize history: Google Gemini requires history to start with 'user' role.
             // If the first message is from 'model' (e.g., welcome message), we must remove it.
             let validHistory = history;
@@ -190,17 +224,46 @@ AI: [NOW call create_labels_auto function]
                 validHistory = validHistory.slice(1);
             }
 
-            const chat = model.startChat({
-                history: validHistory.map(msg => ({
-                    role: msg.role,
-                    parts: [{ text: msg.parts || '' }]
-                })),
-                generationConfig: {
-                    temperature,
-                },
-            });
+            const buildChat = (name: string) => {
+                const m = this.genAI.getGenerativeModel({
+                    model: name,
+                    systemInstruction: augmentedSystemPrompt,
+                    tools: tools as any,
+                });
+                return m.startChat({
+                    history: validHistory.map(msg => ({
+                        role: msg.role,
+                        parts: [{ text: msg.parts || '' }]
+                    })),
+                    generationConfig: { temperature },
+                });
+            };
 
-            let result = await chat.sendMessage(message);
+            // Try primary model with retry, then fallback models
+            const modelsToTry = [modelName, ...FALLBACK_MODELS];
+            let result: any;
+            let chat: any;
+            let usedModel = modelName;
+
+            for (const candidateModel of modelsToTry) {
+                try {
+                    const candidateChat = buildChat(candidateModel);
+                    result = await this.withRetry(() => candidateChat.sendMessage(message));
+                    chat = candidateChat;
+                    usedModel = candidateModel;
+                    if (candidateModel !== modelName) {
+                        console.warn(`[Gemini] Fell back to model: ${candidateModel}`);
+                    }
+                    break;
+                } catch (err: any) {
+                    if (is503(err) && candidateModel !== modelsToTry[modelsToTry.length - 1]) {
+                        console.warn(`[Gemini] Model ${candidateModel} unavailable, trying next fallback...`);
+                        continue;
+                    }
+                    throw err;
+                }
+            }
+
             let response = await result.response;
             let text = response.text(); // Attempt to get text. Might fail if only function call.
 
@@ -430,7 +493,7 @@ Example: [{"label":"cat","box_2d":[120,180,450,520],"confidence":0.91}]`;
         const mimeType = (response.headers.get('content-type') || 'image/jpeg').split(';')[0] as string;
 
         const model = this.genAI.getGenerativeModel({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-2.5-pro',
             generationConfig: { thinkingConfig: { thinkingBudget: 5000 } } as any,
         });
         const result = await model.generateContent([
