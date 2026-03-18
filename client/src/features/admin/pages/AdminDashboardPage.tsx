@@ -19,9 +19,6 @@ import {
   Loader2,
   LayoutGrid,
   BarChart3,
-  FolderOpen,
-  Activity,
-  Database,
 } from "lucide-react";
 import api from "../../../api/axiosClient";
 import {
@@ -30,16 +27,12 @@ import {
   Cell,
   BarChart,
   Bar,
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   Legend,
   ResponsiveContainer,
-  RadialBarChart,
-  RadialBar,
 } from "recharts";
 
 interface DashboardStats {
@@ -509,18 +502,8 @@ function renderChartView(stats: DashboardStats) {
   ];
 
   // Prepare data for Annotations Trend
-  const annotationsData = [
-    { name: 'Today', value: stats.annotations.today, color: COLORS[0] },
-    { name: 'This Week', value: stats.annotations.thisWeek, color: COLORS[1] },
-    { name: 'This Month', value: stats.annotations.thisMonth, color: COLORS[2] },
-  ];
-
   // Storage usage percentage - use the pre-calculated percentage from backend
   const storagePercentage = stats.storage.percentage;
-  const storageData = [
-    { name: 'Used', value: storagePercentage, fill: COLORS[4] },
-    { name: 'Free', value: 100 - storagePercentage, fill: '#e5e7eb' },
-  ];
 
   // Prepare data for Annotations Timeline (monthly trend)
   const generateMonthlyAnnotations = () => {
@@ -558,7 +541,7 @@ function renderChartView(stats: DashboardStats) {
                   cy="50%"
                   labelLine={false}
                   label={({ name, value, percent }) => 
-                    `${name}: ${value} (${(percent * 100).toFixed(0)}%)`
+                    `${name}: ${value} (${((percent || 0) * 100).toFixed(0)}%)`
                   }
                   outerRadius={80}
                   fill="#8884d8"
@@ -639,7 +622,7 @@ function renderChartView(stats: DashboardStats) {
                   {storagePercentage.toFixed(1)}%
                 </text>
                 <Tooltip 
-                  formatter={(value: number) => `${value.toFixed(1)}%`}
+                  formatter={(value) => value ? `${(value as number).toFixed(1)}%` : '0%'}
                 />
               </PieChart>
             </ResponsiveContainer>
@@ -662,7 +645,7 @@ function renderChartView(stats: DashboardStats) {
                 <XAxis dataKey="name" />
                 <YAxis />
                 <Tooltip 
-                  formatter={(value: number) => [`${value} annotations`, 'Count']}
+                  formatter={(value) => value ? [`${value} annotations`, 'Count'] : ['0 annotations', 'Count']}
                 />
                 <Legend />
                 <Bar dataKey="value" name="Annotations" radius={[8, 8, 0, 0]}>
@@ -723,7 +706,7 @@ function renderChartView(stats: DashboardStats) {
                       >
                         {(stats.cloudinary.storage?.usagePercent || 0).toFixed(1)}%
                       </text>
-                      <Tooltip formatter={(value: number) => `${value.toFixed(1)}%`} />
+                      <Tooltip formatter={(value) => value ? `${(value as number).toFixed(1)}%` : '0%'} />
                     </PieChart>
                   </ResponsiveContainer>
                   <div className="text-center mt-2">
@@ -767,7 +750,7 @@ function renderChartView(stats: DashboardStats) {
                       >
                         {(stats.cloudinary.credits?.usagePercent || 0).toFixed(1)}%
                       </text>
-                      <Tooltip formatter={(value: number) => `${value.toFixed(1)}%`} />
+                      <Tooltip formatter={(value) => value ? `${(value as number).toFixed(1)}%` : '0%'} />
                     </PieChart>
                   </ResponsiveContainer>
                   <div className="text-center mt-2">
@@ -811,7 +794,7 @@ function renderChartView(stats: DashboardStats) {
                       >
                         {(stats.cloudinary.bandwidth?.usagePercent || 0).toFixed(1)}%
                       </text>
-                      <Tooltip formatter={(value: number) => `${value.toFixed(1)}%`} />
+                      <Tooltip formatter={(value) => value ? `${(value as number).toFixed(1)}%` : '0%'} />
                     </PieChart>
                   </ResponsiveContainer>
                   <div className="text-center mt-2">
@@ -870,7 +853,7 @@ function renderChartView(stats: DashboardStats) {
           {stats.topAnnotators.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
               <BarChart
-                data={stats.topAnnotators.map((a, idx) => ({
+                data={stats.topAnnotators.map((a) => ({
                   name: a.name,
                   count: a.count,
                   quality: a.quality,

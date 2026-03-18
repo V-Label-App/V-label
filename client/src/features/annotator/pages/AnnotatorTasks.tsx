@@ -17,7 +17,6 @@ import {
   FolderKanban,
   Loader2,
   Users,
-  CheckCircle2,
   Search,
   Sparkles,
 } from "lucide-react";
