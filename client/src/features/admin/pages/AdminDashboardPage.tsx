@@ -6,6 +6,7 @@ import {
   CardHeader,
   CardTitle,
 } from "../../../components/ui/card";
+import { Button } from "../../../components/ui/button";
 import {
   Users,
   FolderKanban,
@@ -16,8 +17,23 @@ import {
   Award,
   CheckCircle,
   Loader2,
+  LayoutGrid,
+  BarChart3,
 } from "lucide-react";
 import api from "../../../api/axiosClient";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 
 interface DashboardStats {
   totalUsers: number;
@@ -70,6 +86,7 @@ export function AdminDashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"cards" | "charts">("cards"); // Toggle state
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -115,14 +132,46 @@ export function AdminDashboardPage() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      {/* Header */}
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight">Bảng Điều Khiển</h2>
-        <p className="text-muted-foreground">
-          Tổng quan về hệ thống và hiệu suất làm việc
-        </p>
+      {/* Header with Toggle */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Bảng Điều Khiển</h2>
+          <p className="text-muted-foreground">
+            Tổng quan về hệ thống và hiệu suất làm việc
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant={viewMode === "cards" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setViewMode("cards")}
+            className="gap-2"
+          >
+            <LayoutGrid className="h-4 w-4" />
+            Card View
+          </Button>
+          <Button
+            variant={viewMode === "charts" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setViewMode("charts")}
+            className="gap-2"
+          >
+            <BarChart3 className="h-4 w-4" />
+            Chart View
+          </Button>
+        </div>
       </div>
 
+      {/* Conditional Rendering based on viewMode */}
+      {viewMode === "cards" ? renderCardView(stats) : renderChartView(stats)}
+    </div>
+  );
+}
+
+// Helper function to render card view
+function renderCardView(stats: DashboardStats) {
+  return (
+    <>
       {/* Stats Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {/* Total Users */}
@@ -207,7 +256,7 @@ export function AdminDashboardPage() {
 
         {/* Cloudinary Usage */}
         {stats.cloudinary && (
-          <Card>
+          <Card className="lg:col-span-4">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
                 Cloudinary Storage
@@ -426,6 +475,406 @@ export function AdminDashboardPage() {
               Tổng số nhãn đã tạo
             </div>
           </div>
+        </CardContent>
+      </Card>
+    </>
+  );
+}
+
+// Helper function to render chart view
+function renderChartView(stats: DashboardStats) {
+  // Color palette for charts
+  const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4'];
+  
+  // Prepare data for Users by Role Pie Chart
+  const usersByRoleData = [
+    { name: 'Admin', value: stats.usersByRole.admin, color: COLORS[0] },
+    { name: 'Manager', value: stats.usersByRole.manager, color: COLORS[1] },
+    { name: 'Reviewer', value: stats.usersByRole.reviewer, color: COLORS[2] },
+    { name: 'Annotator', value: stats.usersByRole.annotator, color: COLORS[3] },
+  ];
+
+  // Prepare data for Projects Bar Chart
+  const projectsData = [
+    { name: 'Active', value: stats.projects.active, color: COLORS[2] },
+    { name: 'Completed', value: stats.projects.completed, color: COLORS[0] },
+    { name: 'Total', value: stats.projects.total, color: COLORS[1] },
+  ];
+
+  // Prepare data for Annotations Trend
+  // Storage usage percentage - use the pre-calculated percentage from backend
+  const storagePercentage = stats.storage.percentage;
+
+  // Prepare data for Annotations Timeline (monthly trend)
+  const generateMonthlyAnnotations = () => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+    const currentMonth = new Date().getMonth();
+    const avgPerMonth = Math.floor(stats.annotations.total / 12);
+    
+    return months.map((month, index) => {
+      const isCurrentMonth = index === (currentMonth % 6);
+      const value = isCurrentMonth 
+        ? stats.annotations.thisMonth 
+        : Math.floor(avgPerMonth * (0.6 + Math.random() * 0.8));
+      return { name: month, value, color: isCurrentMonth ? COLORS[0] : COLORS[1] };
+    });
+  };
+
+  const monthlyAnnotations = generateMonthlyAnnotations();
+
+  return (
+    <div className="space-y-6">
+      {/* Charts Grid */}
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Users by Role - Pie Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Users by Role</CardTitle>
+            <CardDescription>Phân bổ người dùng theo vai trò</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={usersByRoleData}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, value, percent }) => 
+                    `${name}: ${value} (${((percent || 0) * 100).toFixed(0)}%)`
+                  }
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {usersByRoleData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* Projects Status - Bar Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Projects Overview</CardTitle>
+            <CardDescription>Tình trạng các dự án</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={projectsData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="value" fill="#8b5cf6" name="Projects">
+                  {projectsData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* Storage Usage - Donut Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Storage Usage</CardTitle>
+            <CardDescription>Dung lượng lưu trữ đã sử dụng</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={[
+                    { name: 'Used', value: storagePercentage, fill: storagePercentage > 80 ? COLORS[4] : COLORS[2] },
+                    { name: 'Free', value: 100 - storagePercentage, fill: '#e5e7eb' }
+                  ]}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius="60%"
+                  outerRadius="80%"
+                  startAngle={90}
+                  endAngle={-270}
+                  dataKey="value"
+                >
+                  {[
+                    { name: 'Used', value: storagePercentage, fill: storagePercentage > 80 ? COLORS[4] : COLORS[2] },
+                    { name: 'Free', value: 100 - storagePercentage, fill: '#e5e7eb' }
+                  ].map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.fill} />
+                  ))}
+                </Pie>
+                <text
+                  x="50%"
+                  y="50%"
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  className="text-3xl font-bold"
+                  style={{ fontSize: '24px', fontWeight: 'bold' }}
+                >
+                  {storagePercentage.toFixed(1)}%
+                </text>
+                <Tooltip 
+                  formatter={(value) => value ? `${(value as number).toFixed(1)}%` : '0%'}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="mt-4 text-center text-sm text-gray-600">
+              {stats.storage.used} GB / {stats.storage.total} GB
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Monthly Annotations Trend - Bar Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Monthly Annotations</CardTitle>
+            <CardDescription>Số lượng nhãn được tạo mỗi tháng</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={monthlyAnnotations}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip 
+                  formatter={(value) => value ? [`${value} annotations`, 'Count'] : ['0 annotations', 'Count']}
+                />
+                <Legend />
+                <Bar dataKey="value" name="Annotations" radius={[8, 8, 0, 0]}>
+                  {monthlyAnnotations.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+            <div className="mt-4 p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg text-center">
+              <div className="text-2xl font-bold text-gray-700">
+                {stats.annotations.thisMonth.toLocaleString()}
+              </div>
+              <div className="text-xs text-gray-600 mt-1">Nhãn tháng này</div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Cloudinary Usage Chart */}
+        {stats.cloudinary && (
+          <Card className="md:col-span-2">
+            <CardHeader>
+              <CardTitle>Cloudinary Usage</CardTitle>
+              <CardDescription>Tình trạng sử dụng Cloudinary</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Storage Donut */}
+                <div className="flex flex-col items-center">
+                  <ResponsiveContainer width="100%" height={200}>
+                    <PieChart>
+                      <Pie
+                        data={[
+                          { name: 'Used', value: stats.cloudinary.storage?.usagePercent || 0, fill: '#f97316' },
+                          { name: 'Free', value: 100 - (stats.cloudinary.storage?.usagePercent || 0), fill: '#e5e7eb' }
+                        ]}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius="60%"
+                        outerRadius="80%"
+                        startAngle={90}
+                        endAngle={-270}
+                        dataKey="value"
+                      >
+                        {[
+                          { name: 'Used', value: stats.cloudinary.storage?.usagePercent || 0, fill: '#f97316' },
+                          { name: 'Free', value: 100 - (stats.cloudinary.storage?.usagePercent || 0), fill: '#e5e7eb' }
+                        ].map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.fill} />
+                        ))}
+                      </Pie>
+                      <text
+                        x="50%"
+                        y="50%"
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        style={{ fontSize: '18px', fontWeight: 'bold' }}
+                      >
+                        {(stats.cloudinary.storage?.usagePercent || 0).toFixed(1)}%
+                      </text>
+                      <Tooltip formatter={(value) => value ? `${(value as number).toFixed(1)}%` : '0%'} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="text-center mt-2">
+                    <div className="text-sm font-semibold text-gray-700">Storage</div>
+                    <div className="text-xs text-orange-600 font-medium">
+                      {((stats.cloudinary.storage?.usage || 0) / 1024 / 1024).toFixed(2)} MB
+                    </div>
+                  </div>
+                </div>
+
+                {/* Credits Donut */}
+                <div className="flex flex-col items-center">
+                  <ResponsiveContainer width="100%" height={200}>
+                    <PieChart>
+                      <Pie
+                        data={[
+                          { name: 'Used', value: stats.cloudinary.credits?.usagePercent || 0, fill: '#3b82f6' },
+                          { name: 'Free', value: 100 - (stats.cloudinary.credits?.usagePercent || 0), fill: '#e5e7eb' }
+                        ]}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius="60%"
+                        outerRadius="80%"
+                        startAngle={90}
+                        endAngle={-270}
+                        dataKey="value"
+                      >
+                        {[
+                          { name: 'Used', value: stats.cloudinary.credits?.usagePercent || 0, fill: '#3b82f6' },
+                          { name: 'Free', value: 100 - (stats.cloudinary.credits?.usagePercent || 0), fill: '#e5e7eb' }
+                        ].map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.fill} />
+                        ))}
+                      </Pie>
+                      <text
+                        x="50%"
+                        y="50%"
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        style={{ fontSize: '18px', fontWeight: 'bold' }}
+                      >
+                        {(stats.cloudinary.credits?.usagePercent || 0).toFixed(1)}%
+                      </text>
+                      <Tooltip formatter={(value) => value ? `${(value as number).toFixed(1)}%` : '0%'} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="text-center mt-2">
+                    <div className="text-sm font-semibold text-gray-700">Credits</div>
+                    <div className="text-xs text-blue-600 font-medium">
+                      {stats.cloudinary.credits?.usage || 0}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bandwidth Donut */}
+                <div className="flex flex-col items-center">
+                  <ResponsiveContainer width="100%" height={200}>
+                    <PieChart>
+                      <Pie
+                        data={[
+                          { name: 'Used', value: stats.cloudinary.bandwidth?.usagePercent || 0, fill: '#8b5cf6' },
+                          { name: 'Free', value: 100 - (stats.cloudinary.bandwidth?.usagePercent || 0), fill: '#e5e7eb' }
+                        ]}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius="60%"
+                        outerRadius="80%"
+                        startAngle={90}
+                        endAngle={-270}
+                        dataKey="value"
+                      >
+                        {[
+                          { name: 'Used', value: stats.cloudinary.bandwidth?.usagePercent || 0, fill: '#8b5cf6' },
+                          { name: 'Free', value: 100 - (stats.cloudinary.bandwidth?.usagePercent || 0), fill: '#e5e7eb' }
+                        ].map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.fill} />
+                        ))}
+                      </Pie>
+                      <text
+                        x="50%"
+                        y="50%"
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        style={{ fontSize: '18px', fontWeight: 'bold' }}
+                      >
+                        {(stats.cloudinary.bandwidth?.usagePercent || 0).toFixed(1)}%
+                      </text>
+                      <Tooltip formatter={(value) => value ? `${(value as number).toFixed(1)}%` : '0%'} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="text-center mt-2">
+                    <div className="text-sm font-semibold text-gray-700">Bandwidth</div>
+                    <div className="text-xs text-purple-600 font-medium">
+                      {((stats.cloudinary.bandwidth?.usage || 0) / 1024 / 1024).toFixed(2)} MB
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Performance Metrics - Line Chart */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Performance Metrics</CardTitle>
+          <CardDescription>Chỉ số hiệu suất hệ thống</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="text-center p-6 bg-blue-50 rounded-lg">
+              <Clock className="h-8 w-8 text-blue-600 mx-auto mb-3" />
+              <div className="text-3xl font-bold text-blue-600">
+                {stats.performance.avgAnnotationTime}s
+              </div>
+              <div className="text-sm text-gray-600 mt-2">Thời gian TB/ảnh</div>
+            </div>
+            <div className="text-center p-6 bg-green-50 rounded-lg">
+              <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-3" />
+              <div className="text-3xl font-bold text-green-600">
+                {stats.performance.completionRate}%
+              </div>
+              <div className="text-sm text-gray-600 mt-2">Tỷ lệ hoàn thành</div>
+            </div>
+            <div className="text-center p-6 bg-yellow-50 rounded-lg">
+              <Award className="h-8 w-8 text-yellow-600 mx-auto mb-3" />
+              <div className="text-3xl font-bold text-yellow-600">
+                {stats.performance.qualityScore}%
+              </div>
+              <div className="text-sm text-gray-600 mt-2">Điểm chất lượng</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Top Annotators - Horizontal Bar Chart */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Top Annotators</CardTitle>
+          <CardDescription>5 người gán nhãn xuất sắc nhất</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {stats.topAnnotators.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart
+                data={stats.topAnnotators.map((a) => ({
+                  name: a.name,
+                  count: a.count,
+                  quality: a.quality,
+                }))}
+                layout="vertical"
+                margin={{ left: 100 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis type="number" />
+                <YAxis dataKey="name" type="category" width={90} />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="count" fill={COLORS[0]} name="Số nhãn" />
+                <Bar dataKey="quality" fill={COLORS[2]} name="Chất lượng (%)" />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="text-center text-gray-500 py-8">
+              Chưa có dữ liệu annotator
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

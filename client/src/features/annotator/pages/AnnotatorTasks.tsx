@@ -17,13 +17,13 @@ import {
   FolderKanban,
   Loader2,
   Users,
-  CheckCircle2,
   Search,
   Sparkles,
 } from "lucide-react";
 import { annotatorApi } from "../../../services/annotator.api";
 import type { AnnotatorProject } from "../../../services/annotator.api";
 import { toast } from "sonner";
+import { cn } from "../../../components/ui/utils";
 
 interface AnnotatorTasksProps {
   onOpenWorkspace: (taskId: string, mode: "annotate") => void;
@@ -118,8 +118,8 @@ export function AnnotatorTasks(_props: AnnotatorTasksProps) {
         {/* Projects Table */}
         {filteredProjects.length === 0 ? (
           <Card className="p-12 text-center">
-            <FolderKanban className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">
+            <FolderKanban className="w-16 h-16 text-slate-200 mx-auto mb-4" />
+            <h3 className="text-lg font-bold text-slate-900 mb-2">
               {projects.length === 0 ? "No projects yet" : "No projects found"}
             </h3>
             <p className="text-muted-foreground mb-4">
@@ -132,28 +132,28 @@ export function AnnotatorTasks(_props: AnnotatorTasksProps) {
           <Card className="overflow-hidden">
             <div className="overflow-x-auto">
               <Table>
-                <TableHeader className="bg-gray-50 border-b border-gray-200">
-                  <TableRow>
-                    <TableHead className="w-[35%]">Project Name</TableHead>
-                    <TableHead className="w-[15%]">Category</TableHead>
-                    <TableHead className="w-[20%]">Progress</TableHead>
-                    <TableHead className="w-[10%] text-center">
-                      My Tasks
-                    </TableHead>
-                    <TableHead className="w-[10%] text-center">
-                      Members
-                    </TableHead>
-                    <TableHead className="w-[10%]">Status</TableHead>
+                <TableHeader className="bg-slate-50/50 border-b border-slate-200">
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="w-[35%] font-bold text-slate-700">Project Name</TableHead>
+                    <TableHead className="w-[15%] font-bold text-slate-700">Category</TableHead>
+                    <TableHead className="w-[20%] font-bold text-slate-700">Progress</TableHead>
+                    <TableHead className="w-[10%] text-center font-bold text-slate-700">My Tasks</TableHead>
+                    <TableHead className="w-[10%] text-center font-bold text-slate-700">Members</TableHead>
+                    <TableHead className="w-[10%] font-bold text-slate-700">Status</TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody className="divide-y divide-gray-200">
+                <TableBody>
                   {filteredProjects.map((project) => {
                     const progress = project.progress || 0;
                     const isPaused = project.status === "PAUSED";
+                    const memberCount = Math.max(0, (project._count.members || 0) - 1);
                     return (
                       <TableRow
                         key={project.id}
-                        className={`transition-colors ${isPaused ? "opacity-60 cursor-not-allowed" : "hover:bg-gray-50 cursor-pointer"}`}
+                        className={cn(
+                          "hover:bg-slate-50/80 transition-all cursor-pointer group h-[80px] border-b border-slate-100 last:border-0",
+                          isPaused && "opacity-60 cursor-not-allowed"
+                        )}
                         onClick={() =>
                           !isPaused &&
                           navigate(`/annotator/projects/${project.id}`)
@@ -161,14 +161,14 @@ export function AnnotatorTasks(_props: AnnotatorTasksProps) {
                         title={isPaused ? "This project is paused" : undefined}
                       >
                         <TableCell>
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                              <FolderKanban className="w-5 h-5 text-blue-600" />
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 bg-indigo-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                              <FolderKanban className="w-5 h-5 text-indigo-500" />
                             </div>
-                            <div className="min-w-0 flex-1 overflow-hidden">
+                            <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2">
                                 <div
-                                  className="font-semibold text-gray-900 truncate"
+                                  className="font-medium text-slate-900 group-hover:text-indigo-600 transition-colors truncate"
                                   title={project.name}
                                 >
                                   {project.name}
@@ -181,7 +181,7 @@ export function AnnotatorTasks(_props: AnnotatorTasksProps) {
                                 )}
                               </div>
                               <div
-                                className="text-xs text-gray-500 truncate max-w-[400px]"
+                                className="text-xs text-slate-500 truncate"
                                 title={project.description || "No description"}
                               >
                                 {project.description || "No description"}
@@ -191,43 +191,42 @@ export function AnnotatorTasks(_props: AnnotatorTasksProps) {
                         </TableCell>
                         <TableCell>
                           {project.category ? (
-                            <Badge className="bg-blue-50 text-blue-700 border border-blue-200 whitespace-nowrap">
+                            <Badge className="bg-white text-indigo-600 border border-indigo-100 font-medium px-2 py-0.5 shadow-sm">
                               {project.category.name}
                             </Badge>
                           ) : (
-                            <span className="text-sm text-gray-400">—</span>
+                            <span className="text-xs text-slate-300 italic">No category</span>
                           )}
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-3">
-                            <div className="flex-1 min-w-[100px]">
-                              <Progress value={progress} className="h-2" />
+                          <div className="flex flex-col gap-1.5 min-w-[120px]">
+                            <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                              <span>Progress</span>
+                              <span>{Math.round(progress)}%</span>
                             </div>
-                            <span className="text-sm font-medium text-gray-700 w-12 text-right">
-                              {Math.round(progress)}%
-                            </span>
+                            <Progress value={progress} className="h-1.5 bg-slate-100" />
                           </div>
                         </TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex items-center justify-center gap-2">
-                            <CheckCircle2 className="w-4 h-4 text-blue-500" />
-                            <span className="text-sm font-medium text-gray-700">
+                        <TableCell>
+                          <div className="flex flex-col items-center justify-center gap-1">
+                            <span className="text-sm font-medium text-slate-700">
                               {project._count.tasks || 0}
                             </span>
                           </div>
                         </TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex items-center justify-center gap-2">
-                            <Users className="w-4 h-4 text-gray-400" />
-                            <span className="text-sm text-gray-700">
-                              {Math.max(0, (project._count.members || 0) - 1)}
-                            </span>
+                        <TableCell>
+                          <div className="flex justify-center items-center gap-1.5 text-slate-600">
+                            <Users className="w-4 h-4" />
+                            <span className="text-sm font-medium">{memberCount}</span>
                           </div>
                         </TableCell>
                         <TableCell>
                           <Badge
                             variant="outline"
-                            className={`border ${getStatusBadgeColor(project.status)}`}
+                            className={cn(
+                              "border-none font-bold text-[10px] uppercase tracking-widest px-2 shadow-sm w-[90px] justify-center",
+                              getStatusBadgeColor(project.status)
+                            )}
                           >
                             {project.status}
                           </Badge>

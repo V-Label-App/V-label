@@ -35,9 +35,10 @@ import { format } from "date-fns";
 
 interface DatasetListProps {
   projectId: string;
+  onDatasetDeleted?: () => void; // Callback to refresh tasks after deletion
 }
 
-export function DatasetList({ projectId }: DatasetListProps) {
+export function DatasetList({ projectId, onDatasetDeleted }: DatasetListProps) {
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [unorganizedCount, setUnorganizedCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -96,11 +97,25 @@ export function DatasetList({ projectId }: DatasetListProps) {
     if (confirm(`Are you sure you want to delete dataset "${dataset.name}"?`)) {
       try {
         await datasetApi.delete(projectId, dataset.id);
-        toast.success("Dataset deleted");
+        toast.success("Dataset deleted successfully");
         loadDatasets();
-      } catch (error) {
+        
+        // Refresh tasks in parent component (ProjectDetailPage)
+        if (onDatasetDeleted) {
+          onDatasetDeleted();
+        }
+      } catch (error: any) {
         console.error(error);
-        toast.error("Failed to delete dataset");
+        
+        // Display detailed error message from server
+        const errorMessage = error?.response?.data?.error || error?.message || "Failed to delete dataset";
+        
+        // Show longer duration for detailed messages
+        if (errorMessage.includes("Cannot delete dataset")) {
+          toast.error(errorMessage, { duration: 8000 });
+        } else {
+          toast.error(errorMessage);
+        }
       }
     }
   };

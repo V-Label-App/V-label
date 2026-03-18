@@ -138,11 +138,16 @@ export function ReviewerProjects() {
                   {filteredProjects.map((project) => {
                     const progress = project.progress || 0;
                     const memberCount = Math.max(0, (project._count.members || 0) - 1);
+                    const isPaused = project.status === "PAUSED";
                     return (
                       <TableRow
                         key={project.id}
-                        className="hover:bg-slate-50/80 transition-all cursor-pointer group h-[80px] border-b border-slate-100 last:border-0"
-                        onClick={() => navigate(`/reviewer/projects/${project.id}`)}
+                        className={cn(
+                          "hover:bg-slate-50/80 transition-all cursor-pointer group h-[80px] border-b border-slate-100 last:border-0",
+                          isPaused && "opacity-60 cursor-not-allowed"
+                        )}
+                        onClick={() => !isPaused && navigate(`/reviewer/projects/${project.id}`)}
+                        title={isPaused ? "This project is paused" : undefined}
                       >
                         <TableCell>
                           <div className="flex items-center gap-4">
