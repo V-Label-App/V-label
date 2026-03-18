@@ -118,6 +118,11 @@ export class DatasetService {
 
       if (imagesWithAssignments.length > 0) {
         const firstAssignedImage = imagesWithAssignments[0]
+        
+        if (!firstAssignedImage) {
+          throw new Error(`Cannot delete dataset "${dataset.name}". It contains assigned images.`)
+        }
+        
         const firstTask = firstAssignedImage.tasks.find(t => t.assignments.length > 0)
         const assignee = firstTask?.assignments[0]?.annotator
 
