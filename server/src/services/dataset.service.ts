@@ -78,13 +78,77 @@ export class DatasetService {
    * Delete dataset (and optionally its images?)
    * For now, Prisma cascade delete handles image records deletion if configured,
    * but we should ideally handle Cloudinary cleanup too.
+   * 
+   * IMPORTANT: Cannot delete if dataset has images with assigned tasks
    */
   static async deleteDataset(id: string) {
     try {
+      // 1. Check if dataset exists
+      const dataset = await prisma.dataset.findUnique({
+        where: { id },
+        include: {
+          images: {
+            include: {
+              tasks: {
+                include: {
+                  assignments: {
+                    select: {
+                      id: true,
+                      annotator: {
+                        select: { fullName: true, email: true }
+                      }
+                    },
+                    take: 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      })
+
+      if (!dataset) {
+        throw new Error('Dataset not found')
+      }
+
+      // 2. Check if any images in this dataset have assigned tasks
+      const imagesWithAssignments = dataset.images.filter(
+        image => image.tasks.some(task => task.assignments.length > 0)
+      )
+
+      if (imagesWithAssignments.length > 0) {
+        const firstAssignedImage = imagesWithAssignments[0]
+        const firstTask = firstAssignedImage.tasks.find(t => t.assignments.length > 0)
+        const assignee = firstTask?.assignments[0]?.annotator
+
+        throw new Error(
+          `Cannot delete dataset "${dataset.name}". It contains ${imagesWithAssignments.length} image(s) that have been assigned to annotators. ` +
+          `For example, "${firstAssignedImage.originalFilename}" is assigned to ${assignee?.fullName || assignee?.email || 'an annotator'}. ` +
+          `Please unassign all tasks or delete the assigned images first.`
+        )
+      }
+
+      // 3. Delete all images and their related data (tasks, etc.) in this dataset
+      // Since Image -> Dataset does NOT have onDelete: Cascade, we need to manually delete
+      const imageIds = dataset.images.map(img => img.id)
+      
+      if (imageIds.length > 0) {
+        logger.info('DATASET', `Deleting ${imageIds.length} images from dataset ${id}`)
+        
+        // Delete images (this will cascade delete tasks and related data)
+        await prisma.image.deleteMany({
+          where: {
+            id: { in: imageIds }
+          }
+        })
+      }
+
+      // 4. Finally, delete the dataset itself
       await prisma.dataset.delete({
         where: { id },
       })
-      logger.info('DATASET', `Deleted dataset ${id}`)
+      
+      logger.info('DATASET', `Deleted dataset ${id} (${dataset.name}) with ${imageIds.length} images`)
     } catch (error) {
       logger.error('DATASET', `Failed to delete dataset ${id}`, error)
       throw error

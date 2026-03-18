@@ -3532,7 +3532,7 @@ export function ProjectDetailPage() {
               </TabsList>
 
               <TabsContent value="datasets">
-                <DatasetList projectId={project.id} />
+                <DatasetList projectId={project.id} onDatasetDeleted={fetchTasks} />
               </TabsContent>
 
               <TabsContent value="labels" className="space-y-6">
