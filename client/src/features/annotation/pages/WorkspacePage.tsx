@@ -18,6 +18,8 @@ import { useWorkspaceData } from "../hooks/useWorkspaceData";
 import { useProjectTasks } from "../hooks/useProjectTasks";
 import { useAutoSave } from "../hooks/useAutoSave";
 import { toast } from "sonner";
+import { useNotifications } from "../../../hooks/useNotifications";
+import { usePageTitle } from "../../../hooks/usePageTitle";
 
 interface WorkspacePageProps {
   mode?: "annotate" | "review";
@@ -43,6 +45,10 @@ export function WorkspacePage({
     (searchParams.get("mode") as "annotate" | "review") ||
     propMode ||
     "annotate";
+
+  // Update page title with notification count
+  const { unreadCount } = useNotifications();
+  usePageTitle(unreadCount, "V Label - AI-Powered Data Annotation Platform");
 
   // Load task data from API
   const {
