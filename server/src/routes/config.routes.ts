@@ -34,4 +34,18 @@ router.get('/image-quality', authMiddleware, async (req, res) => {
     }
 });
 
+/**
+ * GET /api/config/otp
+ * Public endpoint (no auth) — frontend checks if OTP is enabled before login
+ */
+router.get('/otp', async (req, res) => {
+    try {
+        const config = await SystemConfigService.getOtpConfig();
+        return res.json({ enabled: config.enabled });
+    } catch (error) {
+        console.error('[Config] Get OTP config error:', error);
+        return res.status(500).json({ error: 'Failed to fetch config' });
+    }
+});
+
 export default router;
