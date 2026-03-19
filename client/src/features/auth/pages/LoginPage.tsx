@@ -389,7 +389,7 @@ export const LoginPage = () => {
 
                                     {/* Password Input */}
                                     <div className="space-y-2">
-                                        <Label htmlFor="password" title="Password" className="text-slate-700 font-medium">Access Code</Label>
+                                        <Label htmlFor="password" title="Password" className="text-slate-700 font-medium">Password</Label>
                                         <div className="relative">
                                             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                                             <Input

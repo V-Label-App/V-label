@@ -28,8 +28,8 @@ export function AdminSecuritySettingsPage() {
         setEnabled(config.enabled);
         setExpirationMinutes(config.expirationMinutes);
       } catch (error) {
-        console.error("Failed to load OTP config:", error);
-        toast.error("Không thể tải cấu hình bảo mật");
+        console.error("Failed to load Security config:", error);
+        toast.error("Can't load Security config");
       } finally {
         setIsLoading(false);
       }
@@ -45,7 +45,7 @@ export function AdminSecuritySettingsPage() {
         enabled,
         expirationMinutes,
       });
-      toast.success("Cấu hình bảo mật đã được cập nhật");
+      toast.success("Security config updated successfully");
       
       // Broadcast update to other tabs if needed
       const channel = new BroadcastChannel('system_config_channel');
@@ -54,7 +54,7 @@ export function AdminSecuritySettingsPage() {
       
     } catch (error) {
       console.error("Failed to update OTP config:", error);
-      toast.error("Cập nhật cấu hình thất bại");
+      toast.error("Can't update Security config");
     } finally {
       setIsSaving(false);
     }

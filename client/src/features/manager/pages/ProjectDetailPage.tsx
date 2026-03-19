@@ -1352,7 +1352,7 @@ export function ProjectDetailPage() {
               onClick={() => setIsExportDialogOpen(true)}
             >
               <Download className="w-4 h-4 mr-2" />
-              {isExporting ? "Exporting..." : "Export COCO"}
+              {isExporting ? "Exporting..." : "Export"}
             </Button>
 
             <DropdownMenu>
