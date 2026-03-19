@@ -40,6 +40,7 @@ import { AdminNotificationSettingsPage } from "./AdminNotificationSettingsPage";
 import { AdminProjectCategoriesPage } from "./AdminProjectCategoriesPage";
 import { AdminCloudinaryManagerPage } from "./AdminCloudinaryManagerPage";
 import { AdminImageQualityPage } from "./AdminImageQualityPage";
+import { AdminSecuritySettingsPage } from "./AdminSecuritySettingsPage";
 import {
   Users,
   Database,
@@ -99,6 +100,7 @@ export function AdminPanel() {
     if (path.includes("/admin/notifications")) return "notifications";
     if (path.includes("/admin/media")) return "media";
     if (path.includes("/admin/image-quality")) return "image-quality";
+    if (path.includes("/admin/security")) return "security";
     return "dashboard";
   }, [location.pathname]);
 
@@ -960,6 +962,7 @@ export function AdminPanel() {
 
         {activeTab === "media" && <AdminCloudinaryManagerPage />}
         {activeTab === "image-quality" && <AdminImageQualityPage />}
+        {activeTab === "security" && <AdminSecuritySettingsPage />}
       </div>
 
       <Dialog
