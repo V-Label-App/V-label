@@ -1264,10 +1264,16 @@ export function ProjectDetailPage() {
     if (!project) return;
     setIsExporting(true);
     try {
-      await projectApi.exportCOCO(project.id, project.name, trainRatio, valRatio, testRatio);
+      await projectApi.exportCOCO(
+        project.id,
+        project.name,
+        trainRatio,
+        valRatio,
+        testRatio,
+      );
       setIsExportDialogOpen(false);
       toast.success("Export thành công!", {
-        description: `Đã lưu Export_${project.name.replace(/\s+/g, '_')}-coco.zip`,
+        description: `Đã lưu Export_${project.name.replace(/\s+/g, "_")}-coco.zip`,
       });
     } catch {
       toast.error("Export thất bại. Vui lòng thử lại.");
@@ -3297,12 +3303,9 @@ export function ProjectDetailPage() {
                                           <Avatar className="h-10 w-10 ring-2 ring-white shadow-sm">
                                             <AvatarImage
                                               src={
-                                                assignee?.avatarUrl ||
-                                                undefined
+                                                assignee?.avatarUrl || undefined
                                               }
-                                              alt={
-                                                assignee?.fullName || "User"
-                                              }
+                                              alt={assignee?.fullName || "User"}
                                               className="object-cover"
                                             />
                                             <AvatarFallback className="bg-green-500 text-white text-sm font-semibold">
@@ -3532,7 +3535,10 @@ export function ProjectDetailPage() {
               </TabsList>
 
               <TabsContent value="datasets">
-                <DatasetList projectId={project.id} onDatasetDeleted={fetchTasks} />
+                <DatasetList
+                  projectId={project.id}
+                  onDatasetDeleted={fetchTasks}
+                />
               </TabsContent>
 
               <TabsContent value="labels" className="space-y-6">

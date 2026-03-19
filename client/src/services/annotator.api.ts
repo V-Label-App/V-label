@@ -57,27 +57,27 @@ export interface TaskAssignmentListItem {
       width: number;
       height: number;
     } | null;
-      project: {
-        id: string;
-        name: string;
-        labelConfig: unknown[];
-        enableAiAssistance: boolean;
-        assignmentRule?: {
-          maxRejectionsBeforeReassign: number;
-        } | null;
-        projectLabels?: {
-          label: {
+    project: {
+      id: string;
+      name: string;
+      labelConfig: unknown[];
+      enableAiAssistance: boolean;
+      assignmentRule?: {
+        maxRejectionsBeforeReassign: number;
+      } | null;
+      projectLabels?: {
+        label: {
+          id: string;
+          name: string;
+          color: string;
+          category?: {
             id: string;
             name: string;
-            color: string;
-            category?: {
-              id: string;
-              name: string;
-              color?: string;
-            } | null;
-          };
-        }[];
-      };
+            color?: string;
+          } | null;
+        };
+      }[];
+    };
   };
   annotator?: {
     id: string;

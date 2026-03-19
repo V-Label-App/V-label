@@ -573,6 +573,7 @@ export function WorkspacePage({
         projectName={taskData.projectName}
         annotator={taskData.annotator}
         isTaskReassigned={taskData.isTaskReassigned}
+        rejectionCount={taskData.rejectionCount}
       />
 
       {/* Main Content */}
