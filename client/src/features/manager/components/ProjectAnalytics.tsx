@@ -1,4 +1,5 @@
 import React, { useMemo } from "react";
+import type { Project } from "../../../types/project.types";
 import {
   BarChart,
   Bar,
@@ -24,24 +25,22 @@ import {
 import { Progress } from "../../../components/ui/progress";
 import {
   Activity,
-  AlertCircle,
   Users,
   Target,
   TrendingUp,
-  PieChart as PieChartIcon,
-  History,
   CheckCircle,
-  Clock,
   Zap,
 } from "lucide-react";
 
 interface ProjectAnalyticsProps {
   tasks: any[];
+  project: Project;
   workloads: Record<string, any>;
 }
 
 export const ProjectAnalytics: React.FC<ProjectAnalyticsProps> = ({
   tasks,
+  project,
   workloads,
 }) => {
   // 1. Status Distribution Data
@@ -169,9 +168,6 @@ export const ProjectAnalytics: React.FC<ProjectAnalyticsProps> = ({
   const completedTasks = tasks.filter((t) => t.status === "DONE").length;
   const completionProgress =
     totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
-  const highRejectionTasks = tasks.filter(
-    (t) => (t.assignments?.[0]?.rejectionCount || 0) >= 2,
-  ).length;
   const pendingReviewTasks = tasks.filter(
     (t) =>
       t.status !== "DONE" &&
@@ -279,7 +275,7 @@ export const ProjectAnalytics: React.FC<ProjectAnalyticsProps> = ({
           <CardHeader className="flex flex-row items-center justify-between bg-white z-10">
             <div>
               <CardTitle className="text-lg font-bold">
-                Task Completed
+                {project?.name || "Task"} Completed
               </CardTitle>
               <CardDescription>
                 Daily completed tasks over last 14 days

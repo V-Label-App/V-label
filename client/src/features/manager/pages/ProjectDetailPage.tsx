@@ -83,7 +83,6 @@ import {
   Download,
   MoreVertical,
   Trash2,
-  FileText, // Added back for safety, but check usage
   FileUp,
   Search,
   Loader2,
@@ -96,7 +95,6 @@ import {
   Award,
   History,
   Zap,
-  UserPlus,
   ShieldCheck,
   RefreshCw,
   BarChart3,
