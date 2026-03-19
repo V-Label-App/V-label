@@ -83,7 +83,7 @@ import {
   Download,
   MoreVertical,
   Trash2,
-  FileText,
+  FileText, // Added back for safety, but check usage
   FileUp,
   Search,
   Loader2,
@@ -1525,6 +1525,37 @@ export function ProjectDetailPage() {
                         {project.assignmentRule?.autoReassignOnSkip
                           ? "Tasks are immediately reassigned to others when skipped."
                           : "Skipped tasks require manual intervention."}
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "gap-1.5 py-1 px-3 transition-all cursor-help border-dashed",
+                          project.enableAiAssistance
+                            ? "bg-purple-50 text-purple-700 border-purple-200"
+                            : "bg-gray-50 text-gray-400 border-gray-200",
+                        )}
+                      >
+                        <Sparkles
+                          className={cn(
+                            "w-3.5 h-3.5",
+                            project.enableAiAssistance && "fill-current",
+                          )}
+                        />
+                        <span className="text-[10px] font-bold uppercase tracking-wider">
+                          AI Assistance:{" "}
+                          {project.enableAiAssistance ? "ON" : "OFF"}
+                        </span>
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">
+                        {project.enableAiAssistance
+                          ? "AI-powered tools are enabled to assist annotators."
+                          : "AI assistance is disabled for this project."}
                       </p>
                     </TooltipContent>
                   </Tooltip>
@@ -4315,17 +4346,6 @@ export function ProjectDetailPage() {
                         </div>
                       </div>
                     </div>
-                  </div>
-                </Card>
-
-                {/* 3. Analytics */}
-                <Card className="p-6">
-                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                    <FileText className="w-5 h-5 text-green-600" />
-                    Analytics
-                  </h3>
-                  <div className="p-12 text-center text-muted-foreground bg-gray-50 rounded-lg">
-                    Analytics will be available once tasks are populated.
                   </div>
                 </Card>
 
