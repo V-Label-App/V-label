@@ -99,6 +99,7 @@ import {
   UserPlus,
   ShieldCheck,
   RefreshCw,
+  BarChart3,
 } from "lucide-react";
 import {
   Tooltip,
@@ -114,6 +115,7 @@ import { useAuth } from "../../../context/AuthContext";
 import { ChatPanel } from "../../../components/chat/ChatPanel";
 import { projectApi } from "../../../services/project.api";
 import { ProjectHealthDashboard } from "../components/ProjectHealthDashboard";
+import { ProjectAnalytics } from "../components/ProjectAnalytics";
 import {
   projectLabelApi,
   labelApi,
@@ -1659,6 +1661,12 @@ export function ProjectDetailPage() {
               )}
             </TabsTrigger>
             <TabsTrigger value="team">Team</TabsTrigger>
+            <TabsTrigger value="analytics">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="h-4 w-4" />
+                Analytics
+              </div>
+            </TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
             <TabsTrigger value="activity">Activity</TabsTrigger>
           </TabsList>
@@ -1667,6 +1675,14 @@ export function ProjectDetailPage() {
             <ProjectHealthDashboard
               projectId={project.id}
               onViewAllActivity={() => setActiveTab("activity")}
+            />
+          </TabsContent>
+
+          <TabsContent value="analytics">
+            <ProjectAnalytics
+              tasks={tasks}
+              project={project}
+              workloads={workloads}
             />
           </TabsContent>
 
