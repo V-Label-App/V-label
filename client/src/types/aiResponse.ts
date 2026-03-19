@@ -18,7 +18,9 @@ export interface AIResponse {
 export interface ResponseMetadata {
     action?: string;
     title?: string;
+    message?: string;        // Companion text from Gemini to display above the component
     validation?: ValidationSchema;
+    quickReplies?: string[];
 }
 
 export interface ValidationSchema {

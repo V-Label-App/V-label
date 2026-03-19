@@ -4,6 +4,7 @@ import { socketService } from '../services/socket.service';
 import { notificationApi } from '../services/notification.api';
 import type { Notification } from '../services/notification.api';
 import { toast } from 'sonner';
+import { playNotificationSound } from '../utils/audio';
 
 interface SystemEventData {
   notification?: Notification;
@@ -23,6 +24,11 @@ export function useNotifications() {
   const { refreshUserProfile } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+
+  // Đồng bộ số lượng chưa đọc vào localStorage để các hook khác có thể đọc tức thì
+  useEffect(() => {
+    localStorage.setItem('vlabel_unreadCount', unreadCount.toString());
+  }, [unreadCount]);
 
   // Load notifications from DB on mount
   const loadNotificationsFromDB = async () => {
@@ -106,6 +112,7 @@ export function useNotifications() {
         console.log("[Notifications] New notification received:", notification);
         setNotifications((prev) => [notification, ...prev]);
         setUnreadCount((prev) => prev + 1);
+        playNotificationSound();
 
         // Auto-refresh profile if notification is related to task approval/rejection
         if (notification.type === 'TASK_APPROVED' || notification.type === 'TASK_REJECTED') {
@@ -147,6 +154,7 @@ export function useNotifications() {
 
             setNotifications((prev) => [notification, ...prev]);
             setUnreadCount((prev) => prev + 1);
+            playNotificationSound();
             break;
           }
 
@@ -169,6 +177,7 @@ export function useNotifications() {
 
               setNotifications((prev) => [announcement, ...prev]);
               setUnreadCount((prev) => prev + 1);
+              playNotificationSound();
             }
             break;
           }
@@ -176,8 +185,8 @@ export function useNotifications() {
           case "notification:created": {
             console.log(
               "[Notifications] Handling notification created:",
-                event.data,
-              );
+              event.data,
+            );
 
             if (event.data.notification) {
               const newNotification: Notification = {
@@ -193,6 +202,7 @@ export function useNotifications() {
 
               setNotifications((prev) => [newNotification, ...prev]);
               setUnreadCount((prev) => prev + 1);
+              playNotificationSound();
             }
             break;
           }
@@ -220,6 +230,7 @@ export function useNotifications() {
 
             setNotifications((prev) => [labelNotification, ...prev]);
             setUnreadCount((prev) => prev + 1);
+            playNotificationSound();
             break;
           }
 

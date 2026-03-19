@@ -26,16 +26,13 @@ interface AIMessageRendererProps {
  */
 export function AIMessageRenderer({ response, onAction }: AIMessageRendererProps) {
     const Renderer = COMPONENT_REGISTRY[response.type] || TextRenderer;
-
-    console.log('🎨 [AIMessageRenderer]', {
-        responseType: response.type,
-        responseContent: response.content,
-        selectedRenderer: Renderer.name,
-        fullResponse: response
-    });
+    const companionText = response.metadata?.message;
 
     return (
-        <div className="ai-message-renderer">
+        <div className="ai-message-renderer space-y-2 w-full max-w-full overflow-hidden">
+            {companionText && (
+                <TextRenderer content={companionText} />
+            )}
             <Renderer content={response.content} onAction={onAction} onSubmit={onAction} />
         </div>
     );

@@ -5,12 +5,13 @@ import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
 import { Switch } from '../../../components/ui/switch';
-import { Textarea } from '../../../components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
 import { toast } from 'sonner';
-import { Mail, Settings, FileText, History, Save, Plus, Trash2, Edit2, Loader2, Info, CheckCircle2, XCircle } from 'lucide-react';
+import { Mail, Settings, FileText, History, Save, Plus, Trash2, Edit2, Loader2, Info, CheckCircle2, XCircle, WrapText } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../../../components/ui/dialog';
+import CodeMirror from '@uiw/react-codemirror';
+import { html } from '@codemirror/lang-html';
 
 export function AdminEmailSettingsPage() {
     const [config, setConfig] = useState<EmailConfig | null>(null);
@@ -289,7 +290,13 @@ export function AdminEmailSettingsPage() {
                                             <TableCell className="text-right">
                                                 <div className="flex justify-end gap-2">
                                                     <Button variant="ghost" size="icon" onClick={() => {
-                                                        setEditingTemplate(template);
+                                                        const formatted = template.htmlBody
+                                                            .replace(/>\s*</g, '>\n<')
+                                                            .split('\n')
+                                                            .map((l: string) => l.trim())
+                                                            .filter((l: string) => l.length > 0)
+                                                            .join('\n');
+                                                        setEditingTemplate({ ...template, htmlBody: formatted });
                                                         setIsTemplateDialogOpen(true);
                                                     }}>
                                                         <Edit2 className="w-4 h-4" />
@@ -381,7 +388,7 @@ export function AdminEmailSettingsPage() {
 
             {/* Template Edit Dialog */}
             <Dialog open={isTemplateDialogOpen} onOpenChange={setIsTemplateDialogOpen}>
-                <DialogContent className="max-w-3xl">
+                <DialogContent className="!max-w-[min(90vw,1100px)] w-full max-h-[90vh] flex flex-col overflow-hidden">
                     <DialogHeader>
                         <DialogTitle>{editingTemplate?.type ? 'Edit Template' : 'Create Template'}</DialogTitle>
                         <DialogDescription>
@@ -389,7 +396,7 @@ export function AdminEmailSettingsPage() {
                         </DialogDescription>
                     </DialogHeader>
                     {editingTemplate && (
-                        <div className="space-y-4 py-4">
+                        <div className="space-y-4 py-4 overflow-y-auto flex-1 min-h-0">
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label>Template ID (Type)</Label>
@@ -410,14 +417,62 @@ export function AdminEmailSettingsPage() {
                                 </div>
                             </div>
                             <div className="space-y-2">
-                                <Label>HTML Content</Label>
-                                <Textarea
-                                    rows={12}
-                                    className="font-mono text-xs"
-                                    value={editingTemplate.htmlBody}
-                                    onChange={(e) => setEditingTemplate({ ...editingTemplate, htmlBody: e.target.value })}
-                                    placeholder="<!DOCTYPE html>..."
-                                />
+                                <div className="flex items-center justify-between">
+                                    <Label>HTML Content</Label>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                            try {
+                                                const formatted = editingTemplate.htmlBody
+                                                    .replace(/>\s*</g, '>\n<')
+                                                    .replace(/(<[^/][^>]*>)(?!\n)/g, '$1\n')
+                                                    .split('\n')
+                                                    .map((line: string) => line.trim())
+                                                    .filter((line: string) => line.length > 0)
+                                                    .join('\n');
+                                                setEditingTemplate({ ...editingTemplate, htmlBody: formatted });
+                                            } catch {
+                                                toast.error('Failed to format HTML');
+                                            }
+                                        }}
+                                    >
+                                        <WrapText className="w-3.5 h-3.5 mr-1.5" />
+                                        Format
+                                    </Button>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    {/* Editor */}
+                                    <div className="rounded-md border border-input overflow-hidden">
+                                        <CodeMirror
+                                            value={editingTemplate.htmlBody}
+                                            height="450px"
+                                            style={{ fontSize: '13px' }}
+                                            extensions={[html()]}
+                                            onChange={(value) => setEditingTemplate({ ...editingTemplate, htmlBody: value })}
+                                            basicSetup={{
+                                                lineNumbers: true,
+                                                foldGutter: true,
+                                                highlightActiveLine: true,
+                                                autocompletion: true,
+                                            }}
+                                        />
+                                    </div>
+                                    {/* Preview */}
+                                    <div className="rounded-md border border-input overflow-hidden flex flex-col">
+                                        <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground bg-muted border-b border-input">
+                                            Preview
+                                        </div>
+                                        <iframe
+                                            srcDoc={editingTemplate.htmlBody || '<p style="color:#9ca3af;padding:16px">No content yet</p>'}
+                                            className="w-full flex-1"
+                                            style={{ height: '420px', border: 'none' }}
+                                            sandbox="allow-same-origin"
+                                            title="Email Preview"
+                                        />
+                                    </div>
+                                </div>
                             </div>
                             <div className="flex items-center gap-2">
                                 <Switch

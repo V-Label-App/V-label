@@ -18,6 +18,7 @@ export interface AIResponse {
 export interface ResponseMetadata {
     action?: string;         // Function to call on submit
     title?: string;          // Optional title
+    message?: string;        // Companion text from Gemini to display above the component
     validation?: ValidationSchema;
     quickReplies?: string[]; // Quick reply buttons from Gemini
 }

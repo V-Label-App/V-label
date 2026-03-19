@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../../../components/ui/button";
 import { Card } from "../../../components/ui/card";
+import { Badge } from "../../../components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -16,6 +17,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../../components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../../../components/ui/table";
 import { Label } from "../../../components/ui/label";
 import { Input } from "../../../components/ui/input";
 import { Textarea } from "../../../components/ui/textarea";
@@ -35,11 +44,8 @@ import {
   Users,
   Calendar as CalendarIcon,
   Loader2,
-  MoreVertical,
-  ArrowUpDown,
-  ArrowUp,
-  ArrowDown,
 } from "lucide-react";
+import { cn } from "../../../components/ui/utils";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
@@ -62,11 +68,7 @@ export function ProjectListPage() {
     "ALL",
   );
 
-  // Sorting state
-  type SortField = "name" | "progress" | "status" | "totalImages";
-  type SortOrder = "asc" | "desc";
-  const [sortField, setSortField] = useState<SortField>("name");
-  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+  // Removed sorting state - not needed for cleaner UI
 
   // Create Project State
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
@@ -174,45 +176,6 @@ export function ProjectListPage() {
     return matchesSearch && matchesStatus && matchesCategory;
   });
 
-  const sortedProjects = [...filteredProjects].sort((a, b) => {
-    let comparison = 0;
-    switch (sortField) {
-      case "name":
-        comparison = a.name.localeCompare(b.name);
-        break;
-      case "progress":
-        comparison = (a.progress || 0) - (b.progress || 0);
-        break;
-      case "status":
-        comparison = a.status.localeCompare(b.status);
-        break;
-      case "totalImages":
-        comparison = (a.totalImages || 0) - (b.totalImages || 0);
-        break;
-    }
-    return sortOrder === "asc" ? comparison : -comparison;
-  });
-
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-    } else {
-      setSortField(field);
-      setSortOrder("asc");
-    }
-  };
-
-  const getSortIcon = (field: SortField) => {
-    if (sortField !== field) {
-      return <ArrowUpDown className="w-4 h-4 opacity-50" />;
-    }
-    return sortOrder === "asc" ? (
-      <ArrowUp className="w-4 h-4" />
-    ) : (
-      <ArrowDown className="w-4 h-4" />
-    );
-  };
-
   const getStatusBadgeColor = (status: ProjectStatus) => {
     switch (status) {
       case ProjectStatus.ACTIVE:
@@ -227,6 +190,8 @@ export function ProjectListPage() {
         return "bg-gray-50 text-gray-700 border-gray-200";
     }
   };
+
+  const memberCount = (project: Project) => Math.max(0, (project._count?.members || 0) - 1);
 
   return (
     <div className="min-h-screen bg-gray-50 animate-in fade-in slide-in-from-bottom-5 duration-700">
@@ -313,10 +278,12 @@ export function ProjectListPage() {
           <div className="flex justify-center py-12">
             <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
           </div>
-        ) : sortedProjects.length === 0 ? (
+        ) : filteredProjects.length === 0 ? (
           <Card className="p-12 text-center">
-            <FolderKanban className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No projects found</h3>
+            <FolderKanban className="w-16 h-16 text-slate-200 mx-auto mb-4" />
+            <h3 className="text-lg font-bold text-slate-900 mb-2">
+              {projects.length === 0 ? "No projects yet" : "No projects found"}
+            </h3>
             <p className="text-muted-foreground mb-4">
               {searchQuery || filterStatus !== "ALL" || filterCategory !== "ALL"
                 ? "Try adjusting your filters"
@@ -337,148 +304,88 @@ export function ProjectListPage() {
         ) : (
           <Card className="overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full table-fixed">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="px-6 py-3 text-left w-[25%]">
-                      <button
-                        onClick={() => handleSort("name")}
-                        className="flex items-center gap-2 font-medium text-sm text-gray-600 hover:text-gray-900 transition-colors"
-                      >
-                        Project Name
-                        {getSortIcon("name")}
-                      </button>
-                    </th>
-                    <th className="px-6 py-3 text-left w-[12%]">
-                      <span className="font-medium text-sm text-gray-600">
-                        Category
-                      </span>
-                    </th>
-                    <th className="px-6 py-3 text-left w-[25%]">
-                      <button
-                        onClick={() => handleSort("progress")}
-                        className="flex items-center gap-2 font-medium text-sm text-gray-600 hover:text-gray-900 transition-colors"
-                      >
-                        Progress
-                        {getSortIcon("progress")}
-                      </button>
-                    </th>
-                    <th className="px-6 py-3 text-center w-[10%]">
-                      <button
-                        onClick={() => handleSort("totalImages")}
-                        className="flex items-center justify-center gap-2 font-medium text-sm text-gray-600 hover:text-gray-900 transition-colors w-full"
-                      >
-                        Images
-                        {getSortIcon("totalImages")}
-                      </button>
-                    </th>
-                    <th className="px-6 py-3 text-center w-[8%]">
-                      <span className="font-medium text-sm text-gray-600">
-                        Members
-                      </span>
-                    </th>
-                    <th className="px-6 py-3 text-left w-[10%]">
-                      <button
-                        onClick={() => handleSort("status")}
-                        className="flex items-center gap-2 font-medium text-sm text-gray-600 hover:text-gray-900 transition-colors"
-                      >
-                        Status
-                        {getSortIcon("status")}
-                      </button>
-                    </th>
-                    <th className="px-6 py-3 text-right w-[10%]">
-                      <span className="font-medium text-sm text-gray-600">
-                        Actions
-                      </span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {sortedProjects.map((project) => {
+              <Table>
+                <TableHeader className="bg-slate-50/50 border-b border-slate-200">
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="w-[35%] font-bold text-slate-700">Project Name</TableHead>
+                    <TableHead className="w-[15%] font-bold text-slate-700">Category</TableHead>
+                    <TableHead className="w-[20%] font-bold text-slate-700">Progress</TableHead>
+                    <TableHead className="w-[10%] text-center font-bold text-slate-700">Images</TableHead>
+                    <TableHead className="w-[10%] text-center font-bold text-slate-700">Members</TableHead>
+                    <TableHead className="w-[10%] font-bold text-slate-700">Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredProjects.map((project) => {
                     const progress = project.progress || 0;
                     return (
-                      <tr
+                      <TableRow
                         key={project.id}
-                        className="hover:bg-gray-50 transition-colors cursor-pointer group"
-                        onClick={() =>
-                          navigate(`/manager/projects/${project.id}`)
-                        }
+                        className="hover:bg-slate-50/80 transition-all cursor-pointer group h-[80px] border-b border-slate-100 last:border-0"
+                        onClick={() => navigate(`/manager/projects/${project.id}`)}
                       >
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                              <FolderKanban className="w-5 h-5 text-blue-600" />
+                        <TableCell>
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 bg-indigo-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                              <FolderKanban className="w-5 h-5 text-indigo-500" />
                             </div>
-                            <div className="min-w-0">
-                              <div
-                                className="font-semibold text-gray-900 line-clamp-2 max-w-full"
-                                title={project.name}
-                              >
+                            <div className="min-w-0 flex-1">
+                              <div className="font-medium text-slate-900 group-hover:text-indigo-600 transition-colors truncate">
                                 {project.name}
                               </div>
-                              <div className="text-xs text-gray-500 truncate max-w-full">
+                              <div className="text-xs text-slate-500 truncate">
                                 {project.description || "No description"}
                               </div>
                             </div>
                           </div>
-                        </td>
-                        <td className="px-6 py-4">
+                        </TableCell>
+                        <TableCell>
                           {project.category ? (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 whitespace-nowrap">
+                            <Badge className="bg-white text-indigo-600 border border-indigo-100 font-medium px-2 py-0.5 shadow-sm">
                               {project.category.name}
-                            </span>
+                            </Badge>
                           ) : (
-                            <span className="text-sm text-gray-400">—</span>
+                            <span className="text-xs text-slate-300 italic">No category</span>
                           )}
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className="flex-1 min-w-[100px]">
-                              <Progress value={progress} className="h-2" />
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-1.5 min-w-[120px]">
+                            <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                              <span>Progress</span>
+                              <span>{Math.round(progress)}%</span>
                             </div>
-                            <span className="text-sm font-medium text-gray-700 w-12 text-right">
-                              {Math.round(progress)}%
+                            <Progress value={progress} className="h-1.5 bg-slate-100" />
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col items-center justify-center gap-1">
+                            <span className="text-sm font-medium text-slate-700">
+                              {project.totalImages || 0}
                             </span>
                           </div>
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <span className="text-sm text-gray-700 font-medium">
-                            {project.totalImages || 0}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center justify-center gap-2">
-                            <Users className="w-4 h-4 text-gray-400" />
-                            <span className="text-sm text-gray-700">
-                              {project._count?.members || 0}
-                            </span>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex justify-center items-center gap-1.5 text-slate-600">
+                            <Users className="w-4 h-4" />
+                            <span className="text-sm font-medium">{memberCount(project)}</span>
                           </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusBadgeColor(project.status)}`}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "border-none font-bold text-[10px] uppercase tracking-widest px-2 shadow-sm w-[90px] justify-center",
+                              getStatusBadgeColor(project.status)
+                            )}
                           >
                             {project.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0"
-                              onClick={(e) => e.stopPropagation()}
-                              title="More Options"
-                            >
-                              <MoreVertical className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
                     );
                   })}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           </Card>
         )}

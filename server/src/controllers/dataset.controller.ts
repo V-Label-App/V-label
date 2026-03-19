@@ -78,10 +78,23 @@ export class DatasetController {
     try {
       const { datasetId } = req.params as { id: string; datasetId: string }
       await DatasetService.deleteDataset(datasetId)
-      return res.json({ message: 'Dataset deleted' })
+      return res.json({ message: 'Dataset deleted successfully' })
     } catch (error) {
       logger.error('API', 'Delete dataset failed', { error })
-      return res.status(500).json({ error: 'Internal server error' })
+      
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      
+      // If error message contains "Cannot delete dataset", return 400 Bad Request
+      if (errorMessage.includes('Cannot delete dataset')) {
+        return res.status(400).json({ error: errorMessage })
+      }
+      
+      // If error message contains "not found", return 404
+      if (errorMessage.includes('not found')) {
+        return res.status(404).json({ error: 'Dataset not found' })
+      }
+      
+      return res.status(500).json({ error: 'Failed to delete dataset' })
     }
   }
 

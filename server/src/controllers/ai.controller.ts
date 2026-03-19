@@ -146,6 +146,23 @@ export class AIController {
   }
 
   /**
+   * Generate annotation tips based on AI detection results
+   */
+  static async generateAnnotationTips(req: Request, res: Response) {
+    try {
+      const { detections } = req.body;
+      if (!Array.isArray(detections) || detections.length === 0) {
+        return res.status(400).json({ error: 'detections array is required' });
+      }
+      const tips = await geminiService.generateAnnotationTips(detections);
+      return res.json({ tips });
+    } catch (error: any) {
+      console.error('[AI] Generate annotation tips error:', error);
+      return res.status(500).json({ error: 'Failed to generate tips' });
+    }
+  }
+
+  /**
    * Refactor/improve text using AI
    */
   static async refactorText(req: Request, res: Response) {

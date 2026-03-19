@@ -373,27 +373,49 @@ AI: [NOW call create_labels_auto function]
             if (lastFunctionResult && typeof lastFunctionResult === 'object' && lastFunctionResult.type) {
                 console.log('[Gemini] Function returned structured AIResponse');
 
-                // Extract Quick Replies from Gemini's text if present (only if text exists)
+                // Extract Quick Replies and companion text from Gemini's text
                 if (text && text.trim()) {
                     const replyRegex = /<<<REPLIES>>>([\s\S]*?)<<<REPLIES>>>/;
                     const match = text.match(replyRegex);
+
+                    // Clean text: remove <<<REPLIES>>> block
+                    const cleanText = text.replace(replyRegex, '').trim();
+
+                    const metadataUpdate: Record<string, any> = {};
+
+                    // Embed companion text so frontend can display it above the component
+                    // Skip if cleanText is raw JSON (Gemini sometimes echoes the structured response)
+                    const looksLikeJson = cleanText.trimStart().startsWith('{') || cleanText.trimStart().startsWith('[');
+                    if (cleanText && !looksLikeJson) {
+                        // Strip markdown table lines (lines containing | used as table syntax)
+                        const withoutTables = cleanText
+                            .split('\n')
+                            .filter((line: string) => !line.trim().startsWith('|'))
+                            .join('\n')
+                            .trim();
+                        if (withoutTables) {
+                            metadataUpdate.message = withoutTables;
+                        }
+                    }
 
                     if (match && match[1]) {
                         try {
                             const quickReplies = JSON.parse(match[1]);
                             console.log('[Gemini] Extracted Quick Replies:', quickReplies);
-
-                            // Add Quick Replies to metadata
-                            lastFunctionResult.metadata = {
-                                ...lastFunctionResult.metadata,
-                                quickReplies
-                            };
+                            metadataUpdate.quickReplies = quickReplies;
                         } catch (e) {
                             console.error('[Gemini] Failed to parse Quick Replies from structured response:', e);
                         }
                     }
+
+                    if (Object.keys(metadataUpdate).length > 0) {
+                        lastFunctionResult.metadata = {
+                            ...lastFunctionResult.metadata,
+                            ...metadataUpdate,
+                        };
+                    }
                 } else {
-                    console.log('[Gemini] No text response from model, structured response will be returned without Quick Replies');
+                    console.log('[Gemini] No text response from model, structured response will be returned without companion text');
                 }
 
                 console.log('[Gemini] Returning structured AIResponse:', JSON.stringify(lastFunctionResult));
@@ -464,7 +486,7 @@ AI: [NOW call create_labels_auto function]
         labels: Array<{ name: string; color?: string }>,
         imageWidth: number,
         imageHeight: number
-    ): Promise<Array<{ label: string; x: number; y: number; width: number; height: number; confidence: number }>> {
+    ): Promise<Array<{ label: string; x: number; y: number; width: number; height: number; confidence: number; reason: string }>> {
         const labelNames = labels.map(l => l.name).join(', ');
 
         // Gemini Vision returns bounding boxes as normalized values 0-1000
@@ -481,25 +503,46 @@ Rules:
 - If the same label appears multiple times, include each instance separately
 - label must be exactly one of: ${labelNames}
 - box_2d format: [ymin, xmin, ymax, xmax] normalized to 0-1000
+- reason: 1 short sentence (max 12 words) explaining WHY you gave that confidence score (e.g. visibility, occlusion, clarity)
 
 Return ONLY a valid JSON array, no markdown, no explanation.
 Return [] if no objects qualify.
 
-Example: [{"label":"cat","box_2d":[120,180,450,520],"confidence":0.91}]`;
+Example: [{"label":"cat","box_2d":[120,180,450,520],"confidence":0.91,"reason":"Fully visible, clear outline, no occlusion"}]`;
 
         const response = await fetch(imageUrl);
         const buffer = await response.arrayBuffer();
         const base64 = Buffer.from(buffer).toString('base64');
         const mimeType = (response.headers.get('content-type') || 'image/jpeg').split(';')[0] as string;
 
-        const model = this.genAI.getGenerativeModel({
-            model: 'gemini-2.5-pro',
-            generationConfig: { thinkingConfig: { thinkingBudget: 5000 } } as any,
-        });
-        const result = await model.generateContent([
-            prompt,
-            { inlineData: { mimeType, data: base64 } }
-        ]);
+        const visionModels = ['gemini-2.5-pro', ...FALLBACK_MODELS];
+        let result: any;
+        for (const modelName of visionModels) {
+            try {
+                const model = this.genAI.getGenerativeModel({
+                    model: modelName,
+                    generationConfig: modelName === 'gemini-2.5-pro'
+                        ? { thinkingConfig: { thinkingBudget: 5000 } } as any
+                        : undefined,
+                });
+                result = await this.withRetry(() =>
+                    model.generateContent([
+                        prompt,
+                        { inlineData: { mimeType, data: base64 } }
+                    ])
+                );
+                if (modelName !== 'gemini-2.5-pro') {
+                    console.warn(`[Gemini] suggestAnnotations fell back to: ${modelName}`);
+                }
+                break;
+            } catch (err: any) {
+                if (is503(err) && modelName !== visionModels[visionModels.length - 1]) {
+                    console.warn(`[Gemini] ${modelName} unavailable for vision, trying next...`);
+                    continue;
+                }
+                throw err;
+            }
+        }
 
         const text = result.response.text().trim();
         const jsonMatch = text.match(/\[[\s\S]*\]/);
@@ -530,8 +573,66 @@ Example: [{"label":"cat","box_2d":[120,180,450,520],"confidence":0.91}]`;
                     width,
                     height,
                     confidence: item.confidence ?? 0.8,
+                    reason: item.reason ?? '',
                 };
             });
+        } catch {
+            return [];
+        }
+    }
+
+    /**
+     * Generate annotation tips for the annotator based on AI detection results.
+     * Returns an array of short tip strings.
+     */
+    async generateAnnotationTips(
+        detections: Array<{ label: string; confidence: number; reason?: string }>,
+        language = 'vi'
+    ): Promise<string[]> {
+        if (detections.length === 0) return [];
+
+        // Summarize detections for the prompt
+        const byLabel: Record<string, { count: number; confidences: number[]; reasons: string[] }> = {};
+        for (const d of detections) {
+            if (!byLabel[d.label]) byLabel[d.label] = { count: 0, confidences: [], reasons: [] };
+            byLabel[d.label]!.count++;
+            byLabel[d.label]!.confidences.push(d.confidence);
+            if (d.reason) byLabel[d.label]!.reasons.push(d.reason);
+        }
+
+        const detectionSummary = Object.entries(byLabel)
+            .map(([label, { count, confidences, reasons }]) => {
+                const avg = confidences.reduce((a, b) => a + b, 0) / confidences.length;
+                const low = confidences.filter(c => c < 0.75).length;
+                const reasonSample = reasons.slice(0, 2).join('; ');
+                return `- ${label}: ${count} vùng (avg confidence ${Math.round(avg * 100)}%${low > 0 ? `, ${low} vùng dưới 75%` : ''})${reasonSample ? `\n  AI nhận xét: "${reasonSample}"` : ''}`;
+            })
+            .join('\n');
+
+        const prompt = `Bạn là trợ lý kiểm soát chất lượng annotation trong nền tảng VLabel.
+AI vừa tự động phát hiện các đối tượng sau trong ảnh và đưa ra lý do cho điểm confidence:
+${detectionSummary}
+
+Dựa trên các lý do AI đưa ra ở trên, hãy tạo đúng 2-3 gợi ý ngắn gọn bằng tiếng Việt giải thích:
+1. Tại sao confidence cao/thấp với các đối tượng này
+2. Những trường hợp nào annotator cần chỉnh lại
+3. Lưu ý cụ thể dựa trên lý do AI đã nêu
+
+Mỗi gợi ý tối đa 15 từ. Cụ thể, dựa trên lý do thực tế, không chung chung.
+Trả về ONLY một JSON array gồm các string, không giải thích thêm.
+Ví dụ: ["Gợi ý 1", "Gợi ý 2", "Gợi ý 3"]`;
+
+        const model = this.genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+        const result = await model.generateContent(prompt);
+        const text = result.response.text().trim();
+
+        const match = text.match(/\[[\s\S]*\]/);
+        if (!match) return [];
+
+        try {
+            const parsed = JSON.parse(match[0]);
+            if (!Array.isArray(parsed)) return [];
+            return parsed.filter((t: any) => typeof t === 'string').slice(0, 3);
         } catch {
             return [];
         }

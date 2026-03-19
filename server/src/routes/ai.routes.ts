@@ -19,4 +19,7 @@ router.post('/suggest-annotations', authMiddleware, AIController.suggestAnnotati
 // POST /api/v1/ai/refactor-text (Refactor/improve text)
 router.post('/refactor-text', authMiddleware, AIController.refactorText);
 
+// POST /api/v1/ai/annotation-tips (Generate tips for annotator after AI suggest)
+router.post('/annotation-tips', authMiddleware, AIController.generateAnnotationTips);
+
 export default router;

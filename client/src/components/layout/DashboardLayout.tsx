@@ -8,11 +8,16 @@ import { UserNav } from "../common/UserNav";
 import { ChatWidget } from "../../features/chat-widget/components/ChatWidget";
 import { useEffect } from "react";
 
-
 import { useAuth } from "../../context/AuthContext";
+import { useNotifications } from "../../hooks/useNotifications";
+import { usePageTitle } from "../../hooks/usePageTitle";
 
 export default function DashboardLayout() {
   const { isImpersonating } = useAuth();
+  const { unreadCount } = useNotifications();
+  
+  // Update page title with notification count
+  usePageTitle(unreadCount, "V Label - AI-Powered Data Annotation Platform");
 
   // Show keyboard shortcut hint on first visit
   useEffect(() => {

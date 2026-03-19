@@ -9,6 +9,7 @@ export interface AISuggestion {
     width: number;
     height: number;
     confidence: number;
+    reason: string;
 }
 
 export const aiApi = {
@@ -35,6 +36,19 @@ export const aiApi = {
         const response = await apiClient.post<{ suggestions: AISuggestion[] }>(
             `${BASE_URL}/suggest-annotations`,
             { imageUrl, labels, imageWidth, imageHeight }
+        );
+        return response.data;
+    },
+
+    /**
+     * Generate annotation tips based on AI detection results
+     */
+    getAnnotationTips: async (
+        detections: Array<{ label: string; confidence: number; reason?: string }>
+    ) => {
+        const response = await apiClient.post<{ tips: string[] }>(
+            `${BASE_URL}/annotation-tips`,
+            { detections }
         );
         return response.data;
     },
