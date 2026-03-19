@@ -106,9 +106,9 @@ export function WorkspaceHeader({
         )}
         {isSkipped && (
           <Badge
-            className={`ml-3 text-white animate-pulse ${isTaskReassigned ? "bg-indigo-600 shadow-[0_0_10px_rgba(79,70,229,0.3)]" : "bg-amber-600 shadow-[0_0_10px_rgba(217,119,6,0.3)]"}`}
+            className={`ml-3 text-white animate-pulse ${isTaskReassigned || taskStatus === "skipped" ? "bg-indigo-600 shadow-[0_0_10px_rgba(79,70,229,0.3)]" : "bg-amber-600 shadow-[0_0_10px_rgba(217,119,6,0.3)]"}`}
           >
-            {isTaskReassigned ? "REASSIGNED" : "REASSIGNING"}
+            {isTaskReassigned || taskStatus === "skipped" ? "REASSIGNED" : "REASSIGNING"}
           </Badge>
         )}
         {mode === "review" && annotator && (

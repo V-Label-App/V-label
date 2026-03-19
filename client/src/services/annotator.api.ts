@@ -44,6 +44,7 @@ export interface TaskAssignmentListItem {
   maxRejections?: number;
   task: {
     id: string;
+    status: string;
     priority: string;
     difficultyLevel: string;
     history?: TaskHistoryItem[];

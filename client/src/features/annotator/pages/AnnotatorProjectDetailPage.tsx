@@ -461,9 +461,9 @@ export function AnnotatorProjectDetailPage() {
                       const statusBadge = isLocked
                         ? {
                           className: task.status === "SKIPPED"
-                            ? "bg-amber-100 text-amber-700 border-amber-300 font-bold animate-pulse"
-                            : "bg-orange-100 text-orange-700 border-orange-300 font-bold",
-                          label: task.status === "SKIPPED" ? "REASSIGNING" : "REASSIGNED",
+                            ? "bg-indigo-100 text-indigo-700 border-indigo-300"
+                            : "bg-amber-100 text-amber-700 border-amber-300 font-bold animate-pulse",
+                          label: task.status === "SKIPPED" ? "REASSIGNED" : "REASSIGNING",
                         }
                         : getStatusBadge(task.status);
 
