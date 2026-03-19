@@ -176,7 +176,7 @@ export function AnnotatorTasks(_props: AnnotatorTasksProps) {
                                 {project.enableAiAssistance && (
                                   <Badge className="bg-purple-50 text-purple-700 border border-purple-200 flex items-center gap-1 shrink-0 text-xs px-1.5 py-0">
                                     <Sparkles className="w-3 h-3" />
-                                    AI
+                                    AI Assisted
                                   </Badge>
                                 )}
                               </div>

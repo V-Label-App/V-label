@@ -340,7 +340,7 @@ export function AnnotatorProjectDetailPage() {
                     {stuckTasks.map((task) => {
                       const hours = Math.floor(
                         (Date.now() - new Date(task.updatedAt).getTime()) /
-                          (1000 * 60 * 60),
+                        (1000 * 60 * 60),
                       );
                       return (
                         <li
@@ -456,15 +456,15 @@ export function AnnotatorProjectDetailPage() {
                         task.status === "SKIPPED" ||
                         (task.status === "REJECTED" &&
                           (task.rejectionCount || 0) >=
-                            (projectMaxRejections ?? task.maxRejections ?? 3));
+                          (projectMaxRejections ?? task.maxRejections ?? 3));
 
                       const statusBadge = isLocked
                         ? {
-                            className: task.status === "SKIPPED" 
-                              ? "bg-amber-100 text-amber-700 border-amber-300 font-bold animate-pulse" 
-                              : "bg-orange-100 text-orange-700 border-orange-300 font-bold",
-                            label: task.status === "SKIPPED" ? "REASSIGNING" : "REASSIGNED",
-                          }
+                          className: task.status === "SKIPPED"
+                            ? "bg-amber-100 text-amber-700 border-amber-300 font-bold animate-pulse"
+                            : "bg-orange-100 text-orange-700 border-orange-300 font-bold",
+                          label: task.status === "SKIPPED" ? "REASSIGNING" : "REASSIGNED",
+                        }
                         : getStatusBadge(task.status);
 
                       return (
@@ -566,6 +566,11 @@ export function AnnotatorProjectDetailPage() {
                                 <>
                                   <Eye className="w-3 h-3 mr-1" />
                                   View
+                                </>
+                              ) : task.status === "IN_PROGRESS" ? (
+                                <>
+                                  <Play className="w-3 h-3 mr-1" />
+                                  Continue
                                 </>
                               ) : (
                                 <>
