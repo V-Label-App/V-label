@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { annotatorApi, type TaskAssignmentListItem } from '../../../services/annotator.api';
 import { reviewerApi } from '../../../services/reviewer.api';
+import { projectApi } from '../../../services/project.api';
 import type { ImageTask } from '../stores';
 
 export interface UseProjectTasksReturn {
@@ -18,7 +19,11 @@ export interface UseProjectTasksReturn {
  * @param mode - The workspace mode ('annotate' or 'review')
  * @returns Task list and navigation helpers
  */
-export const useProjectTasks = (projectId?: string, mode: 'annotate' | 'review' = 'annotate'): UseProjectTasksReturn => {
+export const useProjectTasks = (
+    projectId?: string, 
+    mode: 'annotate' | 'review' = 'annotate',
+    isManager: boolean = false
+): UseProjectTasksReturn => {
     const [loading, setLoading] = useState<boolean>(false);
     const [error, setError] = useState<Error | null>(null);
     const [tasks, setTasks] = useState<TaskAssignmentListItem[]>([]);
@@ -41,6 +46,17 @@ export const useProjectTasks = (projectId?: string, mode: 'annotate' | 'review' 
                 });
                 // Map ReviewQueueItem to TaskAssignmentListItem (they are compatible)
                 responseData = response.data as any;
+            } else if (isManager) {
+                // For managers, get all tasks for this project
+                const response = await projectApi.getTasks(projectId, {
+                    limit: 100
+                });
+                // Normalize: wrap each task to look like TaskAssignmentListItem
+                responseData = response.data.map((t: any) => ({
+                    ...t,
+                    task: t, // The task itself contains the image
+                    id: t.id // Use taskId directly, Resolver in WorkspacePage will handle it
+                }));
             } else {
                 // For annotators, get their specific tasks
                 const response = await annotatorApi.getMyTasks({
@@ -57,7 +73,7 @@ export const useProjectTasks = (projectId?: string, mode: 'annotate' | 'review' 
         } finally {
             setLoading(false);
         }
-    }, [mode]);
+    }, [mode, isManager]);
 
     /**
      * Find index of a task by its assignmentId
@@ -71,16 +87,21 @@ export const useProjectTasks = (projectId?: string, mode: 'annotate' | 'review' 
      * Transform tasks to ImageTask format for ImageNavigator
      * Memoized to prevent infinite loops from reference changes
      */
-    const imageTasks: ImageTask[] = useMemo(() => tasks.map(task => ({
-        id: task.id, // Use assignmentId for navigation
-        filename: task.task.image?.originalFilename || 'Unknown',
-        status: task.status.toLowerCase() as ImageTask['status'],
-        url: task.task.image?.storageUrl || '',
-        thumbnail: task.task.image?.storageUrl || '',
-        width: task.task.image?.width,
-        height: task.task.image?.height,
-        annotationCount: 0 // Will be updated when task detail is loaded
-    })), [tasks]);
+    const imageTasks: ImageTask[] = useMemo(() => tasks.map(task => {
+        const taskObj = task.task || (task as any);
+        const image = taskObj.image;
+        
+        return {
+            id: task.id, // assignmentId or taskId
+            filename: image?.originalFilename || 'Unknown',
+            status: (task.status || 'ASSIGNED').toLowerCase() as ImageTask['status'],
+            url: image?.storageUrl || '',
+            thumbnail: image?.storageUrl || '',
+            width: image?.width,
+            height: image?.height,
+            annotationCount: 0
+        };
+    }), [tasks]);
 
     // Auto-load when projectId changes
     useEffect(() => {
