@@ -307,9 +307,10 @@ export function ProjectListPage() {
               <Table>
                 <TableHeader className="bg-slate-50/50 border-b border-slate-200">
                   <TableRow className="hover:bg-transparent">
-                    <TableHead className="w-[35%] font-bold text-slate-700">Project Name</TableHead>
-                    <TableHead className="w-[15%] font-bold text-slate-700">Category</TableHead>
-                    <TableHead className="w-[20%] font-bold text-slate-700">Progress</TableHead>
+                    <TableHead className="w-[30%] font-bold text-slate-700">Project Name</TableHead>
+                    <TableHead className="w-[12%] font-bold text-slate-700">Deadline</TableHead>
+                    <TableHead className="w-[13%] font-bold text-slate-700">Category</TableHead>
+                    <TableHead className="w-[15%] font-bold text-slate-700">Progress</TableHead>
                     <TableHead className="w-[10%] text-center font-bold text-slate-700">Images</TableHead>
                     <TableHead className="w-[10%] text-center font-bold text-slate-700">Members</TableHead>
                     <TableHead className="w-[10%] font-bold text-slate-700">Status</TableHead>
@@ -338,6 +339,25 @@ export function ProjectListPage() {
                               </div>
                             </div>
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          {project.deadline ? (
+                            <div className="flex flex-col gap-0.5">
+                              <div className="flex items-center gap-1.5 text-slate-600">
+                                <CalendarIcon className="w-3.5 h-3.5" />
+                                <span className="text-sm font-medium">
+                                  {format(new Date(project.deadline), "MMM d, yyyy")}
+                                </span>
+                              </div>
+                              {new Date(project.deadline) < new Date() && (
+                                <Badge className="bg-red-50 text-red-600 border-none text-[10px] w-fit px-1 h-4">
+                                  OVERDUE
+                                </Badge>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-300 italic">No deadline</span>
+                          )}
                         </TableCell>
                         <TableCell>
                           {project.category ? (
