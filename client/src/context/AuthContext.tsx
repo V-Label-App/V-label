@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
-import { authApi } from '../services/auth.api'
+import { authApi, type AuthResponse } from '../services/auth.api'
 import { decodeToken, validateToken, type User } from '../utils/jwt.utils'
 
 interface AuthContextType {
@@ -7,12 +7,13 @@ interface AuthContextType {
     accessToken: string | null
     isAuthenticated: boolean
     isLoading: boolean
-    login: (email: string, password: string, remember?: boolean) => Promise<void>
+    login: (email: string, password: string, remember?: boolean) => Promise<AuthResponse>
     register: (email: string, password: string, fullName?: string) => Promise<void>
     devLogin: (role: 'ADMIN' | 'MANAGER' | 'REVIEWER' | 'ANNOTATOR') => Promise<void>
     loginWithGoogle: (idToken: string) => Promise<void>
     logout: () => void
     refreshUserProfile: () => Promise<void>
+    verifyOtp: (otpToken: string, code: string, remember?: boolean) => Promise<void>
     impersonateUser: (userId: string) => Promise<void>
     stopImpersonation: () => Promise<void>
     isImpersonating: boolean
@@ -91,9 +92,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
     }
 
-    const login = async (email: string, password: string, remember: boolean = false) => {
+    const login = async (email: string, password: string, remember: boolean = false): Promise<AuthResponse> => {
+        // Clear any existing session first to prevent state pollution
+        localStorage.removeItem('accessToken');
+        sessionStorage.removeItem('accessToken');
+        setAccessToken(null);
+        setUser(null);
+
         try {
-            const { accessToken } = await authApi.login({ email, password })
+            const response = await authApi.login({ email, password })
 
             // Handle Remember Me (Email persistence)
             if (remember) {
@@ -102,9 +109,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 localStorage.removeItem('rememberedEmail')
             }
 
-            await handleAuthSuccess(accessToken, remember)
+            // Only complete auth if OTP is NOT required
+            if (!response.otpRequired && response.accessToken) {
+                await handleAuthSuccess(response.accessToken, remember)
+            }
+
+            return response
         } catch (error) {
             console.error('Login failed:', error)
+            throw error
+        }
+    }
+
+    const verifyOtp = async (otpToken: string, code: string, remember: boolean = false) => {
+        try {
+            const response = await authApi.verifyOtp(otpToken, code)
+            
+            if (response.accessToken) {
+                await handleAuthSuccess(response.accessToken, remember)
+            } else {
+                throw new Error('Verification successful but no token received')
+            }
+        } catch (error) {
+            console.error('OTP Verification failed:', error)
             throw error
         }
     }
@@ -112,7 +139,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const register = async (email: string, password: string, fullName?: string) => {
         try {
             const { accessToken } = await authApi.register({ email, password, fullName })
-            await handleAuthSuccess(accessToken, true) // Default to remember me for registration
+            if (accessToken) {
+                await handleAuthSuccess(accessToken, true) // Default to remember me for registration
+            }
         } catch (error) {
             console.error('Registration failed:', error)
             throw error
@@ -122,7 +151,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const devLogin = async (role: 'ADMIN' | 'MANAGER' | 'REVIEWER' | 'ANNOTATOR') => {
         try {
             const { accessToken } = await authApi.devLogin({ role })
-            await handleAuthSuccess(accessToken, true) // Default true for dev login
+            if (accessToken) {
+                await handleAuthSuccess(accessToken, true) // Default true for dev login
+            }
         } catch (error) {
             console.error('Dev login failed:', error)
             throw error
@@ -132,7 +163,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const loginWithGoogle = async (idToken: string) => {
         try {
             const { accessToken } = await authApi.loginWithGoogle(idToken)
-            await handleAuthSuccess(accessToken, true) // Default to remember me for Google
+            if (accessToken) {
+                await handleAuthSuccess(accessToken, true) // Default to remember me for Google
+            }
         } catch (error) {
             console.error('Google login failed:', error)
             throw error
@@ -167,7 +200,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             }
 
             // Switch to new token
-            await handleAuthSuccess(newAccessToken, true)
+            if (newAccessToken) {
+                await handleAuthSuccess(newAccessToken, true)
+            }
         } catch (error) {
             console.error('Impersonation failed:', error)
             throw error
@@ -194,6 +229,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 register,
                 devLogin,
                 loginWithGoogle,
+                verifyOtp,
                 logout,
                 refreshUserProfile,
                 impersonateUser,

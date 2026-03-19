@@ -15,11 +15,13 @@ import { useImageStore, useLabelStore, useAnnotationStore } from "../stores";
 import { ReviewScoringModal } from "../components/workspace/ReviewScoringModal";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { useWorkspaceData } from "../hooks/useWorkspaceData";
+import { projectApi } from "../../../services/project.api";
 import { useProjectTasks } from "../hooks/useProjectTasks";
 import { useAutoSave } from "../hooks/useAutoSave";
 import { toast } from "sonner";
 import { useNotifications } from "../../../hooks/useNotifications";
 import { usePageTitle } from "../../../hooks/usePageTitle";
+import { useAuth } from "../../../context/AuthContext";
 
 interface WorkspacePageProps {
   mode?: "annotate" | "review";
@@ -32,6 +34,24 @@ interface WorkspacePageProps {
     | "skipped";
 }
 
+const getLatestAnnotatorAssignment = (task: any) => {
+  if (!task || !task.assignments || !Array.isArray(task.assignments))
+    return undefined;
+  const annotatorAssignments = task.assignments.filter(
+    (a: any) => a.annotatorId,
+  );
+  if (annotatorAssignments.length === 0) return undefined;
+  return [...annotatorAssignments].sort((a, b) => {
+    const dateA = a.updatedAt
+      ? new Date(a.updatedAt).getTime()
+      : new Date(a.createdAt).getTime();
+    const dateB = b.updatedAt
+      ? new Date(b.updatedAt).getTime()
+      : new Date(b.createdAt).getTime();
+    return dateB - dateA;
+  })[0];
+};
+
 export function WorkspacePage({
   mode: propMode,
   taskStatus: propTaskStatus,
@@ -39,6 +59,12 @@ export function WorkspacePage({
   const { taskId } = useParams<{ taskId: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { user } = useAuth();
+  
+  const isTaskId = searchParams.get("isTaskId") === "true";
+  const projectIdFromUrl = searchParams.get("projectId");
+  const [resolvedId, setResolvedId] = useState<string | null>(isTaskId ? null : taskId || "");
+  const [isResolving, setIsResolving] = useState(isTaskId);
 
   // Read mode from URL query params, fallback to props
   const mode =
@@ -61,10 +87,48 @@ export function WorkspacePage({
     approveTask,
     rejectTask,
     resumeTask,
-  } = useWorkspaceData(taskId || "", false, mode);
+  } = useWorkspaceData(
+    resolvedId || "", 
+    user?.role === "MANAGER" || user?.role === "ADMIN", 
+    mode
+  );
+
+  // Logic to resolve Task ID to Assignment ID for Managers
+  useEffect(() => {
+    if (isTaskId && taskId && projectIdFromUrl && !resolvedId) {
+      const resolveTask = async () => {
+        setIsResolving(true);
+        try {
+          // Fetch all tasks for the project and find our task
+          const response = await projectApi.getTasks(projectIdFromUrl, { limit: 1000 });
+          const tasks = response.data || [];
+          const targetTask = tasks.find((t: any) => t.id === taskId);
+          
+          if (!targetTask) {
+            toast.error("Task not found in this project");
+            return;
+          }
+          
+          const latestAssignment = getLatestAnnotatorAssignment(targetTask);
+          if (latestAssignment) {
+            setResolvedId(latestAssignment.id);
+          } else {
+            toast.error("This task has no active assignments to view");
+          }
+        } catch (err) {
+          console.error("Failed to resolve Task ID:", err);
+          toast.error("Could not find the assignment for this task");
+        } finally {
+          setIsResolving(false);
+        }
+      };
+      
+      resolveTask();
+    }
+  }, [isTaskId, taskId, projectIdFromUrl, resolvedId]);
 
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
-  const loading = dataLoading && !hasLoadedOnce;
+  const loading = (dataLoading || isResolving) && !hasLoadedOnce;
   const isSwitchingTask = dataLoading && hasLoadedOnce;
 
   useEffect(() => {
@@ -141,7 +205,11 @@ export function WorkspacePage({
   const projectId = taskData?.projectId;
 
   // Load all tasks in the project for navigation (enabled for both modes)
-  const { imageTasks, findTaskIndex } = useProjectTasks(projectId, mode);
+  const { imageTasks, findTaskIndex } = useProjectTasks(
+    projectIdFromUrl || taskData?.projectId,
+    mode,
+    user?.role === "MANAGER" || user?.role === "ADMIN",
+  );
 
   // Initialize keyboard shortcuts
   useKeyboardShortcuts(isReadOnly);

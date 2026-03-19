@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import axios from 'axios';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
 import { Checkbox } from '../../../components/ui/checkbox';
-import { Shield, Users, CheckCircle, Pencil, Eye, EyeOff, AlertCircle, Sparkles, ShieldCheck, Lock } from 'lucide-react';
+import { Shield, Users, CheckCircle, Pencil, Eye, EyeOff, AlertCircle, Sparkles, ShieldCheck, Lock, Mail } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../../context/AuthContext';
 import { logger } from '../../../utils/logger';
@@ -12,10 +13,49 @@ import logoUrl from '../../../assets/android-chrome-192x192.png';
 
 import { TypewriterText } from '../../../components/ui/typewriter-effect';
 import { GoogleLoginButton } from '../../../components/GoogleLoginButton';
+import { OTPForm } from '../components/OTPForm';
+import { toast } from 'sonner';
 
 export const LoginPage = () => {
     const navigate = useNavigate();
-    const { login, devLogin, isAuthenticated } = useAuth();
+    const [searchParams] = useSearchParams();
+    const { login, devLogin, isAuthenticated, logout } = useAuth();
+
+    // OTP States
+    const [isOtpRequired, setIsOtpRequired] = useState(false);
+    const [otpToken, setOtpToken] = useState('');
+    const [loginEmail, setLoginEmail] = useState('');
+    const [is2FAEnabledGlobally, setIs2FAEnabledGlobally] = useState(false);
+    const isFirstMount = useRef(true);
+
+    // Catch OTP parameters from URL (for Email Links)
+    useEffect(() => {
+        const token = searchParams.get('token');
+        const emailParam = searchParams.get('email');
+        
+        if (token && emailParam) {
+            setOtpToken(token);
+            setLoginEmail(emailParam);
+            setIsOtpRequired(true);
+            logger.info('OTP context recovered from URL params');
+        }
+    }, [searchParams]);
+
+    // Anti-Stale Session: Clear any lingering tokens when arriving at login page
+    // This solves the issue where Tab A becomes stale after a Reset in Tab B
+    useEffect(() => {
+        if (!isFirstMount.current) return;
+        isFirstMount.current = false;
+
+        // ONLY clear if we are NOT in the middle of an OTP flow!
+        if (isOtpRequired) return;
+
+        const hasToken = localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken');
+        if (hasToken) {
+            logger.info('Clearing lingering auth tokens on login page mount (Strict First-Time Only)');
+            logout(); // This clears context and storage
+        }
+    }, [logout, isOtpRequired]);
 
     // Form State
     const [email, setEmail] = useState('');
@@ -33,6 +73,21 @@ export const LoginPage = () => {
         }
     }, [isAuthenticated, navigate]);
 
+    // Check OTP Config globally to show "Protected" badge
+    useEffect(() => {
+        const checkOtpConfig = async () => {
+            try {
+                const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:4000/api/v1'}/config/otp`);
+                if (response.data.enabled) {
+                    setIs2FAEnabledGlobally(true);
+                }
+            } catch (error) {
+                console.error('Failed to fetch OTP config:', error);
+            }
+        };
+        checkOtpConfig();
+    }, []);
+
     // Load remembered email
     useEffect(() => {
         const rememberedEmail = localStorage.getItem('rememberedEmail');
@@ -48,11 +103,20 @@ export const LoginPage = () => {
         setIsLoading(true);
 
         try {
-            await login(email, password, rememberMe);
-            logger.info('Login successful');
-            navigate('/');
-        } catch (err: any) {
-            const errorMsg = err.response?.data?.error || 'Login failed. Please try again.';
+            const response = await login(email, password, rememberMe);
+            
+            if (response.otpRequired) {
+                setOtpToken(response.otpToken || '');
+                setLoginEmail(email);
+                setIsOtpRequired(true);
+                logger.info('OTP required for login');
+            } else {
+                logger.info('Login successful');
+                toast.success('Successfully logged in!');
+                navigate('/');
+            }
+        } catch (err: unknown) {
+            const errorMsg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Login failed. Please try again.';
             setError(errorMsg);
             logger.error('Login failed:', errorMsg);
         } finally {
@@ -60,17 +124,26 @@ export const LoginPage = () => {
         }
     };
 
+    const handleResendOtp = async () => {
+        const response = await login(email, password, rememberMe);
+        if (response.otpToken) {
+            setOtpToken(response.otpToken);
+        }
+    };
+
 
     const handleDevLogin = async (role: 'ADMIN' | 'MANAGER' | 'REVIEWER' | 'ANNOTATOR') => {
         setError('');
-        setLoadingDevRole(role);
+        setLoadingDevRole(role); // Corrected this line
         try {
             await devLogin(role);
             logger.info(`Dev login successful as ${role}`);
+            toast.success(`Logged in as ${role.toLowerCase()} (Demo Mode)`);
             navigate('/');
-        } catch (err: any) {
-            const errorMsg = err.response?.data?.error || 'Dev login failed.';
+        } catch (err: unknown) {
+            const errorMsg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Internal process encountered an error.';
             setError(errorMsg);
+            logger.error('Dev login failed:', errorMsg);
         } finally {
             setLoadingDevRole(null);
         }
@@ -237,216 +310,253 @@ export const LoginPage = () => {
                         <h1 className="text-2xl font-semibold">VLabel</h1>
                     </div>
 
-                    <motion.div
-                        initial={{ opacity: 0, y: -20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.2, duration: 0.6 }}
-                        className="mb-8"
-                    >
-                        <h2 className="text-3xl font-semibold mb-2">Sign in to VLabel</h2>
-                        <p className="text-slate-500">
-                            Don't have an account?{' '}
-                            <Link to="/register" className="text-blue-600 font-medium hover:underline">
-                                Sign up
-                            </Link>
-                        </p>
-                    </motion.div>
-
-                    <motion.form
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: 0.4, duration: 0.6 }}
-                        onSubmit={handleSubmit}
-                        className="space-y-5"
-                    >
-                        {/* Error Message */}
-                        <AnimatePresence mode="wait">
-                            {error && (
-                                <motion.div
-                                    initial={{ opacity: 0, y: -20, scale: 0.95 }}
-                                    animate={{ opacity: 1, y: 0, scale: 1, x: [0, -10, 10, -5, 5, 0] }}
-                                    exit={{ opacity: 0, y: -20, scale: 0.95 }}
-                                    transition={{ duration: 0.4, type: "spring", stiffness: 400, damping: 25 }}
-                                    className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 shake-animation"
-                                >
-                                    <AlertCircle className="w-4 h-4 shrink-0" />
-                                    <span className="font-medium">{error}</span>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-
-                        {/* Email Input */}
-                        <div className="space-y-2">
-                            <Label htmlFor="email" className="text-sm font-medium">Email</Label>
-                            <Input
-                                id="email"
-                                type="email"
-                                placeholder="you@company.com"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                required
-                                disabled={isLoading}
-                                className="h-12 bg-white border-slate-300 focus:border-blue-500"
-                            />
-                        </div>
-
-                        {/* Password Input */}
-                        <div className="space-y-2">
-                            <Label htmlFor="password" className="text-sm font-medium">Password</Label>
-                            <div className="relative">
-                                <Input
-                                    id="password"
-                                    type={showPassword ? 'text' : 'password'}
-                                    placeholder="••••••••••"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    required
-                                    disabled={isLoading}
-                                    className="h-12 bg-white border-slate-300 focus:border-blue-500 pr-10"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
-                                >
-                                    {showPassword ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Remember Me & Forgot Password */}
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <Checkbox
-                                    id="remember"
-                                    checked={rememberMe}
-                                    onCheckedChange={(checked) => setRememberMe(checked as boolean)}
-                                />
-                                <label htmlFor="remember" className="text-sm text-slate-700 cursor-pointer">
-                                    Remember me
-                                </label>
-                            </div>
-                            <Link
-                                to="/forgot-password"
-                                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                    <AnimatePresence mode="wait">
+                        {!isOtpRequired ? (
+                            <motion.div
+                                key="login-form"
+                                initial={{ opacity: 0, x: 20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -20 }}
+                                transition={{ duration: 0.4 }}
                             >
-                                Forgot password?
-                            </Link>
-                        </div>
-
-                        {/* Sign In Button */}
-                        <Button
-                            type="submit"
-                            disabled={isLoading}
-                            className="w-full h-12 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium text-base"
-                        >
-                            {isLoading ? 'Signing in...' : 'Sign in'}
-                        </Button>
-                    </motion.form>
-
-                    {/* Divider */}
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: 0.5, duration: 0.6 }}
-                        className="my-6"
-                    >
-                        <div className="relative">
-                            <div className="absolute inset-0 flex items-center">
-                                <div className="w-full border-t border-slate-200"></div>
-                            </div>
-                            <div className="relative flex justify-center text-sm">
-                                <span className="px-4 bg-white text-slate-500">OR</span>
-                            </div>
-                        </div>
-                    </motion.div>
-
-                    {/* Google Sign In */}
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: 0.6, duration: 0.6 }}
-                    >
-                        <GoogleLoginButton />
-                    </motion.div>
-
-                    {/* Quick Login - Demo Mode */}
-                    {import.meta.env.MODE === 'development' && (
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.7, duration: 0.6 }}
-                            className="mt-8 p-5 bg-blue-50 border border-blue-200 rounded-xl"
-                        >
-                            <p className="text-xs text-blue-800 font-semibold mb-3 text-center">Quick Login - Demo Mode</p>
-                            <div className="grid grid-cols-2 gap-2">
-                                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        className={`w-full h-auto py-3 flex flex-col items-center gap-2 bg-white hover:bg-blue-50 border-blue-300 ${loadingDevRole === 'ADMIN' ? 'opacity-75 cursor-wait' : ''}`}
-                                        onClick={() => handleDevLogin('ADMIN')}
-                                        disabled={loadingDevRole !== null}
-                                    >
-                                        <Shield className="w-5 h-5 text-red-600" />
-                                        <div className="text-center">
-                                            <p className="text-xs font-semibold">Admin</p>
-                                            <p className="text-[10px] text-muted-foreground">User Mgmt</p>
-                                        </div>
-                                    </Button>
+                                <motion.div
+                                    initial={{ opacity: 0, y: -20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: 0.2, duration: 0.6 }}
+                                    className="mb-8"
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <h2 className="text-3xl font-semibold mb-2">Sign in to VLabel</h2>
+                                        {is2FAEnabledGlobally && (
+                                            <motion.div 
+                                                initial={{ opacity: 0, x: 20 }}
+                                                animate={{ opacity: 1, x: 0 }}
+                                                className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 border border-emerald-100 rounded-full shrink-0"
+                                            >
+                                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                                                <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">2FA Protected</span>
+                                            </motion.div>
+                                        )}
+                                    </div>
+                                    <p className="text-slate-500">
+                                        Don't have an account?{' '}
+                                        <Link to="/register" className="text-blue-600 font-medium hover:underline">
+                                            Sign up
+                                        </Link>
+                                    </p>
                                 </motion.div>
 
-                                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        className={`w-full h-auto py-3 flex flex-col items-center gap-2 bg-white hover:bg-blue-50 border-blue-300 ${loadingDevRole === 'MANAGER' ? 'opacity-75 cursor-wait' : ''}`}
-                                        onClick={() => handleDevLogin('MANAGER')}
-                                        disabled={loadingDevRole !== null}
-                                    >
-                                        <Users className="w-5 h-5 text-blue-600" />
-                                        <div className="text-center">
-                                            <p className="text-xs font-semibold">Manager</p>
-                                            <p className="text-[10px] text-muted-foreground">Tasks</p>
+                                <motion.form
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    transition={{ delay: 0.4, duration: 0.6 }}
+                                    onSubmit={handleSubmit}
+                                    className="space-y-5"
+                                >
+                                    {/* Error Message */}
+                                    <AnimatePresence mode="wait">
+                                        {error && (
+                                            <motion.div
+                                                initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                                                animate={{ opacity: 1, y: 0, scale: 1, x: [0, -10, 10, -5, 5, 0] }}
+                                                exit={{ opacity: 0, y: -20, scale: 0.95 }}
+                                                transition={{ duration: 0.4, type: "spring", stiffness: 400, damping: 25 }}
+                                                className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 shake-animation"
+                                            >
+                                                <AlertCircle className="w-4 h-4 shrink-0" />
+                                                <span className="font-medium">{error}</span>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+
+                                    {/* Email Input */}
+                                    <div className="space-y-2">
+                                        <Label htmlFor="email" className="text-slate-700 font-medium">Email Address</Label>
+                                        <div className="relative">
+                                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                            <Input
+                                                id="email"
+                                                type="email"
+                                                placeholder="name@company.com"
+                                                value={email}
+                                                onChange={(e) => setEmail(e.target.value)}
+                                                required
+                                                disabled={isLoading}
+                                                className="pl-10 h-11 bg-slate-50 border-slate-200 focus:bg-white focus:border-blue-500 transition-all rounded-lg"
+                                            />
                                         </div>
+                                    </div>
+
+                                    {/* Password Input */}
+                                    <div className="space-y-2">
+                                        <Label htmlFor="password" title="Password" className="text-slate-700 font-medium">Access Code</Label>
+                                        <div className="relative">
+                                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                            <Input
+                                                id="password"
+                                                type={showPassword ? 'text' : 'password'}
+                                                placeholder="••••••••••"
+                                                value={password}
+                                                onChange={(e) => setPassword(e.target.value)}
+                                                required
+                                                disabled={isLoading}
+                                                className="pl-10 h-11 bg-slate-50 border-slate-200 focus:bg-white focus:border-blue-500 transition-all rounded-lg"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPassword(!showPassword)}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                                            >
+                                                {showPassword ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Remember Me & Forgot Password */}
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <Checkbox
+                                                id="remember"
+                                                checked={rememberMe}
+                                                onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                                            />
+                                            <label htmlFor="remember" className="text-sm text-slate-700 cursor-pointer">
+                                                Remember me
+                                            </label>
+                                        </div>
+                                        <Link
+                                            to="/forgot-password"
+                                            className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                                        >
+                                            Forgot password?
+                                        </Link>
+                                    </div>
+
+                                    {/* Sign In Button */}
+                                    <Button
+                                        type="submit"
+                                        disabled={isLoading}
+                                        className="w-full h-12 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium text-base"
+                                    >
+                                        {isLoading ? 'Signing in...' : 'Sign in'}
                                     </Button>
+                                </motion.form>
+
+                                {/* Divider */}
+                                <motion.div
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    transition={{ delay: 0.5, duration: 0.6 }}
+                                    className="my-6"
+                                >
+                                    <div className="relative">
+                                        <div className="absolute inset-0 flex items-center">
+                                            <div className="w-full border-t border-slate-200"></div>
+                                        </div>
+                                        <div className="relative flex justify-center text-sm">
+                                            <span className="px-4 bg-white text-slate-500">OR</span>
+                                        </div>
+                                    </div>
                                 </motion.div>
 
-                                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        className={`w-full h-auto py-3 flex flex-col items-center gap-2 bg-white hover:bg-blue-50 border-blue-300 ${loadingDevRole === 'REVIEWER' ? 'opacity-75 cursor-wait' : ''}`}
-                                        onClick={() => handleDevLogin('REVIEWER')}
-                                        disabled={loadingDevRole !== null}
-                                    >
-                                        <CheckCircle className="w-5 h-5 text-purple-600" />
-                                        <div className="text-center">
-                                            <p className="text-xs font-semibold">Reviewer</p>
-                                            <p className="text-[10px] text-muted-foreground">QA</p>
-                                        </div>
-                                    </Button>
+                                {/* Google Sign In */}
+                                <motion.div
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    transition={{ delay: 0.6, duration: 0.6 }}
+                                >
+                                    <GoogleLoginButton />
                                 </motion.div>
 
-                                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        className={`w-full h-auto py-3 flex flex-col items-center gap-2 bg-white hover:bg-blue-50 border-blue-300 ${loadingDevRole === 'ANNOTATOR' ? 'opacity-75 cursor-wait' : ''}`}
-                                        onClick={() => handleDevLogin('ANNOTATOR')}
-                                        disabled={loadingDevRole !== null}
+                                {/* Quick Login - Demo Mode */}
+                                {import.meta.env.MODE === 'development' && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: 0.7, duration: 0.6 }}
+                                        className="mt-8 p-5 bg-blue-50 border border-blue-200 rounded-xl"
                                     >
-                                        <Pencil className="w-5 h-5 text-green-600" />
-                                        <div className="text-center">
-                                            <p className="text-xs font-semibold">Annotator</p>
-                                            <p className="text-[10px] text-muted-foreground">Label</p>
+                                        <p className="text-xs text-blue-800 font-semibold mb-3 text-center">Quick Login - Demo Mode</p>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    className={`w-full h-auto py-3 flex flex-col items-center gap-2 bg-white hover:bg-blue-50 border-blue-300 ${loadingDevRole === 'ADMIN' ? 'opacity-75 cursor-wait' : ''}`}
+                                                    onClick={() => handleDevLogin('ADMIN')}
+                                                    disabled={loadingDevRole !== null}
+                                                >
+                                                    <Shield className="w-5 h-5 text-red-600" />
+                                                    <div className="text-center">
+                                                        <p className="text-xs font-semibold">Admin</p>
+                                                        <p className="text-[10px] text-muted-foreground">User Mgmt</p>
+                                                    </div>
+                                                </Button>
+                                            </motion.div>
+
+                                            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    className={`w-full h-auto py-3 flex flex-col items-center gap-2 bg-white hover:bg-blue-50 border-blue-300 ${loadingDevRole === 'MANAGER' ? 'opacity-75 cursor-wait' : ''}`}
+                                                    onClick={() => handleDevLogin('MANAGER')}
+                                                    disabled={loadingDevRole !== null}
+                                                >
+                                                    <Users className="w-5 h-5 text-blue-600" />
+                                                    <div className="text-center">
+                                                        <p className="text-xs font-semibold">Manager</p>
+                                                        <p className="text-[10px] text-muted-foreground">Tasks</p>
+                                                    </div>
+                                                </Button>
+                                            </motion.div>
+
+                                            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    className={`w-full h-auto py-3 flex flex-col items-center gap-2 bg-white hover:bg-blue-50 border-blue-300 ${loadingDevRole === 'REVIEWER' ? 'opacity-75 cursor-wait' : ''}`}
+                                                    onClick={() => handleDevLogin('REVIEWER')}
+                                                    disabled={loadingDevRole !== null}
+                                                >
+                                                    <CheckCircle className="w-5 h-5 text-purple-600" />
+                                                    <div className="text-center">
+                                                        <p className="text-xs font-semibold">Reviewer</p>
+                                                        <p className="text-[10px] text-muted-foreground">QA</p>
+                                                    </div>
+                                                </Button>
+                                            </motion.div>
+
+                                            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    className={`w-full h-auto py-3 flex flex-col items-center gap-2 bg-white hover:bg-blue-50 border-blue-300 ${loadingDevRole === 'ANNOTATOR' ? 'opacity-75 cursor-wait' : ''}`}
+                                                    onClick={() => handleDevLogin('ANNOTATOR')}
+                                                    disabled={loadingDevRole !== null}
+                                                >
+                                                    <Pencil className="w-5 h-5 text-green-600" />
+                                                    <div className="text-center">
+                                                        <p className="text-xs font-semibold">Annotator</p>
+                                                        <p className="text-[10px] text-muted-foreground">Label</p>
+                                                    </div>
+                                                </Button>
+                                            </motion.div>
                                         </div>
-                                    </Button>
-                                </motion.div>
-                            </div>
-                        </motion.div>
-                    )}
-                </motion.div>
+                                    </motion.div>
+                                )}
+                            </motion.div>
+                        ) : (
+                            <OTPForm
+                                key="otp-form"
+                                email={loginEmail}
+                                otpToken={otpToken}
+                                onBack={() => setIsOtpRequired(false)}
+                                onSuccess={() => navigate('/')}
+                                onResend={handleResendOtp}
+                            />
+                        )}
+                    </AnimatePresence>
+     </motion.div>
             </div>
         </div>
     );

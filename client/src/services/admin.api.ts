@@ -66,4 +66,14 @@ export const adminApi = {
     const response = await apiClient.delete('/admin/email/logs');
     return response.data;
   },
+
+  // OTP Config
+  getOtpConfig: async () => {
+    const response = await apiClient.get<{ enabled: boolean; expirationMinutes: number }>('/admin/config/otp');
+    return response.data;
+  },
+  updateOtpConfig: async (config: { enabled: boolean; expirationMinutes: number }) => {
+    const response = await apiClient.put<{ enabled: boolean; expirationMinutes: number }>('/admin/config/otp', config);
+    return response.data;
+  },
 };
