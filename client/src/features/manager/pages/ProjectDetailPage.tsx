@@ -95,9 +95,20 @@ import {
   Eye,
   Award,
   History,
+  Zap,
+  UserPlus,
+  ShieldCheck,
+  RefreshCw,
 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "../../../components/ui/tooltip";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { cn } from "../../../components/ui/utils";
 
 import { useAuth } from "../../../context/AuthContext";
 import { ChatPanel } from "../../../components/chat/ChatPanel";
@@ -1408,6 +1419,115 @@ export function ProjectDetailPage() {
               <p className="text-muted-foreground mb-4">
                 {project.description}
               </p>
+
+              <div className="flex flex-wrap gap-2 mb-6">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "gap-1.5 py-1 px-3 transition-all cursor-help border-dashed",
+                          project.assignmentRule?.isAutoAssignEnabled
+                            ? "bg-green-50 text-green-700 border-green-200"
+                            : "bg-gray-50 text-gray-400 border-gray-200",
+                        )}
+                      >
+                        <Zap
+                          className={cn(
+                            "w-3.5 h-3.5",
+                            project.assignmentRule?.isAutoAssignEnabled &&
+                              "fill-current",
+                          )}
+                        />
+                        <span className="text-[10px] font-bold uppercase tracking-wider">
+                          Auto-Assign Task:{" "}
+                          {project.assignmentRule?.isAutoAssignEnabled
+                            ? "ON"
+                            : "OFF"}
+                        </span>
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">
+                        {project.assignmentRule?.isAutoAssignEnabled
+                          ? "Tasks are automatically assigned to available annotators."
+                          : "Manual task assignment is required."}
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "gap-1.5 py-1 px-3 transition-all cursor-help border-dashed",
+                          project.assignmentRule?.autoAssignReviewer
+                            ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                            : "bg-gray-50 text-gray-400 border-gray-200",
+                        )}
+                      >
+                        <ShieldCheck
+                          className={cn(
+                            "w-3.5 h-3.5",
+                            project.assignmentRule?.autoAssignReviewer &&
+                              "fill-current",
+                          )}
+                        />
+                        <span className="text-[10px] font-bold uppercase tracking-wider">
+                          Auto-Reviewer:{" "}
+                          {project.assignmentRule?.autoAssignReviewer
+                            ? "ON"
+                            : "OFF"}
+                        </span>
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">
+                        {project.assignmentRule?.autoAssignReviewer
+                          ? "Reviewers are automatically assigned to submitted tasks."
+                          : "Manual reviewer assignment is required."}
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "gap-1.5 py-1 px-3 transition-all cursor-help border-dashed",
+                          project.assignmentRule?.autoReassignOnSkip
+                            ? "bg-amber-50 text-amber-700 border-amber-200"
+                            : "bg-gray-50 text-gray-400 border-gray-200",
+                        )}
+                      >
+                        <RefreshCw
+                          className={cn(
+                            "w-3.5 h-3.5",
+                            project.assignmentRule?.autoReassignOnSkip &&
+                              "stroke-[3]",
+                          )}
+                        />
+                        <span className="text-[10px] font-bold uppercase tracking-wider">
+                          Auto-Skip Reassign:{" "}
+                          {project.assignmentRule?.autoReassignOnSkip
+                            ? "ON"
+                            : "OFF"}
+                        </span>
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">
+                        {project.assignmentRule?.autoReassignOnSkip
+                          ? "Tasks are immediately reassigned to others when skipped."
+                          : "Skipped tasks require manual intervention."}
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
