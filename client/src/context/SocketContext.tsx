@@ -10,7 +10,7 @@ const SocketContext = createContext<SocketContextValue | null>(null);
 
 export function SocketProvider({ children }: { children: ReactNode }) {
     const { user, accessToken } = useAuth();
-    const [isConnected, setIsConnected] = useState(false);
+    const [isConnected, setIsConnected] = useState(() => socketService.getSocket()?.connected ?? false);
 
     useEffect(() => {
         if (user && accessToken) {
@@ -18,8 +18,8 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
             const socket = socketService.getSocket();
             if (socket) {
-                // Initial check
-                setIsConnected(socket.connected);
+                // Initial check - updated via state initializer or listeners
+                // to avoid synchronously calling setState within effect body
 
                 const onConnect = () => setIsConnected(true);
                 const onDisconnect = () => setIsConnected(false);
@@ -37,7 +37,8 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         } else {
             // Only disconnect when user logs out
             socketService.disconnect();
-            setIsConnected(false);
+            // Wrap in setTimeout to avoid synchronously calling setState within effect body
+            setTimeout(() => setIsConnected(false), 0);
         }
     }, [user, accessToken]);
 

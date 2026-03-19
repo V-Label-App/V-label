@@ -289,7 +289,10 @@ export function useNotifications() {
 
   const markAsRead = async (notificationId: string) => {
     try {
-      await notificationApi.markAsRead(notificationId);
+      // Temp IDs are client-only (no DB record), just update local state
+      if (!notificationId.startsWith('temp-')) {
+        await notificationApi.markAsRead(notificationId);
+      }
       setNotifications((prev) =>
         prev.map((n) => (n.id === notificationId ? { ...n, isRead: true } : n)),
       );
@@ -308,9 +311,11 @@ export function useNotifications() {
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
       setUnreadCount(0);
 
-      // Call API for each notification (FE-only approach)
+      // Call API only for real DB notifications (skip temp-* client-only ones)
       await Promise.all(
-        unreadNotifications.map((n) => notificationApi.markAsRead(n.id)),
+        unreadNotifications
+          .filter((n) => !n.id.startsWith('temp-'))
+          .map((n) => notificationApi.markAsRead(n.id)),
       );
     } catch (error) {
       console.error("[Notifications] Failed to mark all as read:", error);

@@ -14,6 +14,7 @@ import { AdminUserDetailPage } from "../features/admin/pages/AdminUserDetailPage
 import { ProjectListPage } from "../features/manager/pages/ProjectListPage";
 import { ProjectDetailPage } from "../features/manager/pages/ProjectDetailPage";
 import { LabelManagementPage } from "../features/manager/pages/LabelManagementPage";
+import { ManagerDashboardPage } from "../features/manager/pages/ManagerDashboardPage";
 import { AnnotatorTasks } from "../features/annotator/pages/AnnotatorTasks";
 import { AnnotatorProjectDetailPage } from "../features/annotator/pages/AnnotatorProjectDetailPage";
 import { AnnotatorPerformancePage } from "../features/annotator/pages/AnnotatorPerformancePage";
@@ -91,7 +92,15 @@ export const AppRoutes = () => {
         {/* Manager Routes */}
         <Route
           path="/manager"
-          element={<Navigate to="/manager/projects" replace />}
+          element={<Navigate to="/manager/dashboard" replace />}
+        />
+        <Route
+          path="/manager/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={["MANAGER"]}>
+              <ManagerDashboardPage />
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/manager/projects"

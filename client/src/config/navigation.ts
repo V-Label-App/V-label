@@ -12,6 +12,7 @@ import {
   MessageSquare,
   Layers,
   Image as ImageIcon,
+  Shield,
 } from "lucide-react";
 
 import type { LucideIcon } from "lucide-react";
@@ -42,6 +43,7 @@ export const ROLE_NAVIGATION: RoleNavigation = {
     // Settings
     { title: "AI Chat Setting", url: "/admin/ai-chat", icon: Sparkles, group: "Settings" },
     { title: "Email Setting", url: "/admin/settings", icon: Settings, group: "Settings" },
+    { title: "Security", url: "/admin/security", icon: Shield, group: "Settings" },
 
     // System
     { title: "Chat", url: "/admin/chat", icon: MessageSquare, group: "System" },
@@ -49,6 +51,7 @@ export const ROLE_NAVIGATION: RoleNavigation = {
     { title: "Logs", url: "/admin/logs", icon: FileText, group: "System" },
   ],
   MANAGER: [
+    { title: "Dashboard", url: "/manager", icon: LayoutDashboard, group: "General" },
     { title: "Projects", url: "/manager/projects", icon: Folder, group: "Workspace" },
     { title: "Labels", url: "/manager/labels", icon: Tag, group: "Workspace" },
     { title: "Chat", url: "/manager/chat", icon: MessageSquare, group: "Communication" },

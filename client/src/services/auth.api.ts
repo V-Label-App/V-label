@@ -32,16 +32,29 @@ apiClient.interceptors.response.use(
   },
   (error) => {
     if (error.response?.status === 401) {
-      console.warn('Unauthorized - Clearing session')
-      localStorage.removeItem('accessToken')
+      // List of API endpoints that should NOT trigger automatic session clearing on 401
+      // For example: wrong password on login, or wrong code on verify-otp
+      const authEndpointPrefixes = ['/auth/login', '/auth/verify-otp', '/auth/register', '/auth/forgot-password', '/auth/reset-password']
+      const apiUrl = error.config?.url || ''
+      const isAuthApi = authEndpointPrefixes.some(prefix => apiUrl.includes(prefix))
 
-      // Prevent redirect loop on public pages
-      const publicPaths = ['/login', '/register', '/forgot-password', '/reset-password']
-      const currentPath = window.location.pathname
-      const isPublicPath = publicPaths.some(path => currentPath.startsWith(path))
+      if (!isAuthApi) {
+        console.warn('Unauthorized - Clearing session due to expired or invalid token')
+        localStorage.removeItem('accessToken')
+        sessionStorage.removeItem('accessToken')
 
-      if (!isPublicPath) {
-        window.location.href = '/login'
+        // Prevent redirect loop on public pages
+        const publicPaths = ['/login', '/register', '/forgot-password', '/reset-password']
+        const currentPath = window.location.pathname
+        const isPublicPage = publicPaths.some(path => currentPath.startsWith(path))
+
+        if (!isPublicPage) {
+          window.location.href = '/login'
+        }
+      } else {
+        // If it's an auth API, we just let the error pass to the UI (e.g. "Invalid code")
+        // without clearing the current session if any
+        console.warn(`Auth Error (${error.response.status}): ${apiUrl}`)
       }
     }
     console.error('❌ API Error:', error.config?.url, error.response?.data || error.message)
@@ -65,7 +78,9 @@ export interface RegisterCredentials {
 }
 
 export interface AuthResponse {
-  accessToken: string
+  otpRequired: boolean
+  otpToken?: string
+  accessToken?: string
   user?: {
     id: string
     email: string
@@ -73,6 +88,7 @@ export interface AuthResponse {
     fullName: string | null
     avatarUrl?: string | null
   }
+  message?: string
 }
 
 export interface PerformanceStats {
@@ -97,6 +113,14 @@ export const authApi = {
    */
   login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
     const response = await apiClient.post<AuthResponse>('/auth/login', credentials)
+    return response.data
+  },
+
+  /**
+   * Verify OTP code (Step 2 of login)
+   */
+  verifyOtp: async (otpToken: string, code: string): Promise<AuthResponse> => {
+    const response = await apiClient.post<AuthResponse>('/auth/verify-otp', { otpToken, code })
     return response.data
   },
 

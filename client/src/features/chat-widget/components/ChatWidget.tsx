@@ -110,7 +110,7 @@ export function ChatWidget({ variant = 'floating', className, style }: ChatWidge
         if (match && match[1]) {
             try {
                 // Clean the JSON string - remove trailing incomplete markers
-                let jsonStr = match[1].trim();
+                const jsonStr = match[1].trim();
                 // Try to find a valid JSON array
                 const jsonMatch = jsonStr.match(/\[[\s\S]*\]/);
                 if (jsonMatch) {
