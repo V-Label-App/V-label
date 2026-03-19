@@ -83,7 +83,6 @@ import {
   Download,
   MoreVertical,
   Trash2,
-  FileText,
   FileUp,
   Search,
   Loader2,
@@ -95,14 +94,26 @@ import {
   Eye,
   Award,
   History,
+  Zap,
+  ShieldCheck,
+  RefreshCw,
+  BarChart3,
 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "../../../components/ui/tooltip";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { cn } from "../../../components/ui/utils";
 
 import { useAuth } from "../../../context/AuthContext";
 import { ChatPanel } from "../../../components/chat/ChatPanel";
 import { projectApi } from "../../../services/project.api";
 import { ProjectHealthDashboard } from "../components/ProjectHealthDashboard";
+import { ProjectAnalytics } from "../components/ProjectAnalytics";
 import {
   projectLabelApi,
   labelApi,
@@ -1264,10 +1275,16 @@ export function ProjectDetailPage() {
     if (!project) return;
     setIsExporting(true);
     try {
-      await projectApi.exportCOCO(project.id, project.name, trainRatio, valRatio, testRatio);
+      await projectApi.exportCOCO(
+        project.id,
+        project.name,
+        trainRatio,
+        valRatio,
+        testRatio,
+      );
       setIsExportDialogOpen(false);
       toast.success("Export thành công!", {
-        description: `Đã lưu Export_${project.name.replace(/\s+/g, '_')}-coco.zip`,
+        description: `Đã lưu Export_${project.name.replace(/\s+/g, "_")}-coco.zip`,
       });
     } catch {
       toast.error("Export thất bại. Vui lòng thử lại.");
@@ -1403,6 +1420,146 @@ export function ProjectDetailPage() {
                 {project.description}
               </p>
 
+              <div className="flex flex-wrap gap-2 mb-6">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "gap-1.5 py-1 px-3 transition-all cursor-help border-dashed",
+                          project.assignmentRule?.isAutoAssignEnabled
+                            ? "bg-green-50 text-green-700 border-green-200"
+                            : "bg-gray-50 text-gray-400 border-gray-200",
+                        )}
+                      >
+                        <Zap
+                          className={cn(
+                            "w-3.5 h-3.5",
+                            project.assignmentRule?.isAutoAssignEnabled &&
+                              "fill-current",
+                          )}
+                        />
+                        <span className="text-[10px] font-bold uppercase tracking-wider">
+                          Auto-Assign Task:{" "}
+                          {project.assignmentRule?.isAutoAssignEnabled
+                            ? "ON"
+                            : "OFF"}
+                        </span>
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">
+                        {project.assignmentRule?.isAutoAssignEnabled
+                          ? "Tasks are automatically assigned to available annotators."
+                          : "Manual task assignment is required."}
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "gap-1.5 py-1 px-3 transition-all cursor-help border-dashed",
+                          project.assignmentRule?.autoAssignReviewer
+                            ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                            : "bg-gray-50 text-gray-400 border-gray-200",
+                        )}
+                      >
+                        <ShieldCheck
+                          className={cn(
+                            "w-3.5 h-3.5",
+                            project.assignmentRule?.autoAssignReviewer &&
+                              "fill-current",
+                          )}
+                        />
+                        <span className="text-[10px] font-bold uppercase tracking-wider">
+                          Auto-Reviewer:{" "}
+                          {project.assignmentRule?.autoAssignReviewer
+                            ? "ON"
+                            : "OFF"}
+                        </span>
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">
+                        {project.assignmentRule?.autoAssignReviewer
+                          ? "Reviewers are automatically assigned to submitted tasks."
+                          : "Manual reviewer assignment is required."}
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "gap-1.5 py-1 px-3 transition-all cursor-help border-dashed",
+                          project.assignmentRule?.autoReassignOnSkip
+                            ? "bg-amber-50 text-amber-700 border-amber-200"
+                            : "bg-gray-50 text-gray-400 border-gray-200",
+                        )}
+                      >
+                        <RefreshCw
+                          className={cn(
+                            "w-3.5 h-3.5",
+                            project.assignmentRule?.autoReassignOnSkip &&
+                              "stroke-[3]",
+                          )}
+                        />
+                        <span className="text-[10px] font-bold uppercase tracking-wider">
+                          Auto-Skip Reassign:{" "}
+                          {project.assignmentRule?.autoReassignOnSkip
+                            ? "ON"
+                            : "OFF"}
+                        </span>
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">
+                        {project.assignmentRule?.autoReassignOnSkip
+                          ? "Tasks are immediately reassigned to others when skipped."
+                          : "Skipped tasks require manual intervention."}
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "gap-1.5 py-1 px-3 transition-all cursor-help border-dashed",
+                          project.enableAiAssistance
+                            ? "bg-purple-50 text-purple-700 border-purple-200"
+                            : "bg-gray-50 text-gray-400 border-gray-200",
+                        )}
+                      >
+                        <Sparkles
+                          className={cn(
+                            "w-3.5 h-3.5",
+                            project.enableAiAssistance && "fill-current",
+                          )}
+                        />
+                        <span className="text-[10px] font-bold uppercase tracking-wider">
+                          AI Assistance:{" "}
+                          {project.enableAiAssistance ? "ON" : "OFF"}
+                        </span>
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">
+                        {project.enableAiAssistance
+                          ? "AI-powered tools are enabled to assist annotators."
+                          : "AI assistance is disabled for this project."}
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">
@@ -1533,6 +1690,12 @@ export function ProjectDetailPage() {
               )}
             </TabsTrigger>
             <TabsTrigger value="team">Team</TabsTrigger>
+            <TabsTrigger value="analytics">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="h-4 w-4" />
+                Analytics
+              </div>
+            </TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
             <TabsTrigger value="activity">Activity</TabsTrigger>
           </TabsList>
@@ -1541,6 +1704,14 @@ export function ProjectDetailPage() {
             <ProjectHealthDashboard
               projectId={project.id}
               onViewAllActivity={() => setActiveTab("activity")}
+            />
+          </TabsContent>
+
+          <TabsContent value="analytics">
+            <ProjectAnalytics
+              tasks={tasks}
+              project={project}
+              workloads={workloads}
             />
           </TabsContent>
 
@@ -3297,12 +3468,9 @@ export function ProjectDetailPage() {
                                           <Avatar className="h-10 w-10 ring-2 ring-white shadow-sm">
                                             <AvatarImage
                                               src={
-                                                assignee?.avatarUrl ||
-                                                undefined
+                                                assignee?.avatarUrl || undefined
                                               }
-                                              alt={
-                                                assignee?.fullName || "User"
-                                              }
+                                              alt={assignee?.fullName || "User"}
                                               className="object-cover"
                                             />
                                             <AvatarFallback className="bg-green-500 text-white text-sm font-semibold">
@@ -3532,7 +3700,10 @@ export function ProjectDetailPage() {
               </TabsList>
 
               <TabsContent value="datasets">
-                <DatasetList projectId={project.id} onDatasetDeleted={fetchTasks} />
+                <DatasetList
+                  projectId={project.id}
+                  onDatasetDeleted={fetchTasks}
+                />
               </TabsContent>
 
               <TabsContent value="labels" className="space-y-6">
@@ -4173,17 +4344,6 @@ export function ProjectDetailPage() {
                         </div>
                       </div>
                     </div>
-                  </div>
-                </Card>
-
-                {/* 3. Analytics */}
-                <Card className="p-6">
-                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                    <FileText className="w-5 h-5 text-green-600" />
-                    Analytics
-                  </h3>
-                  <div className="p-12 text-center text-muted-foreground bg-gray-50 rounded-lg">
-                    Analytics will be available once tasks are populated.
                   </div>
                 </Card>
 

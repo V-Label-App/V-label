@@ -52,7 +52,7 @@ function ToolButton({
         className={cn(
           "w-10 h-10 rounded-xl transition-all duration-300",
           active
-            ? "bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)]"
+            ? "bg-blue-600 text-white"
             : "text-slate-400 hover:text-white hover:bg-white/10",
           disabled && "opacity-30 cursor-not-allowed",
         )}
@@ -152,9 +152,9 @@ export function WorkspaceToolbar({
     <motion.div 
       initial={{ y: 50, opacity: 0, x: "-50%" }}
       animate={{ y: 0, opacity: 1, x: "-50%" }}
-      className="fixed bottom-8 left-1/2 -translate-x-1/2 flex items-center p-2 gap-1 rounded-2xl bg-slate-900/60 backdrop-blur-2xl border border-white/20 shadow-[0_0_30px_rgba(37,99,235,0.3)] z-[100] transition-all hover:bg-slate-900/80 group"
+      className="fixed bottom-8 left-1/2 -translate-x-1/2 flex items-center p-2 gap-1 rounded-2xl bg-slate-900/40 backdrop-blur-2xl border border-white/10 shadow-2xl z-[100] transition-all hover:bg-slate-900/60 group"
     >
-      <div className="absolute inset-0 bg-blue-500/5 rounded-2xl blur-xl group-hover:bg-blue-500/10 transition-colors pointer-events-none"></div>
+      {/* Subtle overlay removed to eliminate glow */}
       
       {/* Tools */}
       <div className="flex items-center gap-1 relative z-10">

@@ -129,11 +129,11 @@ export function AnnotatorProjectDetailPage() {
       },
       SUBMITTED: {
         className: "bg-blue-100 text-blue-700 border-blue-300",
-        label: "Submitted",
+        label: "Pending",
       },
       REJECTED: {
         className: "bg-red-100 text-red-700 border-red-300",
-        label: "REJECTED",
+        label: "Rejected",
       },
       IN_PROGRESS: {
         className: "bg-yellow-100 text-yellow-700 border-yellow-300",
@@ -144,8 +144,8 @@ export function AnnotatorProjectDetailPage() {
         label: "Approved",
       },
       SKIPPED: {
-        className: "bg-orange-100 text-orange-700 border-orange-300 font-bold",
-        label: "REASSIGNED",
+        className: "bg-orange-100 text-orange-700 border-orange-300",
+        label: "Skipped",
       },
     };
     return styles[status as keyof typeof styles] || styles.ASSIGNED;
@@ -340,7 +340,7 @@ export function AnnotatorProjectDetailPage() {
                     {stuckTasks.map((task) => {
                       const hours = Math.floor(
                         (Date.now() - new Date(task.updatedAt).getTime()) /
-                        (1000 * 60 * 60),
+                          (1000 * 60 * 60),
                       );
                       return (
                         <li
@@ -439,8 +439,9 @@ export function AnnotatorProjectDetailPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-[100px]">Preview</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead className="w-[120px]">Status</TableHead>
+                       <TableHead>Task / Image</TableHead>
+                       <TableHead className="w-[100px]">Rejections</TableHead>
+                       <TableHead className="w-[120px]">Status</TableHead>
                       <TableHead className="w-[140px]">Deadline</TableHead>
                       <TableHead className="w-[100px] text-right">
                         Actions
@@ -456,15 +457,19 @@ export function AnnotatorProjectDetailPage() {
                         task.status === "SKIPPED" ||
                         (task.status === "REJECTED" &&
                           (task.rejectionCount || 0) >=
-                          (projectMaxRejections ?? task.maxRejections ?? 3));
+                            (projectMaxRejections ?? task.maxRejections ?? 3));
 
                       const statusBadge = isLocked
                         ? {
-                          className: task.status === "SKIPPED"
-                            ? "bg-amber-100 text-amber-700 border-amber-300 font-bold animate-pulse"
-                            : "bg-orange-100 text-orange-700 border-orange-300 font-bold",
-                          label: task.status === "SKIPPED" ? "REASSIGNING" : "REASSIGNED",
-                        }
+                            className:
+                              task.status === "SKIPPED"
+                                ? "bg-indigo-100 text-indigo-700 border-indigo-300"
+                                : "bg-amber-100 text-amber-700 border-amber-300 font-bold animate-pulse",
+                            label:
+                              task.status === "SKIPPED"
+                                ? "REASSIGNED"
+                                : "REASSIGNING",
+                          }
                         : getStatusBadge(task.status);
 
                       return (
@@ -474,13 +479,17 @@ export function AnnotatorProjectDetailPage() {
                         >
                           <TableCell>
                             <div
-                              className={`w-16 h-16 bg-gradient-to-br from-blue-100 to-purple-100 rounded-lg flex items-center justify-center overflow-hidden ${isLocked ? "grayscale opacity-50" : ""}`}
+                              className={cn(
+                                "w-16 h-16 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl flex items-center justify-center overflow-hidden border border-gray-100 shadow-sm transition-transform duration-300 group-hover:scale-105",
+                                isLocked && "grayscale opacity-50",
+                              )}
                             >
                               {task.task.image ? (
                                 <img
                                   src={task.task.image.storageUrl}
                                   alt={task.task.image.originalFilename}
                                   className="w-full h-full object-cover"
+                                  loading="lazy"
                                 />
                               ) : (
                                 <span className="text-2xl">🖼️</span>
@@ -512,14 +521,29 @@ export function AnnotatorProjectDetailPage() {
                                 )}
                             </div>
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="text-center">
                             <Badge
                               variant="outline"
-                              className={statusBadge.className}
+                              className={cn(
+                                "font-medium min-w-[28px] justify-center",
+                                (task.rejectionCount || 0) > 0
+                                  ? "text-amber-600 border-amber-200 bg-amber-50"
+                                  : "text-gray-300 border-gray-100 opacity-50",
+                              )}
                             >
-                              {statusBadge.label}
+                              {task.rejectionCount || 0}
                             </Badge>
                           </TableCell>
+                           <TableCell>
+                             <div className="flex flex-col gap-1">
+                               <Badge
+                                 variant="outline"
+                                 className={statusBadge.className}
+                                >
+                                 {statusBadge.label}
+                               </Badge>
+                             </div>
+                           </TableCell>
                           <TableCell>
                             {task.deadline ? (
                               <div

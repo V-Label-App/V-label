@@ -351,7 +351,7 @@ export function WorkspacePage({
     setIsSkipConfirmOpen(false);
     try {
       await skipTask(skipReason, actualTimeSeconds);
-      toast.info("Task skipped");
+      toast.info("Task transferred to another annotator");
       setSkipReason("");
       handleNextTask();
     } catch {
@@ -573,6 +573,7 @@ export function WorkspacePage({
         projectName={taskData.projectName}
         annotator={taskData.annotator}
         isTaskReassigned={taskData.isTaskReassigned}
+        rejectionCount={taskData.rejectionCount}
       />
 
       {/* Main Content */}

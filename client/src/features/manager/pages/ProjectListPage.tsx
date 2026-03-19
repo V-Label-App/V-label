@@ -44,9 +44,11 @@ import {
   Users,
   Calendar as CalendarIcon,
   Loader2,
+  AlertTriangle,
+  AlertCircle,
 } from "lucide-react";
 import { cn } from "../../../components/ui/utils";
-import { format } from "date-fns";
+import { format, differenceInDays } from "date-fns";
 import { toast } from "sonner";
 
 import { useAuth } from "../../../context/AuthContext";
@@ -307,9 +309,10 @@ export function ProjectListPage() {
               <Table>
                 <TableHeader className="bg-slate-50/50 border-b border-slate-200">
                   <TableRow className="hover:bg-transparent">
-                    <TableHead className="w-[35%] font-bold text-slate-700">Project Name</TableHead>
-                    <TableHead className="w-[15%] font-bold text-slate-700">Category</TableHead>
-                    <TableHead className="w-[20%] font-bold text-slate-700">Progress</TableHead>
+                    <TableHead className="w-[30%] font-bold text-slate-700">Project Name</TableHead>
+                    <TableHead className="w-[12%] font-bold text-slate-700">Deadline</TableHead>
+                    <TableHead className="w-[13%] font-bold text-slate-700">Category</TableHead>
+                    <TableHead className="w-[15%] font-bold text-slate-700">Progress</TableHead>
                     <TableHead className="w-[10%] text-center font-bold text-slate-700">Images</TableHead>
                     <TableHead className="w-[10%] text-center font-bold text-slate-700">Members</TableHead>
                     <TableHead className="w-[10%] font-bold text-slate-700">Status</TableHead>
@@ -318,11 +321,26 @@ export function ProjectListPage() {
                 <TableBody>
                   {filteredProjects.map((project) => {
                     const progress = project.progress || 0;
+                    const now = new Date();
+                    const deadlineDate = project.deadline
+                      ? new Date(project.deadline)
+                      : null;
+                    const daysRemaining = deadlineDate
+                      ? differenceInDays(deadlineDate, now)
+                      : null;
+                    const isOverdue = deadlineDate ? deadlineDate < now : false;
+                    const isNearDeadline =
+                      daysRemaining !== null &&
+                      daysRemaining >= 0 &&
+                      daysRemaining <= 10;
+
                     return (
                       <TableRow
                         key={project.id}
                         className="hover:bg-slate-50/80 transition-all cursor-pointer group h-[80px] border-b border-slate-100 last:border-0"
-                        onClick={() => navigate(`/manager/projects/${project.id}`)}
+                        onClick={() =>
+                          navigate(`/manager/projects/${project.id}`)
+                        }
                       >
                         <TableCell>
                           <div className="flex items-center gap-4">
@@ -330,14 +348,64 @@ export function ProjectListPage() {
                               <FolderKanban className="w-5 h-5 text-indigo-500" />
                             </div>
                             <div className="min-w-0 flex-1">
-                              <div className="font-medium text-slate-900 group-hover:text-indigo-600 transition-colors truncate">
-                                {project.name}
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className={cn(
+                                    "font-medium group-hover:text-indigo-600 transition-colors truncate",
+                                    isOverdue
+                                      ? "text-red-700 font-bold"
+                                      : isNearDeadline
+                                        ? "text-amber-700 font-semibold"
+                                        : "text-slate-900",
+                                  )}
+                                >
+                                  {project.name}
+                                </div>
+                                {isOverdue ? (
+                                  <Badge className="bg-red-600 text-white border-none text-[10px] px-1.5 h-4 font-bold flex gap-1 items-center shadow-sm">
+                                    <AlertCircle className="w-3 h-3" />
+                                    OVERDUE
+                                  </Badge>
+                                ) : isNearDeadline ? (
+                                  <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-[10px] px-1.5 h-4 font-medium flex gap-1 items-center">
+                                    <AlertTriangle className="w-3 h-3 text-amber-500" />
+                                    {daysRemaining === 0
+                                      ? "Due Today"
+                                      : `${daysRemaining} days left`}
+                                  </Badge>
+                                ) : null}
                               </div>
                               <div className="text-xs text-slate-500 truncate">
                                 {project.description || "No description"}
                               </div>
                             </div>
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          {project.deadline ? (
+                            <div
+                              className={cn(
+                                "flex items-center gap-1.5",
+                                isOverdue
+                                  ? "text-red-600 font-bold"
+                                  : isNearDeadline
+                                    ? "text-amber-600 font-semibold"
+                                    : "text-slate-600",
+                              )}
+                            >
+                              <CalendarIcon className="w-3.5 h-3.5" />
+                              <span className="text-sm">
+                                {format(
+                                  new Date(project.deadline),
+                                  "MMM d, yyyy",
+                                )}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-300 italic">
+                              No deadline
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell>
                           {project.category ? (
