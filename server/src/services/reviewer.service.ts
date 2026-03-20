@@ -40,9 +40,11 @@ export class ReviewerService {
                       reviewerId: userId,
                       status: {
                         in: [
-                          AssignmentStatus.SUBMITTED,
-                          AssignmentStatus.APPROVED,
-                          AssignmentStatus.REJECTED,
+                          'SUBMITTED' as any,
+                          'APPROVED' as any,
+                          'REJECTED' as any,
+                          'REASSIGNING' as any,
+                          'REASSIGNED' as any,
                         ],
                       },
                     },
@@ -180,13 +182,13 @@ export class ReviewerService {
 
       const reviewCounts = {
         pending:
-          statusCounts.find((s) => s.status === AssignmentStatus.SUBMITTED)
+          statusCounts.find((s) => s.status === 'SUBMITTED' as any)
             ?._count || 0,
         approved:
-          statusCounts.find((s) => s.status === AssignmentStatus.APPROVED)
+          statusCounts.find((s) => s.status === 'APPROVED' as any)
             ?._count || 0,
         rejected:
-          statusCounts.find((s) => s.status === AssignmentStatus.REJECTED)
+          statusCounts.find((s) => s.status === 'REJECTED' as any)
             ?._count || 0,
         total,
       }
@@ -248,7 +250,7 @@ export class ReviewerService {
               assignments: {
                 where: {
                   id: { not: assignmentId },
-                  status: { in: [AssignmentStatus.REJECTED, AssignmentStatus.SKIPPED] },
+                  status: { in: ['REJECTED', 'SKIPPED', 'REASSIGNING', 'REASSIGNED'] as any },
                 },
                 include: {
                   annotator: { select: { fullName: true, email: true } },
@@ -312,7 +314,7 @@ export class ReviewerService {
         where: {
           id: assignmentId,
           reviewerId: userId,
-          status: AssignmentStatus.SUBMITTED,
+          status: 'SUBMITTED' as any,
         },
         include: {
           task: {
@@ -342,7 +344,7 @@ export class ReviewerService {
         const updated = await tx.taskAssignment.update({
           where: { id: assignmentId },
           data: {
-            status: AssignmentStatus.APPROVED,
+            status: 'APPROVED' as any,
             reviewedAt: new Date(),
             ...(reviewComment && { reviewComment }),
           },
@@ -355,7 +357,7 @@ export class ReviewerService {
         // 2. Mark task as DONE
         await tx.task.update({
           where: { id: assignment.task.id },
-          data: { status: TaskStatus.DONE },
+          data: { status: 'DONE' as any },
         })
 
         // 3. Update annotator reputation
@@ -477,7 +479,7 @@ export class ReviewerService {
         where: {
           id: assignmentId,
           reviewerId: userId,
-          status: AssignmentStatus.SUBMITTED,
+          status: 'SUBMITTED' as any,
         },
         include: {
           task: {
@@ -522,7 +524,7 @@ export class ReviewerService {
         const updated = await tx.taskAssignment.update({
           where: { id: assignmentId },
           data: {
-            status: exceedsMaxRejections ? AssignmentStatus.SKIPPED : AssignmentStatus.REJECTED,
+            status: exceedsMaxRejections ? 'REASSIGNING' as any : 'REJECTED' as any,
             reviewComment,
             reviewedAt: new Date(),
             rejectionCount: { increment: 1 },
@@ -540,7 +542,7 @@ export class ReviewerService {
             submissionNumber: newRejectionCount,
             annotations: assignment.annotations as any, // Current annotations being rejected
             reviewComment: reviewComment,
-            status: AssignmentStatus.REJECTED,
+            status: 'REJECTED' as any,
             reviewedAt: new Date(),
           },
         })
@@ -548,7 +550,7 @@ export class ReviewerService {
         // 2. Reset task status to TODO for reannotation
         await tx.task.update({
           where: { id: assignment.task.id },
-          data: { status: TaskStatus.TODO },
+          data: { status: 'TODO' as any },
         })
 
         // 3. Update annotator reputation
@@ -696,39 +698,39 @@ export class ReviewerService {
         weekRejected,
       ] = await Promise.all([
         prisma.taskAssignment.count({
-          where: { reviewerId: userId, status: AssignmentStatus.APPROVED },
+          where: { reviewerId: userId, status: 'APPROVED' as any },
         }),
         prisma.taskAssignment.count({
-          where: { reviewerId: userId, status: AssignmentStatus.REJECTED },
+          where: { reviewerId: userId, status: 'REJECTED' as any },
         }),
         prisma.taskAssignment.count({
-          where: { reviewerId: userId, status: AssignmentStatus.SUBMITTED },
+          where: { reviewerId: userId, status: 'SUBMITTED' as any },
         }),
         prisma.taskAssignment.count({
           where: {
             reviewerId: userId,
-            status: AssignmentStatus.APPROVED,
+            status: 'APPROVED' as any,
             reviewedAt: { gte: getStartOfDay() },
           },
         }),
         prisma.taskAssignment.count({
           where: {
             reviewerId: userId,
-            status: AssignmentStatus.REJECTED,
+            status: 'REJECTED' as any,
             reviewedAt: { gte: getStartOfDay() },
           },
         }),
         prisma.taskAssignment.count({
           where: {
             reviewerId: userId,
-            status: AssignmentStatus.APPROVED,
+            status: 'APPROVED' as any,
             reviewedAt: { gte: getStartOfWeek() },
           },
         }),
         prisma.taskAssignment.count({
           where: {
             reviewerId: userId,
-            status: AssignmentStatus.REJECTED,
+            status: 'REJECTED' as any,
             reviewedAt: { gte: getStartOfWeek() },
           },
         }),

@@ -96,7 +96,7 @@ export function AnnotatorProjectDetailPage() {
           limit: 100,
         });
         setTasks(result.data);
-        if (silent) toast.success("Task list refreshed");
+        if (silent) toast.success("Task list has been refreshed");
       } catch (error) {
         console.error("Failed to fetch tasks:", error);
         toast.error("Failed to load tasks");
@@ -137,6 +137,15 @@ export function AnnotatorProjectDetailPage() {
       REJECTED: {
         className: "bg-red-100 text-red-700 border-red-300",
         label: "Rejected",
+      },
+      REASSIGNING: {
+        className:
+          "bg-amber-100 text-amber-700 border-amber-300 font-bold animate-pulse",
+        label: "Reassigning",
+      },
+      REASSIGNED: {
+        className: "bg-indigo-100 text-indigo-700 border-indigo-300",
+        label: "Reassigned",
       },
       IN_PROGRESS: {
         className: "bg-yellow-100 text-yellow-700 border-yellow-300",
@@ -196,9 +205,12 @@ export function AnnotatorProjectDetailPage() {
                 <FolderOpen className="w-6 h-6 text-purple-600" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900 tracking-tight">{project.name}</h1>
+                <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
+                  {project.name}
+                </h1>
                 <p className="text-muted-foreground mt-1 max-w-2xl">
-                  {project.description || "No description provided for this project"}
+                  {project.description ||
+                    "No description provided for this project"}
                 </p>
               </div>
             </div>
@@ -441,9 +453,9 @@ export function AnnotatorProjectDetailPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-[100px]">Preview</TableHead>
-                       <TableHead>Task / Image</TableHead>
-                       <TableHead className="w-[100px]">Rejections</TableHead>
-                       <TableHead className="w-[120px]">Status</TableHead>
+                      <TableHead>Task / Image</TableHead>
+                      <TableHead className="w-[100px]">Rejections</TableHead>
+                      <TableHead className="w-[120px]">Status</TableHead>
                       <TableHead className="w-[140px]">Deadline</TableHead>
                       <TableHead className="w-[100px] text-right">
                         Actions
@@ -452,23 +464,23 @@ export function AnnotatorProjectDetailPage() {
                   </TableHeader>
                   <TableBody>
                     {filteredTasks.map((task) => {
-                      const projectMaxRejections =
-                        project?.assignmentRule?.maxRejectionsBeforeReassign;
                       // Permanently lock if SKIPPED (hit limit) regardless of project settings
                       const isLocked =
                         task.status === "SKIPPED" ||
-                        (task.status === "REJECTED" &&
-                          (task.rejectionCount || 0) >=
-                            (projectMaxRejections ?? task.maxRejections ?? 3));
+                        task.status === "REASSIGNING" ||
+                        task.status === "REASSIGNED";
 
                       const statusBadge = isLocked
                         ? {
                             className:
                               task.status === "SKIPPED"
                                 ? "bg-indigo-100 text-indigo-700 border-indigo-300"
-                                : "bg-amber-100 text-amber-700 border-amber-300 font-bold animate-pulse",
+                                : task.status === "REASSIGNED"
+                                  ? "bg-purple-100 text-purple-700 border-purple-300"
+                                  : "bg-amber-100 text-amber-700 border-amber-300 font-bold animate-pulse",
                             label:
-                              task.status === "SKIPPED"
+                              task.status === "SKIPPED" ||
+                              task.status === "REASSIGNED"
                                 ? "REASSIGNED"
                                 : "REASSIGNING",
                           }
@@ -536,16 +548,16 @@ export function AnnotatorProjectDetailPage() {
                               {task.rejectionCount || 0}
                             </Badge>
                           </TableCell>
-                           <TableCell>
-                             <div className="flex flex-col gap-1">
-                               <Badge
-                                 variant="outline"
-                                 className={statusBadge.className}
-                                >
-                                 {statusBadge.label}
-                               </Badge>
-                             </div>
-                           </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col gap-1">
+                              <Badge
+                                variant="outline"
+                                className={statusBadge.className}
+                              >
+                                {statusBadge.label}
+                              </Badge>
+                            </div>
+                          </TableCell>
                           <TableCell>
                             {task.deadline ? (
                               <div

@@ -951,7 +951,7 @@ export class ProjectController {
                                 where: {
                                     // Include ALL rejected/skipped assignments,
                                     // including the current one if it is rejected.
-                                    status: { in: ['REJECTED', 'SKIPPED'] },
+                                    status: { in: ['REJECTED', 'SKIPPED', 'REASSIGNING', 'REASSIGNED'] as any },
                                 },
                                 include: {
                                     annotator: { select: { fullName: true, email: true } },
