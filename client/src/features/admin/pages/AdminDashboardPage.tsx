@@ -208,65 +208,150 @@ export function AdminDashboardPage() {
 
       {/* Projects List Dialog */}
       <Dialog open={showProjectsDialog} onOpenChange={setShowProjectsDialog}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle>All Projects</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-2xl font-bold">All Projects</DialogTitle>
+            <DialogDescription className="text-base">
               Danh sách tất cả các dự án với thông tin manager và trạng thái
             </DialogDescription>
           </DialogHeader>
 
           {loadingProjects ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <Loader2 className="h-10 w-10 animate-spin text-blue-600 mx-auto mb-3" />
+                <p className="text-sm text-gray-500">Loading projects...</p>
+              </div>
             </div>
           ) : projects.length > 0 ? (
-            <div className="mt-4">
-              <div className="rounded-md border">
-                <table className="w-full">
+            <div className="flex-1 overflow-auto px-1">
+              <div className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
+                <table className="w-full border-collapse">
                   <thead>
-                    <tr className="border-b bg-muted/50">
-                      <th className="p-3 text-left font-medium">Project Name</th>
-                      <th className="p-3 text-left font-medium">Manager</th>
-                      <th className="p-3 text-left font-medium">Status</th>
-                      <th className="p-3 text-left font-medium">Created</th>
+                    <tr className="bg-gradient-to-r from-blue-50 to-purple-50 border-b-2 border-gray-200">
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                        Project Name
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                        Manager
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                        Status
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                        Created Date
+                      </th>
                     </tr>
                   </thead>
-                  <tbody>
-                    {projects.map((project) => (
+                  <tbody className="divide-y divide-gray-100">
+                    {projects.map((project, index) => (
                       <tr
                         key={project.id}
-                        className="border-b hover:bg-muted/50 transition-colors"
+                        className={`hover:bg-blue-50/50 transition-colors duration-150 ${
+                          index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'
+                        }`}
                       >
-                        <td className="p-3 font-medium">{project.name}</td>
-                        <td className="p-3 text-gray-600">{project.manager}</td>
-                        <td className="p-3">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <FolderKanban className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                            <span 
+                              className="font-medium text-gray-900"
+                              title={project.name}
+                            >
+                              {project.name}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <Users className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                            <span 
+                              className="text-sm text-gray-700"
+                              title={project.manager}
+                            >
+                              {project.manager}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
                           <span
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold shadow-sm whitespace-nowrap ${
                               project.status === "ACTIVE"
-                                ? "bg-green-100 text-green-800"
+                                ? "bg-green-100 text-green-800 ring-1 ring-green-600/20"
                                 : project.status === "COMPLETED"
-                                  ? "bg-blue-100 text-blue-800"
+                                  ? "bg-blue-100 text-blue-800 ring-1 ring-blue-600/20"
                                   : project.status === "PAUSED"
-                                    ? "bg-yellow-100 text-yellow-800"
-                                    : "bg-gray-100 text-gray-800"
+                                    ? "bg-yellow-100 text-yellow-800 ring-1 ring-yellow-600/20"
+                                    : project.status === "DRAFT"
+                                      ? "bg-gray-100 text-gray-800 ring-1 ring-gray-600/20"
+                                      : "bg-purple-100 text-purple-800 ring-1 ring-purple-600/20"
                             }`}
                           >
                             {project.status}
                           </span>
                         </td>
-                        <td className="p-3 text-sm text-gray-500">
-                          {new Date(project.createdAt).toLocaleDateString("vi-VN")}
+                        <td className="px-6 py-4">
+                          <span className="text-sm text-gray-600 whitespace-nowrap">
+                            {new Date(project.createdAt).toLocaleDateString("vi-VN", {
+                              year: 'numeric',
+                              month: '2-digit',
+                              day: '2-digit'
+                            })}
+                          </span>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
+              
+              {/* Summary Footer */}
+              <div className="mt-4 px-6 py-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg border border-gray-200">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex items-center gap-2 text-sm text-gray-700">
+                    <FolderKanban className="h-4 w-4 text-blue-600" />
+                    <span className="font-medium">Total Projects:</span>
+                    <span className="font-bold text-gray-900 text-lg">{projects.length}</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-4 text-sm">
+                    <span className="flex items-center gap-1.5 whitespace-nowrap">
+                      <span className="w-2.5 h-2.5 rounded-full bg-green-500 shadow-sm"></span>
+                      <span className="text-gray-600">Active:</span>
+                      <span className="font-semibold text-green-700">{projects.filter(p => p.status === 'ACTIVE').length}</span>
+                    </span>
+                    <span className="flex items-center gap-1.5 whitespace-nowrap">
+                      <span className="w-2.5 h-2.5 rounded-full bg-gray-500 shadow-sm"></span>
+                      <span className="text-gray-600">Draft:</span>
+                      <span className="font-semibold text-gray-700">{projects.filter(p => p.status === 'DRAFT').length}</span>
+                    </span>
+                    <span className="flex items-center gap-1.5 whitespace-nowrap">
+                      <span className="w-2.5 h-2.5 rounded-full bg-yellow-500 shadow-sm"></span>
+                      <span className="text-gray-600">Paused:</span>
+                      <span className="font-semibold text-yellow-700">{projects.filter(p => p.status === 'PAUSED').length}</span>
+                    </span>
+                    <span className="flex items-center gap-1.5 whitespace-nowrap">
+                      <span className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-sm"></span>
+                      <span className="text-gray-600">Completed:</span>
+                      <span className="font-semibold text-blue-700">{projects.filter(p => p.status === 'COMPLETED').length}</span>
+                    </span>
+                    <span className="flex items-center gap-1.5 whitespace-nowrap">
+                      <span className="w-2.5 h-2.5 rounded-full bg-purple-500 shadow-sm"></span>
+                      <span className="text-gray-600">Archived:</span>
+                      <span className="font-semibold text-purple-700">{projects.filter(p => p.status === 'ARCHIVED').length}</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
           ) : (
-            <div className="text-center py-8 text-gray-500">
-              Không có dự án nào
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+                <FolderKanban className="h-8 w-8 text-gray-400" />
+              </div>
+              <p className="text-lg font-medium text-gray-900 mb-1">No Projects Found</p>
+              <p className="text-sm text-gray-500">
+                Không có dự án nào trong hệ thống
+              </p>
             </div>
           )}
         </DialogContent>
