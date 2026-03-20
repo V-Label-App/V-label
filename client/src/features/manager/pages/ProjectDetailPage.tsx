@@ -159,7 +159,7 @@ const getLatestAnnotatorAssignment = (task: any) => {
   })[0];
 };
 
-const adjustDeadline = (date: Date | undefined | null) => {
+const adjustDeadline = (date: Date | undefined | null): any => {
   if (!date) return undefined;
   const d = new Date(date);
   d.setHours(23, 59, 59, 999);
