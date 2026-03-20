@@ -145,7 +145,7 @@ export function WorkspacePage({
     }
   }, [taskData, dataLoading]);
 
-  const { updateImages, getCurrentImage, currentIndex, jumpToImage, setAutoSaveStatus } =
+  const { updateImages, getCurrentImage, currentIndex, jumpToImage, setAutoSaveStatus, setHasInteracted } =
     useImageStore();
 
   // Derive taskStatus dynamically from taskData, fallback to propTaskStatus/assigned
@@ -328,7 +328,6 @@ export function WorkspacePage({
 
   const [isSkipConfirmOpen, setIsSkipConfirmOpen] = useState(false);
   const [skipReason, setSkipReason] = useState("");
-
   const handleSubmit = async () => {
     // Validate before submit
     if (annotations.length === 0) {
@@ -439,6 +438,7 @@ export function WorkspacePage({
   const handleAiSuggest = useCallback(async () => {
     if (!currentImage || !taskData || isAiLoading) return;
     setIsAiLoading(true);
+    setHasInteracted(true);
     try {
       // Get actual image dimensions from browser
       const actualDims = await new Promise<{ width: number; height: number }>(
@@ -508,8 +508,7 @@ export function WorkspacePage({
     } finally {
       setIsAiLoading(false);
     }
-  }, [currentImage, taskData, isAiLoading, addAnnotation, setAnnotations]);
-
+  }, [currentImage, taskData, isAiLoading, addAnnotation, setAnnotations, setHasInteracted]);
   const handleClose = () => {
     navigate(-1);
   };

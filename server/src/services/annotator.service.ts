@@ -330,8 +330,6 @@ export class AnnotatorService {
           ],
           [AssignmentStatus.APPROVED]: [], // Final state
           [AssignmentStatus.SKIPPED]: [], // Final state
-          [AssignmentStatus.REASSIGNING]: [], // Final state for this annotator
-          [AssignmentStatus.REASSIGNED]: [], // Final state for this annotator
         }
 
         const allowedNextStates = validTransitions[existing.status] || []

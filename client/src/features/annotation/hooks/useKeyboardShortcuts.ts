@@ -20,7 +20,7 @@ export function useKeyboardShortcuts(isReadOnly: boolean = false) {
     canRedo,
   } = useAnnotationStore();
   const { labels, activeLabel, setActiveLabel } = useLabelStore();
-  const { goToNext, goToPrevious, hasNext, hasPrevious } = useImageStore();
+  const { goToNext, goToPrevious, hasNext, hasPrevious, setHasInteracted } = useImageStore();
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -61,20 +61,24 @@ export function useKeyboardShortcuts(isReadOnly: boolean = false) {
       ) {
         e.preventDefault();
         deleteAnnotation(selectedAnnotationId);
+        setHasInteracted(true);
       }
 
       // Undo/Redo
       if (e.ctrlKey && e.key === "z" && !e.shiftKey && canUndo()) {
         e.preventDefault();
         undo();
+        setHasInteracted(true);
       }
       if (e.ctrlKey && e.shiftKey && e.key === "z" && canRedo()) {
         e.preventDefault();
         redo();
+        setHasInteracted(true);
       }
       if (e.ctrlKey && e.key === "y" && canRedo()) {
         e.preventDefault();
         redo();
+        setHasInteracted(true);
       }
 
       // Quick label assignment (1-9)
@@ -83,6 +87,7 @@ export function useKeyboardShortcuts(isReadOnly: boolean = false) {
         if (index < labels.length) {
           e.preventDefault();
           updateAnnotation(selectedAnnotationId, { label: labels[index].name });
+          setHasInteracted(true);
         }
       }
 

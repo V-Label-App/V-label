@@ -12,7 +12,7 @@ import {
   Minimize,
   Sparkles,
 } from "lucide-react";
-import { useCanvasStore, useAnnotationStore } from "../../stores";
+import { useCanvasStore, useAnnotationStore, useImageStore } from "../../stores";
 import type { Tool } from "../../stores";
 import { useState, useEffect } from "react";
 import { cn } from "../../../../components/ui/utils";
@@ -96,6 +96,7 @@ export function WorkspaceToolbar({
     setDefaultOpacity,
     setDefaultStrokeWidth,
   } = useAnnotationStore();
+  const { setHasInteracted } = useImageStore();
 
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -139,6 +140,7 @@ export function WorkspaceToolbar({
       updateAnnotation(selectedAnnotationId, { opacity: val });
     }
     setDefaultOpacity(val);
+    setHasInteracted(true);
   };
 
   const handleStrokeWidthChange = (val: number) => {
@@ -146,6 +148,17 @@ export function WorkspaceToolbar({
       updateAnnotation(selectedAnnotationId, { strokeWidth: val });
     }
     setDefaultStrokeWidth(val);
+    setHasInteracted(true);
+  };
+
+  const handleUndo = () => {
+    undo();
+    setHasInteracted(true);
+  };
+
+  const handleRedo = () => {
+    redo();
+    setHasInteracted(true);
   };
 
   return (
@@ -231,13 +244,13 @@ export function WorkspaceToolbar({
         {/* History */}
         <ToolButton
           icon={Undo}
-          onClick={() => undo()}
+          onClick={() => handleUndo()}
           tooltip="Undo (Ctrl+Z)"
           disabled={!canUndo() || isReadOnly}
         />
         <ToolButton
           icon={Redo}
-          onClick={() => redo()}
+          onClick={() => handleRedo()}
           tooltip="Redo (Ctrl+Shift+Z)"
           disabled={!canRedo() || isReadOnly}
         />
