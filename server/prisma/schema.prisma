@@ -54,7 +54,7 @@ model Project {
   labelConfig        Json             @default("[]") @map("label_config")
   deadline           DateTime?
   enableAiAssistance Boolean          @default(false) @map("enable_ai_assistance")
-  status             ProjectStatus    @default(ACTIVE)
+  status             ProjectStatus    @default(PAUSED)
   createdAt          DateTime         @default(now()) @map("created_at")
   updatedAt          DateTime         @updatedAt @map("updated_at")
   categoryId         String?          @map("category_id") @db.Uuid

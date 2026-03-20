@@ -141,7 +141,7 @@ export const ProjectHealthDashboard: React.FC<ProjectHealthDashboardProps> = ({ 
                             <li key={task.id} className="p-3 bg-white dark:bg-gray-700 rounded shadow-sm flex justify-between items-center">
                                 <span>Task {task.id.substring(0, 8)}...</span>
                                 <span className="text-sm text-gray-500">
-                                    {activeRescueType === 'STUCK' && `Stuck since ${new Date(task.updatedAt).toLocaleDateString()}`}
+                                    {activeRescueType === 'STUCK' && `Stuck since ${new Date(task.createdAt).toLocaleDateString()}`}
                                     {activeRescueType === 'PROBLEMATIC' && `Rejected ${task.rejectionCount} times`}
                                     {activeRescueType === 'ORPHANED' && `Deadline: ${task.deadline ? new Date(task.deadline).toLocaleDateString() : 'None'}`}
                                 </span>

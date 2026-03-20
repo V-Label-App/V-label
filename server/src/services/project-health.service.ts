@@ -12,8 +12,10 @@ export class ProjectHealthService {
         return await prisma.taskAssignment.findMany({
             where: {
                 task: { projectId },
-                status: AssignmentStatus.IN_PROGRESS,
-                updatedAt: { lt: twentyFourHoursAgo },
+                status: {
+                    in: [AssignmentStatus.IN_PROGRESS, AssignmentStatus.ASSIGNED]
+                },
+                createdAt: { lt: twentyFourHoursAgo },
             },
             include: {
                 task: true,
@@ -21,7 +23,7 @@ export class ProjectHealthService {
                     select: { id: true, fullName: true, email: true, avatarUrl: true },
                 },
             },
-            orderBy: { updatedAt: 'asc' }, // Oldest first
+            orderBy: { createdAt: 'asc' }, // Oldest first
         });
     }
 
@@ -32,8 +34,7 @@ export class ProjectHealthService {
         return await prisma.taskAssignment.findMany({
             where: {
                 task: { projectId },
-                rejectionCount: { gte: 2 },
-                status: { not: AssignmentStatus.APPROVED }, // Still not resolved
+                status: AssignmentStatus.REJECTED,
             },
             include: {
                 task: true,
