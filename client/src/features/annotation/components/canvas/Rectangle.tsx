@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Rect, Transformer, Text } from "react-konva";
 import Konva from "konva";
-import { useAnnotationStore, useCanvasStore } from "../../stores";
+import { useAnnotationStore, useCanvasStore, useImageStore } from "../../stores";
 import type { Annotation } from "../../stores";
 import { getLabelColor } from "../../constants";
 
@@ -26,6 +26,7 @@ export function Rectangle({
   const trRef = useRef<Konva.Transformer>(null);
   const { updateAnnotation, defaultOpacity, defaultStrokeWidth } =
     useAnnotationStore();
+  const { setHasInteracted } = useImageStore();
 
   const applyHistoricalStyle = isHistorical && !isPreviewMode;
 
@@ -50,6 +51,7 @@ export function Rectangle({
       x: e.target.x(),
       y: e.target.y(),
     });
+    setHasInteracted(true);
   };
 
   const dragBoundFunc = (pos: Konva.Vector2d) => {
@@ -91,6 +93,7 @@ export function Rectangle({
       width: Math.max(5, node.width() * scaleX),
       height: Math.max(5, node.height() * scaleY),
     });
+    setHasInteracted(true);
   };
 
   return (

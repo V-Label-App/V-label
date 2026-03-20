@@ -25,7 +25,7 @@ export class ProjectService {
                     deadline: data.deadline ?? null,
                     labelConfig: data.labelConfig ?? [],
                     enableAiAssistance: data.enableAiAssistance ?? false,
-                    status: ProjectStatus.ACTIVE,
+                    status: ProjectStatus.PAUSED,
                     members: {
                         create: {
                             userId: data.creatorId,

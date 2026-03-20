@@ -263,9 +263,12 @@ export class TaskService {
                     );
 
                     // Sort by oldest assignment first
-                    usersWithLastAssignment.sort((a, b) =>
-                        a.lastAssignedAt.getTime() - b.lastAssignedAt.getTime()
-                    );
+                    // If timestamps are equal, shuffle to avoid picking the same user in fast loops
+                    usersWithLastAssignment.sort((a, b) => {
+                        const diff = a.lastAssignedAt.getTime() - b.lastAssignedAt.getTime();
+                        if (diff === 0) return Math.random() - 0.5;
+                        return diff;
+                    });
 
                     selectedUser = usersWithLastAssignment[0]?.userId || null;
                     break;
@@ -697,6 +700,32 @@ export class TaskService {
             return false;
         }
     }
+
+    /**
+     * Bulk auto-assign all orphaned tasks in a project
+     */
+    static async bulkAutoAssignOrphans(projectId: string) {
+        try {
+            const { ProjectHealthService } = await import('./project-health.service.js');
+            const orphanedTasks = await ProjectHealthService.getOrphanedTasks(projectId);
+            const orphanedTaskIds = orphanedTasks.map(t => t.id);
+
+            let successCount = 0;
+            let failedCount = 0;
+
+            for (const taskId of orphanedTaskIds) {
+                // forceReassign: true bypasses the global toggle because this was explicitly triggered
+                const assigned = await this.autoAssignTask(taskId, projectId, 'ANNOTATOR', undefined, false, true);
+                if (assigned) successCount++;
+                else failedCount++;
+            }
+
+            return { successCount, failedCount };
+        } catch (error) {
+            logger.error('TASK_SERVICE', 'Bulk auto-assign orphans failed', { error });
+            throw error;
+        }
+    }
 }
 
 // ==== Event Listeners ====
@@ -711,32 +740,19 @@ appEvents.on('TASK_SUBMITTED_AUTO_REVIEWER', async ({ taskId, projectId, annotat
             include: { assignmentRule: true }
         });
 
-        logger.info('TASK_SERVICE', '[AUTO-REVIEWER] Project rules', {
-            hasProject: !!project,
-            hasRule: !!project?.assignmentRule,
-            autoAssignReviewer: project?.assignmentRule?.autoAssignReviewer,
-            isAutoAssignEnabled: project?.assignmentRule?.isAutoAssignEnabled,
-            minReviewerReputation: project?.assignmentRule?.minReviewerReputation,
-            maxTasksPerReviewer: project?.assignmentRule?.maxTasksPerReviewer,
-            reviewerDelayHours: project?.assignmentRule?.reviewerDelayHours,
-        });
-
         const delayHours = project?.assignmentRule?.reviewerDelayHours ?? 0;
 
         if (delayHours > 0) {
             const delayMs = delayHours * 3600 * 1000;
-            logger.info('TASK_SERVICE', '[AUTO-REVIEWER] Delaying assignment', { taskId, assignmentId, delayHours });
             setTimeout(async () => {
                 try {
-                    const result = await TaskService.autoAssignTask(taskId, projectId, 'REVIEWER', annotatorId);
-                    logger.info('TASK_SERVICE', '[AUTO-REVIEWER] Delayed assignment result', { taskId, result });
+                    await TaskService.autoAssignTask(taskId, projectId, 'REVIEWER', annotatorId);
                 } catch (delayedError) {
                     logger.error('TASK_SERVICE', '[AUTO-REVIEWER] Delayed assignment failed', { error: delayedError, taskId });
                 }
             }, delayMs);
         } else {
-            const result = await TaskService.autoAssignTask(taskId, projectId, 'REVIEWER', annotatorId);
-            logger.info('TASK_SERVICE', '[AUTO-REVIEWER] Assignment result', { taskId, assignmentId, result });
+            await TaskService.autoAssignTask(taskId, projectId, 'REVIEWER', annotatorId);
         }
     } catch (error) {
         logger.error('TASK_SERVICE', '[AUTO-REVIEWER] Event handler failed', { error, taskId, assignmentId });
@@ -745,16 +761,9 @@ appEvents.on('TASK_SUBMITTED_AUTO_REVIEWER', async ({ taskId, projectId, annotat
 
 appEvents.on('TASK_SKIPPED_REASSIGN', async ({ taskId, projectId, excludeUserId }) => {
     try {
-        // forceReassign=true bypasses isAutoAssignEnabled so projects using manual assignment
-        // still get automatic reassignment when the max-rejection threshold is exceeded.
-        const assigned = await TaskService.autoAssignTask(
+        await TaskService.autoAssignTask(
             taskId, projectId, 'ANNOTATOR', excludeUserId, false, true
         );
-        if (assigned) {
-            logger.info('TASK_SERVICE', 'Handled auto-reassign after max rejections', { taskId, projectId, excludeUserId });
-        } else {
-            logger.warn('TASK_SERVICE', 'Auto-reassign after max rejections failed: no eligible annotator found', { taskId, projectId, excludeUserId });
-        }
     } catch (error) {
         logger.error('TASK_SERVICE', 'Failed to handle auto-reassign event', { error, taskId, projectId });
     }
