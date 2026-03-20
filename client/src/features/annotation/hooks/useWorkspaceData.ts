@@ -46,6 +46,7 @@ export interface WorkspaceTaskData {
   deadline?: string;
   history?: SubmissionHistoryItem[];
   isTaskReassigned?: boolean;
+  rejectionCount?: number;
 }
 
 export interface UseWorkspaceDataReturn {
@@ -128,6 +129,7 @@ export const useWorkspaceData = (
         enableAiAssistance: assignment.task.project.enableAiAssistance ?? false,
         updatedAt: assignment.updatedAt,
         deadline: assignment.deadline ? String(assignment.deadline) : undefined,
+        rejectionCount: assignment.rejectionCount || 0,
         history: (() => {
           const allHistory: SubmissionHistoryItem[] = [];
 
@@ -205,7 +207,9 @@ export const useWorkspaceData = (
 
       // After history is calculated, determine if task was reassigned
       transformed.isTaskReassigned = transformed.history?.some(
-        (h) => h.annotator?.email && h.annotator.email !== assignment.annotator?.email,
+        (h) =>
+          h.annotator?.email &&
+          h.annotator.email !== assignment.annotator?.email,
       );
 
       return transformed;
@@ -283,7 +287,8 @@ export const useWorkspaceData = (
             return {
               ...transformed,
               history: hasNewHistory ? transformed.history : prev.history,
-              isTaskReassigned: transformed.isTaskReassigned || prev.isTaskReassigned,
+              isTaskReassigned:
+                transformed.isTaskReassigned || prev.isTaskReassigned,
             };
           });
           // Also sync with the image store to keep the navigator updated

@@ -242,6 +242,7 @@ export class ProjectService {
                 isAutoAssignEnabled?: boolean | undefined
                 assignmentStrategy?: string | undefined
                 autoAssignReviewer?: boolean | undefined
+                reviewerAssignmentStrategy?: string | undefined
                 reviewerDelayHours?: number | undefined
                 maxTasksPerAnnotator?: number | undefined
                 maxTasksPerReviewer?: number | undefined

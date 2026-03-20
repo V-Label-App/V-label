@@ -28,6 +28,8 @@ import taskActivityRoutes from './routes/task-activity.routes.js'
 import { initializeSocketServer } from './websocket/socket.server.js'
 import { EmailTemplateService } from './services/email/template.service.js'
 import { NotificationTemplateService } from './services/notification.template.service.js'
+// Register event listeners (auto-assign reviewer, auto-reassign on skip, etc.)
+import './services/task.service.js'
 
 const app = express()
 const httpServer = http.createServer(app)

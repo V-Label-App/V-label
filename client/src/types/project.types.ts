@@ -43,6 +43,7 @@ export interface AssignmentRule {
     isAutoAssignEnabled: boolean;
     assignmentStrategy: string;
     autoAssignReviewer: boolean;
+    reviewerAssignmentStrategy: string;
     reviewerDelayHours: number;
     maxTasksPerAnnotator: number;
     maxTasksPerReviewer: number;

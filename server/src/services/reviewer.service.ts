@@ -168,10 +168,13 @@ export class ReviewerService {
         prisma.taskAssignment.count({ where }),
       ])
 
-      // Calculate counts by status
+      // Calculate counts by status (scoped to same project filter if provided)
       const statusCounts = await prisma.taskAssignment.groupBy({
         by: ['status'],
-        where: { reviewerId: userId },
+        where: {
+          reviewerId: userId,
+          ...(projectId && { task: { projectId } }),
+        },
         _count: true,
       })
 

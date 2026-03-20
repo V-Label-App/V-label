@@ -8,6 +8,7 @@ import {
   CheckCircle,
   XCircle,
   Clock,
+  RotateCcw,
 } from "lucide-react";
 import { Badge } from "../../../../components/ui/badge";
 import { useImageStore } from "../../stores";
@@ -36,6 +37,7 @@ interface WorkspaceHeaderProps {
     reputationScore?: number;
   };
   isTaskReassigned?: boolean;
+  rejectionCount?: number;
 }
 
 export function WorkspaceHeader({
@@ -52,6 +54,7 @@ export function WorkspaceHeader({
   projectName,
   annotator,
   isTaskReassigned,
+  rejectionCount = 0,
 }: WorkspaceHeaderProps) {
   const { getCurrentImage, autoSaveStatus } = useImageStore();
   const currentImage = getCurrentImage();
@@ -106,11 +109,23 @@ export function WorkspaceHeader({
         )}
         {isSkipped && (
           <Badge
-            className={`ml-3 text-white animate-pulse ${isTaskReassigned ? "bg-indigo-600 shadow-[0_0_10px_rgba(79,70,229,0.3)]" : "bg-amber-600 shadow-[0_0_10px_rgba(217,119,6,0.3)]"}`}
+            className={`ml-3 text-white animate-pulse ${isTaskReassigned || taskStatus === "skipped" ? "bg-indigo-600 shadow-[0_0_10px_rgba(79,70,229,0.3)]" : "bg-amber-600 shadow-[0_0_10px_rgba(217,119,6,0.3)]"}`}
           >
-            {isTaskReassigned ? "REASSIGNED" : "REASSIGNING"}
+            {isTaskReassigned || taskStatus === "skipped"
+              ? "REASSIGNED"
+              : "REASSIGNING"}
           </Badge>
         )}
+
+        {rejectionCount > 0 && (
+          <div className="ml-3 flex items-center gap-1.5 px-2.5 py-1 bg-red-950/40 border border-red-500/30 rounded-full text-red-400">
+            <RotateCcw className="w-3 h-3" />
+            <span className="text-[11px] font-bold uppercase tracking-wide">
+              {rejectionCount} {rejectionCount === 1 ? "REJECTION" : "REJECTIONS"}
+            </span>
+          </div>
+        )}
+
         {mode === "review" && annotator && (
           <div className="ml-4 flex items-center gap-2 px-3 py-1 bg-purple-900/30 border border-purple-500/30 rounded-full text-purple-200">
             <span className="text-[10px] font-bold uppercase text-purple-400 tracking-wider">

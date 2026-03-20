@@ -394,6 +394,7 @@ model AssignmentRule {
   isAutoAssignEnabled         Boolean  @default(false) @map("is_auto_assign_enabled")
   assignmentStrategy          String   @default("ROUND_ROBIN") @map("assignment_strategy") @db.VarChar(50)
   autoAssignReviewer          Boolean  @default(true) @map("auto_assign_reviewer")
+  reviewerAssignmentStrategy  String   @default("ROUND_ROBIN") @map("reviewer_assignment_strategy") @db.VarChar(50)
   reviewerDelayHours          Int      @default(0) @map("reviewer_delay_hours")
   maxTasksPerAnnotator        Int      @default(10) @map("max_tasks_per_annotator")
   maxTasksPerReviewer         Int      @default(20) @map("max_tasks_per_reviewer")
