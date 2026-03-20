@@ -98,6 +98,8 @@ import {
   ShieldCheck,
   RefreshCw,
   BarChart3,
+  ClipboardCheck,
+  XCircle,
 } from "lucide-react";
 import {
   Tooltip,
@@ -1398,274 +1400,272 @@ export function ProjectDetailPage() {
         </div>
 
         {/* Project Header */}
-        <Card className="p-6 mb-8">
-          <div className="flex items-start justify-between mb-4 flex-wrap gap-4">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-3 mb-2 flex-wrap">
-                <FolderOpen className="w-6 h-6 text-blue-600" />
-                <h2 className="text-2xl font-semibold">{project.name}</h2>
-                <Badge variant="outline">
-                  {getAnnotationTypeLabel(project)}
-                </Badge>
-                <Badge
-                  className={
-                    project.status === ProjectStatus.ACTIVE
-                      ? "bg-green-100 text-green-700"
-                      : "bg-gray-100"
-                  }
-                >
-                  {project.status}
-                </Badge>
+        <div className="mb-6">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center shadow-sm">
+                <FolderOpen className="w-6 h-6 text-purple-600" />
               </div>
-              <p className="text-muted-foreground mb-4">
-                {project.description}
-              </p>
-
-              <div className="flex flex-wrap gap-2 mb-6">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          "gap-1.5 py-1 px-3 transition-all cursor-help border-dashed",
-                          project.assignmentRule?.isAutoAssignEnabled
-                            ? "bg-green-50 text-green-700 border-green-200"
-                            : "bg-gray-50 text-gray-400 border-gray-200",
-                        )}
-                      >
-                        <Zap
-                          className={cn(
-                            "w-3.5 h-3.5",
-                            project.assignmentRule?.isAutoAssignEnabled &&
-                              "fill-current",
-                          )}
-                        />
-                        <span className="text-[10px] font-bold uppercase tracking-wider">
-                          Auto-Assign Task:{" "}
-                          {project.assignmentRule?.isAutoAssignEnabled
-                            ? "ON"
-                            : "OFF"}
-                        </span>
-                      </Badge>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="text-xs">
-                        {project.assignmentRule?.isAutoAssignEnabled
-                          ? "Tasks are automatically assigned to available annotators."
-                          : "Manual task assignment is required."}
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          "gap-1.5 py-1 px-3 transition-all cursor-help border-dashed",
-                          project.assignmentRule?.autoAssignReviewer
-                            ? "bg-indigo-50 text-indigo-700 border-indigo-200"
-                            : "bg-gray-50 text-gray-400 border-gray-200",
-                        )}
-                      >
-                        <ShieldCheck
-                          className={cn(
-                            "w-3.5 h-3.5",
-                            project.assignmentRule?.autoAssignReviewer &&
-                              "fill-current",
-                          )}
-                        />
-                        <span className="text-[10px] font-bold uppercase tracking-wider">
-                          Auto-Reviewer:{" "}
-                          {project.assignmentRule?.autoAssignReviewer
-                            ? "ON"
-                            : "OFF"}
-                        </span>
-                      </Badge>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="text-xs">
-                        {project.assignmentRule?.autoAssignReviewer
-                          ? "Reviewers are automatically assigned to submitted tasks."
-                          : "Manual reviewer assignment is required."}
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          "gap-1.5 py-1 px-3 transition-all cursor-help border-dashed",
-                          project.assignmentRule?.autoReassignOnSkip
-                            ? "bg-amber-50 text-amber-700 border-amber-200"
-                            : "bg-gray-50 text-gray-400 border-gray-200",
-                        )}
-                      >
-                        <RefreshCw
-                          className={cn(
-                            "w-3.5 h-3.5",
-                            project.assignmentRule?.autoReassignOnSkip &&
-                              "stroke-[3]",
-                          )}
-                        />
-                        <span className="text-[10px] font-bold uppercase tracking-wider">
-                          Auto-Skip Reassign:{" "}
-                          {project.assignmentRule?.autoReassignOnSkip
-                            ? "ON"
-                            : "OFF"}
-                        </span>
-                      </Badge>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="text-xs">
-                        {project.assignmentRule?.autoReassignOnSkip
-                          ? "Tasks are immediately reassigned to others when skipped."
-                          : "Skipped tasks require manual intervention."}
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          "gap-1.5 py-1 px-3 transition-all cursor-help border-dashed",
-                          project.enableAiAssistance
-                            ? "bg-purple-50 text-purple-700 border-purple-200"
-                            : "bg-gray-50 text-gray-400 border-gray-200",
-                        )}
-                      >
-                        <Sparkles
-                          className={cn(
-                            "w-3.5 h-3.5",
-                            project.enableAiAssistance && "fill-current",
-                          )}
-                        />
-                        <span className="text-[10px] font-bold uppercase tracking-wider">
-                          AI Assistance:{" "}
-                          {project.enableAiAssistance ? "ON" : "OFF"}
-                        </span>
-                      </Badge>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="text-xs">
-                        {project.enableAiAssistance
-                          ? "AI-powered tools are enabled to assist annotators."
-                          : "AI assistance is disabled for this project."}
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">
-                    Overall Progress
-                  </span>
-                  <span className="font-semibold">
-                    {Math.round(projectProgress)}%
-                  </span>
-                </div>
-                <Progress value={projectProgress} className="h-2" />
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 tracking-tight">{project.name}</h1>
+                <p className="text-muted-foreground mt-1 max-w-2xl">
+                  {project.description || "No description provided for this project"}
+                </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 flex-wrap shrink-0">
-              <Badge
-                variant="outline"
-                className="border-blue-200 bg-blue-50 text-blue-700"
-              >
-                <CalendarIcon className="w-3 h-3 mr-1" />
-                Deadline:{" "}
-                {project.deadline
-                  ? format(new Date(project.deadline), "MMM dd, yyyy")
-                  : "No Deadline"}
-              </Badge>
-              {project.deadline && (
-                <Badge
-                  variant="outline"
-                  className={getDeadlineColor(
-                    getDaysRemaining(project.deadline),
-                  )}
-                >
-                  {getDeadlineText(project.deadline)}
+            <div className="flex flex-col items-end gap-3">
+              {project.category && (
+                <Badge className="bg-purple-50 text-purple-700 border-purple-200">
+                  {project.category.name}
                 </Badge>
               )}
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mt-6">
-            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-              <div className="w-10 h-10 bg-gray-200 rounded-lg flex items-center justify-center">
-                <Clock className="w-5 h-5 text-gray-600" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Total images</p>
-                <p className="text-xl font-semibold">
-                  {project._count?.images || 0}
-                </p>
-              </div>
-            </div>
+          {/* Project Features Badges */}
+          <div className="flex flex-wrap gap-2 mt-4">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "gap-1.5 py-1 px-3 transition-all cursor-help border-dashed",
+                      project.assignmentRule?.isAutoAssignEnabled
+                        ? "bg-green-50 text-green-700 border-green-200"
+                        : "bg-gray-50 text-gray-400 border-gray-200",
+                    )}
+                  >
+                    <Zap
+                      className={cn(
+                        "w-3.5 h-3.5",
+                        project.assignmentRule?.isAutoAssignEnabled &&
+                          "fill-current",
+                      )}
+                    />
+                    <span className="text-[10px] font-bold uppercase tracking-wider">
+                      Auto-Assign Task:{" "}
+                      {project.assignmentRule?.isAutoAssignEnabled
+                        ? "ON"
+                        : "OFF"}
+                    </span>
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs">
+                    {project.assignmentRule?.isAutoAssignEnabled
+                      ? "Tasks are automatically assigned to available annotators."
+                      : "Manual task assignment is required."}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
 
-            <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
-              <div className="w-10 h-10 bg-blue-200 rounded-lg flex items-center justify-center">
-                <Users className="w-5 h-5 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Members</p>
-                <p className="text-xl font-semibold">
-                  {project._count?.members || 0}
-                </p>
-              </div>
-            </div>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "gap-1.5 py-1 px-3 transition-all cursor-help border-dashed",
+                      project.assignmentRule?.autoAssignReviewer
+                        ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                        : "bg-gray-50 text-gray-400 border-gray-200",
+                    )}
+                  >
+                    <ShieldCheck
+                      className={cn(
+                        "w-3.5 h-3.5",
+                        project.assignmentRule?.autoAssignReviewer &&
+                          "fill-current",
+                      )}
+                    />
+                    <span className="text-[10px] font-bold uppercase tracking-wider">
+                      Auto-Reviewer:{" "}
+                      {project.assignmentRule?.autoAssignReviewer
+                        ? "ON"
+                        : "OFF"}
+                    </span>
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs">
+                    {project.assignmentRule?.autoAssignReviewer
+                      ? "Reviewers are automatically assigned to submitted tasks."
+                      : "Manual reviewer assignment is required."}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
 
-            <div className="flex items-center gap-3 p-3 bg-yellow-50 rounded-lg">
-              <div className="w-10 h-10 bg-yellow-200 rounded-lg flex items-center justify-center">
-                <AlertCircle className="w-5 h-5 text-yellow-600" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Tasks</p>
-                <p className="text-xl font-semibold">
-                  {project._count?.tasks || 0}
-                </p>
-              </div>
-            </div>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "gap-1.5 py-1 px-3 transition-all cursor-help border-dashed",
+                      project.assignmentRule?.autoReassignOnSkip
+                        ? "bg-amber-50 text-amber-700 border-amber-200"
+                        : "bg-gray-50 text-gray-400 border-gray-200",
+                    )}
+                  >
+                    <RefreshCw
+                      className={cn(
+                        "w-3.5 h-3.5",
+                        project.assignmentRule?.autoReassignOnSkip &&
+                          "stroke-[3]",
+                      )}
+                    />
+                    <span className="text-[10px] font-bold uppercase tracking-wider">
+                      Auto-Skip Reassign:{" "}
+                      {project.assignmentRule?.autoReassignOnSkip
+                        ? "ON"
+                        : "OFF"}
+                    </span>
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs">
+                    {project.assignmentRule?.autoReassignOnSkip
+                      ? "Tasks are immediately reassigned to others when skipped."
+                      : "Skipped tasks require manual intervention."}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
 
-            <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
-              <div className="w-10 h-10 bg-green-200 rounded-lg flex items-center justify-center">
-                <CheckCircle2 className="w-5 h-5 text-green-600" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Approved</p>
-                <p className="text-xl font-semibold">
-                  {tasks.filter((t: any) => t.status === "approved").length}
-                </p>
-              </div>
-            </div>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "gap-1.5 py-1 px-3 transition-all cursor-help border-dashed",
+                      project.enableAiAssistance
+                        ? "bg-purple-50 text-purple-700 border-purple-200"
+                        : "bg-gray-50 text-gray-400 border-gray-200",
+                    )}
+                  >
+                    <Sparkles
+                      className={cn(
+                        "w-3.5 h-3.5",
+                        project.enableAiAssistance && "fill-current",
+                      )}
+                    />
+                    <span className="text-[10px] font-bold uppercase tracking-wider">
+                      AI Assistance:{" "}
+                      {project.enableAiAssistance ? "ON" : "OFF"}
+                    </span>
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs">
+                    {project.enableAiAssistance
+                      ? "AI-powered tools are enabled to assist annotators."
+                      : "AI assistance is disabled for this project."}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
 
-            {pendingLabelRequests > 0 && (
-              <div
-                className="flex items-center gap-3 p-3 bg-purple-50 rounded-lg cursor-pointer hover:bg-purple-100 transition-colors"
-                onClick={() => setActiveTab("requests")}
-              >
-                <div className="w-10 h-10 bg-purple-200 rounded-lg flex items-center justify-center">
-                  <Pen className="w-5 h-5 text-purple-600" />
+          {/* Project Labels Section */}
+          {project.projectLabels && project.projectLabels.length > 0 && (
+            <Card className="p-4 mt-4">
+              <div>
+                <h3 className="text-sm font-medium text-gray-700 mb-3">
+                  Project Labels
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {project.projectLabels.map((pl: any) => (
+                    <Badge
+                      key={pl.label.id}
+                      variant="outline"
+                      style={{
+                        backgroundColor: `${pl.label.color}20`,
+                        borderColor: pl.label.color,
+                        color: pl.label.color,
+                      }}
+                      className="px-3 py-1"
+                    >
+                      {pl.label.name}
+                      {pl.label.category && (
+                        <span className="ml-1 text-xs opacity-75">
+                          ({pl.label.category.name})
+                        </span>
+                      )}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            </Card>
+          )}
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <Card className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                  <ClipboardCheck className="w-5 h-5 text-purple-600" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">
-                    Label Requests
-                  </p>
-                  <p className="text-xl font-semibold text-purple-700">
-                    {pendingLabelRequests} Pending
+                  <p className="text-sm text-muted-foreground">Total Tasks</p>
+                  <p className="text-2xl font-bold">
+                    {tasks.length}
                   </p>
                 </div>
               </div>
-            )}
+            </Card>
+
+            <Card className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <Clock className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Pending</p>
+                  <p className="text-2xl font-bold">
+                    {submittedTasks.length}
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                  <CheckCircle2 className="w-5 h-5 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Approved</p>
+                  <p className="text-2xl font-bold">
+                    {completedTasks.length}
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                  <XCircle className="w-5 h-5 text-red-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Rejected</p>
+                  <p className="text-2xl font-bold">
+                    {rejectedTasks.length}
+                  </p>
+                </div>
+              </div>
+            </Card>
+        </div>
+
+        {/* Overall Progress */}
+        <Card className="p-4 mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm font-medium">Overall Project Progress</p>
+            <span className="text-sm text-muted-foreground">
+              {Math.round(projectProgress)}%
+            </span>
           </div>
+          <Progress value={projectProgress} className="h-2" />
         </Card>
 
         {/* Tabs: Tasks & Analytics */}
