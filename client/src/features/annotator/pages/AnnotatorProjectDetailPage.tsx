@@ -36,7 +36,6 @@ import {
   AlertTriangle,
   Search,
   Eye,
-  Sparkles,
   RotateCcw,
   RefreshCw,
   ClipboardCheck,

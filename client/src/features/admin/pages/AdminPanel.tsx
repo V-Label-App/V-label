@@ -147,7 +147,7 @@ export function AdminPanel() {
       // Transform API data to component interface
       // We map and then filter out any null/undefined entries if the API returns mixed data
       const transformedUsers: User[] = (data || [])
-        .map((u: ApiUserResponse | undefined) => {
+        .map((u: ApiUserResponse | undefined): User | null => {
           if (!u) return null;
           return {
             id: u.id,
@@ -160,7 +160,7 @@ export function AdminPanel() {
               | "ANNOTATOR",
             is_active: u.isActive ?? false,
             reputation_score: Math.max(0, u.reputationScore || 0),
-            avatarUrl: u.avatarUrl,
+            avatarUrl: u.avatarUrl ?? null,
           };
         })
         .filter((u): u is User => u !== null && u.role !== "ADMIN");
@@ -478,6 +478,11 @@ export function AdminPanel() {
       aValue = aValue ? 1 : 0;
       bValue = bValue ? 1 : 0;
     }
+
+    // Handle null/undefined values
+    if (aValue == null && bValue == null) return 0;
+    if (aValue == null) return direction === "asc" ? 1 : -1;
+    if (bValue == null) return direction === "asc" ? -1 : 1;
 
     if (aValue < bValue) {
       return direction === "asc" ? -1 : 1;

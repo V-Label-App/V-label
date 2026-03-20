@@ -86,7 +86,6 @@ import {
   FileUp,
   Search,
   Loader2,
-  Pen,
   CheckCircle2,
   Sparkles,
   UserMinus,
@@ -1215,62 +1214,12 @@ export function ProjectDetailPage() {
   //   return new Date(deadline) < new Date();
   // };
 
-  const getDaysRemaining = (deadline?: string) => {
-    if (!deadline) return null;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const deadlineDate = new Date(deadline);
-    deadlineDate.setHours(0, 0, 0, 0);
-    const diffTime = deadlineDate.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
-  };
-
-  const getDeadlineColor = (daysRemaining: number | null) => {
-    if (daysRemaining === null)
-      return "border-blue-200 bg-blue-50 text-blue-700";
-    if (daysRemaining < 0) return "border-red-200 bg-red-50 text-red-700";
-    if (daysRemaining <= 2) return "border-red-200 bg-red-50 text-red-700";
-    if (daysRemaining <= 6)
-      return "border-yellow-200 bg-yellow-50 text-yellow-700";
-    return "border-green-200 bg-green-50 text-green-700";
-  };
-
-  const getDeadlineText = (deadline?: string) => {
-    if (!deadline) return "No Deadline";
-    const daysRemaining = getDaysRemaining(deadline);
-    if (daysRemaining === null) return "No Deadline";
-    if (daysRemaining < 0) {
-      const overdueDays = Math.abs(daysRemaining);
-      return overdueDays === 1
-        ? "Overdue 1 day"
-        : `Overdue ${overdueDays} days`;
-    } else if (daysRemaining === 0) {
-      return "Due Today";
-    } else if (daysRemaining === 1) {
-      return "1 day left";
-    } else {
-      return `${daysRemaining} days left`;
-    }
-  };
-
-  const getAnnotationTypeLabel = (project: Project) => {
-    const meta = project.labelConfig?.find((l: any) => l.type === "meta");
-    const type = meta?.annotationType || "bounding-box";
-    const labels = {
-      "bounding-box": "Bounding Box",
-      polygon: "Polygon",
-      segmentation: "Segmentation",
-    };
-    return labels[type as keyof typeof labels] || type;
-  };
-
   // Analytics Mock Data (Until we have real stats)
   // const statusData = [ ... ]; // removed unused
   // const annotatorData: any[] = [];
   // const progressData: any[] = [];
 
-  const exportProjectCOCO = async (
+  const exportProjectCOCO = async(
     trainRatio: number,
     valRatio: number,
     testRatio: number,
