@@ -67,10 +67,12 @@ interface DashboardStats {
     thisWeek: number;
     thisMonth: number;
     total: number;
+    monthlyData: { month: string; count: number }[];
   };
   labels: {
     thisMonth: number;
     total: number;
+    monthlyData: { month: string; count: number }[];
   };
   storage: {
     used: number;
@@ -612,7 +614,7 @@ function renderCardView(stats: DashboardStats) {
                       <div>
                         <div className="font-medium">{annotator.name}</div>
                         <div className="text-xs text-gray-500">
-                          {annotator.count.toLocaleString()} nhãn
+                          {annotator.count.toLocaleString()} ảnh
                         </div>
                       </div>
                     </div>
@@ -637,9 +639,9 @@ function renderCardView(stats: DashboardStats) {
       {/* Annotations Trend */}
       <Card>
         <CardHeader>
-          <CardTitle>Xu Hướng Gán Nhãn</CardTitle>
+          <CardTitle>Công Việc Hoàn Thành</CardTitle>
           <CardDescription>
-            Số lượng nhãn được tạo theo thời gian
+            Số lượng ảnh đã được xử lý theo thời gian
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -671,7 +673,7 @@ function renderCardView(stats: DashboardStats) {
               {stats.annotations.total.toLocaleString()}
             </div>
             <div className="text-sm text-gray-600 mt-1">
-              Tổng số nhãn đã tạo
+              Tổng số ảnh đã xử lý
             </div>
           </div>
         </CardContent>
@@ -706,22 +708,65 @@ function renderChartView(stats: DashboardStats, onViewProjects: () => void) {
   // Storage usage percentage - use the pre-calculated percentage from backend
   const storagePercentage = stats.storage.percentage;
 
-  // Prepare data for Annotations Timeline (monthly trend)
+  // Prepare data for Annotations Timeline (monthly trend) - Last 6 months from real data
   const generateMonthlyAnnotations = () => {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-    const currentMonth = new Date().getMonth();
-    const avgPerMonth = Math.floor(stats.annotations.total / 12);
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth(); // 0-11
+    const currentYear = currentDate.getFullYear();
     
-    return months.map((month, index) => {
-      const isCurrentMonth = index === (currentMonth % 6);
-      const value = isCurrentMonth 
-        ? stats.annotations.thisMonth 
-        : Math.floor(avgPerMonth * (0.6 + Math.random() * 0.8));
-      return { name: month, value, color: isCurrentMonth ? COLORS[0] : COLORS[1] };
-    });
+    // Generate last 6 months array
+    const last6Months = [];
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(currentYear, currentMonth - i, 1);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const monthIndex = date.getMonth();
+      const isCurrentMonth = i === 0;
+      
+      // Find data from backend
+      const dataPoint = stats.annotations.monthlyData.find(d => d.month === monthKey);
+      
+      last6Months.push({
+        name: monthNames[monthIndex],
+        value: dataPoint ? dataPoint.count : 0,
+        color: isCurrentMonth ? COLORS[0] : COLORS[1]
+      });
+    }
+    
+    return last6Months;
   };
 
   const monthlyAnnotations = generateMonthlyAnnotations();
+
+  // Prepare data for Labels Timeline (monthly trend) - Last 6 months from real data
+  const generateMonthlyLabels = () => {
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth(); // 0-11
+    const currentYear = currentDate.getFullYear();
+    
+    // Generate last 6 months array
+    const last6Months = [];
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(currentYear, currentMonth - i, 1);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const monthIndex = date.getMonth();
+      const isCurrentMonth = i === 0;
+      
+      // Find data from backend
+      const dataPoint = stats.labels.monthlyData.find(d => d.month === monthKey);
+      
+      last6Months.push({
+        name: monthNames[monthIndex],
+        value: dataPoint ? dataPoint.count : 0,
+        color: isCurrentMonth ? COLORS[3] : COLORS[1]
+      });
+    }
+    
+    return last6Months;
+  };
+
+  const monthlyLabels = generateMonthlyLabels();
 
   return (
     <div className="space-y-6">
@@ -800,7 +845,7 @@ function renderChartView(stats: DashboardStats, onViewProjects: () => void) {
         {/* Storage Usage - Donut Chart */}
         <Card>
           <CardHeader>
-            <CardTitle>Storage Usage</CardTitle>
+            <CardTitle>Server Storage Usage</CardTitle>
             <CardDescription>Dung lượng lưu trữ đã sử dụng</CardDescription>
           </CardHeader>
           <CardContent>
@@ -847,11 +892,11 @@ function renderChartView(stats: DashboardStats, onViewProjects: () => void) {
           </CardContent>
         </Card>
 
-        {/* Monthly Annotations Trend - Bar Chart */}
+        {/* Monthly Annotations - Bar Chart */}
         <Card>
           <CardHeader>
-            <CardTitle>Monthly Annotations</CardTitle>
-            <CardDescription>Số lượng nhãn được tạo mỗi tháng</CardDescription>
+            <CardTitle>Monthly Tasks</CardTitle>
+            <CardDescription>Số lượng ảnh được xử lý trong 6 tháng gần nhất</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -860,10 +905,10 @@ function renderChartView(stats: DashboardStats, onViewProjects: () => void) {
                 <XAxis dataKey="name" />
                 <YAxis />
                 <Tooltip 
-                  formatter={(value) => value ? [`${value} annotations`, 'Count'] : ['0 annotations', 'Count']}
+                  formatter={(value) => value ? [`${value} images`, 'Tasks'] : ['0 images', 'Tasks']}
                 />
                 <Legend />
-                <Bar dataKey="value" name="Annotations" radius={[8, 8, 0, 0]}>
+                <Bar dataKey="value" name="Images Processed" radius={[8, 8, 0, 0]}>
                   {monthlyAnnotations.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
@@ -874,7 +919,39 @@ function renderChartView(stats: DashboardStats, onViewProjects: () => void) {
               <div className="text-2xl font-bold text-gray-700">
                 {stats.annotations.thisMonth.toLocaleString()}
               </div>
-              <div className="text-xs text-gray-600 mt-1">Nhãn tháng này</div>
+              <div className="text-xs text-gray-600 mt-1">Ảnh được xử lý tháng này</div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Monthly Labels - Bar Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Monthly Labels Created</CardTitle>
+            <CardDescription>Số lượng nhãn được tạo trong 6 tháng gần nhất</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={monthlyLabels}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip 
+                  formatter={(value) => value ? [`${value} labels`, 'Count'] : ['0 labels', 'Count']}
+                />
+                <Legend />
+                <Bar dataKey="value" name="Labels Created" radius={[8, 8, 0, 0]}>
+                  {monthlyLabels.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+            <div className="mt-4 p-3 bg-gradient-to-r from-orange-50 to-yellow-50 rounded-lg text-center">
+              <div className="text-2xl font-bold text-gray-700">
+                {stats.labels.thisMonth.toLocaleString()}
+              </div>
+              <div className="text-xs text-gray-600 mt-1">Nhãn được tạo tháng này</div>
             </div>
           </CardContent>
         </Card>
@@ -1081,7 +1158,7 @@ function renderChartView(stats: DashboardStats, onViewProjects: () => void) {
                 <YAxis dataKey="name" type="category" width={90} />
                 <Tooltip />
                 <Legend />
-                <Bar dataKey="count" fill={COLORS[0]} name="Số nhãn" />
+                <Bar dataKey="count" fill={COLORS[0]} name="Số ảnh" />
                 <Bar dataKey="quality" fill={COLORS[2]} name="Chất lượng (%)" />
               </BarChart>
             </ResponsiveContainer>

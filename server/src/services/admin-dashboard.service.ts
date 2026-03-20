@@ -23,10 +23,12 @@ export interface DashboardStats {
     thisWeek: number
     thisMonth: number
     total: number
+    monthlyData: { month: string; count: number }[]
   }
   labels: {
     thisMonth: number
     total: number
+    monthlyData: { month: string; count: number }[]
   }
   storage: {
     used: number
@@ -284,6 +286,48 @@ export class AdminDashboardService {
     // Storage calculation - Get real disk usage from VPS
     const diskUsage = this.getDiskUsage()
 
+    // Get monthly data for annotations (last 6 months)
+    const sixMonthsAgo = new Date()
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5)
+    sixMonthsAgo.setDate(1)
+    sixMonthsAgo.setHours(0, 0, 0, 0)
+
+    const annotationsMonthlyRaw = await prisma.$queryRaw<
+      { month: Date; count: bigint }[]
+    >`
+      SELECT 
+        DATE_TRUNC('month', "updated_at") as month,
+        COUNT(*)::bigint as count
+      FROM task_assignments
+      WHERE status IN ('SUBMITTED', 'APPROVED', 'REJECTED')
+        AND "updated_at" >= ${sixMonthsAgo}
+      GROUP BY DATE_TRUNC('month', "updated_at")
+      ORDER BY month ASC
+    `
+
+    const annotationsMonthlyData = annotationsMonthlyRaw.map((row) => ({
+      month: row.month.toISOString().substring(0, 7), // YYYY-MM
+      count: Number(row.count),
+    }))
+
+    // Get monthly data for labels (last 6 months)
+    const labelsMonthlyRaw = await prisma.$queryRaw<
+      { month: Date; count: bigint }[]
+    >`
+      SELECT 
+        DATE_TRUNC('month', "created_at") as month,
+        COUNT(*)::bigint as count
+      FROM labels
+      WHERE "created_at" >= ${sixMonthsAgo}
+      GROUP BY DATE_TRUNC('month', "created_at")
+      ORDER BY month ASC
+    `
+
+    const labelsMonthlyData = labelsMonthlyRaw.map((row) => ({
+      month: row.month.toISOString().substring(0, 7), // YYYY-MM
+      count: Number(row.count),
+    }))
+
     // Fetch Cloudinary Usage
     let cloudinaryUsage: any = null
     try {
@@ -332,10 +376,12 @@ export class AdminDashboardService {
         thisWeek: annotationsThisWeek,
         thisMonth: annotationsThisMonth,
         total: totalAnnotations,
+        monthlyData: annotationsMonthlyData,
       },
       labels: {
         thisMonth: labelsThisMonth,
         total: totalLabels,
+        monthlyData: labelsMonthlyData,
       },
       storage: {
         used: diskUsage.used,
