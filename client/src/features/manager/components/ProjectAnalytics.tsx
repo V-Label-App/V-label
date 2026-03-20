@@ -104,7 +104,11 @@ export const ProjectAnalytics: React.FC<ProjectAnalyticsProps> = ({
             assignment.status === "DONE"
           ) {
             stats[userId].completed++;
-          } else if (assignment.status === "REJECTED") {
+          } else if (
+            assignment.status === "REJECTED" || 
+            assignment.status === "REASSIGNING" || 
+            assignment.status === "REASSIGNED"
+          ) {
             stats[userId].rejected++;
           } else if (
             ["ASSIGNED", "IN_PROGRESS", "SUBMITTED"].includes(assignment.status)

@@ -156,10 +156,16 @@ export class AnnotatorService {
           statusCounts.find((s) => s.status === AssignmentStatus.SUBMITTED)
             ?._count || 0,
         rejected:
-          statusCounts.find((s) => s.status === AssignmentStatus.REJECTED)
+          statusCounts.find((s) => s.status === 'REJECTED')
             ?._count || 0,
         inProgress:
-          statusCounts.find((s) => s.status === AssignmentStatus.IN_PROGRESS)
+          statusCounts.find((s) => s.status === 'IN_PROGRESS')
+            ?._count || 0,
+        reassigning:
+          statusCounts.find((s) => s.status === 'REASSIGNING')
+            ?._count || 0,
+        reassigned:
+          statusCounts.find((s) => s.status === 'REASSIGNED')
             ?._count || 0,
         total,
       }

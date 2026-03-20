@@ -104,8 +104,8 @@ export class TaskService {
     ): Promise<number> {
         const activeStatuses = role === 'REVIEWER'
             // Reviewer active = assigned-to-review (SUBMITTED) + in progress
-            ? [AssignmentStatus.SUBMITTED, AssignmentStatus.IN_PROGRESS]
-            : [AssignmentStatus.ASSIGNED, AssignmentStatus.IN_PROGRESS];
+            ? ['SUBMITTED' as any, 'IN_PROGRESS' as any]
+            : ['ASSIGNED' as any, 'IN_PROGRESS' as any];
 
         if (role === 'ANNOTATOR') {
             return prisma.taskAssignment.count({
@@ -276,8 +276,8 @@ export class TaskService {
                     const usersWithTaskCount = await Promise.all(
                         candidates.map(async (candidate) => {
                             const activeStatuses = role === ProjectRole.REVIEWER
-                                ? [AssignmentStatus.SUBMITTED, AssignmentStatus.IN_PROGRESS]
-                                : [AssignmentStatus.ASSIGNED, AssignmentStatus.IN_PROGRESS];
+                                ? ['SUBMITTED' as any, 'IN_PROGRESS' as any]
+                                : ['ASSIGNED' as any, 'IN_PROGRESS' as any];
 
                             const userWhere = role === ProjectRole.ANNOTATOR
                                 ? { annotatorId: candidate.userId, task: { projectId }, status: { in: activeStatuses } }
@@ -356,25 +356,44 @@ export class TaskService {
                     where: {
                         taskId,
                         status: {
-                            in: [AssignmentStatus.ASSIGNED, AssignmentStatus.IN_PROGRESS, AssignmentStatus.REJECTED]
+                            in: ['ASSIGNED', 'IN_PROGRESS', 'REJECTED', 'REASSIGNING'] as any
                         }
                     },
-                    select: { id: true, annotatorId: true }
+                    select: { id: true, annotatorId: true, status: true }
                 });
 
                 if (existingAssignments.length > 0) {
                     const oldAnnotatorIds = [...new Set(existingAssignments.map(a => a.annotatorId))];
 
-                    // Mark active/rejected tasks as SKIPPED to revoke access permanentely 
-                    await prisma.taskAssignment.updateMany({
-                        where: {
-                            id: { in: existingAssignments.map(a => a.id) }
-                        },
-                        data: {
-                            status: AssignmentStatus.SKIPPED,
-                            updatedAt: new Date()
-                        }
-                    });
+                    // 1. Mark REASSIGNING and REJECTED tasks as REASSIGNED
+                    const reassignableIds = existingAssignments
+                        .filter(a => a.status === 'REASSIGNING' || a.status === 'REJECTED')
+                        .map(a => a.id);
+                    
+                    if (reassignableIds.length > 0) {
+                        await prisma.taskAssignment.updateMany({
+                            where: { id: { in: reassignableIds } },
+                            data: {
+                                status: 'REASSIGNED' as any,
+                                updatedAt: new Date()
+                            }
+                        });
+                    }
+
+                    // 2. Mark active (ASSIGNED/IN_PROGRESS) tasks as SKIPPED
+                    const skippableIds = existingAssignments
+                        .filter(a => a.status === 'ASSIGNED' || a.status === 'IN_PROGRESS')
+                        .map(a => a.id);
+
+                    if (skippableIds.length > 0) {
+                        await prisma.taskAssignment.updateMany({
+                            where: { id: { in: skippableIds } },
+                            data: {
+                                status: 'SKIPPED' as any,
+                                updatedAt: new Date()
+                            }
+                        });
+                    }
 
                     // Recalculate workloads for old annotators (to keep stats in sync)
                     const { UserWorkloadService } = await import('./user-workload.service.js');
@@ -393,7 +412,7 @@ export class TaskService {
                 const data: any = {
                     taskId,
                     annotatorId: userId,
-                    status: AssignmentStatus.ASSIGNED,
+                    status: 'ASSIGNED' as any,
                     assignmentMethod: method,
                     deadline,
                     ...(assignedBy && { assignedBy })
@@ -416,7 +435,7 @@ export class TaskService {
                 const existingAssignment = await prisma.taskAssignment.findFirst({
                     where: {
                         taskId,
-                        status: AssignmentStatus.SUBMITTED
+                        status: 'SUBMITTED' as any
                     },
                     orderBy: { updatedAt: 'desc' }
                 });
@@ -505,7 +524,7 @@ export class TaskService {
                 data: {
                     imageId,
                     projectId,
-                    status: 'TODO',
+                    status: 'TODO' as any,
                     priority: TaskPriority.MEDIUM,
                     difficultyLevel: DifficultyLevel.NORMAL
                 }

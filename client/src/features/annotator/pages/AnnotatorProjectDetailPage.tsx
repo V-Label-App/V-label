@@ -138,6 +138,14 @@ export function AnnotatorProjectDetailPage() {
         className: "bg-red-100 text-red-700 border-red-300",
         label: "Rejected",
       },
+      REASSIGNING: {
+        className: "bg-amber-100 text-amber-700 border-amber-300 font-bold animate-pulse",
+        label: "Reassigning",
+      },
+      REASSIGNED: {
+        className: "bg-indigo-100 text-indigo-700 border-indigo-300",
+        label: "Reassigned",
+      },
       IN_PROGRESS: {
         className: "bg-yellow-100 text-yellow-700 border-yellow-300",
         label: "In Progress",
@@ -452,23 +460,23 @@ export function AnnotatorProjectDetailPage() {
                   </TableHeader>
                   <TableBody>
                     {filteredTasks.map((task) => {
-                      const projectMaxRejections =
-                        project?.assignmentRule?.maxRejectionsBeforeReassign;
                       // Permanently lock if SKIPPED (hit limit) regardless of project settings
                       const isLocked =
                         task.status === "SKIPPED" ||
-                        (task.status === "REJECTED" &&
-                          (task.rejectionCount || 0) >=
-                            (projectMaxRejections ?? task.maxRejections ?? 3));
+                        task.status === "REASSIGNING" ||
+                        task.status === "REASSIGNED";
 
                       const statusBadge = isLocked
                         ? {
                             className:
                               task.status === "SKIPPED"
                                 ? "bg-indigo-100 text-indigo-700 border-indigo-300"
+                                : task.status === "REASSIGNED"
+                                ? "bg-purple-100 text-purple-700 border-purple-300"
                                 : "bg-amber-100 text-amber-700 border-amber-300 font-bold animate-pulse",
                             label:
-                              task.status === "SKIPPED"
+                              task.status === "SKIPPED" ||
+                              task.status === "REASSIGNED"
                                 ? "REASSIGNED"
                                 : "REASSIGNING",
                           }
