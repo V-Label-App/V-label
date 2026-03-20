@@ -235,6 +235,15 @@ export class AnnotatorService {
               },
             },
           },
+          annotator: {
+            select: {
+              id: true,
+              fullName: true,
+              email: true,
+              avatarUrl: true,
+              reputationScore: true,
+            },
+          },
           reviewer: {
             select: {
               id: true,

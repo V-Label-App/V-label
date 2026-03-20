@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "../../../components/ui/button";
 import { Card } from "../../../components/ui/card";
 import { Badge } from "../../../components/ui/badge";
@@ -52,6 +52,7 @@ import { ChatPanel } from "../../../components/chat/ChatPanel";
 export function AnnotatorProjectDetailPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [project, setProject] = useState<any>(null);
   const [tasks, setTasks] = useState<TaskAssignmentListItem[]>([]);
@@ -107,7 +108,7 @@ export function AnnotatorProjectDetailPage() {
 
   useEffect(() => {
     fetchTasks();
-  }, [fetchTasks]);
+  }, [fetchTasks, location.key]);
 
   if (!project) {
     return (

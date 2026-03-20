@@ -66,6 +66,14 @@ export function WorkspacePage({
   const [resolvedId, setResolvedId] = useState<string | null>(isTaskId ? null : taskId || "");
   const [isResolving, setIsResolving] = useState(isTaskId);
 
+  // Keep resolvedId in sync with taskId URL param when navigating between tasks
+  // (WorkspacePage is not remounted on taskId change — useState initial value only runs once)
+  useEffect(() => {
+    if (!isTaskId && taskId && taskId !== resolvedId) {
+      setResolvedId(taskId);
+    }
+  }, [taskId, isTaskId, resolvedId]);
+
   // Read mode from URL query params, fallback to props
   const mode =
     (searchParams.get("mode") as "annotate" | "review") ||
@@ -137,7 +145,7 @@ export function WorkspacePage({
     }
   }, [taskData, dataLoading]);
 
-  const { updateImages, getCurrentImage, currentIndex, jumpToImage } =
+  const { updateImages, getCurrentImage, currentIndex, jumpToImage, setAutoSaveStatus } =
     useImageStore();
 
   // Derive taskStatus dynamically from taskData, fallback to propTaskStatus/assigned
@@ -251,6 +259,9 @@ export function WorkspacePage({
 
         // Reset preview state
         setPreviewingSubmission(null);
+
+        // Reset auto-save status so previous task's "Unsaved changes" doesn't bleed over
+        setAutoSaveStatus("saved");
       }
     }
   }, [
@@ -261,6 +272,7 @@ export function WorkspacePage({
     clearAnnotations,
     setAnnotatorNote,
     setReviewComment,
+    setAutoSaveStatus,
   ]);
 
   // Update image tasks list and current index when project tasks are loaded

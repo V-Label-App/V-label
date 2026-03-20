@@ -211,6 +211,7 @@ export function ProjectDetailPage() {
     isAutoAssignEnabled: false,
     assignmentStrategy: "ROUND_ROBIN",
     autoAssignReviewer: true,
+    reviewerAssignmentStrategy: "ROUND_ROBIN",
     reviewerDelayHours: 0,
     maxTasksPerAnnotator: 10,
     maxTasksPerReviewer: 20,
@@ -4070,122 +4071,124 @@ export function ProjectDetailPage() {
                   </p>
 
                   <div className="space-y-8">
-                    {/* 1. Auto-Assignment Settings */}
-                    <div>
-                      <h4 className="font-medium text-sm text-gray-900 border-b pb-2 mb-4">
-                        Auto-Assignment Settings
-                      </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <Label>Auto-Assign Tasks</Label>
-                              <Popover>
-                                <PopoverTrigger>
-                                  <AlertCircle className="w-4 h-4 text-gray-400 cursor-help" />
-                                </PopoverTrigger>
-                                <PopoverContent className="w-80">
-                                  <p className="text-sm">
-                                    Automatically distribute new image uploads
-                                    to available annotators based on the
-                                    selected strategy.
-                                  </p>
-                                </PopoverContent>
-                              </Popover>
-                            </div>
-                            <Switch
-                              checked={editAssignmentRule.isAutoAssignEnabled}
-                              onCheckedChange={(c) =>
-                                setEditAssignmentRule((p) => ({
-                                  ...p,
-                                  isAutoAssignEnabled: c,
-                                }))
-                              }
-                            />
-                          </div>
-
-                          <div className="space-y-2">
-                            <Label>Assignment Strategy</Label>
-                            <Select
-                              value={editAssignmentRule.assignmentStrategy}
-                              onValueChange={(v) =>
-                                setEditAssignmentRule((p) => ({
-                                  ...p,
-                                  assignmentStrategy: v,
-                                }))
-                              }
-                              disabled={!editAssignmentRule.isAutoAssignEnabled}
-                            >
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="ROUND_ROBIN">
-                                  Round Robin
-                                </SelectItem>
-                                <SelectItem value="LEAST_BUSY">
-                                  Least Busy
-                                </SelectItem>
-                                <SelectItem value="RANDOM">Random</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
+                    {/* 1a. Auto-Assign Tasks */}
+                    <div className="rounded-lg border border-gray-200 p-4 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-medium text-sm text-gray-900">Auto-Assign Tasks</h4>
+                          <Popover>
+                            <PopoverTrigger>
+                              <AlertCircle className="w-4 h-4 text-gray-400 cursor-help" />
+                            </PopoverTrigger>
+                            <PopoverContent className="w-80">
+                              <p className="text-sm">
+                                Automatically distribute new image uploads to
+                                available annotators based on the selected strategy.
+                              </p>
+                            </PopoverContent>
+                          </Popover>
                         </div>
+                        <Switch
+                          checked={editAssignmentRule.isAutoAssignEnabled}
+                          onCheckedChange={(c) =>
+                            setEditAssignmentRule((p) => ({
+                              ...p,
+                              isAutoAssignEnabled: c,
+                            }))
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-gray-600">Assignment Strategy</Label>
+                        <Select
+                          value={editAssignmentRule.assignmentStrategy}
+                          onValueChange={(v) =>
+                            setEditAssignmentRule((p) => ({
+                              ...p,
+                              assignmentStrategy: v,
+                            }))
+                          }
+                          disabled={!editAssignmentRule.isAutoAssignEnabled}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="ROUND_ROBIN">Round Robin</SelectItem>
+                            <SelectItem value="LEAST_BUSY">Least Busy</SelectItem>
+                            <SelectItem value="RANDOM">Random</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
 
-                        <div className="space-y-4">
-                          <div className="flex items-center justify-between">
-                            <div className="space-y-0.5">
-                              <div className="flex items-center gap-2">
-                                <Label>Auto-Assign Reviewer</Label>
-                                <Popover>
-                                  <PopoverTrigger>
-                                    <AlertCircle className="w-4 h-4 text-gray-400 cursor-help" />
-                                  </PopoverTrigger>
-                                  <PopoverContent className="w-80">
-                                    <p className="text-sm">
-                                      Automatically assign a reviewer when an
-                                      annotator submits a task (prevents
-                                      conflict of interest).
-                                    </p>
-                                  </PopoverContent>
-                                </Popover>
-                              </div>
-                              {/* <p className="text-xs text-muted-foreground">
-                                Assign reviewer when task is submitted
-                              </p> */}
-                            </div>
-                            <Switch
-                              checked={editAssignmentRule.autoAssignReviewer}
-                              onCheckedChange={(c) =>
-                                setEditAssignmentRule((p) => ({
-                                  ...p,
-                                  autoAssignReviewer: c,
-                                }))
-                              }
-                            />
-                          </div>
-
-                          <div className="space-y-2">
-                            <Label>Reviewer Assignment Delay (hours)</Label>
-                            <Input
-                              type="number"
-                              min="0"
-                              value={editAssignmentRule.reviewerDelayHours}
-                              onChange={(e) =>
-                                setEditAssignmentRule((p) => ({
-                                  ...p,
-                                  reviewerDelayHours:
-                                    parseInt(e.target.value) || 0,
-                                }))
-                              }
-                              disabled={!editAssignmentRule.autoAssignReviewer}
-                            />
-                            <p className="text-xs text-muted-foreground">
-                              Optional delay before assigning reviewer (0 =
-                              immediate)
-                            </p>
-                          </div>
+                    {/* 1b. Auto-Assign Reviewer */}
+                    <div className="rounded-lg border border-gray-200 p-4 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-medium text-sm text-gray-900">Auto-Assign Reviewer</h4>
+                          <Popover>
+                            <PopoverTrigger>
+                              <AlertCircle className="w-4 h-4 text-gray-400 cursor-help" />
+                            </PopoverTrigger>
+                            <PopoverContent className="w-80">
+                              <p className="text-sm">
+                                Automatically assign a reviewer when an annotator
+                                submits a task. Works independently of Auto-Assign
+                                Tasks.
+                              </p>
+                            </PopoverContent>
+                          </Popover>
                         </div>
+                        <Switch
+                          checked={editAssignmentRule.autoAssignReviewer}
+                          onCheckedChange={(c) =>
+                            setEditAssignmentRule((p) => ({
+                              ...p,
+                              autoAssignReviewer: c,
+                            }))
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-gray-600">Assignment Strategy</Label>
+                        <Select
+                          value={editAssignmentRule.reviewerAssignmentStrategy}
+                          onValueChange={(v) =>
+                            setEditAssignmentRule((p) => ({
+                              ...p,
+                              reviewerAssignmentStrategy: v,
+                            }))
+                          }
+                          disabled={!editAssignmentRule.autoAssignReviewer}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="ROUND_ROBIN">Round Robin</SelectItem>
+                            <SelectItem value="LEAST_BUSY">Least Busy</SelectItem>
+                            <SelectItem value="RANDOM">Random</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-gray-600">Assignment Delay (hours)</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={editAssignmentRule.reviewerDelayHours}
+                          onChange={(e) =>
+                            setEditAssignmentRule((p) => ({
+                              ...p,
+                              reviewerDelayHours: parseInt(e.target.value) || 0,
+                            }))
+                          }
+                          disabled={!editAssignmentRule.autoAssignReviewer}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Optional delay before assigning reviewer (0 = immediate)
+                        </p>
                       </div>
                     </div>
 

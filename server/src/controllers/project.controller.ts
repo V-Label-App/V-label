@@ -20,6 +20,7 @@ const assignmentRuleSchema = z.object({
     isAutoAssignEnabled: z.boolean().optional(),
     assignmentStrategy: z.string().optional(),
     autoAssignReviewer: z.boolean().optional(),
+    reviewerAssignmentStrategy: z.string().optional(),
     reviewerDelayHours: z.number().int().min(0).optional(),
     maxTasksPerAnnotator: z.number().int().min(1).optional(),
     maxTasksPerReviewer: z.number().int().min(1).optional(),

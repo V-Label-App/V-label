@@ -6,6 +6,7 @@ interface AssignmentRule {
     isAutoAssignEnabled: boolean;
     assignmentStrategy: string;
     autoAssignReviewer: boolean;
+    reviewerAssignmentStrategy: string;
     reviewerDelayHours: number;
     maxTasksPerAnnotator: number;
     maxTasksPerReviewer: number;
@@ -94,41 +95,58 @@ export class TaskService {
     }
 
     /**
-     * Helper: Get active task count for a user by role
+     * Helper: Get active task count for a user by role, scoped to a project
      */
     static async getActiveTaskCount(
         userId: string,
-        role: 'ANNOTATOR' | 'REVIEWER'
+        role: 'ANNOTATOR' | 'REVIEWER',
+        projectId?: string
     ): Promise<number> {
-        const where = role === 'ANNOTATOR'
-            ? { annotatorId: userId }
-            : { reviewerId: userId };
+        const activeStatuses = role === 'REVIEWER'
+            // Reviewer active = assigned-to-review (SUBMITTED) + in progress
+            ? [AssignmentStatus.SUBMITTED, AssignmentStatus.IN_PROGRESS]
+            : [AssignmentStatus.ASSIGNED, AssignmentStatus.IN_PROGRESS];
 
-        return prisma.taskAssignment.count({
-            where: {
-                ...where,
-                status: {
-                    in: [AssignmentStatus.ASSIGNED, AssignmentStatus.IN_PROGRESS]
+        if (role === 'ANNOTATOR') {
+            return prisma.taskAssignment.count({
+                where: {
+                    annotatorId: userId,
+                    status: { in: activeStatuses },
+                    ...(projectId && {
+                        task: { projectId }
+                    })
                 }
-            }
-        });
+            });
+        } else {
+            return prisma.taskAssignment.count({
+                where: {
+                    reviewerId: userId,
+                    status: { in: activeStatuses },
+                    ...(projectId && {
+                        task: { projectId }
+                    })
+                }
+            });
+        }
     }
 
     /**
-     * Helper: Check if user has reached workload limit
+     * Helper: Check if user has reached workload limit (project-scoped)
      */
     static async checkWorkloadLimits(
         userId: string,
         maxTasks: number,
-        role: 'ANNOTATOR' | 'REVIEWER'
+        role: 'ANNOTATOR' | 'REVIEWER',
+        projectId?: string
     ): Promise<boolean> {
         try {
-            const activeTaskCount = await this.getActiveTaskCount(userId, role);
+            const activeTaskCount = await this.getActiveTaskCount(userId, role, projectId);
 
             const isUnderLimit = activeTaskCount < maxTasks;
 
             logger.info('TASK_SERVICE', `Workload check for ${role}`, {
                 userId,
+                projectId,
                 activeTaskCount,
                 maxTasks,
                 isUnderLimit
@@ -186,6 +204,11 @@ export class TaskService {
                 ? rules.maxTasksPerAnnotator
                 : rules.maxTasksPerReviewer;
 
+            logger.info('TASK_SERVICE', `[FIND-ASSIGNEE] Checking ${members.length} ${role}(s)`, {
+                projectId, minReputation, maxTasks,
+                memberIds: members.map(m => m.userId)
+            });
+
             const candidates = [];
             for (const member of members) {
                 const meetsReputation = await this.checkReputationRequirements(
@@ -197,8 +220,13 @@ export class TaskService {
                 const underWorkload = await this.checkWorkloadLimits(
                     member.userId,
                     maxTasks,
-                    role === ProjectRole.ANNOTATOR ? 'ANNOTATOR' : 'REVIEWER'
+                    role === ProjectRole.ANNOTATOR ? 'ANNOTATOR' : 'REVIEWER',
+                    projectId
                 );
+
+                logger.info('TASK_SERVICE', `[FIND-ASSIGNEE] Member ${member.userId}`, {
+                    meetsReputation, underWorkload, eligible: meetsReputation && underWorkload
+                });
 
                 if (meetsReputation && underWorkload) {
                     candidates.push(member);
@@ -206,7 +234,7 @@ export class TaskService {
             }
 
             if (candidates.length === 0) {
-                logger.warn('TASK_SERVICE', `No eligible ${role}s available`, { projectId });
+                logger.warn('TASK_SERVICE', `[FIND-ASSIGNEE] No eligible ${role}s available`, { projectId });
                 return null;
             }
 
@@ -244,20 +272,19 @@ export class TaskService {
 
                 case 'LEAST_BUSY':
                 case 'AUTO_LEAST_BUSY':
-                    // Select user with fewest active tasks
+                    // Select user with fewest active tasks (project-scoped)
                     const usersWithTaskCount = await Promise.all(
                         candidates.map(async (candidate) => {
-                            const where = role === ProjectRole.ANNOTATOR
-                                ? { annotatorId: candidate.userId }
-                                : { reviewerId: candidate.userId };
+                            const activeStatuses = role === ProjectRole.REVIEWER
+                                ? [AssignmentStatus.SUBMITTED, AssignmentStatus.IN_PROGRESS]
+                                : [AssignmentStatus.ASSIGNED, AssignmentStatus.IN_PROGRESS];
+
+                            const userWhere = role === ProjectRole.ANNOTATOR
+                                ? { annotatorId: candidate.userId, task: { projectId }, status: { in: activeStatuses } }
+                                : { reviewerId: candidate.userId, task: { projectId }, status: { in: activeStatuses } };
 
                             const count = await prisma.taskAssignment.count({
-                                where: {
-                                    ...where,
-                                    status: {
-                                        in: [AssignmentStatus.ASSIGNED, AssignmentStatus.IN_PROGRESS]
-                                    }
-                                }
+                                where: userWhere
                             });
 
                             return { userId: candidate.userId, taskCount: count };
@@ -403,7 +430,8 @@ export class TaskService {
                         where: { id: existingAssignment.id },
                         data: {
                             reviewerId: userId,
-                            status: AssignmentStatus.ASSIGNED,
+                            // Keep SUBMITTED so annotator still sees correct status.
+                            // Reviewer is tracked via reviewerId field, not status.
                             assignmentMethod: method,
                             deadline,
                             ...(assignedBy && { assignedBy })
@@ -411,10 +439,7 @@ export class TaskService {
                     }),
                     prisma.task.update({
                         where: { id: taskId },
-                        data: {
-                            deadline,
-                            status: 'IN_PROGRESS'
-                        }
+                        data: { deadline }
                     })
                 ]);
             }
@@ -544,12 +569,24 @@ export class TaskService {
 
             const rules = project.assignmentRule;
 
-            if (!forceReassign && !rules.isAutoAssignEnabled) {
-                logger.info('TASK_SERVICE', 'Auto-assign is disabled for this project', { projectId });
-                return false;
+            if (!forceReassign) {
+                if (role === 'REVIEWER') {
+                    // Reviewer assignment has its own toggle, independent of isAutoAssignEnabled
+                    if (!rules.autoAssignReviewer) {
+                        logger.info('TASK_SERVICE', 'Auto-assign reviewer is disabled for this project', { projectId });
+                        return false;
+                    }
+                } else {
+                    if (!rules.isAutoAssignEnabled) {
+                        logger.info('TASK_SERVICE', 'Auto-assign is disabled for this project', { projectId });
+                        return false;
+                    }
+                }
             }
 
-            const strategy = rules.assignmentStrategy;
+            const strategy = role === 'REVIEWER'
+                ? (rules.reviewerAssignmentStrategy || rules.assignmentStrategy)
+                : rules.assignmentStrategy;
 
             // Loop Prevention: find all previous annotators for this task to exclude them
             let excludeUserIds: string[] = [];
@@ -648,33 +685,42 @@ import { appEvents } from '../utils/events.js';
 
 appEvents.on('TASK_SUBMITTED_AUTO_REVIEWER', async ({ taskId, projectId, annotatorId, assignmentId }) => {
     try {
-        // Check reviewerDelayHours before assigning
+        logger.info('TASK_SERVICE', '[AUTO-REVIEWER] Event received', { taskId, projectId, annotatorId, assignmentId });
+
         const project = await prisma.project.findUnique({
             where: { id: projectId },
             include: { assignmentRule: true }
+        });
+
+        logger.info('TASK_SERVICE', '[AUTO-REVIEWER] Project rules', {
+            hasProject: !!project,
+            hasRule: !!project?.assignmentRule,
+            autoAssignReviewer: project?.assignmentRule?.autoAssignReviewer,
+            isAutoAssignEnabled: project?.assignmentRule?.isAutoAssignEnabled,
+            minReviewerReputation: project?.assignmentRule?.minReviewerReputation,
+            maxTasksPerReviewer: project?.assignmentRule?.maxTasksPerReviewer,
+            reviewerDelayHours: project?.assignmentRule?.reviewerDelayHours,
         });
 
         const delayHours = project?.assignmentRule?.reviewerDelayHours ?? 0;
 
         if (delayHours > 0) {
             const delayMs = delayHours * 3600 * 1000;
-            logger.info('TASK_SERVICE', 'Delaying auto-reviewer assignment', {
-                taskId, assignmentId, delayHours
-            });
+            logger.info('TASK_SERVICE', '[AUTO-REVIEWER] Delaying assignment', { taskId, assignmentId, delayHours });
             setTimeout(async () => {
                 try {
-                    await TaskService.autoAssignTask(taskId, projectId, 'REVIEWER', annotatorId);
-                    logger.info('TASK_SERVICE', 'Delayed auto-reviewer assignment completed', { taskId, assignmentId });
+                    const result = await TaskService.autoAssignTask(taskId, projectId, 'REVIEWER', annotatorId);
+                    logger.info('TASK_SERVICE', '[AUTO-REVIEWER] Delayed assignment result', { taskId, result });
                 } catch (delayedError) {
-                    logger.error('TASK_SERVICE', 'Failed delayed auto-reviewer assignment', { error: delayedError, taskId });
+                    logger.error('TASK_SERVICE', '[AUTO-REVIEWER] Delayed assignment failed', { error: delayedError, taskId });
                 }
             }, delayMs);
         } else {
-            await TaskService.autoAssignTask(taskId, projectId, 'REVIEWER', annotatorId);
-            logger.info('TASK_SERVICE', 'Handled auto-reviewer event', { taskId, assignmentId });
+            const result = await TaskService.autoAssignTask(taskId, projectId, 'REVIEWER', annotatorId);
+            logger.info('TASK_SERVICE', '[AUTO-REVIEWER] Assignment result', { taskId, assignmentId, result });
         }
     } catch (error) {
-        logger.error('TASK_SERVICE', 'Failed to handle auto-reviewer event', { error, taskId, assignmentId });
+        logger.error('TASK_SERVICE', '[AUTO-REVIEWER] Event handler failed', { error, taskId, assignmentId });
     }
 });
 
