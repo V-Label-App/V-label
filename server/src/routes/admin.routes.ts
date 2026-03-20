@@ -50,4 +50,7 @@ router.put('/config/image-quality', authMiddleware, requireRole(['ADMIN']), Admi
 router.get('/config/otp', authMiddleware, requireRole(['ADMIN']), AdminController.getOtpConfig);
 router.put('/config/otp', authMiddleware, requireRole(['ADMIN']), AdminController.updateOtpConfig);
 
+// Projects List
+router.get('/projects', authMiddleware, requireRole(['ADMIN']), AdminController.getAllProjects);
+
 export default router;

@@ -12,7 +12,10 @@ export interface DashboardStats {
   }
   projects: {
     active: number
+    draft: number
+    paused: number
     completed: number
+    archived: number
     total: number
   }
   annotations: {
@@ -20,10 +23,12 @@ export interface DashboardStats {
     thisWeek: number
     thisMonth: number
     total: number
+    monthlyData: { month: string; count: number }[]
   }
   labels: {
     thisMonth: number
     total: number
+    monthlyData: { month: string; count: number }[]
   }
   storage: {
     used: number
@@ -122,6 +127,7 @@ export class AdminDashboardService {
       approvedCount,
       totalSubmitted,
       avgReviewScore,
+      avgAnnotationTimeResult,
     ] = await Promise.all([
       // Total users
       prisma.user.count(),
@@ -189,13 +195,15 @@ export class AdminDashboardService {
       // Total labels
       prisma.label.count(),
 
-      // Top annotators (by totalTasksDone)
+      // Top annotators (by reputationScore - điểm đánh giá chất lượng)
       prisma.user.findMany({
         where: {
           role: 'ANNOTATOR',
-          totalTasksDone: { gt: 0 },
         },
-        orderBy: { totalTasksDone: 'desc' },
+        orderBy: [
+          { reputationScore: 'desc' },
+          { totalTasksDone: 'desc' },
+        ],
         take: 5,
         select: {
           id: true,
@@ -220,6 +228,15 @@ export class AdminDashboardService {
       prisma.taskAssignment.aggregate({
         _avg: { reviewScore: true },
         where: { reviewScore: { not: null } },
+      }),
+
+      // Average annotation time (in seconds)
+      prisma.taskAssignment.aggregate({
+        _avg: { actualTimeSeconds: true },
+        where: { 
+          actualTimeSeconds: { not: null },
+          status: { in: ['SUBMITTED', 'APPROVED', 'REJECTED'] }
+        },
       }),
     ])
 
@@ -248,25 +265,40 @@ export class AdminDashboardService {
       projectMap[item.status] = item._count
     })
 
-    const activeProjects =
-      (projectMap['ACTIVE'] || 0) +
-      (projectMap['DRAFT'] || 0) +
-      (projectMap['PAUSED'] || 0)
-    const completedProjects =
-      (projectMap['COMPLETED'] || 0) + (projectMap['ARCHIVED'] || 0)
+    const activeProjects = projectMap['ACTIVE'] || 0
+    const draftProjects = projectMap['DRAFT'] || 0
+    const pausedProjects = projectMap['PAUSED'] || 0
+    const completedProjects = projectMap['COMPLETED'] || 0
+    const archivedProjects = projectMap['ARCHIVED'] || 0
+    const totalProjects = activeProjects + draftProjects + pausedProjects + completedProjects + archivedProjects
 
-    // Format top annotators
+    // Format top annotators with approved task count
     const formattedTopAnnotators: {
       id: string
       name: string
       count: number
       quality: number
-    }[] = topAnnotators.map((user) => ({
-      id: user.id,
-      name: user.fullName || user.email.split('@')[0] || 'Unknown',
-      count: user.totalTasksDone,
-      quality: Math.min(100, Math.max(0, user.reputationScore)), // Clamp to 0-100
-    }))
+    }[] = await Promise.all(
+      topAnnotators.map(async (user) => {
+        // Get approved task count for this annotator
+        const approvedCount = await prisma.taskAssignment.count({
+          where: {
+            annotatorId: user.id,
+            status: 'APPROVED',
+          },
+        })
+
+        return {
+          id: user.id,
+          name: user.fullName || user.email.split('@')[0] || 'Unknown',
+          count: approvedCount, // Use approved count instead of totalTasksDone
+          quality: Math.min(100, Math.max(0, user.reputationScore)), // Clamp to 0-100
+        }
+      })
+    )
+
+    console.log('🔍 Raw topAnnotators from DB:', topAnnotators)
+    console.log('✅ Formatted topAnnotators (with approved counts):', formattedTopAnnotators)
 
     // Calculate performance metrics
     const completionRate =
@@ -278,8 +310,61 @@ export class AdminDashboardService {
       ? Math.round(avgReviewScore._avg.reviewScore * 10) / 10
       : 0
 
+    // Calculate average annotation time (convert from seconds to seconds, rounded)
+    const avgAnnotationTime = avgAnnotationTimeResult._avg.actualTimeSeconds
+      ? Math.round(avgAnnotationTimeResult._avg.actualTimeSeconds)
+      : 0
+
+    console.log('📊 Performance Metrics:', {
+      avgAnnotationTime: `${avgAnnotationTime}s`,
+      completionRate: `${completionRate}%`,
+      qualityScore: `${qualityScore}%`
+    })
+
     // Storage calculation - Get real disk usage from VPS
     const diskUsage = this.getDiskUsage()
+
+    // Get monthly data for annotations (last 6 months)
+    const sixMonthsAgo = new Date()
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5)
+    sixMonthsAgo.setDate(1)
+    sixMonthsAgo.setHours(0, 0, 0, 0)
+
+    const annotationsMonthlyRaw = await prisma.$queryRaw<
+      { month: Date; count: bigint }[]
+    >`
+      SELECT 
+        DATE_TRUNC('month', "updated_at") as month,
+        COUNT(*)::bigint as count
+      FROM task_assignments
+      WHERE status IN ('SUBMITTED', 'APPROVED', 'REJECTED')
+        AND "updated_at" >= ${sixMonthsAgo}
+      GROUP BY DATE_TRUNC('month', "updated_at")
+      ORDER BY month ASC
+    `
+
+    const annotationsMonthlyData = annotationsMonthlyRaw.map((row) => ({
+      month: row.month.toISOString().substring(0, 7), // YYYY-MM
+      count: Number(row.count),
+    }))
+
+    // Get monthly data for labels (last 6 months)
+    const labelsMonthlyRaw = await prisma.$queryRaw<
+      { month: Date; count: bigint }[]
+    >`
+      SELECT 
+        DATE_TRUNC('month', "created_at") as month,
+        COUNT(*)::bigint as count
+      FROM labels
+      WHERE "created_at" >= ${sixMonthsAgo}
+      GROUP BY DATE_TRUNC('month', "created_at")
+      ORDER BY month ASC
+    `
+
+    const labelsMonthlyData = labelsMonthlyRaw.map((row) => ({
+      month: row.month.toISOString().substring(0, 7), // YYYY-MM
+      count: Number(row.count),
+    }))
 
     // Fetch Cloudinary Usage
     let cloudinaryUsage: any = null
@@ -318,18 +403,23 @@ export class AdminDashboardService {
       },
       projects: {
         active: activeProjects,
+        draft: draftProjects,
+        paused: pausedProjects,
         completed: completedProjects,
-        total: activeProjects + completedProjects,
+        archived: archivedProjects,
+        total: totalProjects,
       },
       annotations: {
         today: annotationsToday,
         thisWeek: annotationsThisWeek,
         thisMonth: annotationsThisMonth,
         total: totalAnnotations,
+        monthlyData: annotationsMonthlyData,
       },
       labels: {
         thisMonth: labelsThisMonth,
         total: totalLabels,
+        monthlyData: labelsMonthlyData,
       },
       storage: {
         used: diskUsage.used,
@@ -339,10 +429,58 @@ export class AdminDashboardService {
       cloudinary: cloudinaryUsage,
       topAnnotators: formattedTopAnnotators,
       performance: {
-        avgAnnotationTime: 45, // TODO: Calculate from actual timing data if available
+        avgAnnotationTime, // Real average from database
         completionRate,
         qualityScore,
       },
+    }
+  }
+
+  /**
+   * Get list of all projects with manager info
+   */
+  static async getAllProjects() {
+    try {
+      const projects = await prisma.project.findMany({
+        select: {
+          id: true,
+          name: true,
+          status: true,
+          createdAt: true,
+          updatedAt: true,
+          members: {
+            where: {
+              projectRole: 'MANAGER',
+            },
+            select: {
+              user: {
+                select: {
+                  id: true,
+                  fullName: true,
+                  email: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      })
+
+      // Format the response to include manager name
+      return projects.map((project) => ({
+        id: project.id,
+        name: project.name,
+        status: project.status,
+        createdAt: project.createdAt,
+        updatedAt: project.updatedAt,
+        manager:
+          project.members[0]?.user.fullName ||
+          project.members[0]?.user.email.split('@')[0] ||
+          'No Manager',
+      }))
+    } catch (error) {
+      console.error('Failed to get projects list:', error)
+      throw error
     }
   }
 }

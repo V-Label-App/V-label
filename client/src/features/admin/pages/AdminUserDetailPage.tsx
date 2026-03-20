@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '../../../components/ui/button';
 import { Card } from '../../../components/ui/card';
-import { Avatar, AvatarFallback } from '../../../components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '../../../components/ui/avatar';
 import { ArrowLeft, Mail, Shield, Activity, Calendar, Eye } from 'lucide-react';
 import { authApi } from '../../../services/auth.api';
 import { useAuth } from '../../../context/AuthContext';
@@ -110,6 +110,7 @@ export function AdminUserDetailPage() {
                 <div className="flex items-start justify-between mb-8">
                     <div className="flex items-center gap-6">
                         <Avatar className="w-24 h-24 text-2xl">
+                            <AvatarImage src={user.avatarUrl || ""} alt={user.fullName} className="object-cover" />
                             <AvatarFallback className="bg-blue-600 text-white">
                                 {getInitials(user.fullName)}
                             </AvatarFallback>
