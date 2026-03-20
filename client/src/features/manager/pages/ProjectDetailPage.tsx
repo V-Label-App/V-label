@@ -159,6 +159,13 @@ const getLatestAnnotatorAssignment = (task: any) => {
   })[0];
 };
 
+const adjustDeadline = (date: Date | undefined | null): any => {
+  if (!date) return undefined;
+  const d = new Date(date);
+  d.setHours(23, 59, 59, 999);
+  return d;
+};
+
 export function ProjectDetailPage() {
   const { projectId } = useParams();
   const navigate = useNavigate();
@@ -441,7 +448,7 @@ export function ProjectDetailPage() {
           projectId,
           selectedTasks,
           selectedAnnotatorId,
-          selectedDeadline,
+          adjustDeadline(selectedDeadline),
         );
         toast.success(`${selectedTasks.length} tasks assigned successfully`);
         setIsAssignDialogOpen(false);
@@ -466,7 +473,7 @@ export function ProjectDetailPage() {
             mode: "bulk",
             taskIds: selectedTasks,
             annotatorId: selectedAnnotatorId,
-            deadline: selectedDeadline,
+            deadline: adjustDeadline(selectedDeadline),
           });
           setIsForceAssignDialogOpen(true);
         } else {
@@ -498,7 +505,7 @@ export function ProjectDetailPage() {
         projectId,
         taskToAssign.id,
         selectedAnnotatorId,
-        selectedDeadline,
+        adjustDeadline(selectedDeadline),
         isReassignment ? reassignmentReason : undefined,
       );
       toast.success("Task assigned successfully");
@@ -522,7 +529,7 @@ export function ProjectDetailPage() {
           mode: "manual",
           taskId: taskToAssign.id,
           annotatorId: selectedAnnotatorId,
-          deadline: selectedDeadline,
+          deadline: adjustDeadline(selectedDeadline),
           reason: isReassignment ? reassignmentReason : undefined,
         });
         setIsForceAssignDialogOpen(true);
@@ -545,7 +552,7 @@ export function ProjectDetailPage() {
           projectId,
           forceAssignData.taskIds,
           forceAssignData.annotatorId,
-          forceAssignData.deadline,
+          adjustDeadline(forceAssignData.deadline),
           true,
         );
         toast.success(
@@ -558,7 +565,7 @@ export function ProjectDetailPage() {
           projectId,
           forceAssignData.taskId,
           forceAssignData.annotatorId,
-          forceAssignData.deadline,
+          adjustDeadline(forceAssignData.deadline),
           forceAssignData.reason,
           true,
         );
@@ -598,7 +605,7 @@ export function ProjectDetailPage() {
               projectId,
               taskId,
               selectedReviewerId,
-              selectedReviewerDeadline,
+              adjustDeadline(selectedReviewerDeadline),
               undefined,
               true,
             ),
@@ -647,7 +654,7 @@ export function ProjectDetailPage() {
         projectId,
         taskToAssignReviewer.id,
         selectedReviewerId,
-        selectedReviewerDeadline,
+        adjustDeadline(selectedReviewerDeadline),
         isReassignment ? reviewerReassignmentReason : undefined,
         true,
       );
@@ -708,7 +715,7 @@ export function ProjectDetailPage() {
           return projectApi.updateTaskDeadline(
             projectId,
             task.id,
-            bulkDeadline,
+            adjustDeadline(bulkDeadline),
           );
         }),
       );
@@ -1175,7 +1182,7 @@ export function ProjectDetailPage() {
       await projectApi.update(project.id, {
         name: editName,
         description: editDescription,
-        deadline: editDeadline.toISOString(),
+        deadline: editDeadline ? adjustDeadline(editDeadline)?.toISOString() : undefined,
         status: editStatus,
         categoryId: editCategoryId === "none" ? "" : editCategoryId,
         enableAiAssistance: editEnableAi,
@@ -5156,7 +5163,7 @@ export function ProjectDetailPage() {
                       selected={selectedReviewerDeadline}
                       onSelect={setSelectedReviewerDeadline}
                       initialFocus
-                      disabled={(date) => date < new Date()}
+                      disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
                     />
                   </PopoverContent>
                 </Popover>
@@ -5568,6 +5575,7 @@ export function ProjectDetailPage() {
                         selected={bulkDeadline}
                         onSelect={setBulkDeadline}
                         initialFocus
+                        disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
                       />
                     </PopoverContent>
                   </Popover>
