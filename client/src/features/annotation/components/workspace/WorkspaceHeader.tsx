@@ -28,6 +28,7 @@ interface WorkspaceHeaderProps {
 
   onReject?: () => void;
   onResume?: () => void;
+  onSave?: () => void;
   onClose?: () => void;
   actualTimeSeconds?: number;
   projectName?: string;
@@ -49,6 +50,7 @@ export function WorkspaceHeader({
 
   onReject,
   onResume,
+  onSave,
   onClose,
   actualTimeSeconds = 0,
   projectName,
@@ -162,6 +164,23 @@ export function WorkspaceHeader({
           {autoSaveStatus === "unsaved" && (
             <span className="text-orange-400">Unsaved changes</span>
           )}
+
+          {/* Manual Save Button */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onSave}
+            disabled={taskStatus.toLowerCase() !== "in_progress" || autoSaveStatus === "saving"}
+            className="ml-2 flex items-center gap-1.5 px-3 h-8 bg-slate-700/50 border border-slate-600 text-slate-300 hover:bg-blue-600/20 hover:text-blue-400 hover:border-blue-500/50 transition-all rounded-md disabled:opacity-40 disabled:cursor-not-allowed group"
+            title={taskStatus.toLowerCase() === "in_progress" ? "Manual Save (Ctrl+S)" : "Cannot save in current status"}
+          >
+            {autoSaveStatus === "saving" ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Check className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+            )}
+            <span className="text-[11px] font-bold uppercase tracking-widest hidden sm:inline">Save</span>
+          </Button>
         </div>
 
         {/* Actions */}

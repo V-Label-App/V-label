@@ -328,6 +328,17 @@ export function WorkspacePage({
 
   const [isSkipConfirmOpen, setIsSkipConfirmOpen] = useState(false);
   const [skipReason, setSkipReason] = useState("");
+
+  const handleSaveDraft = useCallback(async () => {
+    if (isReadOnly) return;
+    try {
+      await saveDraft(annotations, annotatorNote, actualTimeSeconds);
+      toast.success("Draft saved successfully");
+    } catch {
+      toast.error("Failed to save draft");
+    }
+  }, [saveDraft, annotations, annotatorNote, actualTimeSeconds, isReadOnly]);
+
   const handleSubmit = async () => {
     // Validate before submit
     if (annotations.length === 0) {
@@ -576,9 +587,10 @@ export function WorkspacePage({
         taskStatus={taskStatus}
         onSubmit={handleSubmit}
         onSkip={() => setIsSkipConfirmOpen(true)}
-        onResume={resumeTask}
         onApprove={handleApprove}
         onReject={handleReject}
+        onResume={resumeTask}
+        onSave={handleSaveDraft}
         onClose={handleClose}
         actualTimeSeconds={actualTimeSeconds}
         projectName={taskData.projectName}

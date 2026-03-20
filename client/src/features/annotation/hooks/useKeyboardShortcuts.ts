@@ -6,7 +6,7 @@ import {
   useImageStore,
 } from "../stores";
 
-export function useKeyboardShortcuts(isReadOnly: boolean = false) {
+export function useKeyboardShortcuts(isReadOnly: boolean = false, onSave?: () => void) {
   const { tool, setTool } = useCanvasStore();
   const {
     selectedAnnotationId,
@@ -70,15 +70,18 @@ export function useKeyboardShortcuts(isReadOnly: boolean = false) {
         undo();
         setHasInteracted(true);
       }
-      if (e.ctrlKey && e.shiftKey && e.key === "z" && canRedo()) {
+      if (e.ctrlKey && (e.shiftKey && e.key === "z" || e.key === "y") && canRedo()) {
         e.preventDefault();
         redo();
         setHasInteracted(true);
       }
-      if (e.ctrlKey && e.key === "y" && canRedo()) {
+
+      // Manual Save (Ctrl+S)
+      if (e.ctrlKey && e.key === "s") {
         e.preventDefault();
-        redo();
-        setHasInteracted(true);
+        if (!isReadOnly && onSave) {
+          onSave();
+        }
       }
 
       // Quick label assignment (1-9)
@@ -197,6 +200,7 @@ export function useKeyboardShortcuts(isReadOnly: boolean = false) {
     goToPrevious,
     hasNext,
     hasPrevious,
+    onSave,
   ]);
 }
 
