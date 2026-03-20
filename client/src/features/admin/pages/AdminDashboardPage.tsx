@@ -562,21 +562,21 @@ function renderCardView(stats: DashboardStats) {
               <div className="text-center p-6 bg-blue-50 rounded-lg">
                 <Clock className="h-8 w-8 text-blue-600 mx-auto mb-3" />
                 <div className="text-3xl font-bold text-blue-600">
-                  {stats.performance.avgAnnotationTime}s
+                  {Math.round(stats.performance.avgAnnotationTime)}s
                 </div>
                 <div className="text-sm text-gray-600 mt-2">Thời gian TB/ảnh</div>
               </div>
               <div className="text-center p-6 bg-green-50 rounded-lg">
                 <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-3" />
                 <div className="text-3xl font-bold text-green-600">
-                  {stats.performance.completionRate}%
+                  {Math.round(stats.performance.completionRate)}%
                 </div>
                 <div className="text-sm text-gray-600 mt-2">Tỷ lệ hoàn thành</div>
               </div>
               <div className="text-center p-6 bg-yellow-50 rounded-lg">
                 <Award className="h-8 w-8 text-yellow-600 mx-auto mb-3" />
                 <div className="text-3xl font-bold text-yellow-600">
-                  {stats.performance.qualityScore}%
+                  {Math.round(stats.performance.qualityScore)}%
                 </div>
                 <div className="text-sm text-gray-600 mt-2">Điểm chất lượng</div>
               </div>
@@ -1005,6 +1005,39 @@ function renderChartView(stats: DashboardStats, onViewProjects: () => void) {
           </CardContent>
         </Card>
 
+        {/* Performance Metrics */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Performance Metrics</CardTitle>
+            <CardDescription>Chỉ số hiệu suất hệ thống</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 gap-4">
+              <div className="text-center p-6 bg-blue-50 rounded-lg">
+                <Clock className="h-8 w-8 text-blue-600 mx-auto mb-3" />
+                <div className="text-3xl font-bold text-blue-600">
+                  {Math.round(stats.performance.avgAnnotationTime)}s
+                </div>
+                <div className="text-sm text-gray-600 mt-2">Thời gian TB/ảnh</div>
+              </div>
+              <div className="text-center p-6 bg-green-50 rounded-lg">
+                <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-3" />
+                <div className="text-3xl font-bold text-green-600">
+                  {Math.round(stats.performance.completionRate)}%
+                </div>
+                <div className="text-sm text-gray-600 mt-2">Tỷ lệ hoàn thành</div>
+              </div>
+              <div className="text-center p-6 bg-yellow-50 rounded-lg">
+                <Award className="h-8 w-8 text-yellow-600 mx-auto mb-3" />
+                <div className="text-3xl font-bold text-yellow-600">
+                  {Math.round(stats.performance.qualityScore)}%
+                </div>
+                <div className="text-sm text-gray-600 mt-2">Điểm chất lượng</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Cloudinary Usage Chart */}
         {stats.cloudinary && (
           <Card className="md:col-span-2">
@@ -1150,39 +1183,6 @@ function renderChartView(stats: DashboardStats, onViewProjects: () => void) {
           </Card>
         )}
       </div>
-
-      {/* Performance Metrics - Line Chart */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Performance Metrics</CardTitle>
-          <CardDescription>Chỉ số hiệu suất hệ thống</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="text-center p-6 bg-blue-50 rounded-lg">
-              <Clock className="h-8 w-8 text-blue-600 mx-auto mb-3" />
-              <div className="text-3xl font-bold text-blue-600">
-                {stats.performance.avgAnnotationTime}s
-              </div>
-              <div className="text-sm text-gray-600 mt-2">Thời gian TB/ảnh</div>
-            </div>
-            <div className="text-center p-6 bg-green-50 rounded-lg">
-              <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-3" />
-              <div className="text-3xl font-bold text-green-600">
-                {stats.performance.completionRate}%
-              </div>
-              <div className="text-sm text-gray-600 mt-2">Tỷ lệ hoàn thành</div>
-            </div>
-            <div className="text-center p-6 bg-yellow-50 rounded-lg">
-              <Award className="h-8 w-8 text-yellow-600 mx-auto mb-3" />
-              <div className="text-3xl font-bold text-yellow-600">
-                {stats.performance.qualityScore}%
-              </div>
-              <div className="text-sm text-gray-600 mt-2">Điểm chất lượng</div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Top Annotators - Horizontal Bar Chart */}
       <Card>

@@ -127,6 +127,7 @@ export class AdminDashboardService {
       approvedCount,
       totalSubmitted,
       avgReviewScore,
+      avgAnnotationTimeResult,
     ] = await Promise.all([
       // Total users
       prisma.user.count(),
@@ -228,6 +229,15 @@ export class AdminDashboardService {
         _avg: { reviewScore: true },
         where: { reviewScore: { not: null } },
       }),
+
+      // Average annotation time (in seconds)
+      prisma.taskAssignment.aggregate({
+        _avg: { actualTimeSeconds: true },
+        where: { 
+          actualTimeSeconds: { not: null },
+          status: { in: ['SUBMITTED', 'APPROVED', 'REJECTED'] }
+        },
+      }),
     ])
 
     // Calculate user growth
@@ -299,6 +309,17 @@ export class AdminDashboardService {
     const qualityScore = avgReviewScore._avg.reviewScore
       ? Math.round(avgReviewScore._avg.reviewScore * 10) / 10
       : 0
+
+    // Calculate average annotation time (convert from seconds to seconds, rounded)
+    const avgAnnotationTime = avgAnnotationTimeResult._avg.actualTimeSeconds
+      ? Math.round(avgAnnotationTimeResult._avg.actualTimeSeconds)
+      : 0
+
+    console.log('📊 Performance Metrics:', {
+      avgAnnotationTime: `${avgAnnotationTime}s`,
+      completionRate: `${completionRate}%`,
+      qualityScore: `${qualityScore}%`
+    })
 
     // Storage calculation - Get real disk usage from VPS
     const diskUsage = this.getDiskUsage()
@@ -408,7 +429,7 @@ export class AdminDashboardService {
       cloudinary: cloudinaryUsage,
       topAnnotators: formattedTopAnnotators,
       performance: {
-        avgAnnotationTime: 45, // TODO: Calculate from actual timing data if available
+        avgAnnotationTime, // Real average from database
         completionRate,
         qualityScore,
       },
