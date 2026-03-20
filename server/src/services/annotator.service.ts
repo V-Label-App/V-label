@@ -215,7 +215,7 @@ export class AnnotatorService {
                   // Include ALL rejected/skipped assignments for this task,
                   // including the current one if it is rejected.
                   status: {
-                    in: [AssignmentStatus.REJECTED, AssignmentStatus.SKIPPED],
+                    in: ['REJECTED', 'SKIPPED', 'REASSIGNING', 'REASSIGNED'] as any,
                   },
                 },
                 include: {

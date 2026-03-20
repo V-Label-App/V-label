@@ -43,6 +43,8 @@ export class ReviewerService {
                           'SUBMITTED' as any,
                           'APPROVED' as any,
                           'REJECTED' as any,
+                          'REASSIGNING' as any,
+                          'REASSIGNED' as any,
                         ],
                       },
                     },
@@ -248,7 +250,7 @@ export class ReviewerService {
               assignments: {
                 where: {
                   id: { not: assignmentId },
-                  status: { in: ['REJECTED' as any, 'SKIPPED' as any] },
+                  status: { in: ['REJECTED', 'SKIPPED', 'REASSIGNING', 'REASSIGNED'] as any },
                 },
                 include: {
                   annotator: { select: { fullName: true, email: true } },
