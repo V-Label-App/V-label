@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../../components/ui/select";
-import { Avatar, AvatarFallback } from "../../../components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "../../../components/ui/avatar";
 import {
   Dialog,
   DialogContent,
@@ -63,6 +63,7 @@ interface User {
   role: "ADMIN" | "MANAGER" | "REVIEWER" | "ANNOTATOR";
   is_active: boolean;
   reputation_score: number;
+  avatarUrl?: string | null;
 }
 
 interface ApiUserResponse {
@@ -159,6 +160,7 @@ export function AdminPanel() {
               | "ANNOTATOR",
             is_active: u.isActive ?? false,
             reputation_score: Math.max(0, u.reputationScore || 0),
+            avatarUrl: u.avatarUrl,
           };
         })
         .filter((u): u is User => u !== null && u.role !== "ADMIN");
@@ -832,6 +834,7 @@ export function AdminPanel() {
                           >
                             <TableCell>
                               <Avatar className="w-10 h-10">
+                                <AvatarImage src={user.avatarUrl || ""} alt={user.name} className="object-cover" />
                                 <AvatarFallback className="bg-blue-100 text-blue-700">
                                   {getInitials(user.name)}
                                 </AvatarFallback>

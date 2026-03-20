@@ -194,13 +194,15 @@ export class AdminDashboardService {
       // Total labels
       prisma.label.count(),
 
-      // Top annotators (by totalTasksDone)
+      // Top annotators (by reputationScore - điểm đánh giá chất lượng)
       prisma.user.findMany({
         where: {
           role: 'ANNOTATOR',
-          totalTasksDone: { gt: 0 },
         },
-        orderBy: { totalTasksDone: 'desc' },
+        orderBy: [
+          { reputationScore: 'desc' },
+          { totalTasksDone: 'desc' },
+        ],
         take: 5,
         select: {
           id: true,
@@ -260,18 +262,33 @@ export class AdminDashboardService {
     const archivedProjects = projectMap['ARCHIVED'] || 0
     const totalProjects = activeProjects + draftProjects + pausedProjects + completedProjects + archivedProjects
 
-    // Format top annotators
+    // Format top annotators with approved task count
     const formattedTopAnnotators: {
       id: string
       name: string
       count: number
       quality: number
-    }[] = topAnnotators.map((user) => ({
-      id: user.id,
-      name: user.fullName || user.email.split('@')[0] || 'Unknown',
-      count: user.totalTasksDone,
-      quality: Math.min(100, Math.max(0, user.reputationScore)), // Clamp to 0-100
-    }))
+    }[] = await Promise.all(
+      topAnnotators.map(async (user) => {
+        // Get approved task count for this annotator
+        const approvedCount = await prisma.taskAssignment.count({
+          where: {
+            annotatorId: user.id,
+            status: 'APPROVED',
+          },
+        })
+
+        return {
+          id: user.id,
+          name: user.fullName || user.email.split('@')[0] || 'Unknown',
+          count: approvedCount, // Use approved count instead of totalTasksDone
+          quality: Math.min(100, Math.max(0, user.reputationScore)), // Clamp to 0-100
+        }
+      })
+    )
+
+    console.log('🔍 Raw topAnnotators from DB:', topAnnotators)
+    console.log('✅ Formatted topAnnotators (with approved counts):', formattedTopAnnotators)
 
     // Calculate performance metrics
     const completionRate =
