@@ -118,6 +118,9 @@ export function WorkspaceCanvas({
   // Scroll to zoom
   const handleWheel = useCallback(
     (e: Konva.KonvaEventObject<WheelEvent>) => {
+      // Only zoom if Ctrl key is pressed
+      if (!e.evt.ctrlKey) return;
+
       e.evt.preventDefault();
       const direction = e.evt.deltaY > 0 ? -1 : 1;
       const step = 10;
