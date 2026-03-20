@@ -5156,7 +5156,7 @@ export function ProjectDetailPage() {
                       selected={selectedReviewerDeadline}
                       onSelect={setSelectedReviewerDeadline}
                       initialFocus
-                      disabled={(date) => date < new Date()}
+                      disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
                     />
                   </PopoverContent>
                 </Popover>
@@ -5568,6 +5568,7 @@ export function ProjectDetailPage() {
                         selected={bulkDeadline}
                         onSelect={setBulkDeadline}
                         initialFocus
+                        disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
                       />
                     </PopoverContent>
                   </Popover>
