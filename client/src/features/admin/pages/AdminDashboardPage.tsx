@@ -21,7 +21,6 @@ import {
   HardDrive,
   TrendingUp,
   Clock,
-  Award,
   CheckCircle,
   Loader2,
   LayoutGrid,
@@ -552,7 +551,7 @@ function renderCardView(stats: DashboardStats) {
         {/* Performance Metrics */}
         <Card>
           <CardHeader>
-            <CardTitle>Chỉ Số Hiệu Suất</CardTitle>
+            <CardTitle>Performance Metrics</CardTitle>
             <CardDescription>
               Các chỉ số quan trọng của hệ thống
             </CardDescription>
@@ -572,13 +571,6 @@ function renderCardView(stats: DashboardStats) {
                   {Math.round(stats.performance.completionRate)}%
                 </div>
                 <div className="text-sm text-gray-600 mt-2">Tỷ lệ hoàn thành</div>
-              </div>
-              <div className="text-center p-6 bg-yellow-50 rounded-lg">
-                <Award className="h-8 w-8 text-yellow-600 mx-auto mb-3" />
-                <div className="text-3xl font-bold text-yellow-600">
-                  {Math.round(stats.performance.qualityScore)}%
-                </div>
-                <div className="text-sm text-gray-600 mt-2">Điểm chất lượng</div>
               </div>
             </div>
           </CardContent>
@@ -1009,7 +1001,7 @@ function renderChartView(stats: DashboardStats, onViewProjects: () => void) {
         <Card>
           <CardHeader>
             <CardTitle>Performance Metrics</CardTitle>
-            <CardDescription>Chỉ số hiệu suất hệ thống</CardDescription>
+            <CardDescription>Các chỉ số quan trọng của hệ thống</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 gap-4">
@@ -1026,13 +1018,6 @@ function renderChartView(stats: DashboardStats, onViewProjects: () => void) {
                   {Math.round(stats.performance.completionRate)}%
                 </div>
                 <div className="text-sm text-gray-600 mt-2">Tỷ lệ hoàn thành</div>
-              </div>
-              <div className="text-center p-6 bg-yellow-50 rounded-lg">
-                <Award className="h-8 w-8 text-yellow-600 mx-auto mb-3" />
-                <div className="text-3xl font-bold text-yellow-600">
-                  {Math.round(stats.performance.qualityScore)}%
-                </div>
-                <div className="text-sm text-gray-600 mt-2">Điểm chất lượng</div>
               </div>
             </div>
           </CardContent>

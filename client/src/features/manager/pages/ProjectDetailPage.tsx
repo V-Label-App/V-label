@@ -3459,65 +3459,48 @@ export function ProjectDetailPage() {
                                       }
                                     >
                                       <TableCell className="py-4"></TableCell>
-                                      <TableCell>
-                                        <div className="flex items-center gap-3">
-                                          {isExpanded ? (
-                                            <ChevronDown className="h-5 w-5 text-gray-700 flex-shrink-0" />
-                                          ) : (
-                                            <ChevronRight className="h-5 w-5 text-gray-700 flex-shrink-0" />
-                                          )}
-                                          <Avatar className="h-10 w-10 ring-2 ring-white shadow-sm">
-                                            <AvatarImage
-                                              src={
-                                                assignee?.avatarUrl || undefined
-                                              }
-                                              alt={assignee?.fullName || "User"}
-                                              className="object-cover"
-                                            />
-                                            <AvatarFallback className="bg-green-500 text-white text-sm font-semibold">
-                                              {assigneeId === "unassigned"
-                                                ? "?"
-                                                : assignee?.fullName
-                                                    ?.charAt(0)
-                                                    .toUpperCase() || "A"}
-                                            </AvatarFallback>
-                                          </Avatar>
-                                          <div className="flex-1">
-                                            <div className="font-medium text-gray-900">
-                                              {assigneeId === "unassigned"
-                                                ? "Unassigned Tasks"
-                                                : assignee?.fullName ||
-                                                  assignee?.email ||
-                                                  "Unknown"}
-                                            </div>
-                                            <div className="text-xs text-gray-500">
-                                              {taskCount} completed{" "}
-                                              {taskCount === 1
-                                                ? "task"
-                                                : "tasks"}
+                                      <TableCell colSpan={2}>
+                                        <div className="flex items-center justify-between">
+                                          <div className="flex items-center gap-3">
+                                            {isExpanded ? (
+                                              <ChevronDown className="h-5 w-5 text-gray-700 flex-shrink-0" />
+                                            ) : (
+                                              <ChevronRight className="h-5 w-5 text-gray-700 flex-shrink-0" />
+                                            )}
+                                            <Avatar className="h-10 w-10 ring-2 ring-white shadow-sm">
+                                              <AvatarImage
+                                                src={
+                                                  assignee?.avatarUrl || undefined
+                                                }
+                                                alt={assignee?.fullName || "User"}
+                                                className="object-cover"
+                                              />
+                                              <AvatarFallback className="bg-green-500 text-white text-sm font-semibold">
+                                                {assigneeId === "unassigned"
+                                                  ? "?"
+                                                  : assignee?.fullName
+                                                      ?.charAt(0)
+                                                      .toUpperCase() || "A"}
+                                              </AvatarFallback>
+                                            </Avatar>
+                                            <div className="flex-1">
+                                              <div className="font-medium text-gray-900">
+                                                {assigneeId === "unassigned"
+                                                  ? "Unassigned Tasks"
+                                                  : assignee?.fullName ||
+                                                    assignee?.email ||
+                                                    "Unknown"}
+                                              </div>
+                                              <div className="text-xs text-gray-500">
+                                                {taskCount} completed{" "}
+                                                {taskCount === 1
+                                                  ? "task"
+                                                  : "tasks"}
+                                              </div>
                                             </div>
                                           </div>
-                                          <div className="text-sm text-green-600 font-medium flex items-center gap-1">
-                                            <CheckCircle2 className="w-4 h-4" />
-                                            All Approved
-                                          </div>
+                                        
                                         </div>
-                                      </TableCell>
-                                      <TableCell className="text-right">
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            toggleUserExpansion(assigneeId);
-                                          }}
-                                        >
-                                          {isExpanded ? (
-                                            <ChevronDown className="w-4 h-4" />
-                                          ) : (
-                                            <ChevronRight className="w-4 h-4" />
-                                          )}
-                                        </Button>
                                       </TableCell>
                                     </TableRow>
 
