@@ -8,6 +8,14 @@ import {
 } from "../../../components/ui/card";
 import { Button } from "../../../components/ui/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "../../../components/ui/dialog";
+import {
   Users,
   FolderKanban,
   Tag,
@@ -19,6 +27,8 @@ import {
   Loader2,
   LayoutGrid,
   BarChart3,
+  List,
+  Eye,
 } from "lucide-react";
 import api from "../../../api/axiosClient";
 import {
@@ -46,7 +56,10 @@ interface DashboardStats {
   };
   projects: {
     active: number;
+    draft: number;
+    paused: number;
     completed: number;
+    archived: number;
     total: number;
   };
   annotations: {
@@ -82,11 +95,23 @@ interface DashboardStats {
   } | null;
 }
 
+interface Project {
+  id: string;
+  name: string;
+  status: string;
+  manager: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export function AdminDashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"cards" | "charts">("cards"); // Toggle state
+  const [showProjectsDialog, setShowProjectsDialog] = useState(false);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loadingProjects, setLoadingProjects] = useState(false);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -105,6 +130,22 @@ export function AdminDashboardPage() {
 
     fetchStats();
   }, []);
+
+  // Handler for viewing all projects
+  const handleViewAllProjects = async () => {
+    setShowProjectsDialog(true);
+    if (projects.length === 0) {
+      setLoadingProjects(true);
+      try {
+        const response = await api.get("/admin/projects");
+        setProjects(response.data);
+      } catch (err) {
+        console.error("Failed to fetch projects:", err);
+      } finally {
+        setLoadingProjects(false);
+      }
+    }
+  };
 
   if (isLoading) {
     return (
@@ -163,7 +204,73 @@ export function AdminDashboardPage() {
       </div>
 
       {/* Conditional Rendering based on viewMode */}
-      {viewMode === "cards" ? renderCardView(stats) : renderChartView(stats)}
+      {viewMode === "cards" ? renderCardView(stats) : renderChartView(stats, handleViewAllProjects)}
+
+      {/* Projects List Dialog */}
+      <Dialog open={showProjectsDialog} onOpenChange={setShowProjectsDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>All Projects</DialogTitle>
+            <DialogDescription>
+              Danh sách tất cả các dự án với thông tin manager và trạng thái
+            </DialogDescription>
+          </DialogHeader>
+
+          {loadingProjects ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+            </div>
+          ) : projects.length > 0 ? (
+            <div className="mt-4">
+              <div className="rounded-md border">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b bg-muted/50">
+                      <th className="p-3 text-left font-medium">Project Name</th>
+                      <th className="p-3 text-left font-medium">Manager</th>
+                      <th className="p-3 text-left font-medium">Status</th>
+                      <th className="p-3 text-left font-medium">Created</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {projects.map((project) => (
+                      <tr
+                        key={project.id}
+                        className="border-b hover:bg-muted/50 transition-colors"
+                      >
+                        <td className="p-3 font-medium">{project.name}</td>
+                        <td className="p-3 text-gray-600">{project.manager}</td>
+                        <td className="p-3">
+                          <span
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              project.status === "ACTIVE"
+                                ? "bg-green-100 text-green-800"
+                                : project.status === "COMPLETED"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : project.status === "PAUSED"
+                                    ? "bg-yellow-100 text-yellow-800"
+                                    : "bg-gray-100 text-gray-800"
+                            }`}
+                          >
+                            {project.status}
+                          </span>
+                        </td>
+                        <td className="p-3 text-sm text-gray-500">
+                          {new Date(project.createdAt).toLocaleDateString("vi-VN")}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              Không có dự án nào
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -202,15 +309,22 @@ function renderCardView(stats: DashboardStats) {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Dự Án Đang Hoạt Động
+              Tổng Dự Án
             </CardTitle>
             <FolderKanban className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.projects.active}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {stats.projects.completed} đã hoàn thành
-            </p>
+            <div className="text-2xl font-bold">{stats.projects.total}</div>
+            <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+              <div className="flex items-center justify-between">
+                <span className="text-green-600">● Active: {stats.projects.active}</span>
+                <span className="text-blue-600">● Completed: {stats.projects.completed}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-yellow-600">● Paused: {stats.projects.paused}</span>
+                <span className="text-gray-600">● Draft: {stats.projects.draft}</span>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
@@ -482,7 +596,7 @@ function renderCardView(stats: DashboardStats) {
 }
 
 // Helper function to render chart view
-function renderChartView(stats: DashboardStats) {
+function renderChartView(stats: DashboardStats, onViewProjects: () => void) {
   // Color palette for charts
   const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4'];
   
@@ -497,8 +611,10 @@ function renderChartView(stats: DashboardStats) {
   // Prepare data for Projects Bar Chart
   const projectsData = [
     { name: 'Active', value: stats.projects.active, color: COLORS[2] },
+    { name: 'Draft', value: stats.projects.draft, color: COLORS[5] },
+    { name: 'Paused', value: stats.projects.paused, color: COLORS[3] },
     { name: 'Completed', value: stats.projects.completed, color: COLORS[0] },
-    { name: 'Total', value: stats.projects.total, color: COLORS[1] },
+    { name: 'Archived', value: stats.projects.archived, color: COLORS[4] },
   ];
 
   // Prepare data for Annotations Trend
@@ -561,8 +677,20 @@ function renderChartView(stats: DashboardStats) {
         {/* Projects Status - Bar Chart */}
         <Card>
           <CardHeader>
-            <CardTitle>Projects Overview</CardTitle>
-            <CardDescription>Tình trạng các dự án</CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Projects Overview</CardTitle>
+                <CardDescription>Tình trạng các dự án</CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onViewProjects}
+              >
+                <List className="h-4 w-4 mr-2" />
+                View All
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -570,9 +698,11 @@ function renderChartView(stats: DashboardStats) {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" />
                 <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="value" fill="#8b5cf6" name="Projects">
+                <Tooltip 
+                  formatter={(value) => [`${value} projects`, 'Count']}
+                  contentStyle={{ backgroundColor: 'white', border: '1px solid #ccc' }}
+                />
+                <Bar dataKey="value" radius={[8, 8, 0, 0]}>
                   {projectsData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}

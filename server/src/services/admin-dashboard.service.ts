@@ -12,7 +12,10 @@ export interface DashboardStats {
   }
   projects: {
     active: number
+    draft: number
+    paused: number
     completed: number
+    archived: number
     total: number
   }
   annotations: {
@@ -248,12 +251,12 @@ export class AdminDashboardService {
       projectMap[item.status] = item._count
     })
 
-    const activeProjects =
-      (projectMap['ACTIVE'] || 0) +
-      (projectMap['DRAFT'] || 0) +
-      (projectMap['PAUSED'] || 0)
-    const completedProjects =
-      (projectMap['COMPLETED'] || 0) + (projectMap['ARCHIVED'] || 0)
+    const activeProjects = projectMap['ACTIVE'] || 0
+    const draftProjects = projectMap['DRAFT'] || 0
+    const pausedProjects = projectMap['PAUSED'] || 0
+    const completedProjects = projectMap['COMPLETED'] || 0
+    const archivedProjects = projectMap['ARCHIVED'] || 0
+    const totalProjects = activeProjects + draftProjects + pausedProjects + completedProjects + archivedProjects
 
     // Format top annotators
     const formattedTopAnnotators: {
@@ -318,8 +321,11 @@ export class AdminDashboardService {
       },
       projects: {
         active: activeProjects,
+        draft: draftProjects,
+        paused: pausedProjects,
         completed: completedProjects,
-        total: activeProjects + completedProjects,
+        archived: archivedProjects,
+        total: totalProjects,
       },
       annotations: {
         today: annotationsToday,
@@ -343,6 +349,54 @@ export class AdminDashboardService {
         completionRate,
         qualityScore,
       },
+    }
+  }
+
+  /**
+   * Get list of all projects with manager info
+   */
+  static async getAllProjects() {
+    try {
+      const projects = await prisma.project.findMany({
+        select: {
+          id: true,
+          name: true,
+          status: true,
+          createdAt: true,
+          updatedAt: true,
+          members: {
+            where: {
+              projectRole: 'MANAGER',
+            },
+            select: {
+              user: {
+                select: {
+                  id: true,
+                  fullName: true,
+                  email: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      })
+
+      // Format the response to include manager name
+      return projects.map((project) => ({
+        id: project.id,
+        name: project.name,
+        status: project.status,
+        createdAt: project.createdAt,
+        updatedAt: project.updatedAt,
+        manager:
+          project.members[0]?.user.fullName ||
+          project.members[0]?.user.email.split('@')[0] ||
+          'No Manager',
+      }))
+    } catch (error) {
+      console.error('Failed to get projects list:', error)
+      throw error
     }
   }
 }

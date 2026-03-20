@@ -404,4 +404,17 @@ export class AdminController {
             return res.status(500).json({ error: 'Failed to update config' });
         }
     }
+
+    /**
+     * Get all projects with manager information
+     */
+    static async getAllProjects(req: Request, res: Response) {
+        try {
+            const projects = await AdminDashboardService.getAllProjects();
+            return res.json(projects);
+        } catch (error) {
+            console.error('[Admin] Get all projects error:', error);
+            return res.status(500).json({ error: 'Failed to fetch projects' });
+        }
+    }
 }
