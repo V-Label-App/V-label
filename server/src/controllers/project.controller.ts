@@ -40,6 +40,11 @@ const addMemberSchema = z.object({
     role: z.enum(['MANAGER', 'REVIEWER', 'ANNOTATOR']).optional(),
 })
 
+const reassignManagerSchema = z.object({
+    newManagerId: z.string().uuid('Invalid user ID'),
+    reason: z.string().optional()
+})
+
 export class ProjectController {
     /**
      * POST /api/v1/projects
@@ -311,6 +316,36 @@ export class ProjectController {
         }
     }
 
+    /**
+     * PUT /api/v1/projects/:id/reassign-manager
+     */
+    static async reassignManager(req: Request, res: Response) {
+        try {
+            const { id } = req.params as { id: string }
+            const validatedData = reassignManagerSchema.parse(req.body)
+            const user = (req as any).user
+            const adminId = user?.sub || user?.id
+
+            const member = await ProjectService.reassignManager(
+                id,
+                validatedData.newManagerId,
+                validatedData.reason,
+                adminId
+            )
+
+            logger.info('API', `Project manager reassigned for project ${id} to ${validatedData.newManagerId}`, { actorId: adminId })
+            return res.json(member)
+        } catch (error) {
+            if (error instanceof ZodError) {
+                return res.status(400).json({ error: 'Validation failed', details: (error as any).errors })
+            }
+            if (error instanceof Error && error.message.includes('already the manager')) {
+                return res.status(409).json({ error: error.message })
+            }
+            logger.error('API', 'Reassign project manager failed', { error })
+            return res.status(500).json({ error: 'Internal server error' })
+        }
+    }
 
     /**
      * POST /api/v1/projects/:id/images
