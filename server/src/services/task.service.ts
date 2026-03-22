@@ -352,6 +352,9 @@ export class TaskService {
             // Calculate deadline based on difficulty or use custom deadline
             const deadline = customDeadline || this.calculateDeadline(task.difficultyLevel, role);
 
+            let isReassignment = false;
+            let oldAssigneeInfo: any = null;
+
             if (role === 'ANNOTATOR') {
                 // History Preservation: Find any existing active assignments for this task
                 // Instead of deleting them (which loses history), we mark ASSIGNED/IN_PROGRESS as SKIPPED
@@ -366,7 +369,14 @@ export class TaskService {
                 });
 
                 if (existingAssignments.length > 0) {
-                    const oldAnnotatorIds = [...new Set(existingAssignments.map(a => a.annotatorId))];
+                    isReassignment = true;
+                    const oldAnnotatorIds = [...new Set(existingAssignments.map(a => a.annotatorId).filter(Boolean))];
+                    if (oldAnnotatorIds.length > 0) {
+                        oldAssigneeInfo = await prisma.user.findUnique({
+                            where: { id: oldAnnotatorIds[0] as string },
+                            select: { id: true, fullName: true, email: true }
+                        });
+                    }
 
                     // 1. Mark REASSIGNING and REJECTED tasks as REASSIGNED
                     const reassignableIds = existingAssignments
@@ -491,18 +501,90 @@ export class TaskService {
                         select: { fullName: true, email: true }
                     });
 
+                    const actionType = (role === 'ANNOTATOR' && isReassignment) ? (TaskAction as any).REASSIGNED : TaskAction.ASSIGNED;
+
+                    const metadata: any = {
+                        targetUserId: userId,
+                        targetUserName: assignedUser?.fullName || assignedUser?.email || 'Unknown',
+                        deadline: deadline.toISOString(),
+                        method: method
+                    };
+
+                    if (isReassignment && oldAssigneeInfo) {
+                       metadata.oldAssignee = oldAssigneeInfo.fullName || oldAssigneeInfo.email;
+                       metadata.oldAssigneeId = oldAssigneeInfo.id;
+                    }
+
                     await TaskActivityService.logActivity({
                         taskId,
                         projectId: task.projectId,
                         userId: assignedBy || userId, // Use assignedBy if manual, otherwise the assigned user
-                        action: TaskAction.ASSIGNED,
-                        metadata: {
-                            targetUserId: userId,
-                            targetUserName: assignedUser?.fullName || assignedUser?.email || 'Unknown',
-                            deadline: deadline.toISOString(),
-                            method: method
-                        }
+                        action: actionType,
+                        metadata
                     });
+
+                    // If it is a reassignment, notify the Manager and the new Annotator.
+                    if (role === 'ANNOTATOR' && isReassignment) {
+                        const { NotificationService } = await import('./notification.service.js');
+                        const { NotificationTemplateService } = await import('./notification.template.service.js');
+                        const { broadcastService } = await import('../websocket/events/broadcast.service.js');
+                        const { SystemEventType } = await import('../websocket/events/types.js');
+                        
+                        const taskDetails = await prisma.task.findUnique({
+                            where: { id: taskId },
+                            include: { project: true, image: true }
+                        });
+                        
+                        if (taskDetails) {
+                            const rendered = await NotificationTemplateService.render(
+                                'TASK_REASSIGNED' as any,
+                                {
+                                    taskName: taskDetails.image?.originalFilename || `Task ${taskId.slice(0, 8)}`,
+                                    projectName: taskDetails.project.name,
+                                    newAnnotatorName: assignedUser?.fullName || assignedUser?.email || 'Unknown',
+                                    oldAnnotatorName: metadata.oldAssignee || 'Unknown',
+                                    taskId
+                                }
+                            );
+                            
+                            if (rendered) {
+                                // Notify Project Managers
+                                const projectManagers = await prisma.projectMember.findMany({
+                                    where: { projectId: task.projectId, projectRole: 'MANAGER' as any },
+                                    select: { userId: true }
+                                });
+                                
+                                // Also notify the new annotator
+                                const usersToNotify = [...projectManagers.map(m => m.userId), userId];
+                                const uniqueUsers = [...new Set(usersToNotify)];
+                                
+                                for (const notifyUserId of uniqueUsers) {
+                                    const notification = await NotificationService.createNotification({
+                                        userId: notifyUserId,
+                                        type: 'TASK_REASSIGNED' as any,
+                                        title: rendered.title,
+                                        message: rendered.message,
+                                        metadata: {
+                                            taskId,
+                                            projectId: task.projectId,
+                                        }
+                                    });
+                                    
+                                    broadcastService.broadcastToUser(notifyUserId, SystemEventType.NOTIFICATION_CREATED, {
+                                        notification: {
+                                            id: notification.id,
+                                            type: notification.type,
+                                            title: notification.title,
+                                            message: notification.message,
+                                            metadata: notification.metadata,
+                                            isRead: notification.isRead,
+                                            createdAt: notification.createdAt
+                                        }
+                                    });
+                                }
+                            }
+                        }
+                    }
                 } catch (activityError) {
                     logger.error('TASK_SERVICE', 'Failed to log task assignment activity', { error: activityError });
                 }
