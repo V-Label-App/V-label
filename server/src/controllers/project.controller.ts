@@ -1,4 +1,4 @@
-import { Request, Response } from 'express'
+import type { Request, Response } from 'express'
 import { z, ZodError } from 'zod'
 import { ProjectService } from '../services/project.service.js'
 import { ProjectHealthService } from '../services/project-health.service.js'
@@ -1268,7 +1268,8 @@ export class ProjectController {
                 'ANNOTATOR',
                 AssignmentMethod.MANUAL,
                 userId,
-                customDeadline
+                customDeadline,
+                true // skipActivity to avoid duplicate logging and notifications from TaskService
             )
 
             // Fetch the created assignment to return
@@ -1366,44 +1367,92 @@ export class ProjectController {
                 })
 
                 if (project && annotator && assignment) {
-                    // Render notification template
-                    const rendered = await NotificationTemplateService.render(
-                        NotificationType.TASK_ASSIGNED,
-                        {
-                            taskId: task.id,
-                            taskName: task.image?.originalFilename || 'Untitled Task',
-                            projectId: project.id,
-                            projectName: project.name
-                        }
-                    )
-
-                    if (rendered) {
-                        // Create notification in DB
-                        const notification = await NotificationService.createNotification({
-                            userId: annotatorId,
-                            type: NotificationType.TASK_ASSIGNED,
-                            title: rendered.title,
-                            message: rendered.message,
-                            metadata: {
-                                taskId: task.id,
-                                projectId: project.id,
+                    if (isReassignment) {
+                        const rendered = await NotificationTemplateService.render(
+                            NotificationType.TASK_REASSIGNED,
+                            {
+                                taskName: task.image?.originalFilename || 'Untitled Task',
                                 projectName: project.name,
-                                deadline: assignment.deadline?.toISOString()
+                                newAnnotatorName: annotator.fullName || annotator.email || 'Unknown',
+                                oldAnnotatorName: oldAnnotator?.fullName || oldAnnotator?.email || 'Unknown',
+                                taskId: task.id
                             }
-                        })
+                        )
 
-                        // Broadcast via WebSocket
-                        broadcastService.broadcastToUser(annotatorId, SystemEventType.NOTIFICATION_CREATED, {
-                            notification: {
-                                id: notification.id,
-                                type: notification.type,
-                                title: notification.title,
-                                message: notification.message,
-                                metadata: notification.metadata,
-                                isRead: notification.isRead,
-                                createdAt: notification.createdAt
+                        if (rendered) {
+                            const projectManagers = await prisma.projectMember.findMany({
+                                where: { projectId: id, projectRole: 'MANAGER' as any },
+                                select: { userId: true }
+                            });
+                            
+                            const usersToNotify = [...projectManagers.map(m => m.userId), annotatorId];
+                            const uniqueUsers = [...new Set(usersToNotify)];
+
+                            for (const notifyUserId of uniqueUsers) {
+                                const notification = await NotificationService.createNotification({
+                                    userId: notifyUserId,
+                                    type: NotificationType.TASK_REASSIGNED,
+                                    title: rendered.title,
+                                    message: rendered.message,
+                                    metadata: {
+                                        taskId: task.id,
+                                        projectId: project.id,
+                                        projectName: project.name,
+                                        deadline: assignment.deadline?.toISOString()
+                                    }
+                                })
+
+                                broadcastService.broadcastToUser(notifyUserId, SystemEventType.NOTIFICATION_CREATED, {
+                                    notification: {
+                                        id: notification.id,
+                                        type: notification.type,
+                                        title: notification.title,
+                                        message: notification.message,
+                                        metadata: notification.metadata,
+                                        isRead: notification.isRead,
+                                        createdAt: notification.createdAt
+                                    }
+                                })
                             }
-                        })
+                        }
+                    } else {
+                        const rendered = await NotificationTemplateService.render(
+                            NotificationType.TASK_ASSIGNED,
+                            {
+                                taskId: task.id,
+                                taskName: task.image?.originalFilename || 'Untitled Task',
+                                projectId: project.id,
+                                projectName: project.name
+                            }
+                        )
+
+                        if (rendered) {
+                            const notification = await NotificationService.createNotification({
+                                userId: annotatorId,
+                                type: NotificationType.TASK_ASSIGNED,
+                                title: rendered.title,
+                                message: rendered.message,
+                                metadata: {
+                                    taskId: task.id,
+                                    projectId: project.id,
+                                    projectName: project.name,
+                                    deadline: assignment.deadline?.toISOString()
+                                }
+                            })
+
+                            broadcastService.broadcastToUser(annotatorId, SystemEventType.NOTIFICATION_CREATED, {
+                                notification: {
+                                    id: notification.id,
+                                    type: notification.type,
+                                    title: notification.title,
+                                    message: notification.message,
+                                    metadata: notification.metadata,
+                                    isRead: notification.isRead,
+                                    createdAt: notification.createdAt
+                                }
+                            })
+                        }
+                    }
 
                         // Send email
                         const emailService = new EmailService()
@@ -1436,7 +1485,6 @@ export class ProjectController {
                             projectId: id
                         })
                     }
-                }
             } catch (notifError) {
                 // Don't fail the whole request if notification fails
                 logger.error('API', 'Failed to send task assignment notification/email', {

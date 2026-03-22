@@ -1,0 +1,6 @@
+-- AlterEnum
+ALTER TYPE "NotificationType" ADD VALUE 'TASK_REASSIGNING';
+ALTER TYPE "NotificationType" ADD VALUE 'TASK_REASSIGNED';
+
+-- AlterEnum
+ALTER TYPE "TaskAction" ADD VALUE 'REASSIGNING';
