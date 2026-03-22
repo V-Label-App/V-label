@@ -76,6 +76,12 @@ router.patch(
   ProjectController.updateMemberRole, // Assuming a controller method for updating member role
 )
 
+router.put(
+  '/:id/reassign-manager',
+  requireRole(['ADMIN']),
+  ProjectController.reassignManager,
+)
+
 // ==========================================
 // Phase 3: Dataset & Image Routes
 // ==========================================
