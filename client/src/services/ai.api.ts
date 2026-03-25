@@ -33,7 +33,7 @@ export const aiApi = {
         imageWidth: number,
         imageHeight: number
     ) => {
-        const response = await apiClient.post<{ suggestions: AISuggestion[] }>(
+        const response = await apiClient.post<{ suggestions: AISuggestion[]; otherObjects: string[] }>(
             `${BASE_URL}/suggest-annotations`,
             { imageUrl, labels, imageWidth, imageHeight }
         );
@@ -44,11 +44,12 @@ export const aiApi = {
      * Generate annotation tips based on AI detection results
      */
     getAnnotationTips: async (
-        detections: Array<{ label: string; confidence: number; reason?: string }>
+        detections: Array<{ label: string; confidence: number; reason?: string }>,
+        otherObjects?: string[]
     ) => {
         const response = await apiClient.post<{ tips: string[] }>(
             `${BASE_URL}/annotation-tips`,
-            { detections }
+            { detections, otherObjects }
         );
         return response.data;
     },

@@ -104,8 +104,8 @@ export class TaskService {
     ): Promise<number> {
         const activeStatuses = role === 'REVIEWER'
             // Reviewer active = assigned-to-review (SUBMITTED) + in progress
-            ? [AssignmentStatus.SUBMITTED, AssignmentStatus.IN_PROGRESS]
-            : [AssignmentStatus.ASSIGNED, AssignmentStatus.IN_PROGRESS];
+            ? ['SUBMITTED' as any, 'IN_PROGRESS' as any]
+            : ['ASSIGNED' as any, 'IN_PROGRESS' as any];
 
         if (role === 'ANNOTATOR') {
             return prisma.taskAssignment.count({
@@ -263,9 +263,12 @@ export class TaskService {
                     );
 
                     // Sort by oldest assignment first
-                    usersWithLastAssignment.sort((a, b) =>
-                        a.lastAssignedAt.getTime() - b.lastAssignedAt.getTime()
-                    );
+                    // If timestamps are equal, shuffle to avoid picking the same user in fast loops
+                    usersWithLastAssignment.sort((a, b) => {
+                        const diff = a.lastAssignedAt.getTime() - b.lastAssignedAt.getTime();
+                        if (diff === 0) return Math.random() - 0.5;
+                        return diff;
+                    });
 
                     selectedUser = usersWithLastAssignment[0]?.userId || null;
                     break;
@@ -276,8 +279,8 @@ export class TaskService {
                     const usersWithTaskCount = await Promise.all(
                         candidates.map(async (candidate) => {
                             const activeStatuses = role === ProjectRole.REVIEWER
-                                ? [AssignmentStatus.SUBMITTED, AssignmentStatus.IN_PROGRESS]
-                                : [AssignmentStatus.ASSIGNED, AssignmentStatus.IN_PROGRESS];
+                                ? ['SUBMITTED' as any, 'IN_PROGRESS' as any]
+                                : ['ASSIGNED' as any, 'IN_PROGRESS' as any];
 
                             const userWhere = role === ProjectRole.ANNOTATOR
                                 ? { annotatorId: candidate.userId, task: { projectId }, status: { in: activeStatuses } }
@@ -349,6 +352,9 @@ export class TaskService {
             // Calculate deadline based on difficulty or use custom deadline
             const deadline = customDeadline || this.calculateDeadline(task.difficultyLevel, role);
 
+            let isReassignment = false;
+            let oldAssigneeInfo: any = null;
+
             if (role === 'ANNOTATOR') {
                 // History Preservation: Find any existing active assignments for this task
                 // Instead of deleting them (which loses history), we mark ASSIGNED/IN_PROGRESS as SKIPPED
@@ -356,25 +362,51 @@ export class TaskService {
                     where: {
                         taskId,
                         status: {
-                            in: [AssignmentStatus.ASSIGNED, AssignmentStatus.IN_PROGRESS, AssignmentStatus.REJECTED]
+                            in: ['ASSIGNED', 'IN_PROGRESS', 'REJECTED', 'REASSIGNING'] as any
                         }
                     },
-                    select: { id: true, annotatorId: true }
+                    select: { id: true, annotatorId: true, status: true }
                 });
 
                 if (existingAssignments.length > 0) {
-                    const oldAnnotatorIds = [...new Set(existingAssignments.map(a => a.annotatorId))];
+                    isReassignment = true;
+                    const oldAnnotatorIds = [...new Set(existingAssignments.map(a => a.annotatorId).filter(Boolean))];
+                    if (oldAnnotatorIds.length > 0) {
+                        oldAssigneeInfo = await prisma.user.findUnique({
+                            where: { id: oldAnnotatorIds[0] as string },
+                            select: { id: true, fullName: true, email: true }
+                        });
+                    }
 
-                    // Mark active/rejected tasks as SKIPPED to revoke access permanentely 
-                    await prisma.taskAssignment.updateMany({
-                        where: {
-                            id: { in: existingAssignments.map(a => a.id) }
-                        },
-                        data: {
-                            status: AssignmentStatus.SKIPPED,
-                            updatedAt: new Date()
-                        }
-                    });
+                    // 1. Mark REASSIGNING and REJECTED tasks as REASSIGNED
+                    const reassignableIds = existingAssignments
+                        .filter(a => a.status === 'REASSIGNING' || a.status === 'REJECTED')
+                        .map(a => a.id);
+                    
+                    if (reassignableIds.length > 0) {
+                        await prisma.taskAssignment.updateMany({
+                            where: { id: { in: reassignableIds } },
+                            data: {
+                                status: 'REASSIGNED' as any,
+                                updatedAt: new Date()
+                            }
+                        });
+                    }
+
+                    // 2. Mark active (ASSIGNED/IN_PROGRESS) tasks as SKIPPED
+                    const skippableIds = existingAssignments
+                        .filter(a => a.status === 'ASSIGNED' || a.status === 'IN_PROGRESS')
+                        .map(a => a.id);
+
+                    if (skippableIds.length > 0) {
+                        await prisma.taskAssignment.updateMany({
+                            where: { id: { in: skippableIds } },
+                            data: {
+                                status: 'SKIPPED' as any,
+                                updatedAt: new Date()
+                            }
+                        });
+                    }
 
                     // Recalculate workloads for old annotators (to keep stats in sync)
                     const { UserWorkloadService } = await import('./user-workload.service.js');
@@ -393,7 +425,7 @@ export class TaskService {
                 const data: any = {
                     taskId,
                     annotatorId: userId,
-                    status: AssignmentStatus.ASSIGNED,
+                    status: 'ASSIGNED' as any,
                     assignmentMethod: method,
                     deadline,
                     ...(assignedBy && { assignedBy })
@@ -416,7 +448,7 @@ export class TaskService {
                 const existingAssignment = await prisma.taskAssignment.findFirst({
                     where: {
                         taskId,
-                        status: AssignmentStatus.SUBMITTED
+                        status: 'SUBMITTED' as any
                     },
                     orderBy: { updatedAt: 'desc' }
                 });
@@ -469,18 +501,90 @@ export class TaskService {
                         select: { fullName: true, email: true }
                     });
 
+                    const actionType = (role === 'ANNOTATOR' && isReassignment) ? (TaskAction as any).REASSIGNED : TaskAction.ASSIGNED;
+
+                    const metadata: any = {
+                        targetUserId: userId,
+                        targetUserName: assignedUser?.fullName || assignedUser?.email || 'Unknown',
+                        deadline: deadline.toISOString(),
+                        method: method
+                    };
+
+                    if (isReassignment && oldAssigneeInfo) {
+                       metadata.oldAssignee = oldAssigneeInfo.fullName || oldAssigneeInfo.email;
+                       metadata.oldAssigneeId = oldAssigneeInfo.id;
+                    }
+
                     await TaskActivityService.logActivity({
                         taskId,
                         projectId: task.projectId,
                         userId: assignedBy || userId, // Use assignedBy if manual, otherwise the assigned user
-                        action: TaskAction.ASSIGNED,
-                        metadata: {
-                            targetUserId: userId,
-                            targetUserName: assignedUser?.fullName || assignedUser?.email || 'Unknown',
-                            deadline: deadline.toISOString(),
-                            method: method
-                        }
+                        action: actionType,
+                        metadata
                     });
+
+                    // If it is a reassignment, notify the Manager and the new Annotator.
+                    if (role === 'ANNOTATOR' && isReassignment) {
+                        const { NotificationService } = await import('./notification.service.js');
+                        const { NotificationTemplateService } = await import('./notification.template.service.js');
+                        const { broadcastService } = await import('../websocket/events/broadcast.service.js');
+                        const { SystemEventType } = await import('../websocket/events/types.js');
+                        
+                        const taskDetails = await prisma.task.findUnique({
+                            where: { id: taskId },
+                            include: { project: true, image: true }
+                        });
+                        
+                        if (taskDetails) {
+                            const rendered = await NotificationTemplateService.render(
+                                'TASK_REASSIGNED' as any,
+                                {
+                                    taskName: taskDetails.image?.originalFilename || `Task ${taskId.slice(0, 8)}`,
+                                    projectName: taskDetails.project.name,
+                                    newAnnotatorName: assignedUser?.fullName || assignedUser?.email || 'Unknown',
+                                    oldAnnotatorName: metadata.oldAssignee || 'Unknown',
+                                    taskId
+                                }
+                            );
+                            
+                            if (rendered) {
+                                // Notify Project Managers
+                                const projectManagers = await prisma.projectMember.findMany({
+                                    where: { projectId: task.projectId, projectRole: 'MANAGER' as any },
+                                    select: { userId: true }
+                                });
+                                
+                                // Also notify the new annotator
+                                const usersToNotify = [...projectManagers.map(m => m.userId), userId];
+                                const uniqueUsers = [...new Set(usersToNotify)];
+                                
+                                for (const notifyUserId of uniqueUsers) {
+                                    const notification = await NotificationService.createNotification({
+                                        userId: notifyUserId,
+                                        type: 'TASK_REASSIGNED' as any,
+                                        title: rendered.title,
+                                        message: rendered.message,
+                                        metadata: {
+                                            taskId,
+                                            projectId: task.projectId,
+                                        }
+                                    });
+                                    
+                                    broadcastService.broadcastToUser(notifyUserId, SystemEventType.NOTIFICATION_CREATED, {
+                                        notification: {
+                                            id: notification.id,
+                                            type: notification.type,
+                                            title: notification.title,
+                                            message: notification.message,
+                                            metadata: notification.metadata,
+                                            isRead: notification.isRead,
+                                            createdAt: notification.createdAt
+                                        }
+                                    });
+                                }
+                            }
+                        }
+                    }
                 } catch (activityError) {
                     logger.error('TASK_SERVICE', 'Failed to log task assignment activity', { error: activityError });
                 }
@@ -505,7 +609,7 @@ export class TaskService {
                 data: {
                     imageId,
                     projectId,
-                    status: 'TODO',
+                    status: 'TODO' as any,
                     priority: TaskPriority.MEDIUM,
                     difficultyLevel: DifficultyLevel.NORMAL
                 }
@@ -678,6 +782,32 @@ export class TaskService {
             return false;
         }
     }
+
+    /**
+     * Bulk auto-assign all orphaned tasks in a project
+     */
+    static async bulkAutoAssignOrphans(projectId: string) {
+        try {
+            const { ProjectHealthService } = await import('./project-health.service.js');
+            const orphanedTasks = await ProjectHealthService.getOrphanedTasks(projectId);
+            const orphanedTaskIds = orphanedTasks.map(t => t.id);
+
+            let successCount = 0;
+            let failedCount = 0;
+
+            for (const taskId of orphanedTaskIds) {
+                // forceReassign: true bypasses the global toggle because this was explicitly triggered
+                const assigned = await this.autoAssignTask(taskId, projectId, 'ANNOTATOR', undefined, false, true);
+                if (assigned) successCount++;
+                else failedCount++;
+            }
+
+            return { successCount, failedCount };
+        } catch (error) {
+            logger.error('TASK_SERVICE', 'Bulk auto-assign orphans failed', { error });
+            throw error;
+        }
+    }
 }
 
 // ==== Event Listeners ====
@@ -692,32 +822,19 @@ appEvents.on('TASK_SUBMITTED_AUTO_REVIEWER', async ({ taskId, projectId, annotat
             include: { assignmentRule: true }
         });
 
-        logger.info('TASK_SERVICE', '[AUTO-REVIEWER] Project rules', {
-            hasProject: !!project,
-            hasRule: !!project?.assignmentRule,
-            autoAssignReviewer: project?.assignmentRule?.autoAssignReviewer,
-            isAutoAssignEnabled: project?.assignmentRule?.isAutoAssignEnabled,
-            minReviewerReputation: project?.assignmentRule?.minReviewerReputation,
-            maxTasksPerReviewer: project?.assignmentRule?.maxTasksPerReviewer,
-            reviewerDelayHours: project?.assignmentRule?.reviewerDelayHours,
-        });
-
         const delayHours = project?.assignmentRule?.reviewerDelayHours ?? 0;
 
         if (delayHours > 0) {
             const delayMs = delayHours * 3600 * 1000;
-            logger.info('TASK_SERVICE', '[AUTO-REVIEWER] Delaying assignment', { taskId, assignmentId, delayHours });
             setTimeout(async () => {
                 try {
-                    const result = await TaskService.autoAssignTask(taskId, projectId, 'REVIEWER', annotatorId);
-                    logger.info('TASK_SERVICE', '[AUTO-REVIEWER] Delayed assignment result', { taskId, result });
+                    await TaskService.autoAssignTask(taskId, projectId, 'REVIEWER', annotatorId);
                 } catch (delayedError) {
                     logger.error('TASK_SERVICE', '[AUTO-REVIEWER] Delayed assignment failed', { error: delayedError, taskId });
                 }
             }, delayMs);
         } else {
-            const result = await TaskService.autoAssignTask(taskId, projectId, 'REVIEWER', annotatorId);
-            logger.info('TASK_SERVICE', '[AUTO-REVIEWER] Assignment result', { taskId, assignmentId, result });
+            await TaskService.autoAssignTask(taskId, projectId, 'REVIEWER', annotatorId);
         }
     } catch (error) {
         logger.error('TASK_SERVICE', '[AUTO-REVIEWER] Event handler failed', { error, taskId, assignmentId });
@@ -726,16 +843,9 @@ appEvents.on('TASK_SUBMITTED_AUTO_REVIEWER', async ({ taskId, projectId, annotat
 
 appEvents.on('TASK_SKIPPED_REASSIGN', async ({ taskId, projectId, excludeUserId }) => {
     try {
-        // forceReassign=true bypasses isAutoAssignEnabled so projects using manual assignment
-        // still get automatic reassignment when the max-rejection threshold is exceeded.
-        const assigned = await TaskService.autoAssignTask(
+        await TaskService.autoAssignTask(
             taskId, projectId, 'ANNOTATOR', excludeUserId, false, true
         );
-        if (assigned) {
-            logger.info('TASK_SERVICE', 'Handled auto-reassign after max rejections', { taskId, projectId, excludeUserId });
-        } else {
-            logger.warn('TASK_SERVICE', 'Auto-reassign after max rejections failed: no eligible annotator found', { taskId, projectId, excludeUserId });
-        }
     } catch (error) {
         logger.error('TASK_SERVICE', 'Failed to handle auto-reassign event', { error, taskId, projectId });
     }

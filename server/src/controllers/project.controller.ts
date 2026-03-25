@@ -1,4 +1,4 @@
-import { Request, Response } from 'express'
+import type { Request, Response } from 'express'
 import { z, ZodError } from 'zod'
 import { ProjectService } from '../services/project.service.js'
 import { ProjectHealthService } from '../services/project-health.service.js'
@@ -38,6 +38,11 @@ const updateProjectSchema = createProjectSchema.partial().extend({
 const addMemberSchema = z.object({
     userId: z.string().uuid('Invalid user ID'),
     role: z.enum(['MANAGER', 'REVIEWER', 'ANNOTATOR']).optional(),
+})
+
+const reassignManagerSchema = z.object({
+    newManagerId: z.string().uuid('Invalid user ID'),
+    reason: z.string().optional()
 })
 
 export class ProjectController {
@@ -311,6 +316,36 @@ export class ProjectController {
         }
     }
 
+    /**
+     * PUT /api/v1/projects/:id/reassign-manager
+     */
+    static async reassignManager(req: Request, res: Response) {
+        try {
+            const { id } = req.params as { id: string }
+            const validatedData = reassignManagerSchema.parse(req.body)
+            const user = (req as any).user
+            const adminId = user?.sub || user?.id
+
+            const member = await ProjectService.reassignManager(
+                id,
+                validatedData.newManagerId,
+                validatedData.reason,
+                adminId
+            )
+
+            logger.info('API', `Project manager reassigned for project ${id} to ${validatedData.newManagerId}`, { actorId: adminId })
+            return res.json(member)
+        } catch (error) {
+            if (error instanceof ZodError) {
+                return res.status(400).json({ error: 'Validation failed', details: (error as any).errors })
+            }
+            if (error instanceof Error && error.message.includes('already the manager')) {
+                return res.status(409).json({ error: error.message })
+            }
+            logger.error('API', 'Reassign project manager failed', { error })
+            return res.status(500).json({ error: 'Internal server error' })
+        }
+    }
 
     /**
      * POST /api/v1/projects/:id/images
@@ -951,7 +986,7 @@ export class ProjectController {
                                 where: {
                                     // Include ALL rejected/skipped assignments,
                                     // including the current one if it is rejected.
-                                    status: { in: ['REJECTED', 'SKIPPED'] },
+                                    status: { in: ['REJECTED', 'SKIPPED', 'REASSIGNING', 'REASSIGNED'] as any },
                                 },
                                 include: {
                                     annotator: { select: { fullName: true, email: true } },
@@ -1268,7 +1303,8 @@ export class ProjectController {
                 'ANNOTATOR',
                 AssignmentMethod.MANUAL,
                 userId,
-                customDeadline
+                customDeadline,
+                true // skipActivity to avoid duplicate logging and notifications from TaskService
             )
 
             // Fetch the created assignment to return
@@ -1366,44 +1402,92 @@ export class ProjectController {
                 })
 
                 if (project && annotator && assignment) {
-                    // Render notification template
-                    const rendered = await NotificationTemplateService.render(
-                        NotificationType.TASK_ASSIGNED,
-                        {
-                            taskId: task.id,
-                            taskName: task.image?.originalFilename || 'Untitled Task',
-                            projectId: project.id,
-                            projectName: project.name
-                        }
-                    )
-
-                    if (rendered) {
-                        // Create notification in DB
-                        const notification = await NotificationService.createNotification({
-                            userId: annotatorId,
-                            type: NotificationType.TASK_ASSIGNED,
-                            title: rendered.title,
-                            message: rendered.message,
-                            metadata: {
-                                taskId: task.id,
-                                projectId: project.id,
+                    if (isReassignment) {
+                        const rendered = await NotificationTemplateService.render(
+                            NotificationType.TASK_REASSIGNED,
+                            {
+                                taskName: task.image?.originalFilename || 'Untitled Task',
                                 projectName: project.name,
-                                deadline: assignment.deadline?.toISOString()
+                                newAnnotatorName: annotator.fullName || annotator.email || 'Unknown',
+                                oldAnnotatorName: oldAnnotator?.fullName || oldAnnotator?.email || 'Unknown',
+                                taskId: task.id
                             }
-                        })
+                        )
 
-                        // Broadcast via WebSocket
-                        broadcastService.broadcastToUser(annotatorId, SystemEventType.NOTIFICATION_CREATED, {
-                            notification: {
-                                id: notification.id,
-                                type: notification.type,
-                                title: notification.title,
-                                message: notification.message,
-                                metadata: notification.metadata,
-                                isRead: notification.isRead,
-                                createdAt: notification.createdAt
+                        if (rendered) {
+                            const projectManagers = await prisma.projectMember.findMany({
+                                where: { projectId: id, projectRole: 'MANAGER' as any },
+                                select: { userId: true }
+                            });
+                            
+                            const usersToNotify = [...projectManagers.map(m => m.userId), annotatorId];
+                            const uniqueUsers = [...new Set(usersToNotify)];
+
+                            for (const notifyUserId of uniqueUsers) {
+                                const notification = await NotificationService.createNotification({
+                                    userId: notifyUserId,
+                                    type: NotificationType.TASK_REASSIGNED,
+                                    title: rendered.title,
+                                    message: rendered.message,
+                                    metadata: {
+                                        taskId: task.id,
+                                        projectId: project.id,
+                                        projectName: project.name,
+                                        deadline: assignment.deadline?.toISOString()
+                                    }
+                                })
+
+                                broadcastService.broadcastToUser(notifyUserId, SystemEventType.NOTIFICATION_CREATED, {
+                                    notification: {
+                                        id: notification.id,
+                                        type: notification.type,
+                                        title: notification.title,
+                                        message: notification.message,
+                                        metadata: notification.metadata,
+                                        isRead: notification.isRead,
+                                        createdAt: notification.createdAt
+                                    }
+                                })
                             }
-                        })
+                        }
+                    } else {
+                        const rendered = await NotificationTemplateService.render(
+                            NotificationType.TASK_ASSIGNED,
+                            {
+                                taskId: task.id,
+                                taskName: task.image?.originalFilename || 'Untitled Task',
+                                projectId: project.id,
+                                projectName: project.name
+                            }
+                        )
+
+                        if (rendered) {
+                            const notification = await NotificationService.createNotification({
+                                userId: annotatorId,
+                                type: NotificationType.TASK_ASSIGNED,
+                                title: rendered.title,
+                                message: rendered.message,
+                                metadata: {
+                                    taskId: task.id,
+                                    projectId: project.id,
+                                    projectName: project.name,
+                                    deadline: assignment.deadline?.toISOString()
+                                }
+                            })
+
+                            broadcastService.broadcastToUser(annotatorId, SystemEventType.NOTIFICATION_CREATED, {
+                                notification: {
+                                    id: notification.id,
+                                    type: notification.type,
+                                    title: notification.title,
+                                    message: notification.message,
+                                    metadata: notification.metadata,
+                                    isRead: notification.isRead,
+                                    createdAt: notification.createdAt
+                                }
+                            })
+                        }
+                    }
 
                         // Send email
                         const emailService = new EmailService()
@@ -1436,7 +1520,6 @@ export class ProjectController {
                             projectId: id
                         })
                     }
-                }
             } catch (notifError) {
                 // Don't fail the whole request if notification fails
                 logger.error('API', 'Failed to send task assignment notification/email', {

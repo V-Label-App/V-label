@@ -80,6 +80,26 @@ export class NotificationTemplateService {
         title: 'Project Invitation',
         message: 'You have been added to project "{projectName}" as {role}.',
         variables: ['projectName', 'role', 'invitedBy']
+      },
+      PROJECT_ASSIGNED: {
+        title: 'Project Assigned',
+        message: 'You have been assigned as the new manager of project "{projectName}".',
+        variables: ['projectName', 'projectId', 'reason']
+      },
+      PROJECT_UNASSIGNED: {
+        title: 'Project Reassigned',
+        message: 'You are no longer the manager. Project "{projectName}" has been reassigned to someone else.',
+        variables: ['projectName', 'projectId', 'reason']
+      },
+      TASK_REASSIGNING: {
+        title: 'Task Reassignment Triggered',
+        message: 'Task "{taskName}" in project "{projectName}" has reached the maximum rejection limit ({rejectionCount}) and is being reassigned.',
+        variables: ['taskName', 'projectName', 'rejectionCount', 'taskId']
+      },
+      TASK_REASSIGNED: {
+        title: 'Task Reassigned',
+        message: 'Task "{taskName}" in project "{projectName}" has been reassigned to {newAnnotatorName}.',
+        variables: ['taskName', 'projectName', 'newAnnotatorName', 'oldAnnotatorName', 'taskId']
       }
     };
 

@@ -301,6 +301,7 @@ export class UserWorkloadService {
             const assignedTasks = assignments.filter(a => a.status === AssignmentStatus.ASSIGNED).length;
             const inProgressTasks = assignments.filter(a => a.status === AssignmentStatus.IN_PROGRESS).length;
             const pendingReviewTasks = assignments.filter(a => a.status === AssignmentStatus.SUBMITTED).length;
+            // REASSIGNING and REASSIGNED are not counted as active tasks for workload.
 
             await this.initializeWorkload(userId, projectId);
 

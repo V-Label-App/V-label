@@ -145,7 +145,7 @@ export function WorkspacePage({
     }
   }, [taskData, dataLoading]);
 
-  const { updateImages, getCurrentImage, currentIndex, jumpToImage, setAutoSaveStatus } =
+  const { updateImages, getCurrentImage, currentIndex, jumpToImage, setAutoSaveStatus, setHasInteracted } =
     useImageStore();
 
   // Derive taskStatus dynamically from taskData, fallback to propTaskStatus/assigned
@@ -172,6 +172,7 @@ export function WorkspacePage({
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [isAiPanelOpen, setIsAiPanelOpen] = useState(false);
   const [aiTips, setAiTips] = useState<string[]>([]);
+  const [aiOtherObjects, setAiOtherObjects] = useState<string[]>([]);
 
   // History preview state
   const [previewingSubmission, setPreviewingSubmission] = useState<
@@ -329,6 +330,16 @@ export function WorkspacePage({
   const [isSkipConfirmOpen, setIsSkipConfirmOpen] = useState(false);
   const [skipReason, setSkipReason] = useState("");
 
+  const handleSaveDraft = useCallback(async () => {
+    if (isReadOnly) return;
+    try {
+      await saveDraft(annotations, annotatorNote, actualTimeSeconds);
+      toast.success("Draft saved successfully");
+    } catch {
+      toast.error("Failed to save draft");
+    }
+  }, [saveDraft, annotations, annotatorNote, actualTimeSeconds, isReadOnly]);
+
   const handleSubmit = async () => {
     // Validate before submit
     if (annotations.length === 0) {
@@ -439,6 +450,7 @@ export function WorkspacePage({
   const handleAiSuggest = useCallback(async () => {
     if (!currentImage || !taskData || isAiLoading) return;
     setIsAiLoading(true);
+    setHasInteracted(true);
     try {
       // Get actual image dimensions from browser
       const actualDims = await new Promise<{ width: number; height: number }>(
@@ -457,14 +469,14 @@ export function WorkspacePage({
       );
 
       const imageUrl = currentImage.url ?? "";
-      const { suggestions } = await aiApi.suggestAnnotations(
+      const { suggestions, otherObjects = [] } = await aiApi.suggestAnnotations(
         imageUrl,
         taskData.labels,
         actualDims.width,
         actualDims.height,
       );
 
-      if (suggestions.length === 0) {
+      if (suggestions.length === 0 && otherObjects.length === 0) {
         toast.info("No matching objects detected.", {
           description: "Try a different image or review the project labels.",
           duration: 4000,
@@ -481,9 +493,11 @@ export function WorkspacePage({
 
       // Fetch AI-generated tips in background (non-blocking)
       setAiTips([]);
+      setAiOtherObjects(otherObjects);
       setIsAiPanelOpen(true);
       aiApi.getAnnotationTips(
-        suggestions.map((s) => ({ label: s.label, confidence: s.confidence, reason: s.reason }))
+        suggestions.map((s) => ({ label: s.label, confidence: s.confidence, reason: s.reason })),
+        otherObjects
       ).then(({ tips }) => setAiTips(tips)).catch(() => {});
 
       suggestions.forEach((s) => {
@@ -508,8 +522,7 @@ export function WorkspacePage({
     } finally {
       setIsAiLoading(false);
     }
-  }, [currentImage, taskData, isAiLoading, addAnnotation, setAnnotations]);
-
+  }, [currentImage, taskData, isAiLoading, addAnnotation, setAnnotations, setHasInteracted]);
   const handleClose = () => {
     navigate(-1);
   };
@@ -577,9 +590,10 @@ export function WorkspacePage({
         taskStatus={taskStatus}
         onSubmit={handleSubmit}
         onSkip={() => setIsSkipConfirmOpen(true)}
-        onResume={resumeTask}
         onApprove={handleApprove}
         onReject={handleReject}
+        onResume={resumeTask}
+        onSave={handleSaveDraft}
         onClose={handleClose}
         actualTimeSeconds={actualTimeSeconds}
         projectName={taskData.projectName}
@@ -598,6 +612,7 @@ export function WorkspacePage({
           isOpen={isAiPanelOpen}
           onClose={() => setIsAiPanelOpen(false)}
           tips={aiTips}
+          otherObjects={aiOtherObjects}
           labelColors={Object.fromEntries(
             (taskData?.labels ?? []).map((l: any) => [l.name, l.color]),
           )}

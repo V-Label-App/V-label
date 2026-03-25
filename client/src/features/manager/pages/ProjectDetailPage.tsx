@@ -86,7 +86,6 @@ import {
   FileUp,
   Search,
   Loader2,
-  Pen,
   CheckCircle2,
   Sparkles,
   UserMinus,
@@ -97,7 +96,20 @@ import {
   Zap,
   ShieldCheck,
   RefreshCw,
-  BarChart3,
+  ClipboardCheck,
+  XCircle,
+  ChevronDown,
+  ChevronUp,
+  ChevronLeft,
+  ChevronRight,
+  Tag,
+  ImageIcon,
+  UserPlus,
+  Settings2,
+  Play,
+  Circle,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
 import {
   Tooltip,
@@ -130,13 +142,6 @@ import type { Project, AssignmentRule } from "../../../types/project.types";
 import { ProjectStatus } from "../../../types/project.types";
 import { Switch } from "../../../components/ui/switch";
 import { Checkbox } from "../../../components/ui/checkbox";
-import {
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  ChevronDown,
-} from "lucide-react";
 import { useDebounce } from "../../../hooks/useDebounce";
 import { calculateLevelLinear } from "../../../utils/levelUtils";
 
@@ -156,6 +161,13 @@ const getLatestAnnotatorAssignment = (task: any) => {
       : new Date(b.createdAt).getTime();
     return dateB - dateA;
   })[0];
+};
+
+const adjustDeadline = (date: Date | undefined | null): any => {
+  if (!date) return undefined;
+  const d = new Date(date);
+  d.setHours(23, 59, 59, 999);
+  return d;
 };
 
 export function ProjectDetailPage() {
@@ -181,6 +193,8 @@ export function ProjectDetailPage() {
   const [userPages, setUserPages] = useState<Record<string, number>>({});
   const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
   const [workloads, setWorkloads] = useState<Record<string, any>>({});
+
+  const [checklistOpen, setChecklistOpen] = useState(true);
 
   // Dialog States
   const [isAddImagesOpen, setIsAddImagesOpen] = useState(false);
@@ -440,7 +454,7 @@ export function ProjectDetailPage() {
           projectId,
           selectedTasks,
           selectedAnnotatorId,
-          selectedDeadline,
+          adjustDeadline(selectedDeadline),
         );
         toast.success(`${selectedTasks.length} tasks assigned successfully`);
         setIsAssignDialogOpen(false);
@@ -465,7 +479,7 @@ export function ProjectDetailPage() {
             mode: "bulk",
             taskIds: selectedTasks,
             annotatorId: selectedAnnotatorId,
-            deadline: selectedDeadline,
+            deadline: adjustDeadline(selectedDeadline),
           });
           setIsForceAssignDialogOpen(true);
         } else {
@@ -497,7 +511,7 @@ export function ProjectDetailPage() {
         projectId,
         taskToAssign.id,
         selectedAnnotatorId,
-        selectedDeadline,
+        adjustDeadline(selectedDeadline),
         isReassignment ? reassignmentReason : undefined,
       );
       toast.success("Task assigned successfully");
@@ -521,7 +535,7 @@ export function ProjectDetailPage() {
           mode: "manual",
           taskId: taskToAssign.id,
           annotatorId: selectedAnnotatorId,
-          deadline: selectedDeadline,
+          deadline: adjustDeadline(selectedDeadline),
           reason: isReassignment ? reassignmentReason : undefined,
         });
         setIsForceAssignDialogOpen(true);
@@ -544,7 +558,7 @@ export function ProjectDetailPage() {
           projectId,
           forceAssignData.taskIds,
           forceAssignData.annotatorId,
-          forceAssignData.deadline,
+          adjustDeadline(forceAssignData.deadline),
           true,
         );
         toast.success(
@@ -557,7 +571,7 @@ export function ProjectDetailPage() {
           projectId,
           forceAssignData.taskId,
           forceAssignData.annotatorId,
-          forceAssignData.deadline,
+          adjustDeadline(forceAssignData.deadline),
           forceAssignData.reason,
           true,
         );
@@ -597,7 +611,7 @@ export function ProjectDetailPage() {
               projectId,
               taskId,
               selectedReviewerId,
-              selectedReviewerDeadline,
+              adjustDeadline(selectedReviewerDeadline),
               undefined,
               true,
             ),
@@ -646,7 +660,7 @@ export function ProjectDetailPage() {
         projectId,
         taskToAssignReviewer.id,
         selectedReviewerId,
-        selectedReviewerDeadline,
+        adjustDeadline(selectedReviewerDeadline),
         isReassignment ? reviewerReassignmentReason : undefined,
         true,
       );
@@ -707,7 +721,7 @@ export function ProjectDetailPage() {
           return projectApi.updateTaskDeadline(
             projectId,
             task.id,
-            bulkDeadline,
+            adjustDeadline(bulkDeadline),
           );
         }),
       );
@@ -1174,7 +1188,7 @@ export function ProjectDetailPage() {
       await projectApi.update(project.id, {
         name: editName,
         description: editDescription,
-        deadline: editDeadline.toISOString(),
+        deadline: editDeadline ? adjustDeadline(editDeadline)?.toISOString() : undefined,
         status: editStatus,
         categoryId: editCategoryId === "none" ? "" : editCategoryId,
         enableAiAssistance: editEnableAi,
@@ -1213,62 +1227,12 @@ export function ProjectDetailPage() {
   //   return new Date(deadline) < new Date();
   // };
 
-  const getDaysRemaining = (deadline?: string) => {
-    if (!deadline) return null;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const deadlineDate = new Date(deadline);
-    deadlineDate.setHours(0, 0, 0, 0);
-    const diffTime = deadlineDate.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
-  };
-
-  const getDeadlineColor = (daysRemaining: number | null) => {
-    if (daysRemaining === null)
-      return "border-blue-200 bg-blue-50 text-blue-700";
-    if (daysRemaining < 0) return "border-red-200 bg-red-50 text-red-700";
-    if (daysRemaining <= 2) return "border-red-200 bg-red-50 text-red-700";
-    if (daysRemaining <= 6)
-      return "border-yellow-200 bg-yellow-50 text-yellow-700";
-    return "border-green-200 bg-green-50 text-green-700";
-  };
-
-  const getDeadlineText = (deadline?: string) => {
-    if (!deadline) return "No Deadline";
-    const daysRemaining = getDaysRemaining(deadline);
-    if (daysRemaining === null) return "No Deadline";
-    if (daysRemaining < 0) {
-      const overdueDays = Math.abs(daysRemaining);
-      return overdueDays === 1
-        ? "Overdue 1 day"
-        : `Overdue ${overdueDays} days`;
-    } else if (daysRemaining === 0) {
-      return "Due Today";
-    } else if (daysRemaining === 1) {
-      return "1 day left";
-    } else {
-      return `${daysRemaining} days left`;
-    }
-  };
-
-  const getAnnotationTypeLabel = (project: Project) => {
-    const meta = project.labelConfig?.find((l: any) => l.type === "meta");
-    const type = meta?.annotationType || "bounding-box";
-    const labels = {
-      "bounding-box": "Bounding Box",
-      polygon: "Polygon",
-      segmentation: "Segmentation",
-    };
-    return labels[type as keyof typeof labels] || type;
-  };
-
   // Analytics Mock Data (Until we have real stats)
   // const statusData = [ ... ]; // removed unused
   // const annotatorData: any[] = [];
   // const progressData: any[] = [];
 
-  const exportProjectCOCO = async (
+  const exportProjectCOCO = async(
     trainRatio: number,
     valRatio: number,
     testRatio: number,
@@ -1335,6 +1299,26 @@ export function ProjectDetailPage() {
       setSelectedTasks((prev) => prev.filter((id) => id !== taskId));
     }
   };
+
+  // Setup Checklist computation
+  const checklistSteps = project ? (() => {
+    const hasLabels = selectedLabelIds.length > 0;
+    const hasImages = (project._count?.images || 0) > 0;
+    const annotatorMembers = projectMembers.filter((m: any) => m.projectRole === "ANNOTATOR");
+    const reviewerMembers = projectMembers.filter((m: any) => m.projectRole === "REVIEWER");
+    const isActive = project.status === "ACTIVE";
+    return [
+      { id: "labels", iconName: "tag", label: "Add project labels", detail: hasLabels ? `${selectedLabelIds.length} label(s) configured` : "No labels added yet", done: hasLabels, actionLabel: "Go to Settings" as string | undefined, onAction: () => setActiveTab("settings") as unknown as (() => void) | undefined },
+      { id: "images", iconName: "image", label: "Upload images", detail: hasImages ? `${project._count?.images} image(s) uploaded` : "No images uploaded yet", done: hasImages, actionLabel: "Upload" as string | undefined, onAction: (() => setIsAddImagesOpen(true)) as (() => void) | undefined },
+      { id: "annotators", iconName: "userplus", label: "Add annotators", detail: annotatorMembers.length > 0 ? `${annotatorMembers.length} annotator(s) added` : "No annotators added yet", done: annotatorMembers.length > 0, actionLabel: "Manage Team" as string | undefined, onAction: (() => setActiveTab("team")) as (() => void) | undefined },
+      { id: "reviewers", iconName: "shield", label: "Add reviewers", detail: reviewerMembers.length > 0 ? `${reviewerMembers.length} reviewer(s) added` : "No reviewers added yet", done: reviewerMembers.length > 0, actionLabel: "Manage Team" as string | undefined, onAction: (() => setActiveTab("team")) as (() => void) | undefined },
+      { id: "rules", iconName: "settings", label: "Configure assignment rules", detail: project.assignmentRule ? "Assignment rules configured" : "Using default rules", done: !!project.assignmentRule, actionLabel: "Settings" as string | undefined, onAction: (() => setActiveTab("settings")) as (() => void) | undefined },
+      { id: "active", iconName: "play", label: "Activate project", detail: isActive ? "Project is active and accepting work" : "Project is not yet active", done: isActive, actionLabel: isActive ? undefined : "Activate", onAction: isActive ? undefined : (() => setActiveTab("settings")) as (() => void) | undefined },
+    ];
+  })() : [];
+  const checklistCompleted = checklistSteps.filter((s) => s.done).length;
+  const checklistAllDone = checklistSteps.length > 0 && checklistCompleted === checklistSteps.length;
+
   return (
     <div className="min-h-screen bg-gray-50 animate-in fade-in slide-in-from-bottom-5 duration-700 overflow-x-hidden">
       <div className="max-w-7xl mx-auto px-8 py-8 min-w-0">
@@ -1398,55 +1382,44 @@ export function ProjectDetailPage() {
         </div>
 
         {/* Project Header */}
-        <Card className="p-6 mb-8">
-          <div className="flex items-start justify-between mb-4 flex-wrap gap-4">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-3 mb-2 flex-wrap">
-                <FolderOpen className="w-6 h-6 text-blue-600" />
-                <h2 className="text-2xl font-semibold">{project.name}</h2>
-                <Badge variant="outline">
-                  {getAnnotationTypeLabel(project)}
-                </Badge>
-                <Badge
-                  className={
-                    project.status === ProjectStatus.ACTIVE
-                      ? "bg-green-100 text-green-700"
-                      : "bg-gray-100"
-                  }
-                >
-                  {project.status}
-                </Badge>
+        <div className="mb-6">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center shadow-sm">
+                <FolderOpen className="w-6 h-6 text-purple-600" />
               </div>
-              <p className="text-muted-foreground mb-4">
-                {project.description}
-              </p>
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 tracking-tight">{project.name}</h1>
+                <p className="text-muted-foreground mt-1 max-w-2xl">
+                  {project.description || "No description provided for this project"}
+                </p>
+              </div>
+            </div>
 
-              <div className="flex flex-wrap gap-2 mb-6">
+            <div className="flex flex-col items-end gap-3">
+              {project.category && (
+                <Badge className="bg-purple-50 text-purple-700 border-purple-200">
+                  {project.category.name}
+                </Badge>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-1.5 mt-3">
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Badge
                         variant="outline"
                         className={cn(
-                          "gap-1.5 py-1 px-3 transition-all cursor-help border-dashed",
+                          "gap-1.5 py-1 px-2.5 cursor-help border text-[10px] font-medium uppercase tracking-wider transition-opacity",
                           project.assignmentRule?.isAutoAssignEnabled
-                            ? "bg-green-50 text-green-700 border-green-200"
-                            : "bg-gray-50 text-gray-400 border-gray-200",
+                            ? "bg-muted/60 text-foreground border-border"
+                            : "bg-muted/30 text-muted-foreground border-border opacity-50",
                         )}
                       >
-                        <Zap
-                          className={cn(
-                            "w-3.5 h-3.5",
-                            project.assignmentRule?.isAutoAssignEnabled &&
-                              "fill-current",
-                          )}
-                        />
-                        <span className="text-[10px] font-bold uppercase tracking-wider">
-                          Auto-Assign Task:{" "}
-                          {project.assignmentRule?.isAutoAssignEnabled
-                            ? "ON"
-                            : "OFF"}
-                        </span>
+                        <Zap className="w-3 h-3" />
+                        Auto-Assign: {project.assignmentRule?.isAutoAssignEnabled ? "ON" : "OFF"}
                       </Badge>
                     </TooltipTrigger>
                     <TooltipContent>
@@ -1463,25 +1436,14 @@ export function ProjectDetailPage() {
                       <Badge
                         variant="outline"
                         className={cn(
-                          "gap-1.5 py-1 px-3 transition-all cursor-help border-dashed",
+                          "gap-1.5 py-1 px-2.5 cursor-help border text-[10px] font-medium uppercase tracking-wider transition-opacity",
                           project.assignmentRule?.autoAssignReviewer
-                            ? "bg-indigo-50 text-indigo-700 border-indigo-200"
-                            : "bg-gray-50 text-gray-400 border-gray-200",
+                            ? "bg-muted/60 text-foreground border-border"
+                            : "bg-muted/30 text-muted-foreground border-border opacity-50",
                         )}
                       >
-                        <ShieldCheck
-                          className={cn(
-                            "w-3.5 h-3.5",
-                            project.assignmentRule?.autoAssignReviewer &&
-                              "fill-current",
-                          )}
-                        />
-                        <span className="text-[10px] font-bold uppercase tracking-wider">
-                          Auto-Reviewer:{" "}
-                          {project.assignmentRule?.autoAssignReviewer
-                            ? "ON"
-                            : "OFF"}
-                        </span>
+                        <ShieldCheck className="w-3 h-3" />
+                        Auto-Reviewer: {project.assignmentRule?.autoAssignReviewer ? "ON" : "OFF"}
                       </Badge>
                     </TooltipTrigger>
                     <TooltipContent>
@@ -1498,25 +1460,14 @@ export function ProjectDetailPage() {
                       <Badge
                         variant="outline"
                         className={cn(
-                          "gap-1.5 py-1 px-3 transition-all cursor-help border-dashed",
+                          "gap-1.5 py-1 px-2.5 cursor-help border text-[10px] font-medium uppercase tracking-wider transition-opacity",
                           project.assignmentRule?.autoReassignOnSkip
-                            ? "bg-amber-50 text-amber-700 border-amber-200"
-                            : "bg-gray-50 text-gray-400 border-gray-200",
+                            ? "bg-muted/60 text-foreground border-border"
+                            : "bg-muted/30 text-muted-foreground border-border opacity-50",
                         )}
                       >
-                        <RefreshCw
-                          className={cn(
-                            "w-3.5 h-3.5",
-                            project.assignmentRule?.autoReassignOnSkip &&
-                              "stroke-[3]",
-                          )}
-                        />
-                        <span className="text-[10px] font-bold uppercase tracking-wider">
-                          Auto-Skip Reassign:{" "}
-                          {project.assignmentRule?.autoReassignOnSkip
-                            ? "ON"
-                            : "OFF"}
-                        </span>
+                        <RefreshCw className="w-3 h-3" />
+                        Auto-Reassign: {project.assignmentRule?.autoReassignOnSkip ? "ON" : "OFF"}
                       </Badge>
                     </TooltipTrigger>
                     <TooltipContent>
@@ -1527,27 +1478,20 @@ export function ProjectDetailPage() {
                       </p>
                     </TooltipContent>
                   </Tooltip>
+
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Badge
                         variant="outline"
                         className={cn(
-                          "gap-1.5 py-1 px-3 transition-all cursor-help border-dashed",
+                          "gap-1.5 py-1 px-2.5 cursor-help border text-[10px] font-medium uppercase tracking-wider transition-opacity",
                           project.enableAiAssistance
-                            ? "bg-purple-50 text-purple-700 border-purple-200"
-                            : "bg-gray-50 text-gray-400 border-gray-200",
+                            ? "bg-muted/60 text-foreground border-border"
+                            : "bg-muted/30 text-muted-foreground border-border opacity-50",
                         )}
                       >
-                        <Sparkles
-                          className={cn(
-                            "w-3.5 h-3.5",
-                            project.enableAiAssistance && "fill-current",
-                          )}
-                        />
-                        <span className="text-[10px] font-bold uppercase tracking-wider">
-                          AI Assistance:{" "}
-                          {project.enableAiAssistance ? "ON" : "OFF"}
-                        </span>
+                        <Sparkles className="w-3 h-3" />
+                        AI Assistance: {project.enableAiAssistance ? "ON" : "OFF"}
                       </Badge>
                     </TooltipTrigger>
                     <TooltipContent>
@@ -1559,114 +1503,195 @@ export function ProjectDetailPage() {
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">
-                    Overall Progress
-                  </span>
-                  <span className="font-semibold">
-                    {Math.round(projectProgress)}%
-                  </span>
-                </div>
-                <Progress value={projectProgress} className="h-2" />
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap shrink-0">
-              <Badge
-                variant="outline"
-                className="border-blue-200 bg-blue-50 text-blue-700"
-              >
-                <CalendarIcon className="w-3 h-3 mr-1" />
-                Deadline:{" "}
-                {project.deadline
-                  ? format(new Date(project.deadline), "MMM dd, yyyy")
-                  : "No Deadline"}
-              </Badge>
-              {project.deadline && (
-                <Badge
-                  variant="outline"
-                  className={getDeadlineColor(
-                    getDaysRemaining(project.deadline),
-                  )}
-                >
-                  {getDeadlineText(project.deadline)}
-                </Badge>
-              )}
-            </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mt-6">
-            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-              <div className="w-10 h-10 bg-gray-200 rounded-lg flex items-center justify-center">
-                <Clock className="w-5 h-5 text-gray-600" />
-              </div>
+          {/* Project Labels Section */}
+          {project.projectLabels && project.projectLabels.length > 0 && (
+            <Card className="p-4 mt-4">
               <div>
-                <p className="text-xs text-muted-foreground">Total images</p>
-                <p className="text-xl font-semibold">
-                  {project._count?.images || 0}
-                </p>
+                <h3 className="text-sm font-medium text-gray-700 mb-3">
+                  Project Labels
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {project.projectLabels.map((pl: any) => (
+                    <Badge
+                      key={pl.label.id}
+                      variant="outline"
+                      style={{
+                        backgroundColor: `${pl.label.color}20`,
+                        borderColor: pl.label.color,
+                        color: pl.label.color,
+                      }}
+                      className="px-3 py-1"
+                    >
+                      {pl.label.name}
+                      {pl.label.category && (
+                        <span className="ml-1 text-xs opacity-75">
+                          ({pl.label.category.name})
+                        </span>
+                      )}
+                    </Badge>
+                  ))}
+                </div>
               </div>
-            </div>
+            </Card>
+          )}
+        </div>
 
-            <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
-              <div className="w-10 h-10 bg-blue-200 rounded-lg flex items-center justify-center">
-                <Users className="w-5 h-5 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Members</p>
-                <p className="text-xl font-semibold">
-                  {project._count?.members || 0}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3 p-3 bg-yellow-50 rounded-lg">
-              <div className="w-10 h-10 bg-yellow-200 rounded-lg flex items-center justify-center">
-                <AlertCircle className="w-5 h-5 text-yellow-600" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Tasks</p>
-                <p className="text-xl font-semibold">
-                  {project._count?.tasks || 0}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
-              <div className="w-10 h-10 bg-green-200 rounded-lg flex items-center justify-center">
-                <CheckCircle2 className="w-5 h-5 text-green-600" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Approved</p>
-                <p className="text-xl font-semibold">
-                  {tasks.filter((t: any) => t.status === "approved").length}
-                </p>
-              </div>
-            </div>
-
-            {pendingLabelRequests > 0 && (
-              <div
-                className="flex items-center gap-3 p-3 bg-purple-50 rounded-lg cursor-pointer hover:bg-purple-100 transition-colors"
-                onClick={() => setActiveTab("requests")}
-              >
-                <div className="w-10 h-10 bg-purple-200 rounded-lg flex items-center justify-center">
-                  <Pen className="w-5 h-5 text-purple-600" />
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <Card className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                  <ClipboardCheck className="w-5 h-5 text-purple-600" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">
-                    Label Requests
-                  </p>
-                  <p className="text-xl font-semibold text-purple-700">
-                    {pendingLabelRequests} Pending
+                  <p className="text-sm text-muted-foreground">Total Tasks</p>
+                  <p className="text-2xl font-bold">
+                    {tasks.length}
                   </p>
                 </div>
               </div>
-            )}
+            </Card>
+
+            <Card className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <Clock className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Pending</p>
+                  <p className="text-2xl font-bold">
+                    {submittedTasks.length}
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                  <CheckCircle2 className="w-5 h-5 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Approved</p>
+                  <p className="text-2xl font-bold">
+                    {completedTasks.length}
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                  <XCircle className="w-5 h-5 text-red-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Rejected</p>
+                  <p className="text-2xl font-bold">
+                    {rejectedTasks.length}
+                  </p>
+                </div>
+              </div>
+            </Card>
+        </div>
+
+        {/* Overall Progress */}
+        <Card className="p-4 mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm font-medium">Overall Project Progress</p>
+            <span className="text-sm text-muted-foreground">
+              {Math.round(projectProgress)}%
+            </span>
           </div>
+          <Progress value={projectProgress} className="h-2" />
         </Card>
+
+        {/* Setup Checklist */}
+        {!checklistAllDone && (
+          <Card className="overflow-hidden">
+            <div
+              className="flex items-center justify-between px-4 py-3 cursor-pointer select-none hover:bg-muted/30 transition-colors"
+              onClick={() => setChecklistOpen((v) => !v)}
+            >
+              <div className="flex items-center gap-3">
+                <div>
+                  <p className="text-sm font-semibold">Setup Checklist</p>
+                  <p className="text-xs text-muted-foreground">
+                    {checklistCompleted} of {checklistSteps.length} complete
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex gap-1">
+                  {checklistSteps.map((s) => (
+                    <span
+                      key={s.id}
+                      className={cn(
+                        "h-1.5 w-6 rounded-full transition-colors",
+                        s.done ? "bg-emerald-500" : "bg-muted"
+                      )}
+                    />
+                  ))}
+                </div>
+                {checklistOpen ? (
+                  <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                )}
+              </div>
+            </div>
+
+            {checklistOpen && (
+              <div className="border-t grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x">
+                {checklistSteps.map((step, idx) => (
+                  <div
+                    key={step.id}
+                    className={cn(
+                      "flex items-center justify-between gap-3 px-4 py-3",
+                      idx > 0 && "border-t sm:border-t-0",
+                      idx >= 2 && "sm:border-t",
+                      step.done ? "bg-emerald-50/50" : "bg-background"
+                    )}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {step.done ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                      ) : (
+                        <Circle className="w-4 h-4 text-muted-foreground/40 shrink-0" />
+                      )}
+                      <span className={cn("text-muted-foreground shrink-0", step.done && "text-emerald-600")}>
+                        {step.iconName === "tag" && <Tag className="w-4 h-4" />}
+                        {step.iconName === "image" && <ImageIcon className="w-4 h-4" />}
+                        {step.iconName === "userplus" && <UserPlus className="w-4 h-4" />}
+                        {step.iconName === "shield" && <ShieldCheck className="w-4 h-4" />}
+                        {step.iconName === "settings" && <Settings2 className="w-4 h-4" />}
+                        {step.iconName === "play" && <Play className="w-4 h-4" />}
+                      </span>
+                      <div className="min-w-0">
+                        <p className={cn("text-sm font-medium leading-none", step.done ? "text-foreground" : "text-muted-foreground")}>
+                          {step.label}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5 truncate">{step.detail}</p>
+                      </div>
+                    </div>
+                    {!step.done && step.actionLabel && step.onAction && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="shrink-0 h-7 text-xs"
+                        onClick={(e) => { e.stopPropagation(); step.onAction!(); }}
+                      >
+                        {step.actionLabel}
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        )}
 
         {/* Tabs: Tasks & Analytics */}
         <Tabs
@@ -1693,7 +1718,6 @@ export function ProjectDetailPage() {
             <TabsTrigger value="team">Team</TabsTrigger>
             <TabsTrigger value="analytics">
               <div className="flex items-center gap-2">
-                <BarChart3 className="h-4 w-4" />
                 Analytics
               </div>
             </TabsTrigger>
@@ -1885,6 +1909,9 @@ export function ProjectDetailPage() {
                                 const isExpanded =
                                   expandedUsers.has(assigneeId);
                                 const taskCount = userTasks.length;
+                                const skippedCount = (userTasks as any[]).filter(
+                                  (t) => getLatestAnnotatorAssignment(t)?.status === "SKIPPED"
+                                ).length;
 
                                 return (
                                   <React.Fragment key={`group-${assigneeId}`}>
@@ -1930,8 +1957,25 @@ export function ProjectDetailPage() {
                                                   </AvatarFallback>
                                                 </Avatar>
                                                 <div>
-                                                  <div className="text-base font-semibold text-gray-900">
-                                                    {assignee.fullName}
+                                                  <div className="flex items-center gap-2">
+                                                    <span className="text-base font-semibold text-gray-900">
+                                                      {assignee.fullName}
+                                                    </span>
+                                                    {skippedCount > 0 && (
+                                                      <TooltipProvider>
+                                                        <Tooltip>
+                                                          <TooltipTrigger asChild>
+                                                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-700 border border-amber-200 px-1.5 py-0.5 text-[10px] font-semibold cursor-default">
+                                                              <AlertTriangle className="w-3 h-3" />
+                                                              {skippedCount} skipped
+                                                            </span>
+                                                          </TooltipTrigger>
+                                                          <TooltipContent>
+                                                            <p className="text-xs">This annotator has {skippedCount} skipped task{skippedCount > 1 ? "s" : ""} in this project.</p>
+                                                          </TooltipContent>
+                                                        </Tooltip>
+                                                      </TooltipProvider>
+                                                    )}
                                                   </div>
                                                   <div className="text-xs text-gray-600">
                                                     {assignee.email}
@@ -3459,65 +3503,48 @@ export function ProjectDetailPage() {
                                       }
                                     >
                                       <TableCell className="py-4"></TableCell>
-                                      <TableCell>
-                                        <div className="flex items-center gap-3">
-                                          {isExpanded ? (
-                                            <ChevronDown className="h-5 w-5 text-gray-700 flex-shrink-0" />
-                                          ) : (
-                                            <ChevronRight className="h-5 w-5 text-gray-700 flex-shrink-0" />
-                                          )}
-                                          <Avatar className="h-10 w-10 ring-2 ring-white shadow-sm">
-                                            <AvatarImage
-                                              src={
-                                                assignee?.avatarUrl || undefined
-                                              }
-                                              alt={assignee?.fullName || "User"}
-                                              className="object-cover"
-                                            />
-                                            <AvatarFallback className="bg-green-500 text-white text-sm font-semibold">
-                                              {assigneeId === "unassigned"
-                                                ? "?"
-                                                : assignee?.fullName
-                                                    ?.charAt(0)
-                                                    .toUpperCase() || "A"}
-                                            </AvatarFallback>
-                                          </Avatar>
-                                          <div className="flex-1">
-                                            <div className="font-medium text-gray-900">
-                                              {assigneeId === "unassigned"
-                                                ? "Unassigned Tasks"
-                                                : assignee?.fullName ||
-                                                  assignee?.email ||
-                                                  "Unknown"}
-                                            </div>
-                                            <div className="text-xs text-gray-500">
-                                              {taskCount} completed{" "}
-                                              {taskCount === 1
-                                                ? "task"
-                                                : "tasks"}
+                                      <TableCell colSpan={2}>
+                                        <div className="flex items-center justify-between">
+                                          <div className="flex items-center gap-3">
+                                            {isExpanded ? (
+                                              <ChevronDown className="h-5 w-5 text-gray-700 flex-shrink-0" />
+                                            ) : (
+                                              <ChevronRight className="h-5 w-5 text-gray-700 flex-shrink-0" />
+                                            )}
+                                            <Avatar className="h-10 w-10 ring-2 ring-white shadow-sm">
+                                              <AvatarImage
+                                                src={
+                                                  assignee?.avatarUrl || undefined
+                                                }
+                                                alt={assignee?.fullName || "User"}
+                                                className="object-cover"
+                                              />
+                                              <AvatarFallback className="bg-green-500 text-white text-sm font-semibold">
+                                                {assigneeId === "unassigned"
+                                                  ? "?"
+                                                  : assignee?.fullName
+                                                      ?.charAt(0)
+                                                      .toUpperCase() || "A"}
+                                              </AvatarFallback>
+                                            </Avatar>
+                                            <div className="flex-1">
+                                              <div className="font-medium text-gray-900">
+                                                {assigneeId === "unassigned"
+                                                  ? "Unassigned Tasks"
+                                                  : assignee?.fullName ||
+                                                    assignee?.email ||
+                                                    "Unknown"}
+                                              </div>
+                                              <div className="text-xs text-gray-500">
+                                                {taskCount} completed{" "}
+                                                {taskCount === 1
+                                                  ? "task"
+                                                  : "tasks"}
+                                              </div>
                                             </div>
                                           </div>
-                                          <div className="text-sm text-green-600 font-medium flex items-center gap-1">
-                                            <CheckCircle2 className="w-4 h-4" />
-                                            All Approved
-                                          </div>
+                                        
                                         </div>
-                                      </TableCell>
-                                      <TableCell className="text-right">
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            toggleUserExpansion(assigneeId);
-                                          }}
-                                        >
-                                          {isExpanded ? (
-                                            <ChevronDown className="w-4 h-4" />
-                                          ) : (
-                                            <ChevronRight className="w-4 h-4" />
-                                          )}
-                                        </Button>
                                       </TableCell>
                                     </TableRow>
 
@@ -5201,12 +5228,17 @@ export function ProjectDetailPage() {
 
               {/* Deadline Selection */}
               <div className="space-y-2">
-                <Label>Deadline (Optional)</Label>
+                <Label>
+                  Deadline <span className="text-red-500">*</span>
+                </Label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
-                      className="w-full justify-start text-left font-normal"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !selectedReviewerDeadline && "border-red-300 focus:border-red-400"
+                      )}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {selectedReviewerDeadline ? (
@@ -5224,13 +5256,15 @@ export function ProjectDetailPage() {
                       selected={selectedReviewerDeadline}
                       onSelect={setSelectedReviewerDeadline}
                       initialFocus
-                      disabled={(date) => date < new Date()}
+                      disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
                     />
                   </PopoverContent>
                 </Popover>
-                <p className="text-xs text-muted-foreground">
-                  If not set, deadline will be auto-calculated
-                </p>
+                {!selectedReviewerDeadline && (
+                  <p className="text-xs text-red-500">
+                    Deadline is required to assign a reviewer.
+                  </p>
+                )}
               </div>
 
               {/* Reassignment Reason - Only show for single task reassignments */}
@@ -5298,7 +5332,7 @@ export function ProjectDetailPage() {
               </Button>
               <Button
                 onClick={handleAssignReviewer}
-                disabled={!selectedReviewerId || isAssigningReviewer}
+                disabled={!selectedReviewerId || !selectedReviewerDeadline || isAssigningReviewer}
               >
                 {isAssigningReviewer ? (
                   <>
@@ -5636,6 +5670,7 @@ export function ProjectDetailPage() {
                         selected={bulkDeadline}
                         onSelect={setBulkDeadline}
                         initialFocus
+                        disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
                       />
                     </PopoverContent>
                   </Popover>

@@ -156,11 +156,13 @@ export class AnnotatorService {
           statusCounts.find((s) => s.status === AssignmentStatus.SUBMITTED)
             ?._count || 0,
         rejected:
-          statusCounts.find((s) => s.status === AssignmentStatus.REJECTED)
-            ?._count || 0,
+          statusCounts.find((s) => s.status === 'REJECTED')?._count || 0,
         inProgress:
-          statusCounts.find((s) => s.status === AssignmentStatus.IN_PROGRESS)
-            ?._count || 0,
+          statusCounts.find((s) => s.status === 'IN_PROGRESS')?._count || 0,
+        reassigning:
+          statusCounts.find((s) => s.status === 'REASSIGNING')?._count || 0,
+        reassigned:
+          statusCounts.find((s) => s.status === 'REASSIGNED')?._count || 0,
         total,
       }
 
@@ -209,7 +211,12 @@ export class AnnotatorService {
                   // Include ALL rejected/skipped assignments for this task,
                   // including the current one if it is rejected.
                   status: {
-                    in: [AssignmentStatus.REJECTED, AssignmentStatus.SKIPPED],
+                    in: [
+                      'REJECTED',
+                      'SKIPPED',
+                      'REASSIGNING',
+                      'REASSIGNED',
+                    ] as any,
                   },
                 },
                 include: {
@@ -323,6 +330,8 @@ export class AnnotatorService {
           ],
           [AssignmentStatus.APPROVED]: [], // Final state
           [AssignmentStatus.SKIPPED]: [], // Final state
+          [AssignmentStatus.REASSIGNING]: [],
+          [AssignmentStatus.REASSIGNED]: [],
         }
 
         const allowedNextStates = validTransitions[existing.status] || []

@@ -8,17 +8,27 @@ import {
 } from "../../../components/ui/card";
 import { Button } from "../../../components/ui/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "../../../components/ui/dialog";
+import {
   Users,
   FolderKanban,
   Tag,
   HardDrive,
   TrendingUp,
   Clock,
-  Award,
   CheckCircle,
   Loader2,
   LayoutGrid,
   BarChart3,
+  List,
+  Trophy,
+  Medal,
+  Star,
 } from "lucide-react";
 import api from "../../../api/axiosClient";
 import {
@@ -46,7 +56,10 @@ interface DashboardStats {
   };
   projects: {
     active: number;
+    draft: number;
+    paused: number;
     completed: number;
+    archived: number;
     total: number;
   };
   annotations: {
@@ -54,10 +67,12 @@ interface DashboardStats {
     thisWeek: number;
     thisMonth: number;
     total: number;
+    monthlyData: { month: string; count: number }[];
   };
   labels: {
     thisMonth: number;
     total: number;
+    monthlyData: { month: string; count: number }[];
   };
   storage: {
     used: number;
@@ -82,22 +97,38 @@ interface DashboardStats {
   } | null;
 }
 
+interface Project {
+  id: string;
+  name: string;
+  status: string;
+  manager: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export function AdminDashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"cards" | "charts">("cards"); // Toggle state
+  const [showProjectsDialog, setShowProjectsDialog] = useState(false);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loadingProjects, setLoadingProjects] = useState(false);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
         setIsLoading(true);
         const response = await api.get("/admin/dashboard/stats");
+        console.log('📊 Dashboard stats response:', response.data);
+        console.log('🏆 Top Annotators:', response.data.topAnnotators);
         setStats(response.data);
         setError(null);
-      } catch (err: any) {
+      } catch (err) {
         console.error("Failed to fetch dashboard stats:", err);
-        setError(err.response?.data?.error || "Failed to load dashboard data");
+        const axiosError = err as { response?: { data?: { error?: string } }; message?: string };
+        const errorMessage = axiosError.response?.data?.error || axiosError.message || "Failed to load dashboard data";
+        setError(errorMessage);
       } finally {
         setIsLoading(false);
       }
@@ -105,6 +136,22 @@ export function AdminDashboardPage() {
 
     fetchStats();
   }, []);
+
+  // Handler for viewing all projects
+  const handleViewAllProjects = async () => {
+    setShowProjectsDialog(true);
+    if (projects.length === 0) {
+      setLoadingProjects(true);
+      try {
+        const response = await api.get("/admin/projects");
+        setProjects(response.data);
+      } catch (err) {
+        console.error("Failed to fetch projects:", err);
+      } finally {
+        setLoadingProjects(false);
+      }
+    }
+  };
 
   if (isLoading) {
     return (
@@ -163,7 +210,158 @@ export function AdminDashboardPage() {
       </div>
 
       {/* Conditional Rendering based on viewMode */}
-      {viewMode === "cards" ? renderCardView(stats) : renderChartView(stats)}
+      {viewMode === "cards" ? renderCardView(stats) : renderChartView(stats, handleViewAllProjects)}
+
+      {/* Projects List Dialog */}
+      <Dialog open={showProjectsDialog} onOpenChange={setShowProjectsDialog}>
+        <DialogContent className="max-w-6xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold">All Projects</DialogTitle>
+            <DialogDescription className="text-base">
+              Danh sách tất cả các dự án với thông tin manager và trạng thái
+            </DialogDescription>
+          </DialogHeader>
+
+          {loadingProjects ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <Loader2 className="h-10 w-10 animate-spin text-blue-600 mx-auto mb-3" />
+                <p className="text-sm text-gray-500">Loading projects...</p>
+              </div>
+            </div>
+          ) : projects.length > 0 ? (
+            <div className="flex-1 overflow-auto px-1">
+              <div className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="bg-gradient-to-r from-blue-50 to-purple-50 border-b-2 border-gray-200">
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                        Project Name
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                        Manager
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                        Status
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                        Created Date
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {projects.map((project, index) => (
+                      <tr
+                        key={project.id}
+                        className={`hover:bg-blue-50/50 transition-colors duration-150 ${
+                          index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'
+                        }`}
+                      >
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <FolderKanban className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                            <span 
+                              className="font-medium text-gray-900"
+                              title={project.name}
+                            >
+                              {project.name}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <Users className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                            <span 
+                              className="text-sm text-gray-700"
+                              title={project.manager}
+                            >
+                              {project.manager}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span
+                            className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold shadow-sm whitespace-nowrap ${
+                              project.status === "ACTIVE"
+                                ? "bg-green-100 text-green-800 ring-1 ring-green-600/20"
+                                : project.status === "COMPLETED"
+                                  ? "bg-blue-100 text-blue-800 ring-1 ring-blue-600/20"
+                                  : project.status === "PAUSED"
+                                    ? "bg-yellow-100 text-yellow-800 ring-1 ring-yellow-600/20"
+                                    : project.status === "DRAFT"
+                                      ? "bg-gray-100 text-gray-800 ring-1 ring-gray-600/20"
+                                      : "bg-purple-100 text-purple-800 ring-1 ring-purple-600/20"
+                            }`}
+                          >
+                            {project.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="text-sm text-gray-600 whitespace-nowrap">
+                            {new Date(project.createdAt).toLocaleDateString("vi-VN", {
+                              year: 'numeric',
+                              month: '2-digit',
+                              day: '2-digit'
+                            })}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              
+              {/* Summary Footer */}
+              <div className="mt-4 px-6 py-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg border border-gray-200">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex items-center gap-2 text-sm text-gray-700">
+                    <FolderKanban className="h-4 w-4 text-blue-600" />
+                    <span className="font-medium">Total Projects:</span>
+                    <span className="font-bold text-gray-900 text-lg">{projects.length}</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-4 text-sm">
+                    <span className="flex items-center gap-1.5 whitespace-nowrap">
+                      <span className="w-2.5 h-2.5 rounded-full bg-green-500 shadow-sm"></span>
+                      <span className="text-gray-600">Active:</span>
+                      <span className="font-semibold text-green-700">{projects.filter(p => p.status === 'ACTIVE').length}</span>
+                    </span>
+                    <span className="flex items-center gap-1.5 whitespace-nowrap">
+                      <span className="w-2.5 h-2.5 rounded-full bg-gray-500 shadow-sm"></span>
+                      <span className="text-gray-600">Draft:</span>
+                      <span className="font-semibold text-gray-700">{projects.filter(p => p.status === 'DRAFT').length}</span>
+                    </span>
+                    <span className="flex items-center gap-1.5 whitespace-nowrap">
+                      <span className="w-2.5 h-2.5 rounded-full bg-yellow-500 shadow-sm"></span>
+                      <span className="text-gray-600">Paused:</span>
+                      <span className="font-semibold text-yellow-700">{projects.filter(p => p.status === 'PAUSED').length}</span>
+                    </span>
+                    <span className="flex items-center gap-1.5 whitespace-nowrap">
+                      <span className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-sm"></span>
+                      <span className="text-gray-600">Completed:</span>
+                      <span className="font-semibold text-blue-700">{projects.filter(p => p.status === 'COMPLETED').length}</span>
+                    </span>
+                    <span className="flex items-center gap-1.5 whitespace-nowrap">
+                      <span className="w-2.5 h-2.5 rounded-full bg-purple-500 shadow-sm"></span>
+                      <span className="text-gray-600">Archived:</span>
+                      <span className="font-semibold text-purple-700">{projects.filter(p => p.status === 'ARCHIVED').length}</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+                <FolderKanban className="h-8 w-8 text-gray-400" />
+              </div>
+              <p className="text-lg font-medium text-gray-900 mb-1">No Projects Found</p>
+              <p className="text-sm text-gray-500">
+                Không có dự án nào trong hệ thống
+              </p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -202,15 +400,22 @@ function renderCardView(stats: DashboardStats) {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Dự Án Đang Hoạt Động
+              Tổng Dự Án
             </CardTitle>
             <FolderKanban className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.projects.active}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {stats.projects.completed} đã hoàn thành
-            </p>
+            <div className="text-2xl font-bold">{stats.projects.total}</div>
+            <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+              <div className="flex items-center justify-between">
+                <span className="text-green-600">● Active: {stats.projects.active}</span>
+                <span className="text-blue-600">● Completed: {stats.projects.completed}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-yellow-600">● Paused: {stats.projects.paused}</span>
+                <span className="text-gray-600">● Draft: {stats.projects.draft}</span>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
@@ -346,38 +551,27 @@ function renderCardView(stats: DashboardStats) {
         {/* Performance Metrics */}
         <Card>
           <CardHeader>
-            <CardTitle>Chỉ Số Hiệu Suất</CardTitle>
+            <CardTitle>Performance Metrics</CardTitle>
             <CardDescription>
               Các chỉ số quan trọng của hệ thống
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-blue-600" />
-                <span className="text-sm font-medium">Thời gian TB/ảnh</span>
+          <CardContent>
+            <div className="grid grid-cols-1 gap-4">
+              <div className="text-center p-6 bg-blue-50 rounded-lg">
+                <Clock className="h-8 w-8 text-blue-600 mx-auto mb-3" />
+                <div className="text-3xl font-bold text-blue-600">
+                  {Math.round(stats.performance.avgAnnotationTime)}s
+                </div>
+                <div className="text-sm text-gray-600 mt-2">Thời gian TB/ảnh</div>
               </div>
-              <span className="text-2xl font-bold">
-                {stats.performance.avgAnnotationTime}s
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CheckCircle className="h-4 w-4 text-green-600" />
-                <span className="text-sm font-medium">Tỷ lệ hoàn thành</span>
+              <div className="text-center p-6 bg-green-50 rounded-lg">
+                <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-3" />
+                <div className="text-3xl font-bold text-green-600">
+                  {Math.round(stats.performance.completionRate)}%
+                </div>
+                <div className="text-sm text-gray-600 mt-2">Tỷ lệ hoàn thành</div>
               </div>
-              <span className="text-2xl font-bold">
-                {stats.performance.completionRate}%
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Award className="h-4 w-4 text-yellow-600" />
-                <span className="text-sm font-medium">Điểm chất lượng</span>
-              </div>
-              <span className="text-2xl font-bold">
-                {stats.performance.qualityScore}%
-              </span>
             </div>
           </CardContent>
         </Card>
@@ -385,46 +579,94 @@ function renderCardView(stats: DashboardStats) {
         {/* Top Annotators */}
         <Card>
           <CardHeader>
-            <CardTitle>Top Annotators</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Trophy className="h-5 w-5 text-yellow-600" />
+              Top Annotators
+            </CardTitle>
             <CardDescription>5 người gán nhãn xuất sắc nhất</CardDescription>
           </CardHeader>
           <CardContent>
             {stats.topAnnotators.length > 0 ? (
               <div className="space-y-3">
-                {stats.topAnnotators.map((annotator, index) => (
-                  <div
-                    key={annotator.id}
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`flex items-center justify-center w-8 h-8 rounded-full font-bold text-white ${
-                          index === 0
-                            ? "bg-yellow-500"
-                            : index === 1
-                              ? "bg-gray-400"
-                              : index === 2
-                                ? "bg-orange-600"
-                                : "bg-blue-500"
-                        }`}
-                      >
-                        {index + 1}
-                      </div>
-                      <div>
-                        <div className="font-medium">{annotator.name}</div>
-                        <div className="text-xs text-gray-500">
-                          {annotator.count.toLocaleString()} nhãn
+                {stats.topAnnotators.map((annotator, index) => {
+                  // Define medal styles for top 3
+                  const getMedalStyle = () => {
+                    if (index === 0) {
+                      return {
+                        bgClass: "bg-gradient-to-br from-yellow-400 via-yellow-500 to-yellow-600",
+                        icon: <Trophy className="h-4 w-4 text-white" />,
+                        shadow: "shadow-lg shadow-yellow-500/50",
+                        border: "ring-2 ring-yellow-400/50",
+                      };
+                    } else if (index === 1) {
+                      return {
+                        bgClass: "bg-gradient-to-br from-gray-300 via-gray-400 to-gray-500",
+                        icon: <Medal className="h-4 w-4 text-white" />,
+                        shadow: "shadow-lg shadow-gray-400/50",
+                        border: "ring-2 ring-gray-300/50",
+                      };
+                    } else if (index === 2) {
+                      return {
+                        bgClass: "bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600",
+                        icon: <Medal className="h-4 w-4 text-white" />,
+                        shadow: "shadow-lg shadow-orange-500/50",
+                        border: "ring-2 ring-orange-400/50",
+                      };
+                    }
+                    return {
+                      bgClass: "bg-gradient-to-br from-blue-500 to-blue-600",
+                      icon: <Star className="h-3 w-3 text-white" />,
+                      shadow: "shadow-md shadow-blue-500/30",
+                      border: "ring-1 ring-blue-400/30",
+                    };
+                  };
+
+                  const medalStyle = getMedalStyle();
+
+                  return (
+                    <div
+                      key={annotator.id}
+                      className={`flex items-center justify-between p-4 rounded-lg transition-all duration-200 ${
+                        index < 3
+                          ? "bg-gradient-to-r from-white via-gray-50 to-white hover:shadow-lg"
+                          : "bg-gray-50 hover:bg-gray-100"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`flex items-center justify-center w-10 h-10 rounded-full font-bold text-white ${medalStyle.bgClass} ${medalStyle.shadow} ${medalStyle.border} transition-transform hover:scale-110`}
+                        >
+                          {medalStyle.icon}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-gray-900">{annotator.name}</span>
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-sm text-gray-600">
+                              {annotator.count.toLocaleString()} Task đã hoàn thành
+                            </span>
+                            <span className="text-xs text-gray-400">•</span>
+                            <div className="flex items-center gap-1">
+                              <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                              <span className="text-sm font-medium">
+                                {Math.round(annotator.quality)}%
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm font-medium text-green-600">
-                        {annotator.quality.toFixed(1)}%
+                      <div className={`text-2xl font-bold ${
+                        index === 0 ? "text-yellow-600" :
+                        index === 1 ? "text-gray-500" :
+                        index === 2 ? "text-orange-600" :
+                        "text-blue-600"
+                      }`}>
+                        #{index + 1}
                       </div>
-                      <div className="text-xs text-gray-500">Chất lượng</div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="text-center text-gray-500 py-8">
@@ -438,9 +680,9 @@ function renderCardView(stats: DashboardStats) {
       {/* Annotations Trend */}
       <Card>
         <CardHeader>
-          <CardTitle>Xu Hướng Gán Nhãn</CardTitle>
+          <CardTitle>Công Việc Hoàn Thành</CardTitle>
           <CardDescription>
-            Số lượng nhãn được tạo theo thời gian
+            Số lượng ảnh đã được xử lý theo thời gian
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -472,7 +714,7 @@ function renderCardView(stats: DashboardStats) {
               {stats.annotations.total.toLocaleString()}
             </div>
             <div className="text-sm text-gray-600 mt-1">
-              Tổng số nhãn đã tạo
+              Tổng số ảnh đã xử lý
             </div>
           </div>
         </CardContent>
@@ -482,7 +724,7 @@ function renderCardView(stats: DashboardStats) {
 }
 
 // Helper function to render chart view
-function renderChartView(stats: DashboardStats) {
+function renderChartView(stats: DashboardStats, onViewProjects: () => void) {
   // Color palette for charts
   const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4'];
   
@@ -497,30 +739,75 @@ function renderChartView(stats: DashboardStats) {
   // Prepare data for Projects Bar Chart
   const projectsData = [
     { name: 'Active', value: stats.projects.active, color: COLORS[2] },
+    { name: 'Draft', value: stats.projects.draft, color: COLORS[5] },
+    { name: 'Paused', value: stats.projects.paused, color: COLORS[3] },
     { name: 'Completed', value: stats.projects.completed, color: COLORS[0] },
-    { name: 'Total', value: stats.projects.total, color: COLORS[1] },
+    { name: 'Archived', value: stats.projects.archived, color: COLORS[4] },
   ];
 
   // Prepare data for Annotations Trend
   // Storage usage percentage - use the pre-calculated percentage from backend
   const storagePercentage = stats.storage.percentage;
 
-  // Prepare data for Annotations Timeline (monthly trend)
+  // Prepare data for Annotations Timeline (monthly trend) - Last 6 months from real data
   const generateMonthlyAnnotations = () => {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-    const currentMonth = new Date().getMonth();
-    const avgPerMonth = Math.floor(stats.annotations.total / 12);
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth(); // 0-11
+    const currentYear = currentDate.getFullYear();
     
-    return months.map((month, index) => {
-      const isCurrentMonth = index === (currentMonth % 6);
-      const value = isCurrentMonth 
-        ? stats.annotations.thisMonth 
-        : Math.floor(avgPerMonth * (0.6 + Math.random() * 0.8));
-      return { name: month, value, color: isCurrentMonth ? COLORS[0] : COLORS[1] };
-    });
+    // Generate last 6 months array
+    const last6Months = [];
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(currentYear, currentMonth - i, 1);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const monthIndex = date.getMonth();
+      const isCurrentMonth = i === 0;
+      
+      // Find data from backend
+      const dataPoint = stats.annotations.monthlyData.find(d => d.month === monthKey);
+      
+      last6Months.push({
+        name: monthNames[monthIndex],
+        value: dataPoint ? dataPoint.count : 0,
+        color: isCurrentMonth ? COLORS[0] : COLORS[1]
+      });
+    }
+    
+    return last6Months;
   };
 
   const monthlyAnnotations = generateMonthlyAnnotations();
+
+  // Prepare data for Labels Timeline (monthly trend) - Last 6 months from real data
+  const generateMonthlyLabels = () => {
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth(); // 0-11
+    const currentYear = currentDate.getFullYear();
+    
+    // Generate last 6 months array
+    const last6Months = [];
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(currentYear, currentMonth - i, 1);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const monthIndex = date.getMonth();
+      const isCurrentMonth = i === 0;
+      
+      // Find data from backend
+      const dataPoint = stats.labels.monthlyData.find(d => d.month === monthKey);
+      
+      last6Months.push({
+        name: monthNames[monthIndex],
+        value: dataPoint ? dataPoint.count : 0,
+        color: isCurrentMonth ? COLORS[3] : COLORS[1]
+      });
+    }
+    
+    return last6Months;
+  };
+
+  const monthlyLabels = generateMonthlyLabels();
 
   return (
     <div className="space-y-6">
@@ -561,8 +848,20 @@ function renderChartView(stats: DashboardStats) {
         {/* Projects Status - Bar Chart */}
         <Card>
           <CardHeader>
-            <CardTitle>Projects Overview</CardTitle>
-            <CardDescription>Tình trạng các dự án</CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Projects Overview</CardTitle>
+                <CardDescription>Tình trạng các dự án</CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onViewProjects}
+              >
+                <List className="h-4 w-4 mr-2" />
+                View All
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -570,9 +869,11 @@ function renderChartView(stats: DashboardStats) {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" />
                 <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="value" fill="#8b5cf6" name="Projects">
+                <Tooltip 
+                  formatter={(value) => [`${value} projects`, 'Count']}
+                  contentStyle={{ backgroundColor: 'white', border: '1px solid #ccc' }}
+                />
+                <Bar dataKey="value" radius={[8, 8, 0, 0]}>
                   {projectsData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
@@ -585,7 +886,7 @@ function renderChartView(stats: DashboardStats) {
         {/* Storage Usage - Donut Chart */}
         <Card>
           <CardHeader>
-            <CardTitle>Storage Usage</CardTitle>
+            <CardTitle>Server Storage Usage</CardTitle>
             <CardDescription>Dung lượng lưu trữ đã sử dụng</CardDescription>
           </CardHeader>
           <CardContent>
@@ -632,11 +933,11 @@ function renderChartView(stats: DashboardStats) {
           </CardContent>
         </Card>
 
-        {/* Monthly Annotations Trend - Bar Chart */}
+        {/* Monthly Annotations - Bar Chart */}
         <Card>
           <CardHeader>
-            <CardTitle>Monthly Annotations</CardTitle>
-            <CardDescription>Số lượng nhãn được tạo mỗi tháng</CardDescription>
+            <CardTitle>Monthly Tasks</CardTitle>
+            <CardDescription>Số lượng ảnh được xử lý trong 6 tháng gần nhất</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -645,10 +946,10 @@ function renderChartView(stats: DashboardStats) {
                 <XAxis dataKey="name" />
                 <YAxis />
                 <Tooltip 
-                  formatter={(value) => value ? [`${value} annotations`, 'Count'] : ['0 annotations', 'Count']}
+                  formatter={(value) => value ? [`${value} images`, 'Tasks'] : ['0 images', 'Tasks']}
                 />
                 <Legend />
-                <Bar dataKey="value" name="Annotations" radius={[8, 8, 0, 0]}>
+                <Bar dataKey="value" name="Images Processed" radius={[8, 8, 0, 0]}>
                   {monthlyAnnotations.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
@@ -659,7 +960,65 @@ function renderChartView(stats: DashboardStats) {
               <div className="text-2xl font-bold text-gray-700">
                 {stats.annotations.thisMonth.toLocaleString()}
               </div>
-              <div className="text-xs text-gray-600 mt-1">Nhãn tháng này</div>
+              <div className="text-xs text-gray-600 mt-1">Ảnh được xử lý tháng này</div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Monthly Labels - Bar Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Monthly Labels Created</CardTitle>
+            <CardDescription>Số lượng nhãn được tạo trong 6 tháng gần nhất</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={monthlyLabels}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip 
+                  formatter={(value) => value ? [`${value} labels`, 'Count'] : ['0 labels', 'Count']}
+                />
+                <Legend />
+                <Bar dataKey="value" name="Labels Created" radius={[8, 8, 0, 0]}>
+                  {monthlyLabels.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+            <div className="mt-4 p-3 bg-gradient-to-r from-orange-50 to-yellow-50 rounded-lg text-center">
+              <div className="text-2xl font-bold text-gray-700">
+                {stats.labels.thisMonth.toLocaleString()}
+              </div>
+              <div className="text-xs text-gray-600 mt-1">Nhãn được tạo tháng này</div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Performance Metrics */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Performance Metrics</CardTitle>
+            <CardDescription>Các chỉ số quan trọng của hệ thống</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 gap-4">
+              <div className="text-center p-6 bg-blue-50 rounded-lg">
+                <Clock className="h-8 w-8 text-blue-600 mx-auto mb-3" />
+                <div className="text-3xl font-bold text-blue-600">
+                  {Math.round(stats.performance.avgAnnotationTime)}s
+                </div>
+                <div className="text-sm text-gray-600 mt-2">Thời gian TB/ảnh</div>
+              </div>
+              <div className="text-center p-6 bg-green-50 rounded-lg">
+                <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-3" />
+                <div className="text-3xl font-bold text-green-600">
+                  {Math.round(stats.performance.completionRate)}%
+                </div>
+                <div className="text-sm text-gray-600 mt-2">Tỷ lệ hoàn thành</div>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -810,39 +1169,6 @@ function renderChartView(stats: DashboardStats) {
         )}
       </div>
 
-      {/* Performance Metrics - Line Chart */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Performance Metrics</CardTitle>
-          <CardDescription>Chỉ số hiệu suất hệ thống</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="text-center p-6 bg-blue-50 rounded-lg">
-              <Clock className="h-8 w-8 text-blue-600 mx-auto mb-3" />
-              <div className="text-3xl font-bold text-blue-600">
-                {stats.performance.avgAnnotationTime}s
-              </div>
-              <div className="text-sm text-gray-600 mt-2">Thời gian TB/ảnh</div>
-            </div>
-            <div className="text-center p-6 bg-green-50 rounded-lg">
-              <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-3" />
-              <div className="text-3xl font-bold text-green-600">
-                {stats.performance.completionRate}%
-              </div>
-              <div className="text-sm text-gray-600 mt-2">Tỷ lệ hoàn thành</div>
-            </div>
-            <div className="text-center p-6 bg-yellow-50 rounded-lg">
-              <Award className="h-8 w-8 text-yellow-600 mx-auto mb-3" />
-              <div className="text-3xl font-bold text-yellow-600">
-                {stats.performance.qualityScore}%
-              </div>
-              <div className="text-sm text-gray-600 mt-2">Điểm chất lượng</div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Top Annotators - Horizontal Bar Chart */}
       <Card>
         <CardHeader>
@@ -851,25 +1177,81 @@ function renderChartView(stats: DashboardStats) {
         </CardHeader>
         <CardContent>
           {stats.topAnnotators.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart
-                data={stats.topAnnotators.map((a) => ({
-                  name: a.name,
-                  count: a.count,
-                  quality: a.quality,
-                }))}
-                layout="vertical"
-                margin={{ left: 100 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis type="number" />
-                <YAxis dataKey="name" type="category" width={90} />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="count" fill={COLORS[0]} name="Số nhãn" />
-                <Bar dataKey="quality" fill={COLORS[2]} name="Chất lượng (%)" />
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="space-y-4">
+              {/* Legend */}
+              <div className="flex items-center justify-center gap-6 text-sm mb-6">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded" style={{ backgroundColor: COLORS[0] }}></div>
+                  <span>Số ảnh đã duyệt</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded" style={{ backgroundColor: COLORS[2] }}></div>
+                  <span>Chất lượng (%)</span>
+                </div>
+              </div>
+
+              {/* Data rows */}
+              {stats.topAnnotators.map((annotator, index) => {
+                const maxCount = Math.max(...stats.topAnnotators.map(a => a.count));
+                const maxQuality = 100; // Quality is 0-100%
+                const countWidth = maxCount > 0 ? (annotator.count / maxCount) * 100 : 0;
+                const qualityWidth = (Math.round(annotator.quality) / maxQuality) * 100;
+
+                return (
+                  <div key={annotator.id} className="grid grid-cols-[60px_200px_1fr] gap-4 items-center py-2 border-b last:border-b-0">
+                    {/* Column 1: Rank */}
+                    <div className={`text-2xl font-bold text-center ${
+                      index === 0 ? "text-yellow-600" :
+                      index === 1 ? "text-gray-500" :
+                      index === 2 ? "text-orange-600" :
+                      "text-blue-600"
+                    }`}>
+                      #{index + 1}
+                    </div>
+
+                    {/* Column 2: Name */}
+                    <div className="text-sm font-medium truncate" title={annotator.name}>
+                      {annotator.name}
+                    </div>
+
+                    {/* Column 3: Bars */}
+                    <div className="space-y-1.5">
+                      {/* Count bar */}
+                      <div className="relative">
+                        <div className="h-6 bg-gray-100 rounded overflow-hidden">
+                          <div 
+                            className="h-full rounded transition-all duration-300"
+                            style={{ 
+                              width: `${countWidth}%`,
+                              backgroundColor: COLORS[0]
+                            }}
+                          ></div>
+                        </div>
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-700">
+                          {annotator.count}
+                        </span>
+                      </div>
+
+                      {/* Quality bar */}
+                      <div className="relative">
+                        <div className="h-6 bg-gray-100 rounded overflow-hidden">
+                          <div 
+                            className="h-full rounded transition-all duration-300"
+                            style={{ 
+                              width: `${qualityWidth}%`,
+                              backgroundColor: COLORS[2]
+                            }}
+                          ></div>
+                        </div>
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-700">
+                          {Math.round(annotator.quality)}%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           ) : (
             <div className="text-center text-gray-500 py-8">
               Chưa có dữ liệu annotator

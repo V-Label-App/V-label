@@ -36,9 +36,11 @@ import {
   AlertTriangle,
   Search,
   Eye,
-  Sparkles,
   RotateCcw,
   RefreshCw,
+  ClipboardCheck,
+  XCircle,
+  FolderOpen,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -94,7 +96,7 @@ export function AnnotatorProjectDetailPage() {
           limit: 100,
         });
         setTasks(result.data);
-        if (silent) toast.success("Task list refreshed");
+        if (silent) toast.success("Task list has been refreshed");
       } catch (error) {
         console.error("Failed to fetch tasks:", error);
         toast.error("Failed to load tasks");
@@ -135,6 +137,15 @@ export function AnnotatorProjectDetailPage() {
       REJECTED: {
         className: "bg-red-100 text-red-700 border-red-300",
         label: "Rejected",
+      },
+      REASSIGNING: {
+        className:
+          "bg-amber-100 text-amber-700 border-amber-300 font-bold animate-pulse",
+        label: "Reassigning",
+      },
+      REASSIGNED: {
+        className: "bg-indigo-100 text-indigo-700 border-indigo-300",
+        label: "Reassigned",
       },
       IN_PROGRESS: {
         className: "bg-yellow-100 text-yellow-700 border-yellow-300",
@@ -189,22 +200,24 @@ export function AnnotatorProjectDetailPage() {
           </Button>
 
           <div className="flex items-start justify-between">
-            <div>
-              <h1 className="text-3xl font-bold">{project.name}</h1>
-              <p className="text-muted-foreground mt-1">
-                {project.description || "No description"}
-              </p>
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center shadow-sm">
+                <FolderOpen className="w-6 h-6 text-purple-600" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
+                  {project.name}
+                </h1>
+                <p className="text-muted-foreground mt-1 max-w-2xl">
+                  {project.description ||
+                    "No description provided for this project"}
+                </p>
+              </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              {project.enableAiAssistance && (
-                <Badge className="bg-purple-50 text-purple-700 border border-purple-200 flex items-center gap-1">
-                  <Sparkles className="w-3 h-3" />
-                  AI Assisted
-                </Badge>
-              )}
+            <div className="flex flex-col items-end gap-3">
               {project.category && (
-                <Badge className="bg-blue-50 text-blue-700 border-blue-200">
+                <Badge className="bg-purple-50 text-purple-700 border-purple-200">
                   {project.category.name}
                 </Badge>
               )}
@@ -248,8 +261,8 @@ export function AnnotatorProjectDetailPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <Card className="p-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                <CheckCircle2 className="w-5 h-5 text-blue-600" />
+              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                <ClipboardCheck className="w-5 h-5 text-purple-600" />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">My Tasks</p>
@@ -260,11 +273,11 @@ export function AnnotatorProjectDetailPage() {
 
           <Card className="p-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
-                <Clock className="w-5 h-5 text-yellow-600" />
+              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                <Clock className="w-5 h-5 text-blue-600" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Assigned</p>
+                <p className="text-sm text-muted-foreground">Pending</p>
                 <p className="text-2xl font-bold">{assignedTasks.length}</p>
               </div>
             </div>
@@ -276,7 +289,7 @@ export function AnnotatorProjectDetailPage() {
                 <CheckCircle2 className="w-5 h-5 text-green-600" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Submitted</p>
+                <p className="text-sm text-muted-foreground">Approved</p>
                 <p className="text-2xl font-bold">{submittedTasks.length}</p>
               </div>
             </div>
@@ -285,7 +298,7 @@ export function AnnotatorProjectDetailPage() {
           <Card className="p-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
-                <AlertTriangle className="w-5 h-5 text-red-600" />
+                <XCircle className="w-5 h-5 text-red-600" />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Rejected</p>
@@ -440,9 +453,9 @@ export function AnnotatorProjectDetailPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-[100px]">Preview</TableHead>
-                       <TableHead>Task / Image</TableHead>
-                       <TableHead className="w-[100px]">Rejections</TableHead>
-                       <TableHead className="w-[120px]">Status</TableHead>
+                      <TableHead>Task / Image</TableHead>
+                      <TableHead className="w-[100px]">Rejections</TableHead>
+                      <TableHead className="w-[120px]">Status</TableHead>
                       <TableHead className="w-[140px]">Deadline</TableHead>
                       <TableHead className="w-[100px] text-right">
                         Actions
@@ -451,23 +464,23 @@ export function AnnotatorProjectDetailPage() {
                   </TableHeader>
                   <TableBody>
                     {filteredTasks.map((task) => {
-                      const projectMaxRejections =
-                        project?.assignmentRule?.maxRejectionsBeforeReassign;
                       // Permanently lock if SKIPPED (hit limit) regardless of project settings
                       const isLocked =
                         task.status === "SKIPPED" ||
-                        (task.status === "REJECTED" &&
-                          (task.rejectionCount || 0) >=
-                            (projectMaxRejections ?? task.maxRejections ?? 3));
+                        task.status === "REASSIGNING" ||
+                        task.status === "REASSIGNED";
 
                       const statusBadge = isLocked
                         ? {
                             className:
                               task.status === "SKIPPED"
                                 ? "bg-indigo-100 text-indigo-700 border-indigo-300"
-                                : "bg-amber-100 text-amber-700 border-amber-300 font-bold animate-pulse",
+                                : task.status === "REASSIGNED"
+                                  ? "bg-purple-100 text-purple-700 border-purple-300"
+                                  : "bg-amber-100 text-amber-700 border-amber-300 font-bold animate-pulse",
                             label:
-                              task.status === "SKIPPED"
+                              task.status === "SKIPPED" ||
+                              task.status === "REASSIGNED"
                                 ? "REASSIGNED"
                                 : "REASSIGNING",
                           }
@@ -535,16 +548,16 @@ export function AnnotatorProjectDetailPage() {
                               {task.rejectionCount || 0}
                             </Badge>
                           </TableCell>
-                           <TableCell>
-                             <div className="flex flex-col gap-1">
-                               <Badge
-                                 variant="outline"
-                                 className={statusBadge.className}
-                                >
-                                 {statusBadge.label}
-                               </Badge>
-                             </div>
-                           </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col gap-1">
+                              <Badge
+                                variant="outline"
+                                className={statusBadge.className}
+                              >
+                                {statusBadge.label}
+                              </Badge>
+                            </div>
+                          </TableCell>
                           <TableCell>
                             {task.deadline ? (
                               <div

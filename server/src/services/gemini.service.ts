@@ -486,36 +486,40 @@ AI: [NOW call create_labels_auto function]
         labels: Array<{ name: string; color?: string }>,
         imageWidth: number,
         imageHeight: number
-    ): Promise<Array<{ label: string; x: number; y: number; width: number; height: number; confidence: number; reason: string }>> {
+    ): Promise<{ detections: Array<{ label: string; x: number; y: number; width: number; height: number; confidence: number; reason: string }>; otherObjects: string[] }> {
         const labelNames = labels.map(l => l.name).join(', ');
 
         // Gemini Vision returns bounding boxes as normalized values 0-1000
         // Format: [ymin, xmin, ymax, xmax] normalized to 0-1000
-        const prompt = `You are a precise image annotation expert. Your task is to detect objects in this image that match the given labels and draw tight bounding boxes around them.
+        const prompt = `You are a precise image annotation expert. Analyze this image and return a JSON object with two fields.
 
 Target labels: ${labelNames}
 
-Rules:
-- Only detect objects you are highly confident about (confidence >= 0.6)
-- SKIP objects that are blurry, partially hidden, or too ambiguous to clearly identify
-- SKIP objects where the bounding box cannot be drawn accurately
-- Draw the box as tight as possible around the object boundary
-- If the same label appears multiple times, include each instance separately
-- label must be exactly one of: ${labelNames}
-- box_2d format: [ymin, xmin, ymax, xmax] normalized to 0-1000
-- reason: 1 short sentence (max 12 words) explaining WHY you gave that confidence score (e.g. visibility, occlusion, clarity)
+1. "detections": array of objects matching the target labels with tight bounding boxes.
+   Rules for detections:
+   - Only detect objects you are highly confident about (confidence >= 0.6)
+   - SKIP objects that are blurry, partially hidden, or too ambiguous to clearly identify
+   - Draw the box as tight as possible around the object boundary
+   - If the same label appears multiple times, include each instance separately
+   - label must be exactly one of: ${labelNames}
+   - box_2d format: [ymin, xmin, ymax, xmax] normalized to 0-1000
+   - reason: 1 short sentence (max 12 words) explaining confidence score
+   - Example item: {"label":"cat","box_2d":[120,180,450,520],"confidence":0.91,"reason":"Fully visible, clear outline, no occlusion"}
 
-Return ONLY a valid JSON array, no markdown, no explanation.
-Return [] if no objects qualify.
+2. "other_objects": array of object names (strings) that are clearly visible in the image but do NOT belong to the target labels above.
+   - List each distinct object type once (e.g. "rooster", "duck", "person")
+   - Only include objects you are confident are present
+   - Return [] if nothing else is visible
 
-Example: [{"label":"cat","box_2d":[120,180,450,520],"confidence":0.91,"reason":"Fully visible, clear outline, no occlusion"}]`;
+Return ONLY a valid JSON object, no markdown, no explanation.
+Example: {"detections":[{"label":"cat","box_2d":[120,180,450,520],"confidence":0.91,"reason":"Fully visible"}],"other_objects":["rooster","duck"]}`;
 
         const response = await fetch(imageUrl);
         const buffer = await response.arrayBuffer();
         const base64 = Buffer.from(buffer).toString('base64');
         const mimeType = (response.headers.get('content-type') || 'image/jpeg').split(';')[0] as string;
 
-        const visionModels = ['gemini-2.5-pro', ...FALLBACK_MODELS];
+        const visionModels = ['gemini-2.5-flash', ...FALLBACK_MODELS];
         let result: any;
         for (const modelName of visionModels) {
             try {
@@ -531,7 +535,7 @@ Example: [{"label":"cat","box_2d":[120,180,450,520],"confidence":0.91,"reason":"
                         { inlineData: { mimeType, data: base64 } }
                     ])
                 );
-                if (modelName !== 'gemini-2.5-pro') {
+                if (modelName !== 'gemini-2.5-flash') {
                     console.warn(`[Gemini] suggestAnnotations fell back to: ${modelName}`);
                 }
                 break;
@@ -545,22 +549,25 @@ Example: [{"label":"cat","box_2d":[120,180,450,520],"confidence":0.91,"reason":"
         }
 
         const text = result.response.text().trim();
-        const jsonMatch = text.match(/\[[\s\S]*\]/);
-        if (!jsonMatch) return [];
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) return { detections: [], otherObjects: [] };
 
         try {
             const parsed = JSON.parse(jsonMatch[0]);
-            if (!Array.isArray(parsed)) return [];
+            const rawDetections: any[] = Array.isArray(parsed.detections) ? parsed.detections : [];
+            const otherObjects: string[] = Array.isArray(parsed.other_objects)
+                ? parsed.other_objects.filter((o: any) => typeof o === 'string')
+                : [];
 
             // Filter out low confidence and invalid items
-            const valid = parsed.filter((item: any) =>
+            const valid = rawDetections.filter((item: any) =>
                 item.box_2d && Array.isArray(item.box_2d) &&
                 item.label && labelNames.includes(item.label) &&
                 (item.confidence ?? 1) >= 0.6
             );
 
             // Convert normalized 0-1000 coords to pixel coordinates
-            return valid.map((item: any) => {
+            const detections = valid.map((item: any) => {
                 const [ymin, xmin, ymax, xmax] = item.box_2d || [0, 0, 0, 0];
                 const x = Math.round((xmin / 1000) * imageWidth);
                 const y = Math.round((ymin / 1000) * imageHeight);
@@ -576,8 +583,10 @@ Example: [{"label":"cat","box_2d":[120,180,450,520],"confidence":0.91,"reason":"
                     reason: item.reason ?? '',
                 };
             });
+
+            return { detections, otherObjects };
         } catch {
-            return [];
+            return { detections: [], otherObjects: [] };
         }
     }
 
@@ -587,9 +596,9 @@ Example: [{"label":"cat","box_2d":[120,180,450,520],"confidence":0.91,"reason":"
      */
     async generateAnnotationTips(
         detections: Array<{ label: string; confidence: number; reason?: string }>,
-        language = 'vi'
+        otherObjects: string[] = []
     ): Promise<string[]> {
-        if (detections.length === 0) return [];
+        if (detections.length === 0 && otherObjects.length === 0) return [];
 
         // Summarize detections for the prompt
         const byLabel: Record<string, { count: number; confidences: number[]; reasons: string[] }> = {};
@@ -605,22 +614,27 @@ Example: [{"label":"cat","box_2d":[120,180,450,520],"confidence":0.91,"reason":"
                 const avg = confidences.reduce((a, b) => a + b, 0) / confidences.length;
                 const low = confidences.filter(c => c < 0.75).length;
                 const reasonSample = reasons.slice(0, 2).join('; ');
-                return `- ${label}: ${count} vùng (avg confidence ${Math.round(avg * 100)}%${low > 0 ? `, ${low} vùng dưới 75%` : ''})${reasonSample ? `\n  AI nhận xét: "${reasonSample}"` : ''}`;
+                return `- ${label}: ${count} region(s) (avg confidence ${Math.round(avg * 100)}%${low > 0 ? `, ${low} below 75%` : ''})${reasonSample ? `\n  AI reason: "${reasonSample}"` : ''}`;
             })
             .join('\n');
 
-        const prompt = `Bạn là trợ lý kiểm soát chất lượng annotation trong nền tảng VLabel.
-AI vừa tự động phát hiện các đối tượng sau trong ảnh và đưa ra lý do cho điểm confidence:
-${detectionSummary}
+        const otherSection = otherObjects.length > 0
+            ? `\nOther objects detected in the image (not in the label list): ${otherObjects.join(', ')}`
+            : '';
 
-Dựa trên các lý do AI đưa ra ở trên, hãy tạo đúng 2-3 gợi ý ngắn gọn bằng tiếng Việt giải thích:
-1. Tại sao confidence cao/thấp với các đối tượng này
-2. Những trường hợp nào annotator cần chỉnh lại
-3. Lưu ý cụ thể dựa trên lý do AI đã nêu
+        const prompt = `You are an annotation quality assistant for the VLabel platform.
+The AI has automatically detected the following objects in the image:
+${detectionSummary}${otherSection}
 
-Mỗi gợi ý tối đa 15 từ. Cụ thể, dựa trên lý do thực tế, không chung chung.
-Trả về ONLY một JSON array gồm các string, không giải thích thêm.
-Ví dụ: ["Gợi ý 1", "Gợi ý 2", "Gợi ý 3"]`;
+Generate exactly 2-3 concise tips in VIETNAMESE for the annotator:
+1. Why confidence is high/low for detected objects
+2. Which bounding boxes may need adjustment
+3. ${otherObjects.length > 0 ? `Also mention the unlabeled objects found (${otherObjects.join(', ')}) — suggest the annotator check if these should be labeled` : 'Any specific annotation quality notes'}
+
+Each tip max 15 words. Be specific and practical.
+IMPORTANT: Respond in Vietnamese only.
+Return ONLY a JSON array of strings, no explanation.
+Example: ["Gợi ý 1", "Gợi ý 2", "Gợi ý 3"]`;
 
         const model = this.genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
         const result = await model.generateContent(prompt);

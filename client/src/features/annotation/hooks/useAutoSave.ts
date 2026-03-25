@@ -18,7 +18,7 @@ export const useAutoSave = (
   actualTimeSeconds: number,
   enabled: boolean = true,
 ) => {
-  const { annotations } = useAnnotationStore();
+  const { annotations, annotatorNote } = useAnnotationStore();
   const { setAutoSaveStatus, hasInteracted } = useImageStore();
 
   const saveDraftRef = useRef(saveDraft);
@@ -43,12 +43,13 @@ export const useAutoSave = (
       return;
     }
 
-    const currentJson = JSON.stringify(annotations);
+    const currentState = { annotations, annotatorNote };
+    const currentJson = JSON.stringify(currentState);
 
     // 1. Initial initialization - don't mark as unsaved
     if (lastSavedJsonRef.current === null) {
       lastSavedJsonRef.current = currentJson;
-      logger.debug("Auto-save: Initialized with current annotations");
+      logger.debug("Auto-save: Initialized with current state");
       return;
     }
 
@@ -57,17 +58,17 @@ export const useAutoSave = (
       return;
     }
 
-    // 3. Check if user has interacted (drawn a rectangle)
-    // Delay auto-save until first manual input
-    if (!hasInteracted) {
-      // Keep reference updated but don't trigger save
-      lastSavedJsonRef.current = currentJson;
-      return;
-    }
-
-    // 3. Something changed!
+    // 3. Something changed! Mark as unsaved
     logger.debug("Auto-save: Change detected");
     setAutoSaveStatus("unsaved");
+
+    // 4. Check if user has interacted (drawn a rectangle or typed a note)
+    // Delay auto-save until first manual input
+    if (!hasInteracted) {
+      // We don't update lastSavedJsonRef here anymore, 
+      // so it will still be detected as a change once hasInteracted becomes true
+      return;
+    }
 
     // Clear any pending save
     if (timerRef.current) {
@@ -79,12 +80,13 @@ export const useAutoSave = (
       try {
         logger.info("Auto-save: Saving draft...", {
           count: annotations.length,
+          hasNote: !!annotatorNote,
           time: timeRef.current,
         });
 
         setAutoSaveStatus("saving");
 
-        await saveDraftRef.current(annotations, undefined, timeRef.current);
+        await saveDraftRef.current(annotations, annotatorNote, timeRef.current);
 
         // Update the reference AFTER successful save
         lastSavedJsonRef.current = currentJson;
@@ -102,5 +104,5 @@ export const useAutoSave = (
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [annotations, enabled, hasInteracted]); // Trigger when annotations, enabled flag or hasInteracted changes
+  }, [annotations, annotatorNote, enabled, hasInteracted]); // Trigger when annotations, note, enabled flag or hasInteracted changes
 };

@@ -2,7 +2,7 @@ import { Card } from '../../../../components/ui/card';
 import { Button } from '../../../../components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger } from '../../../../components/ui/select';
 import { Eye, EyeOff, Trash2 } from 'lucide-react';
-import { useAnnotationStore, useLabelStore } from '../../stores';
+import { useAnnotationStore, useLabelStore, useImageStore } from '../../stores';
 import type { Annotation } from '../../stores';
 import { getLabelColor } from '../../constants';
 import { cn } from '../../../../components/ui/utils';
@@ -23,6 +23,7 @@ export function RegionCard({ annotation, index, isReadOnly = false }: RegionCard
     } = useAnnotationStore();
     
     const { labels } = useLabelStore();
+    const { setHasInteracted } = useImageStore();
 
     const isSelected = selectedAnnotationId === annotation.id;
 
@@ -45,7 +46,10 @@ export function RegionCard({ annotation, index, isReadOnly = false }: RegionCard
                         {isSelected && !isReadOnly ? (
                             <Select
                                 value={annotation.label}
-                                onValueChange={(value: string) => updateAnnotation(annotation.id, { label: value })}
+                                onValueChange={(value: string) => {
+                                    updateAnnotation(annotation.id, { label: value });
+                                    setHasInteracted(true);
+                                }}
                             >
                                 <SelectTrigger className="h-8 bg-slate-800 border-slate-600 text-white">
                                     <div className="flex items-center gap-2">
@@ -96,6 +100,7 @@ export function RegionCard({ annotation, index, isReadOnly = false }: RegionCard
                             onClick={(e) => {
                                 e.stopPropagation();
                                 toggleVisibility(annotation.id);
+                                // Optional: setHasInteracted(true) if visibility should trigger auto-save
                             }}
                         >
                             {annotation.visible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
@@ -107,6 +112,7 @@ export function RegionCard({ annotation, index, isReadOnly = false }: RegionCard
                             onClick={(e) => {
                                 e.stopPropagation();
                                 deleteAnnotation(annotation.id);
+                                setHasInteracted(true);
                             }}
                         >
                             <Trash2 className="w-4 h-4" />
@@ -144,7 +150,10 @@ export function RegionCard({ annotation, index, isReadOnly = false }: RegionCard
                     <input
                         placeholder="Add note..."
                         value={annotation.labelNote || ""}
-                        onChange={(e) => updateAnnotation(annotation.id, { labelNote: e.target.value })}
+                        onChange={(e) => {
+                            updateAnnotation(annotation.id, { labelNote: e.target.value });
+                            setHasInteracted(true);
+                        }}
                         className="w-full h-8 bg-slate-800 border border-slate-700 rounded px-2 text-[10px] text-slate-300 focus:outline-none focus:border-blue-500 focus:text-white placeholder:text-slate-600 transition-colors"
                     />
                 </div>

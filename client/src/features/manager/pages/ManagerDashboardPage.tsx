@@ -45,21 +45,21 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { labelApi } from "../../../services/label.api";
-import { projectApi } from "../../../services/project.api";
-import { taskActivityApi } from "../../../services/task-activity.api";
+import { projectApi, type ProjectHealthStats } from "../../../services/project.api";
+import { labelCategoryApi } from "../../../services/label.api";
+import { taskActivityApi, type TaskActivity } from "../../../services/task-activity.api";
 import { useAuth } from "../../../context/AuthContext";
-import { ProjectStatus } from "../../../types/project.types";
+import { ProjectStatus, type Project } from "../../../types/project.types";
 import { cn } from "../../../components/ui/utils";
 import { format, subDays, isSameDay } from "date-fns";
 import { toast } from "sonner";
 
 interface DashboardData {
-  projects: any[];
-  healthStats: Record<string, any>;
-  recentActivities: any[];
-  activityTrends: any[];
-  labelStats: any[];
+  projects: Project[];
+  healthStats: Record<string, ProjectHealthStats>;
+  recentActivities: TaskActivity[];
+  activityTrends: { date: string; count: number }[];
+  labelStats: { name: string; count: number; fill: string }[];
 }
 
 export function ManagerDashboardPage() {
@@ -104,15 +104,15 @@ export function ManagerDashboardPage() {
 
         const allActivities = activitiesResults.flatMap(r => r.data || []);
         
-        // 4. Fetch Label Data for distribution
-        const labelsResponse = await labelApi.getAll({ isGlobal: true });
-        const topLabels = labelsResponse
-          .sort((a, b) => (b._count?.projectLabels || 0) - (a._count?.projectLabels || 0))
-          .slice(0, 5)
-          .map(l => ({
-            name: l.name,
-            count: l._count?.projectLabels || 0,
-            fill: l.color
+        // 4. Fetch Label Category Data (Portfolio Idea)
+        const categories = await labelCategoryApi.getAll();
+        const categoryStats = categories
+          .sort((a, b) => (b._count?.labels || 0) - (a._count?.labels || 0))
+          .slice(0, 6)
+          .map(c => ({
+            name: c.name,
+            count: c._count?.labels || 0,
+            fill: c.color || "#3b82f6"
           }));
 
         // 5. Process Activity Trends (Last 7 days)
@@ -133,7 +133,7 @@ export function ManagerDashboardPage() {
           healthStats,
           recentActivities: allActivities.slice(0, 10),
           activityTrends: trends,
-          labelStats: topLabels
+          labelStats: categoryStats
         });
       } catch (error) {
         console.error("Failed to fetch dashboard data", error);
@@ -441,9 +441,9 @@ export function ManagerDashboardPage() {
             <div>
               <CardTitle className="text-lg font-bold flex items-center gap-2">
                 <Tag className="w-5 h-5 text-blue-600" />
-                Popular Labels
+                Label Portfolio
               </CardTitle>
-              <CardDescription className="text-xs">Most assigned labels across projects</CardDescription>
+              <CardDescription className="text-xs">Label distribution across categories</CardDescription>
             </div>
             <BarChartIcon className="w-4 h-4 text-slate-400" />
           </CardHeader>

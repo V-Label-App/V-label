@@ -40,9 +40,11 @@ export class ReviewerService {
                       reviewerId: userId,
                       status: {
                         in: [
-                          AssignmentStatus.SUBMITTED,
-                          AssignmentStatus.APPROVED,
-                          AssignmentStatus.REJECTED,
+                          'SUBMITTED' as any,
+                          'APPROVED' as any,
+                          'REJECTED' as any,
+                          'REASSIGNING' as any,
+                          'REASSIGNED' as any,
                         ],
                       },
                     },
@@ -180,13 +182,13 @@ export class ReviewerService {
 
       const reviewCounts = {
         pending:
-          statusCounts.find((s) => s.status === AssignmentStatus.SUBMITTED)
+          statusCounts.find((s) => s.status === 'SUBMITTED' as any)
             ?._count || 0,
         approved:
-          statusCounts.find((s) => s.status === AssignmentStatus.APPROVED)
+          statusCounts.find((s) => s.status === 'APPROVED' as any)
             ?._count || 0,
         rejected:
-          statusCounts.find((s) => s.status === AssignmentStatus.REJECTED)
+          statusCounts.find((s) => s.status === 'REJECTED' as any)
             ?._count || 0,
         total,
       }
@@ -248,7 +250,7 @@ export class ReviewerService {
               assignments: {
                 where: {
                   id: { not: assignmentId },
-                  status: { in: [AssignmentStatus.REJECTED, AssignmentStatus.SKIPPED] },
+                  status: { in: ['REJECTED', 'SKIPPED', 'REASSIGNING', 'REASSIGNED'] as any },
                 },
                 include: {
                   annotator: { select: { fullName: true, email: true } },
@@ -312,7 +314,7 @@ export class ReviewerService {
         where: {
           id: assignmentId,
           reviewerId: userId,
-          status: AssignmentStatus.SUBMITTED,
+          status: 'SUBMITTED' as any,
         },
         include: {
           task: {
@@ -342,7 +344,7 @@ export class ReviewerService {
         const updated = await tx.taskAssignment.update({
           where: { id: assignmentId },
           data: {
-            status: AssignmentStatus.APPROVED,
+            status: 'APPROVED' as any,
             reviewedAt: new Date(),
             ...(reviewComment && { reviewComment }),
           },
@@ -355,7 +357,7 @@ export class ReviewerService {
         // 2. Mark task as DONE
         await tx.task.update({
           where: { id: assignment.task.id },
-          data: { status: TaskStatus.DONE },
+          data: { status: 'DONE' as any },
         })
 
         // 3. Update annotator reputation
@@ -477,7 +479,7 @@ export class ReviewerService {
         where: {
           id: assignmentId,
           reviewerId: userId,
-          status: AssignmentStatus.SUBMITTED,
+          status: 'SUBMITTED' as any,
         },
         include: {
           task: {
@@ -522,7 +524,7 @@ export class ReviewerService {
         const updated = await tx.taskAssignment.update({
           where: { id: assignmentId },
           data: {
-            status: exceedsMaxRejections ? AssignmentStatus.SKIPPED : AssignmentStatus.REJECTED,
+            status: exceedsMaxRejections ? 'REASSIGNING' as any : 'REJECTED' as any,
             reviewComment,
             reviewedAt: new Date(),
             rejectionCount: { increment: 1 },
@@ -540,7 +542,7 @@ export class ReviewerService {
             submissionNumber: newRejectionCount,
             annotations: assignment.annotations as any, // Current annotations being rejected
             reviewComment: reviewComment,
-            status: AssignmentStatus.REJECTED,
+            status: 'REJECTED' as any,
             reviewedAt: new Date(),
           },
         })
@@ -548,7 +550,7 @@ export class ReviewerService {
         // 2. Reset task status to TODO for reannotation
         await tx.task.update({
           where: { id: assignment.task.id },
-          data: { status: TaskStatus.TODO },
+          data: { status: 'TODO' as any },
         })
 
         // 3. Update annotator reputation
@@ -588,6 +590,75 @@ export class ReviewerService {
             maxRejections: maxRejectionsRule,
           },
         )
+        
+        try {
+          // Log TaskActivity
+          const { TaskActivityService } = await import('./task-activity.service.js')
+          await TaskActivityService.logActivity({
+            taskId: assignment.task.id,
+            projectId,
+            userId,
+            action: 'REASSIGNING' as any,
+            metadata: {
+              rejectionCount: newRejectionCount,
+              maxRejections: maxRejectionsRule,
+              oldAssignee: assignment.annotator.fullName || assignment.annotator.email,
+              oldAssigneeId: assignment.annotator.id
+            }
+          })
+          
+          // Notify Project Managers
+          const { NotificationService } = await import('./notification.service.js')
+          const { NotificationTemplateService } = await import('./notification.template.service.js')
+          const { broadcastService } = await import('../websocket/events/broadcast.service.js')
+          const { SystemEventType } = await import('../websocket/events/types.js')
+          
+          const renderedReassigning = await NotificationTemplateService.render(
+            'TASK_REASSIGNING' as any,
+            {
+              taskName: assignment.task.image?.originalFilename || `Task ${assignment.task.id.slice(0, 8)}`,
+              projectName: assignment.task.project.name,
+              rejectionCount: newRejectionCount,
+              taskId: assignment.task.id,
+            }
+          )
+          
+          if (renderedReassigning) {
+            const projectManagers = await prisma.projectMember.findMany({
+              where: { projectId: projectId, projectRole: 'MANAGER' as any },
+              select: { userId: true }
+            })
+            
+            for (const manager of projectManagers) {
+              const notification = await NotificationService.createNotification({
+                userId: manager.userId,
+                type: 'TASK_REASSIGNING' as any,
+                title: renderedReassigning.title,
+                message: renderedReassigning.message,
+                metadata: {
+                  taskId: assignment.task.id,
+                  projectId,
+                  rejectionCount: newRejectionCount,
+                }
+              })
+              
+              broadcastService.broadcastToUser(manager.userId, SystemEventType.NOTIFICATION_CREATED, {
+                notification: {
+                  id: notification.id,
+                  type: notification.type,
+                  title: notification.title,
+                  message: notification.message,
+                  metadata: notification.metadata,
+                  isRead: notification.isRead,
+                  createdAt: notification.createdAt
+                }
+              })
+            }
+          }
+        } catch (error) {
+           logger.error('SERVICE', 'Failed to log reassignment activity or notify managers', { error, assignmentId })
+        }
+
         appEvents.emit('TASK_SKIPPED_REASSIGN', {
           taskId: assignment.task.id,
           projectId,
@@ -696,39 +767,39 @@ export class ReviewerService {
         weekRejected,
       ] = await Promise.all([
         prisma.taskAssignment.count({
-          where: { reviewerId: userId, status: AssignmentStatus.APPROVED },
+          where: { reviewerId: userId, status: 'APPROVED' as any },
         }),
         prisma.taskAssignment.count({
-          where: { reviewerId: userId, status: AssignmentStatus.REJECTED },
+          where: { reviewerId: userId, status: 'REJECTED' as any },
         }),
         prisma.taskAssignment.count({
-          where: { reviewerId: userId, status: AssignmentStatus.SUBMITTED },
+          where: { reviewerId: userId, status: 'SUBMITTED' as any },
         }),
         prisma.taskAssignment.count({
           where: {
             reviewerId: userId,
-            status: AssignmentStatus.APPROVED,
+            status: 'APPROVED' as any,
             reviewedAt: { gte: getStartOfDay() },
           },
         }),
         prisma.taskAssignment.count({
           where: {
             reviewerId: userId,
-            status: AssignmentStatus.REJECTED,
+            status: 'REJECTED' as any,
             reviewedAt: { gte: getStartOfDay() },
           },
         }),
         prisma.taskAssignment.count({
           where: {
             reviewerId: userId,
-            status: AssignmentStatus.APPROVED,
+            status: 'APPROVED' as any,
             reviewedAt: { gte: getStartOfWeek() },
           },
         }),
         prisma.taskAssignment.count({
           where: {
             reviewerId: userId,
-            status: AssignmentStatus.REJECTED,
+            status: 'REJECTED' as any,
             reviewedAt: { gte: getStartOfWeek() },
           },
         }),

@@ -25,7 +25,7 @@ export class ProjectService {
                     deadline: data.deadline ?? null,
                     labelConfig: data.labelConfig ?? [],
                     enableAiAssistance: data.enableAiAssistance ?? false,
-                    status: ProjectStatus.ACTIVE,
+                    status: ProjectStatus.PAUSED,
                     members: {
                         create: {
                             userId: data.creatorId,
@@ -625,6 +625,104 @@ export class ProjectService {
         }
 
         return updatedMember;
+    }
+
+    /**
+     * Reassign project to a new manager
+     * Removes the old manager from the project entirely.
+     */
+    static async reassignManager(projectId: string, newManagerId: string, reason?: string, adminId?: string) {
+        try {
+            // Find old manager
+            const oldManager = await prisma.projectMember.findFirst({
+                where: {
+                    projectId,
+                    projectRole: ProjectRole.MANAGER
+                },
+                include: {
+                    project: { select: { name: true } }
+                }
+            });
+
+            if (oldManager && oldManager.userId === newManagerId) {
+                throw new Error('This user is already the manager of this project.');
+            }
+
+            // Remove old manager if exists
+            if (oldManager) {
+                await prisma.projectMember.delete({
+                    where: { projectId_userId: { projectId, userId: oldManager.userId } }
+                });
+            }
+
+            // Upsert new manager
+            const newMember = await prisma.projectMember.upsert({
+                where: {
+                    projectId_userId: { projectId, userId: newManagerId }
+                },
+                update: {
+                    projectRole: ProjectRole.MANAGER
+                },
+                create: {
+                    projectId,
+                    userId: newManagerId,
+                    projectRole: ProjectRole.MANAGER
+                },
+                include: {
+                    project: { select: { name: true } }
+                }
+            });
+
+            // Handle logging
+            if (adminId) {
+                await prisma.auditLog.create({
+                    data: {
+                        action: 'PROJECT_MANAGER_REASSIGNED',
+                        actorId: adminId,
+                        targetId: projectId,
+                        metadata: {
+                            oldManagerId: oldManager?.userId,
+                            newManagerId,
+                            reason
+                        }
+                    }
+                });
+            }
+
+            // Notifications
+            const { broadcastService } = await import('../websocket/events/broadcast.service.js');
+            const io = broadcastService.getIO();
+            
+            if (io) {
+                const { sendNotification } = await import('../websocket/handlers/notification.handler.js');
+                const { NotificationType } = await import('@prisma/client');
+                
+                // Notify old manager
+                if (oldManager) {
+                    await sendNotification(io, {
+                        userId: oldManager.userId,
+                        type: NotificationType.PROJECT_UNASSIGNED,
+                        title: 'Project Reassigned',
+                        message: `Dự án "${oldManager.project.name}" đã được phân công cho quản lý khác. Bạn không còn là quản lý của dự án này nữa.`,
+                        metadata: { projectId, projectName: oldManager.project.name, reason }
+                    });
+                }
+
+                // Notify new manager
+                await sendNotification(io, {
+                    userId: newManagerId,
+                    type: NotificationType.PROJECT_ASSIGNED,
+                    title: 'Project Assigned',
+                    message: `Bạn vừa được phân công làm quản lý cho dự án "${newMember.project.name}".`,
+                    metadata: { projectId, projectName: newMember.project.name, reason }
+                });
+            }
+
+            return newMember;
+        } catch (error) {
+            logger.error('SERVICE', 'Error reassigning manager', { projectId, newManagerId, error });
+            throw error;
+        }
     }
     /**
      * Get images for a project with optional filtering

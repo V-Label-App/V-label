@@ -54,7 +54,7 @@ model Project {
   labelConfig        Json             @default("[]") @map("label_config")
   deadline           DateTime?
   enableAiAssistance Boolean          @default(false) @map("enable_ai_assistance")
-  status             ProjectStatus    @default(ACTIVE)
+  status             ProjectStatus    @default(PAUSED)
   createdAt          DateTime         @default(now()) @map("created_at")
   updatedAt          DateTime         @updatedAt @map("updated_at")
   categoryId         String?          @map("category_id") @db.Uuid
@@ -598,6 +598,8 @@ enum AssignmentStatus {
   REJECTED
   APPROVED
   SKIPPED
+  REASSIGNING
+  REASSIGNED
 }
 
 enum NotificationType {
@@ -615,6 +617,10 @@ enum NotificationType {
   LABEL_REQUEST_REJECTED
   LABEL_CREATED
   PROJECT_INVITATION
+  PROJECT_ASSIGNED
+  PROJECT_UNASSIGNED
+  TASK_REASSIGNING
+  TASK_REASSIGNED
 }
 
 enum LabelRequestStatus {
@@ -627,6 +633,7 @@ enum TaskAction {
   CREATED
   ASSIGNED
   UNASSIGNED
+  REASSIGNING
   REASSIGNED
   DEADLINE_UPDATED
   STATUS_CHANGED
