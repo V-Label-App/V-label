@@ -172,6 +172,7 @@ export function WorkspacePage({
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [isAiPanelOpen, setIsAiPanelOpen] = useState(false);
   const [aiTips, setAiTips] = useState<string[]>([]);
+  const [aiOtherObjects, setAiOtherObjects] = useState<string[]>([]);
 
   // History preview state
   const [previewingSubmission, setPreviewingSubmission] = useState<
@@ -468,14 +469,14 @@ export function WorkspacePage({
       );
 
       const imageUrl = currentImage.url ?? "";
-      const { suggestions } = await aiApi.suggestAnnotations(
+      const { suggestions, otherObjects = [] } = await aiApi.suggestAnnotations(
         imageUrl,
         taskData.labels,
         actualDims.width,
         actualDims.height,
       );
 
-      if (suggestions.length === 0) {
+      if (suggestions.length === 0 && otherObjects.length === 0) {
         toast.info("No matching objects detected.", {
           description: "Try a different image or review the project labels.",
           duration: 4000,
@@ -492,9 +493,11 @@ export function WorkspacePage({
 
       // Fetch AI-generated tips in background (non-blocking)
       setAiTips([]);
+      setAiOtherObjects(otherObjects);
       setIsAiPanelOpen(true);
       aiApi.getAnnotationTips(
-        suggestions.map((s) => ({ label: s.label, confidence: s.confidence, reason: s.reason }))
+        suggestions.map((s) => ({ label: s.label, confidence: s.confidence, reason: s.reason })),
+        otherObjects
       ).then(({ tips }) => setAiTips(tips)).catch(() => {});
 
       suggestions.forEach((s) => {
@@ -609,6 +612,7 @@ export function WorkspacePage({
           isOpen={isAiPanelOpen}
           onClose={() => setIsAiPanelOpen(false)}
           tips={aiTips}
+          otherObjects={aiOtherObjects}
           labelColors={Object.fromEntries(
             (taskData?.labels ?? []).map((l: any) => [l.name, l.color]),
           )}

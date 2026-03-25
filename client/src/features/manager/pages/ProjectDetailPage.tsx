@@ -96,9 +96,20 @@ import {
   Zap,
   ShieldCheck,
   RefreshCw,
-  BarChart3,
   ClipboardCheck,
   XCircle,
+  ChevronDown,
+  ChevronUp,
+  ChevronLeft,
+  ChevronRight,
+  Tag,
+  ImageIcon,
+  UserPlus,
+  Settings2,
+  Play,
+  Circle,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
 import {
   Tooltip,
@@ -131,13 +142,6 @@ import type { Project, AssignmentRule } from "../../../types/project.types";
 import { ProjectStatus } from "../../../types/project.types";
 import { Switch } from "../../../components/ui/switch";
 import { Checkbox } from "../../../components/ui/checkbox";
-import {
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  ChevronDown,
-} from "lucide-react";
 import { useDebounce } from "../../../hooks/useDebounce";
 import { calculateLevelLinear } from "../../../utils/levelUtils";
 
@@ -189,6 +193,8 @@ export function ProjectDetailPage() {
   const [userPages, setUserPages] = useState<Record<string, number>>({});
   const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
   const [workloads, setWorkloads] = useState<Record<string, any>>({});
+
+  const [checklistOpen, setChecklistOpen] = useState(true);
 
   // Dialog States
   const [isAddImagesOpen, setIsAddImagesOpen] = useState(false);
@@ -1293,6 +1299,26 @@ export function ProjectDetailPage() {
       setSelectedTasks((prev) => prev.filter((id) => id !== taskId));
     }
   };
+
+  // Setup Checklist computation
+  const checklistSteps = project ? (() => {
+    const hasLabels = selectedLabelIds.length > 0;
+    const hasImages = (project._count?.images || 0) > 0;
+    const annotatorMembers = projectMembers.filter((m: any) => m.projectRole === "ANNOTATOR");
+    const reviewerMembers = projectMembers.filter((m: any) => m.projectRole === "REVIEWER");
+    const isActive = project.status === "ACTIVE";
+    return [
+      { id: "labels", iconName: "tag", label: "Add project labels", detail: hasLabels ? `${selectedLabelIds.length} label(s) configured` : "No labels added yet", done: hasLabels, actionLabel: "Go to Settings" as string | undefined, onAction: () => setActiveTab("settings") as unknown as (() => void) | undefined },
+      { id: "images", iconName: "image", label: "Upload images", detail: hasImages ? `${project._count?.images} image(s) uploaded` : "No images uploaded yet", done: hasImages, actionLabel: "Upload" as string | undefined, onAction: (() => setIsAddImagesOpen(true)) as (() => void) | undefined },
+      { id: "annotators", iconName: "userplus", label: "Add annotators", detail: annotatorMembers.length > 0 ? `${annotatorMembers.length} annotator(s) added` : "No annotators added yet", done: annotatorMembers.length > 0, actionLabel: "Manage Team" as string | undefined, onAction: (() => setActiveTab("team")) as (() => void) | undefined },
+      { id: "reviewers", iconName: "shield", label: "Add reviewers", detail: reviewerMembers.length > 0 ? `${reviewerMembers.length} reviewer(s) added` : "No reviewers added yet", done: reviewerMembers.length > 0, actionLabel: "Manage Team" as string | undefined, onAction: (() => setActiveTab("team")) as (() => void) | undefined },
+      { id: "rules", iconName: "settings", label: "Configure assignment rules", detail: project.assignmentRule ? "Assignment rules configured" : "Using default rules", done: !!project.assignmentRule, actionLabel: "Settings" as string | undefined, onAction: (() => setActiveTab("settings")) as (() => void) | undefined },
+      { id: "active", iconName: "play", label: "Activate project", detail: isActive ? "Project is active and accepting work" : "Project is not yet active", done: isActive, actionLabel: isActive ? undefined : "Activate", onAction: isActive ? undefined : (() => setActiveTab("settings")) as (() => void) | undefined },
+    ];
+  })() : [];
+  const checklistCompleted = checklistSteps.filter((s) => s.done).length;
+  const checklistAllDone = checklistSteps.length > 0 && checklistCompleted === checklistSteps.length;
+
   return (
     <div className="min-h-screen bg-gray-50 animate-in fade-in slide-in-from-bottom-5 duration-700 overflow-x-hidden">
       <div className="max-w-7xl mx-auto px-8 py-8 min-w-0">
@@ -1379,146 +1405,104 @@ export function ProjectDetailPage() {
             </div>
           </div>
 
-          {/* Project Features Badges */}
-          <div className="flex flex-wrap gap-2 mt-4">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      "gap-1.5 py-1 px-3 transition-all cursor-help border-dashed",
-                      project.assignmentRule?.isAutoAssignEnabled
-                        ? "bg-green-50 text-green-700 border-green-200"
-                        : "bg-gray-50 text-gray-400 border-gray-200",
-                    )}
-                  >
-                    <Zap
-                      className={cn(
-                        "w-3.5 h-3.5",
-                        project.assignmentRule?.isAutoAssignEnabled &&
-                          "fill-current",
-                      )}
-                    />
-                    <span className="text-[10px] font-bold uppercase tracking-wider">
-                      Auto-Assign Task:{" "}
-                      {project.assignmentRule?.isAutoAssignEnabled
-                        ? "ON"
-                        : "OFF"}
-                    </span>
-                  </Badge>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p className="text-xs">
-                    {project.assignmentRule?.isAutoAssignEnabled
-                      ? "Tasks are automatically assigned to available annotators."
-                      : "Manual task assignment is required."}
-                  </p>
-                </TooltipContent>
-              </Tooltip>
+          <div className="flex flex-wrap gap-1.5 mt-3">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "gap-1.5 py-1 px-2.5 cursor-help border text-[10px] font-medium uppercase tracking-wider transition-opacity",
+                          project.assignmentRule?.isAutoAssignEnabled
+                            ? "bg-muted/60 text-foreground border-border"
+                            : "bg-muted/30 text-muted-foreground border-border opacity-50",
+                        )}
+                      >
+                        <Zap className="w-3 h-3" />
+                        Auto-Assign: {project.assignmentRule?.isAutoAssignEnabled ? "ON" : "OFF"}
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">
+                        {project.assignmentRule?.isAutoAssignEnabled
+                          ? "Tasks are automatically assigned to available annotators."
+                          : "Manual task assignment is required."}
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
 
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      "gap-1.5 py-1 px-3 transition-all cursor-help border-dashed",
-                      project.assignmentRule?.autoAssignReviewer
-                        ? "bg-indigo-50 text-indigo-700 border-indigo-200"
-                        : "bg-gray-50 text-gray-400 border-gray-200",
-                    )}
-                  >
-                    <ShieldCheck
-                      className={cn(
-                        "w-3.5 h-3.5",
-                        project.assignmentRule?.autoAssignReviewer &&
-                          "fill-current",
-                      )}
-                    />
-                    <span className="text-[10px] font-bold uppercase tracking-wider">
-                      Auto-Reviewer:{" "}
-                      {project.assignmentRule?.autoAssignReviewer
-                        ? "ON"
-                        : "OFF"}
-                    </span>
-                  </Badge>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p className="text-xs">
-                    {project.assignmentRule?.autoAssignReviewer
-                      ? "Reviewers are automatically assigned to submitted tasks."
-                      : "Manual reviewer assignment is required."}
-                  </p>
-                </TooltipContent>
-              </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "gap-1.5 py-1 px-2.5 cursor-help border text-[10px] font-medium uppercase tracking-wider transition-opacity",
+                          project.assignmentRule?.autoAssignReviewer
+                            ? "bg-muted/60 text-foreground border-border"
+                            : "bg-muted/30 text-muted-foreground border-border opacity-50",
+                        )}
+                      >
+                        <ShieldCheck className="w-3 h-3" />
+                        Auto-Reviewer: {project.assignmentRule?.autoAssignReviewer ? "ON" : "OFF"}
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">
+                        {project.assignmentRule?.autoAssignReviewer
+                          ? "Reviewers are automatically assigned to submitted tasks."
+                          : "Manual reviewer assignment is required."}
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
 
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      "gap-1.5 py-1 px-3 transition-all cursor-help border-dashed",
-                      project.assignmentRule?.autoReassignOnSkip
-                        ? "bg-amber-50 text-amber-700 border-amber-200"
-                        : "bg-gray-50 text-gray-400 border-gray-200",
-                    )}
-                  >
-                    <RefreshCw
-                      className={cn(
-                        "w-3.5 h-3.5",
-                        project.assignmentRule?.autoReassignOnSkip &&
-                          "stroke-[3]",
-                      )}
-                    />
-                    <span className="text-[10px] font-bold uppercase tracking-wider">
-                      Auto-Skip Reassign:{" "}
-                      {project.assignmentRule?.autoReassignOnSkip
-                        ? "ON"
-                        : "OFF"}
-                    </span>
-                  </Badge>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p className="text-xs">
-                    {project.assignmentRule?.autoReassignOnSkip
-                      ? "Tasks are immediately reassigned to others when skipped."
-                      : "Skipped tasks require manual intervention."}
-                  </p>
-                </TooltipContent>
-              </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "gap-1.5 py-1 px-2.5 cursor-help border text-[10px] font-medium uppercase tracking-wider transition-opacity",
+                          project.assignmentRule?.autoReassignOnSkip
+                            ? "bg-muted/60 text-foreground border-border"
+                            : "bg-muted/30 text-muted-foreground border-border opacity-50",
+                        )}
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        Auto-Reassign: {project.assignmentRule?.autoReassignOnSkip ? "ON" : "OFF"}
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">
+                        {project.assignmentRule?.autoReassignOnSkip
+                          ? "Tasks are immediately reassigned to others when skipped."
+                          : "Skipped tasks require manual intervention."}
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
 
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      "gap-1.5 py-1 px-3 transition-all cursor-help border-dashed",
-                      project.enableAiAssistance
-                        ? "bg-purple-50 text-purple-700 border-purple-200"
-                        : "bg-gray-50 text-gray-400 border-gray-200",
-                    )}
-                  >
-                    <Sparkles
-                      className={cn(
-                        "w-3.5 h-3.5",
-                        project.enableAiAssistance && "fill-current",
-                      )}
-                    />
-                    <span className="text-[10px] font-bold uppercase tracking-wider">
-                      AI Assistance:{" "}
-                      {project.enableAiAssistance ? "ON" : "OFF"}
-                    </span>
-                  </Badge>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p className="text-xs">
-                    {project.enableAiAssistance
-                      ? "AI-powered tools are enabled to assist annotators."
-                      : "AI assistance is disabled for this project."}
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "gap-1.5 py-1 px-2.5 cursor-help border text-[10px] font-medium uppercase tracking-wider transition-opacity",
+                          project.enableAiAssistance
+                            ? "bg-muted/60 text-foreground border-border"
+                            : "bg-muted/30 text-muted-foreground border-border opacity-50",
+                        )}
+                      >
+                        <Sparkles className="w-3 h-3" />
+                        AI Assistance: {project.enableAiAssistance ? "ON" : "OFF"}
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">
+                        {project.enableAiAssistance
+                          ? "AI-powered tools are enabled to assist annotators."
+                          : "AI assistance is disabled for this project."}
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
           </div>
 
           {/* Project Labels Section */}
@@ -1624,6 +1608,91 @@ export function ProjectDetailPage() {
           <Progress value={projectProgress} className="h-2" />
         </Card>
 
+        {/* Setup Checklist */}
+        {!checklistAllDone && (
+          <Card className="overflow-hidden">
+            <div
+              className="flex items-center justify-between px-4 py-3 cursor-pointer select-none hover:bg-muted/30 transition-colors"
+              onClick={() => setChecklistOpen((v) => !v)}
+            >
+              <div className="flex items-center gap-3">
+                <div>
+                  <p className="text-sm font-semibold">Setup Checklist</p>
+                  <p className="text-xs text-muted-foreground">
+                    {checklistCompleted} of {checklistSteps.length} complete
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex gap-1">
+                  {checklistSteps.map((s) => (
+                    <span
+                      key={s.id}
+                      className={cn(
+                        "h-1.5 w-6 rounded-full transition-colors",
+                        s.done ? "bg-emerald-500" : "bg-muted"
+                      )}
+                    />
+                  ))}
+                </div>
+                {checklistOpen ? (
+                  <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                )}
+              </div>
+            </div>
+
+            {checklistOpen && (
+              <div className="border-t grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x">
+                {checklistSteps.map((step, idx) => (
+                  <div
+                    key={step.id}
+                    className={cn(
+                      "flex items-center justify-between gap-3 px-4 py-3",
+                      idx > 0 && "border-t sm:border-t-0",
+                      idx >= 2 && "sm:border-t",
+                      step.done ? "bg-emerald-50/50" : "bg-background"
+                    )}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {step.done ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                      ) : (
+                        <Circle className="w-4 h-4 text-muted-foreground/40 shrink-0" />
+                      )}
+                      <span className={cn("text-muted-foreground shrink-0", step.done && "text-emerald-600")}>
+                        {step.iconName === "tag" && <Tag className="w-4 h-4" />}
+                        {step.iconName === "image" && <ImageIcon className="w-4 h-4" />}
+                        {step.iconName === "userplus" && <UserPlus className="w-4 h-4" />}
+                        {step.iconName === "shield" && <ShieldCheck className="w-4 h-4" />}
+                        {step.iconName === "settings" && <Settings2 className="w-4 h-4" />}
+                        {step.iconName === "play" && <Play className="w-4 h-4" />}
+                      </span>
+                      <div className="min-w-0">
+                        <p className={cn("text-sm font-medium leading-none", step.done ? "text-foreground" : "text-muted-foreground")}>
+                          {step.label}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5 truncate">{step.detail}</p>
+                      </div>
+                    </div>
+                    {!step.done && step.actionLabel && step.onAction && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="shrink-0 h-7 text-xs"
+                        onClick={(e) => { e.stopPropagation(); step.onAction!(); }}
+                      >
+                        {step.actionLabel}
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        )}
+
         {/* Tabs: Tasks & Analytics */}
         <Tabs
           value={activeTab}
@@ -1649,7 +1718,6 @@ export function ProjectDetailPage() {
             <TabsTrigger value="team">Team</TabsTrigger>
             <TabsTrigger value="analytics">
               <div className="flex items-center gap-2">
-                <BarChart3 className="h-4 w-4" />
                 Analytics
               </div>
             </TabsTrigger>
@@ -1841,6 +1909,9 @@ export function ProjectDetailPage() {
                                 const isExpanded =
                                   expandedUsers.has(assigneeId);
                                 const taskCount = userTasks.length;
+                                const skippedCount = (userTasks as any[]).filter(
+                                  (t) => getLatestAnnotatorAssignment(t)?.status === "SKIPPED"
+                                ).length;
 
                                 return (
                                   <React.Fragment key={`group-${assigneeId}`}>
@@ -1886,8 +1957,25 @@ export function ProjectDetailPage() {
                                                   </AvatarFallback>
                                                 </Avatar>
                                                 <div>
-                                                  <div className="text-base font-semibold text-gray-900">
-                                                    {assignee.fullName}
+                                                  <div className="flex items-center gap-2">
+                                                    <span className="text-base font-semibold text-gray-900">
+                                                      {assignee.fullName}
+                                                    </span>
+                                                    {skippedCount > 0 && (
+                                                      <TooltipProvider>
+                                                        <Tooltip>
+                                                          <TooltipTrigger asChild>
+                                                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-700 border border-amber-200 px-1.5 py-0.5 text-[10px] font-semibold cursor-default">
+                                                              <AlertTriangle className="w-3 h-3" />
+                                                              {skippedCount} skipped
+                                                            </span>
+                                                          </TooltipTrigger>
+                                                          <TooltipContent>
+                                                            <p className="text-xs">This annotator has {skippedCount} skipped task{skippedCount > 1 ? "s" : ""} in this project.</p>
+                                                          </TooltipContent>
+                                                        </Tooltip>
+                                                      </TooltipProvider>
+                                                    )}
                                                   </div>
                                                   <div className="text-xs text-gray-600">
                                                     {assignee.email}
@@ -5140,12 +5228,17 @@ export function ProjectDetailPage() {
 
               {/* Deadline Selection */}
               <div className="space-y-2">
-                <Label>Deadline (Optional)</Label>
+                <Label>
+                  Deadline <span className="text-red-500">*</span>
+                </Label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
-                      className="w-full justify-start text-left font-normal"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !selectedReviewerDeadline && "border-red-300 focus:border-red-400"
+                      )}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {selectedReviewerDeadline ? (
@@ -5167,9 +5260,11 @@ export function ProjectDetailPage() {
                     />
                   </PopoverContent>
                 </Popover>
-                <p className="text-xs text-muted-foreground">
-                  If not set, deadline will be auto-calculated
-                </p>
+                {!selectedReviewerDeadline && (
+                  <p className="text-xs text-red-500">
+                    Deadline is required to assign a reviewer.
+                  </p>
+                )}
               </div>
 
               {/* Reassignment Reason - Only show for single task reassignments */}
@@ -5237,7 +5332,7 @@ export function ProjectDetailPage() {
               </Button>
               <Button
                 onClick={handleAssignReviewer}
-                disabled={!selectedReviewerId || isAssigningReviewer}
+                disabled={!selectedReviewerId || !selectedReviewerDeadline || isAssigningReviewer}
               >
                 {isAssigningReviewer ? (
                   <>

@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, X, Lightbulb, Loader2 } from "lucide-react";
+import { Sparkles, X, Lightbulb, Loader2, Eye } from "lucide-react";
 import { useAnnotationStore } from "../../stores";
 import { cn } from "../../../../components/ui/utils";
 
@@ -8,6 +8,7 @@ interface AiAnalysisPanelProps {
   isOpen: boolean;
   onClose: () => void;
   tips?: string[];
+  otherObjects?: string[];
   labelColors?: Record<string, string>;
 }
 
@@ -15,6 +16,7 @@ export function AiAnalysisPanel({
   isOpen,
   onClose,
   tips = [],
+  otherObjects = [],
   labelColors = {},
 }: AiAnalysisPanelProps) {
   const { annotations } = useAnnotationStore();
@@ -48,22 +50,23 @@ export function AiAnalysisPanel({
     return () => clearTimeout(timer);
   }, [isOpen, onClose]);
 
-  // Close if no AI annotations left
+  // Close if no AI annotations left and no other objects
   useEffect(() => {
-    if (isOpen && aiAnnotations.length === 0) onClose();
-  }, [annotations, isOpen, onClose, aiAnnotations.length]);
+    if (isOpen && aiAnnotations.length === 0 && otherObjects.length === 0) onClose();
+  }, [annotations, isOpen, onClose, aiAnnotations.length, otherObjects.length]);
 
   const isLoadingTips = tips.length === 0;
+  const hasDetections = aiAnnotations.length > 0;
 
   return (
     <AnimatePresence>
-      {isOpen && aiAnnotations.length > 0 && (
+      {isOpen && (hasDetections || otherObjects.length > 0) && (
         <motion.div
           initial={{ y: 20, opacity: 0, x: "-50%" }}
           animate={{ y: 0, opacity: 1, x: "-50%" }}
           exit={{ y: 12, opacity: 0, x: "-50%" }}
           transition={{ type: "spring", damping: 22, stiffness: 300 }}
-          className="fixed bottom-28 left-1/2 z-[110] w-[360px]"
+          className="fixed bottom-28 left-1/2 z-[110] w-[380px]"
         >
           <div className="rounded-2xl bg-slate-900/90 backdrop-blur-2xl border border-purple-500/30 shadow-[0_0_24px_rgba(168,85,247,0.15)]">
             {/* Header */}
@@ -75,14 +78,16 @@ export function AiAnalysisPanel({
                   <span className="text-purple-400">{aiAnnotations.length}</span>{" "}
                   vùng
                 </span>
-                <span
-                  className={cn(
-                    "text-xs font-bold px-1.5 py-0.5 rounded-full bg-slate-800",
-                    confidenceColor,
-                  )}
-                >
-                  {Math.round(avgConfidence * 100)}%
-                </span>
+                {hasDetections && (
+                  <span
+                    className={cn(
+                      "text-xs font-bold px-1.5 py-0.5 rounded-full bg-slate-800",
+                      confidenceColor,
+                    )}
+                  >
+                    {Math.round(avgConfidence * 100)}%
+                  </span>
+                )}
               </div>
               <button
                 onClick={onClose}
@@ -93,21 +98,48 @@ export function AiAnalysisPanel({
             </div>
 
             {/* Label chips */}
-            <div className="flex flex-wrap gap-1.5 px-4 pb-2.5">
-              {Object.entries(byLabel).map(([label, count]) => (
-                <div
-                  key={label}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-800/80 border border-white/10"
-                >
+            {hasDetections && (
+              <div className="flex flex-wrap gap-1.5 px-4 pb-2.5">
+                {Object.entries(byLabel).map(([label, count]) => (
                   <div
-                    className="w-2 h-2 rounded-full shrink-0"
-                    style={{ backgroundColor: labelColors[label] ?? "#a855f7" }}
-                  />
-                  <span className="text-xs text-slate-200">{label}</span>
-                  <span className="text-xs font-bold text-white">×{count}</span>
+                    key={label}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-800/80 border border-white/10"
+                  >
+                    <div
+                      className="w-2 h-2 rounded-full shrink-0"
+                      style={{ backgroundColor: labelColors[label] ?? "#a855f7" }}
+                    />
+                    <span className="text-xs text-slate-200">{label}</span>
+                    <span className="text-xs font-bold text-white">×{count}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Other objects detected */}
+            {otherObjects.length > 0 && (
+              <div className="mx-4 mb-3 rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-2.5">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <Eye className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span className="text-xs font-semibold text-amber-300">
+                    Phát hiện thêm vật thể trong ảnh
+                  </span>
                 </div>
-              ))}
-            </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {otherObjects.map((obj) => (
+                    <span
+                      key={obj}
+                      className="px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/25 text-[11px] text-amber-200 font-medium"
+                    >
+                      {obj}
+                    </span>
+                  ))}
+                </div>
+                <p className="text-[10px] text-amber-400/70 mt-1.5 leading-relaxed">
+                  Các vật thể này chưa có trong danh sách nhãn. Kiểm tra xem có cần gán nhãn không.
+                </p>
+              </div>
+            )}
 
             {/* Tips */}
             <div className="mx-4 mb-3 rounded-xl bg-slate-800/60 border border-white/5">

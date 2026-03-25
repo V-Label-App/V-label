@@ -131,14 +131,14 @@ export class AIController {
         return res.status(400).json({ error: 'imageUrl and labels array are required' });
       }
 
-      const suggestions = await geminiService.suggestAnnotations(
+      const { detections: suggestions, otherObjects } = await geminiService.suggestAnnotations(
         imageUrl,
         labels,
         imageWidth || 1000,
         imageHeight || 1000
       );
 
-      return res.json({ suggestions });
+      return res.json({ suggestions, otherObjects });
     } catch (error: any) {
       console.error('[AI] Suggest annotations error:', error);
       return res.status(500).json({ error: 'Failed to generate annotation suggestions' });
@@ -150,11 +150,11 @@ export class AIController {
    */
   static async generateAnnotationTips(req: Request, res: Response) {
     try {
-      const { detections } = req.body;
+      const { detections, otherObjects } = req.body;
       if (!Array.isArray(detections) || detections.length === 0) {
         return res.status(400).json({ error: 'detections array is required' });
       }
-      const tips = await geminiService.generateAnnotationTips(detections);
+      const tips = await geminiService.generateAnnotationTips(detections, otherObjects ?? []);
       return res.json({ tips });
     } catch (error: any) {
       console.error('[AI] Generate annotation tips error:', error);
