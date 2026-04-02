@@ -182,9 +182,9 @@ export function AdminDashboardPage() {
       {/* Header with Toggle */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Bảng Điều Khiển</h2>
+          <h2 className="text-2xl font-bold tracking-tight">Dashboard</h2>
           <p className="text-muted-foreground">
-            Tổng quan về hệ thống và hiệu suất làm việc
+            System overview and performance metrics
           </p>
         </div>
         <div className="flex gap-2">
@@ -218,7 +218,7 @@ export function AdminDashboardPage() {
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold">All Projects</DialogTitle>
             <DialogDescription className="text-base">
-              Danh sách tất cả các dự án với thông tin manager và trạng thái
+              All projects with manager info and current status
             </DialogDescription>
           </DialogHeader>
 
@@ -356,7 +356,7 @@ export function AdminDashboardPage() {
               </div>
               <p className="text-lg font-medium text-gray-900 mb-1">No Projects Found</p>
               <p className="text-sm text-gray-500">
-                Không có dự án nào trong hệ thống
+                No projects found in the system
               </p>
             </div>
           )}
@@ -376,7 +376,7 @@ function renderCardView(stats: DashboardStats) {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Tổng Người Dùng
+              Total Users
             </CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
@@ -391,7 +391,7 @@ function renderCardView(stats: DashboardStats) {
                 {stats.userGrowth >= 0 ? "+" : ""}
                 {stats.userGrowth}
               </span>{" "}
-              so với tháng trước
+              vs last month
             </p>
           </CardContent>
         </Card>
@@ -400,7 +400,7 @@ function renderCardView(stats: DashboardStats) {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Tổng Dự Án
+              Total Projects
             </CardTitle>
             <FolderKanban className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
@@ -422,7 +422,7 @@ function renderCardView(stats: DashboardStats) {
         {/* Annotations This Month */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Nhãn Hiện Có</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Labels</CardTitle>
             <Tag className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -430,7 +430,7 @@ function renderCardView(stats: DashboardStats) {
               {stats.labels.total.toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              +{stats.labels.thisMonth.toLocaleString()} nhãn tháng này
+              +{stats.labels.thisMonth.toLocaleString()} labels this month
             </p>
           </CardContent>
         </Card>
@@ -439,7 +439,7 @@ function renderCardView(stats: DashboardStats) {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Dung Lượng Sử Dụng
+              Storage Usage
             </CardTitle>
             <HardDrive className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
@@ -514,8 +514,8 @@ function renderCardView(stats: DashboardStats) {
       {/* Users by Role */}
       <Card>
         <CardHeader>
-          <CardTitle>Người Dùng Theo Vai Trò</CardTitle>
-          <CardDescription>Phân bổ người dùng trong hệ thống</CardDescription>
+          <CardTitle>Users by Role</CardTitle>
+          <CardDescription>User distribution across the system</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -553,7 +553,7 @@ function renderCardView(stats: DashboardStats) {
           <CardHeader>
             <CardTitle>Performance Metrics</CardTitle>
             <CardDescription>
-              Các chỉ số quan trọng của hệ thống
+              Key system performance indicators
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -563,14 +563,14 @@ function renderCardView(stats: DashboardStats) {
                 <div className="text-3xl font-bold text-blue-600">
                   {Math.round(stats.performance.avgAnnotationTime)}s
                 </div>
-                <div className="text-sm text-gray-600 mt-2">Thời gian TB/ảnh</div>
+                <div className="text-sm text-gray-600 mt-2">Avg. time / image</div>
               </div>
               <div className="text-center p-6 bg-green-50 rounded-lg">
                 <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-3" />
                 <div className="text-3xl font-bold text-green-600">
                   {Math.round(stats.performance.completionRate)}%
                 </div>
-                <div className="text-sm text-gray-600 mt-2">Tỷ lệ hoàn thành</div>
+                <div className="text-sm text-gray-600 mt-2">Completion rate</div>
               </div>
             </div>
           </CardContent>
@@ -583,7 +583,7 @@ function renderCardView(stats: DashboardStats) {
               <Trophy className="h-5 w-5 text-yellow-600" />
               Top Annotators
             </CardTitle>
-            <CardDescription>5 người gán nhãn xuất sắc nhất</CardDescription>
+            <CardDescription>Top 5 best performing annotators</CardDescription>
           </CardHeader>
           <CardContent>
             {stats.topAnnotators.length > 0 ? (
@@ -644,7 +644,7 @@ function renderCardView(stats: DashboardStats) {
                           </div>
                           <div className="flex items-center gap-2 mt-0.5">
                             <span className="text-sm text-gray-600">
-                              {annotator.count.toLocaleString()} Task đã hoàn thành
+                              {annotator.count.toLocaleString()} tasks completed
                             </span>
                             <span className="text-xs text-gray-400">•</span>
                             <div className="flex items-center gap-1">
@@ -670,7 +670,7 @@ function renderCardView(stats: DashboardStats) {
               </div>
             ) : (
               <div className="text-center text-gray-500 py-8">
-                Chưa có dữ liệu annotator
+                No annotator data available
               </div>
             )}
           </CardContent>
@@ -680,9 +680,9 @@ function renderCardView(stats: DashboardStats) {
       {/* Annotations Trend */}
       <Card>
         <CardHeader>
-          <CardTitle>Công Việc Hoàn Thành</CardTitle>
+          <CardTitle>Tasks Completed</CardTitle>
           <CardDescription>
-            Số lượng ảnh đã được xử lý theo thời gian
+            Number of images processed over time
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -692,21 +692,21 @@ function renderCardView(stats: DashboardStats) {
               <div className="text-2xl font-bold text-blue-600">
                 {stats.annotations.today.toLocaleString()}
               </div>
-              <div className="text-sm text-gray-600 mt-1">Hôm nay</div>
+              <div className="text-sm text-gray-600 mt-1">Today</div>
             </div>
             <div className="p-4 bg-purple-50 rounded-lg">
               <TrendingUp className="h-6 w-6 text-purple-600 mx-auto mb-2" />
               <div className="text-2xl font-bold text-purple-600">
                 {stats.annotations.thisWeek.toLocaleString()}
               </div>
-              <div className="text-sm text-gray-600 mt-1">Tuần này</div>
+              <div className="text-sm text-gray-600 mt-1">This week</div>
             </div>
             <div className="p-4 bg-green-50 rounded-lg">
               <TrendingUp className="h-6 w-6 text-green-600 mx-auto mb-2" />
               <div className="text-2xl font-bold text-green-600">
                 {stats.annotations.thisMonth.toLocaleString()}
               </div>
-              <div className="text-sm text-gray-600 mt-1">Tháng này</div>
+              <div className="text-sm text-gray-600 mt-1">This month</div>
             </div>
           </div>
           <div className="mt-4 p-4 bg-gray-50 rounded-lg text-center">
@@ -714,7 +714,7 @@ function renderCardView(stats: DashboardStats) {
               {stats.annotations.total.toLocaleString()}
             </div>
             <div className="text-sm text-gray-600 mt-1">
-              Tổng số ảnh đã xử lý
+              Total images processed
             </div>
           </div>
         </CardContent>
@@ -817,7 +817,7 @@ function renderChartView(stats: DashboardStats, onViewProjects: () => void) {
         <Card>
           <CardHeader>
             <CardTitle>Users by Role</CardTitle>
-            <CardDescription>Phân bổ người dùng theo vai trò</CardDescription>
+            <CardDescription>User distribution by role</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -851,7 +851,7 @@ function renderChartView(stats: DashboardStats, onViewProjects: () => void) {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle>Projects Overview</CardTitle>
-                <CardDescription>Tình trạng các dự án</CardDescription>
+                <CardDescription>Project status breakdown</CardDescription>
               </div>
               <Button
                 variant="outline"
@@ -887,7 +887,7 @@ function renderChartView(stats: DashboardStats, onViewProjects: () => void) {
         <Card>
           <CardHeader>
             <CardTitle>Server Storage Usage</CardTitle>
-            <CardDescription>Dung lượng lưu trữ đã sử dụng</CardDescription>
+            <CardDescription>Server storage consumed</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -937,7 +937,7 @@ function renderChartView(stats: DashboardStats, onViewProjects: () => void) {
         <Card>
           <CardHeader>
             <CardTitle>Monthly Tasks</CardTitle>
-            <CardDescription>Số lượng ảnh được xử lý trong 6 tháng gần nhất</CardDescription>
+            <CardDescription>Images processed in the last 6 months</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -960,7 +960,7 @@ function renderChartView(stats: DashboardStats, onViewProjects: () => void) {
               <div className="text-2xl font-bold text-gray-700">
                 {stats.annotations.thisMonth.toLocaleString()}
               </div>
-              <div className="text-xs text-gray-600 mt-1">Ảnh được xử lý tháng này</div>
+              <div className="text-xs text-gray-600 mt-1">Images processed this month</div>
             </div>
           </CardContent>
         </Card>
@@ -969,7 +969,7 @@ function renderChartView(stats: DashboardStats, onViewProjects: () => void) {
         <Card>
           <CardHeader>
             <CardTitle>Monthly Labels Created</CardTitle>
-            <CardDescription>Số lượng nhãn được tạo trong 6 tháng gần nhất</CardDescription>
+            <CardDescription>Labels created in the last 6 months</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -992,7 +992,7 @@ function renderChartView(stats: DashboardStats, onViewProjects: () => void) {
               <div className="text-2xl font-bold text-gray-700">
                 {stats.labels.thisMonth.toLocaleString()}
               </div>
-              <div className="text-xs text-gray-600 mt-1">Nhãn được tạo tháng này</div>
+              <div className="text-xs text-gray-600 mt-1">Labels created this month</div>
             </div>
           </CardContent>
         </Card>
@@ -1001,7 +1001,7 @@ function renderChartView(stats: DashboardStats, onViewProjects: () => void) {
         <Card>
           <CardHeader>
             <CardTitle>Performance Metrics</CardTitle>
-            <CardDescription>Các chỉ số quan trọng của hệ thống</CardDescription>
+            <CardDescription>Key system performance indicators</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 gap-4">
@@ -1010,14 +1010,14 @@ function renderChartView(stats: DashboardStats, onViewProjects: () => void) {
                 <div className="text-3xl font-bold text-blue-600">
                   {Math.round(stats.performance.avgAnnotationTime)}s
                 </div>
-                <div className="text-sm text-gray-600 mt-2">Thời gian TB/ảnh</div>
+                <div className="text-sm text-gray-600 mt-2">Avg. time / image</div>
               </div>
               <div className="text-center p-6 bg-green-50 rounded-lg">
                 <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-3" />
                 <div className="text-3xl font-bold text-green-600">
                   {Math.round(stats.performance.completionRate)}%
                 </div>
-                <div className="text-sm text-gray-600 mt-2">Tỷ lệ hoàn thành</div>
+                <div className="text-sm text-gray-600 mt-2">Completion rate</div>
               </div>
             </div>
           </CardContent>
@@ -1028,7 +1028,7 @@ function renderChartView(stats: DashboardStats, onViewProjects: () => void) {
           <Card className="md:col-span-2">
             <CardHeader>
               <CardTitle>Cloudinary Usage</CardTitle>
-              <CardDescription>Tình trạng sử dụng Cloudinary</CardDescription>
+              <CardDescription>Cloudinary resource consumption</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1173,7 +1173,7 @@ function renderChartView(stats: DashboardStats, onViewProjects: () => void) {
       <Card>
         <CardHeader>
           <CardTitle>Top Annotators</CardTitle>
-          <CardDescription>5 người gán nhãn xuất sắc nhất</CardDescription>
+          <CardDescription>Top 5 best performing annotators</CardDescription>
         </CardHeader>
         <CardContent>
           {stats.topAnnotators.length > 0 ? (
@@ -1182,11 +1182,11 @@ function renderChartView(stats: DashboardStats, onViewProjects: () => void) {
               <div className="flex items-center justify-center gap-6 text-sm mb-6">
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 rounded" style={{ backgroundColor: COLORS[0] }}></div>
-                  <span>Số ảnh đã duyệt</span>
+                  <span>Images reviewed</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 rounded" style={{ backgroundColor: COLORS[2] }}></div>
-                  <span>Chất lượng (%)</span>
+                  <span>Quality (%)</span>
                 </div>
               </div>
 
@@ -1254,7 +1254,7 @@ function renderChartView(stats: DashboardStats, onViewProjects: () => void) {
             </div>
           ) : (
             <div className="text-center text-gray-500 py-8">
-              Chưa có dữ liệu annotator
+              No annotator data available
             </div>
           )}
         </CardContent>

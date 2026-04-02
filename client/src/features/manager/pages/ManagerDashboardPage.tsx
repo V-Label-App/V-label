@@ -499,12 +499,16 @@ export function ManagerDashboardPage() {
                     <p className="text-sm text-slate-600 leading-normal">
                       <span className="font-bold text-slate-900">{activity.user.fullName || "Someone"}</span>
                       {" "}{activity.action.toLowerCase().replace(/_/g, ' ')}{" "}
-                      <span 
-                        className="font-medium text-blue-600 cursor-pointer hover:underline"
-                        onClick={() => navigate(`/workspace/${activity.taskId}?projectId=${activity.projectId}&isTaskId=true`)}
-                      >
-                        Task #{activity.taskId.substring(0, 8)}
-                      </span>
+                      {activity.taskId ? (
+                        <span
+                          className="font-medium text-blue-600 cursor-pointer hover:underline"
+                          onClick={() => navigate(`/workspace/${activity.taskId}?projectId=${activity.projectId}&isTaskId=true`)}
+                        >
+                          Task #{activity.taskId.substring(0, 8)}
+                        </span>
+                      ) : (
+                        <span className="font-medium text-slate-400">a task</span>
+                      )}
                     </p>
                     <div className="flex items-center gap-3 mt-1">
                       <span className="text-[11px] text-slate-400 flex items-center gap-1 font-medium">

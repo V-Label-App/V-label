@@ -25,6 +25,10 @@ export function useAnnotationTools() {
     (e: Konva.KonvaEventObject<MouseEvent>) => {
       if (tool !== "rectangle" || isModalOpen) return;
 
+      // Don't start drawing if the click landed on an existing annotation shape
+      const targetClass = e.target.className;
+      if (targetClass === "Rect" || targetClass === "Text" || targetClass === "Transformer") return;
+
       const stage = e.target.getStage();
       if (!stage) return;
 

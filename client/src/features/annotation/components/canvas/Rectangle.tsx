@@ -87,11 +87,17 @@ export function Rectangle({
     node.scaleX(1);
     node.scaleY(1);
 
+    const { imageSize } = useCanvasStore.getState();
+    const newX = Math.max(0, node.x());
+    const newY = Math.max(0, node.y());
+    const newW = Math.max(5, node.width() * scaleX);
+    const newH = Math.max(5, node.height() * scaleY);
+
     updateAnnotation(annotation.id, {
-      x: node.x(),
-      y: node.y(),
-      width: Math.max(5, node.width() * scaleX),
-      height: Math.max(5, node.height() * scaleY),
+      x: newX,
+      y: newY,
+      width: Math.min(newW, imageSize.width - newX),
+      height: Math.min(newH, imageSize.height - newY),
     });
     setHasInteracted(true);
   };
@@ -164,14 +170,8 @@ export function Rectangle({
           ref={trRef}
           flipEnabled={false}
           boundBoxFunc={(oldBox, newBox) => {
-            const { imageSize } = useCanvasStore.getState();
-
-            // Constrain to image bounds
-            if (newBox.x < 0 || newBox.y < 0) return oldBox;
-            if (newBox.x + newBox.width > imageSize.width) return oldBox;
-            if (newBox.y + newBox.height > imageSize.height) return oldBox;
-
-            // Limit resize to minimum 5x5
+            // Only enforce minimum size; bounds clamping is handled in handleTransformEnd
+            // (boundBoxFunc receives absolute stage coords which differ from image pixel coords)
             if (Math.abs(newBox.width) < 5 || Math.abs(newBox.height) < 5) {
               return oldBox;
             }
