@@ -118,9 +118,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <SidebarGroupContent>
               <SidebarMenu className="gap-1">
                 {group.items.map((item) => {
+                  // Only use startsWith for deep nested routes (2+ path segments)
+                  // Root dashboard paths like /manager, /admin, /annotator, /reviewer
+                  // should only match exact pathname to avoid false positives
+                  const isRootPath = item.url.split("/").filter(Boolean).length <= 1;
                   const isActive =
                     location.pathname === item.url ||
-                    (location.pathname.startsWith(item.url + "/") && item.url !== "/admin");
+                    (!isRootPath && location.pathname.startsWith(item.url + "/"));
                   return (
                     <SidebarMenuItem key={item.title}>
                       <SidebarMenuButton

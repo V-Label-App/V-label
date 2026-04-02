@@ -4341,7 +4341,7 @@ export function ProjectDetailPage() {
                           </p>
                         </div>
 
-                        <div className="flex items-center justify-between pt-6">
+                        {/* <div className="flex items-center justify-between pt-6">
                           <div className="space-y-0.5">
                             <div className="flex items-center gap-2">
                               <Label>Auto-Reassign on Skip</Label>
@@ -4371,7 +4371,7 @@ export function ProjectDetailPage() {
                               }))
                             }
                           />
-                        </div>
+                        </div> */}
                       </div>
                     </div>
                   </div>

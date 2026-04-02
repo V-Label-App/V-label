@@ -374,7 +374,7 @@ export function WorkspacePage({
     setIsSkipConfirmOpen(false);
     try {
       await skipTask(skipReason, actualTimeSeconds);
-      toast.info("Task transferred to another annotator");
+      toast.info("Skip task successfully");
       setSkipReason("");
       handleNextTask();
     } catch {
@@ -738,7 +738,7 @@ export function WorkspacePage({
         onConfirm={handleReviewConfirm}
         type={reviewType}
         isLoading={isReviewLoading}
-        initialComment={annotatorNote} // default to annotator note as feedback start
+        initialComment={""}
       />
 
       {/* Skip Confirm Dialog */}
