@@ -177,7 +177,7 @@ export function WorkspaceHeader({
             {autoSaveStatus === "saving" ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
             ) : (
-              <Check className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+              <Check className="w-3.5 h-3.5" />
             )}
             <span className="text-[11px] font-bold uppercase tracking-widest hidden sm:inline">Save</span>
           </Button>

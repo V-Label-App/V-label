@@ -507,7 +507,8 @@ Target labels: ${labelNames}
    - Example item: {"label":"cat","box_2d":[120,180,450,520],"confidence":0.91,"reason":"Fully visible, clear outline, no occlusion"}
 
 2. "other_objects": array of object names (strings) that are clearly visible in the image but do NOT belong to the target labels above.
-   - List each distinct object type once (e.g. "rooster", "duck", "person")
+   - List each distinct object type once
+   - Write each name in VIETNAMESE (e.g. "gà trống", "vịt", "người")
    - Only include objects you are confident are present
    - Return [] if nothing else is visible
 
